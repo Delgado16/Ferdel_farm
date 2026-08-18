@@ -2,183 +2,829 @@
 
 {% block title %}Gestión de Rutas - FerDel{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* Variables y Base */
+    :root {
+        --accent-emerald: #10b981;
+        --accent-indigo: #6366f1;
+        --accent-cyan: #06b6d4;
+        --accent-amber: #f59e0b;
+        --accent-rose: #f43f5e;
+        --card-radius: 16px;
+    }
+
+    .rutas-wrapper {
+        animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(12px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* KPI Cards */
+    .kpi-card {
+        background: #ffffff;
+        border-radius: var(--card-radius);
+        padding: 1.25rem 1.5rem;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.04), 0 2px 6px -2px rgba(0, 0, 0, 0.02);
+        transition: all 0.25s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .kpi-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 24px -6px rgba(0, 0, 0, 0.08);
+    }
+
+    .kpi-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+    }
+
+    .kpi-emerald::before { background: linear-gradient(90deg, #10b981, #059669); }
+    .kpi-indigo::before { background: linear-gradient(90deg, #6366f1, #4f46e5); }
+    .kpi-cyan::before { background: linear-gradient(90deg, #06b6d4, #0891b2); }
+    .kpi-amber::before { background: linear-gradient(90deg, #f59e0b, #d97706); }
+    .kpi-rose::before { background: linear-gradient(90deg, #f43f5e, #e11d48); }
+
+    .kpi-label {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        font-weight: 700;
+        color: #64748b;
+        margin-bottom: 0.25rem;
+    }
+
+    .kpi-value {
+        font-size: 1.75rem;
+        font-weight: 800;
+        color: #0f172a;
+        line-height: 1.2;
+    }
+
+    .kpi-icon-wrapper {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+    }
+
+    .kpi-icon-emerald { background: rgba(16, 185, 129, 0.12); color: #059669; }
+    .kpi-icon-indigo { background: rgba(99, 102, 241, 0.12); color: #4f46e5; }
+    .kpi-icon-cyan { background: rgba(6, 182, 212, 0.12); color: #0891b2; }
+    .kpi-icon-amber { background: rgba(245, 158, 11, 0.12); color: #d97706; }
+    .kpi-icon-rose { background: rgba(244, 63, 94, 0.12); color: #e11d48; }
+
+    /* Barra de Filtros */
+    .filter-card-premium {
+        background: #ffffff;
+        border-radius: var(--card-radius);
+        padding: 1.25rem;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.03);
+        margin-bottom: 1.5rem;
+    }
+
+    .filter-card-premium .form-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #475569;
+        margin-bottom: 0.35rem;
+    }
+
+    .filter-card-premium .form-control,
+    .filter-card-premium .form-select {
+        border-radius: 10px;
+        border: 1px solid #cbd5e1;
+        padding: 0.55rem 0.85rem;
+        font-size: 0.9rem;
+        color: #1e293b;
+        transition: all 0.2s;
+    }
+
+    .filter-card-premium .form-control:focus,
+    .filter-card-premium .form-select:focus {
+        border-color: #10b981;
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+    }
+
+    /* Tabla Premium */
+    .content-card-premium {
+        background: #ffffff;
+        border-radius: var(--card-radius);
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.03);
+        overflow: hidden;
+    }
+
+    .content-card-header {
+        padding: 1.15rem 1.5rem;
+        border-bottom: 1px solid #f1f5f9;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #ffffff;
+    }
+
+    .content-card-header h6 {
+        font-weight: 800;
+        font-size: 1.05rem;
+        color: #0f172a;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .table-custom-premium {
+        width: 100%;
+        margin-bottom: 0;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    .table-custom-premium thead th {
+        background: #f8fafc;
+        color: #475569;
+        font-weight: 700;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 0.9rem 1.25rem;
+        border-bottom: 1px solid #e2e8f0;
+        white-space: nowrap;
+    }
+
+    .table-custom-premium tbody tr {
+        transition: background-color 0.15s ease;
+    }
+
+    .table-custom-premium tbody tr:hover {
+        background-color: #f8fafc;
+    }
+
+    .table-custom-premium tbody td {
+        padding: 1rem 1.25rem;
+        vertical-align: middle;
+        border-bottom: 1px solid #f1f5f9;
+        color: #334155;
+        font-size: 0.9rem;
+    }
+
+    .table-custom-premium tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    /* Badges */
+    .badge-pill-custom {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: 9999px;
+        font-weight: 700;
+        font-size: 0.75rem;
+        letter-spacing: 0.02em;
+    }
+
+    .badge-emerald {
+        background: rgba(16, 185, 129, 0.12);
+        color: #059669;
+        border: 1px solid rgba(16, 185, 129, 0.25);
+    }
+
+    .badge-indigo {
+        background: rgba(99, 102, 241, 0.12);
+        color: #4f46e5;
+        border: 1px solid rgba(99, 102, 241, 0.25);
+    }
+
+    .badge-slate {
+        background: rgba(100, 116, 139, 0.12);
+        color: #475569;
+        border: 1px solid rgba(100, 116, 139, 0.25);
+    }
+
+    .badge-amber {
+        background: rgba(245, 158, 11, 0.12);
+        color: #d97706;
+        border: 1px solid rgba(245, 158, 11, 0.25);
+    }
+
+    .badge-rose {
+        background: rgba(244, 63, 94, 0.12);
+        color: #e11d48;
+        border: 1px solid rgba(244, 63, 94, 0.25);
+    }
+
+    .ruta-avatar {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(99, 102, 241, 0.15));
+        color: var(--primary-color);
+        font-weight: 800;
+        font-size: 0.95rem;
+        border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    /* Botones de acción */
+    .btn-action-group {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+
+    .btn-action {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.85rem;
+        border: 1px solid transparent;
+        transition: all 0.2s;
+        text-decoration: none;
+        background: #ffffff;
+        cursor: pointer;
+    }
+
+    .btn-action-view {
+        color: #0891b2;
+        background: rgba(6, 182, 212, 0.08);
+        border-color: rgba(6, 182, 212, 0.2);
+    }
+    .btn-action-view:hover {
+        background: #0891b2;
+        color: #ffffff;
+        transform: translateY(-1px);
+    }
+
+    .btn-action-edit {
+        color: #f59e0b;
+        background: rgba(245, 158, 11, 0.08);
+        border-color: rgba(245, 158, 11, 0.2);
+    }
+    .btn-action-edit:hover {
+        background: #f59e0b;
+        color: #ffffff;
+        transform: translateY(-1px);
+    }
+
+    .btn-action-toggle {
+        color: #475569;
+        background: rgba(100, 116, 139, 0.08);
+        border-color: rgba(100, 116, 139, 0.2);
+    }
+    .btn-action-toggle:hover {
+        background: #334155;
+        color: #ffffff;
+        transform: translateY(-1px);
+    }
+    .btn-action-toggle.active-toggle {
+        color: #059669;
+        background: rgba(16, 185, 129, 0.08);
+        border-color: rgba(16, 185, 129, 0.2);
+    }
+    .btn-action-toggle.active-toggle:hover {
+        background: #059669;
+        color: #ffffff;
+    }
+
+    .btn-action-delete {
+        color: #e11d48;
+        background: rgba(244, 63, 94, 0.08);
+        border-color: rgba(244, 63, 94, 0.2);
+    }
+    .btn-action-delete:hover {
+        background: #e11d48;
+        color: #ffffff;
+        transform: translateY(-1px);
+    }
+
+    /* Botón Crear Ruta Principal */
+    .btn-primary-gradient {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: #ffffff;
+        border: none;
+        padding: 0.6rem 1.25rem;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 0.9rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+        transition: all 0.2s;
+        text-decoration: none;
+    }
+
+    .btn-primary-gradient:hover {
+        background: linear-gradient(135deg, #059669 0%, #047857 100%);
+        color: #ffffff;
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
+    }
+
+    .btn-secondary-outline {
+        background: #ffffff;
+        color: #475569;
+        border: 1px solid #cbd5e1;
+        padding: 0.6rem 1.15rem;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 0.9rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.2s;
+        text-decoration: none;
+    }
+
+    .btn-secondary-outline:hover {
+        background: #f8fafc;
+        color: #1e293b;
+        border-color: #94a3b8;
+    }
+
+    /* Modales Estilizados */
+    .modal-content-premium {
+        border-radius: 20px;
+        border: none;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        overflow: hidden;
+    }
+
+    .modal-header-premium {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        color: #ffffff;
+        padding: 1.25rem 1.75rem;
+        border-bottom: none;
+    }
+
+    .modal-header-premium .modal-title {
+        font-weight: 800;
+        font-size: 1.15rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #ffffff;
+    }
+
+    .modal-header-premium .btn-close-white {
+        filter: brightness(0) invert(1);
+        opacity: 0.8;
+    }
+
+    .modal-header-premium .btn-close-white:hover {
+        opacity: 1;
+    }
+
+    .modal-body-premium {
+        padding: 1.75rem;
+        background: #ffffff;
+    }
+
+    .modal-footer-premium {
+        padding: 1rem 1.75rem 1.5rem;
+        border-top: none;
+        background: #ffffff;
+    }
+
+    .form-floating-label {
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #475569;
+        margin-bottom: 0.4rem;
+        display: block;
+    }
+
+    .form-control-modal,
+    .form-select-modal {
+        border-radius: 10px;
+        border: 1px solid #cbd5e1;
+        padding: 0.7rem 0.95rem;
+        font-size: 0.95rem;
+        color: #1e293b;
+        transition: all 0.2s;
+    }
+
+    .form-control-modal:focus,
+    .form-select-modal:focus {
+        border-color: #10b981;
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+    }
+
+    .info-card-preview {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 1.25rem;
+    }
+
+    .info-item {
+        margin-bottom: 0.75rem;
+    }
+
+    .info-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .info-item-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: #64748b;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.2rem;
+    }
+
+    .info-item-value {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #0f172a;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container-fluid py-4 fade-in-up">
-    <!-- Encabezado con botones de acción -->
-    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+<div class="container-fluid py-4 rutas-wrapper">
+    
+    <!-- ===== ENCABEZADO PRINCIPAL ===== -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <div>
-            <h3 class="fw-bold text-slate-800 mb-1">
-                <i class="fas fa-route text-primary me-2"></i>Gestión de Rutas
-            </h3>
-            <p class="text-muted small mb-0">Administración de rutas de entrega comerciales y asignación de empresas responsables</p>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <h3 class="fw-bold text-slate-900 mb-0">
+                    <i class="bi bi-geo-alt-fill text-success me-1"></i> Gestión de Rutas
+                </h3>
+                <span class="badge badge-pill-custom badge-emerald">{{ rutas|length }} Registradas</span>
+            </div>
+            <p class="text-muted small mb-0">
+                Administración de rutas comerciales de distribución, asignación empresarial y cobertura logística
+            </p>
         </div>
+
         <div class="d-flex gap-2">
-            <a href="{{ url_for('admin.admin_asignacion_rutas') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3" title="Asignar rutas">
-                <i class="fas fa-network-wired me-1"></i> Asignar Rutas
+            <a href="{{ url_for('admin.admin_asignacion_rutas') }}" class="btn-secondary-outline">
+                <i class="bi bi-person-check-fill text-indigo"></i> Asignar Vendedores
             </a>
-            <button type="button" class="btn btn-outline-primary btn-sm px-3 py-2 rounded-3" data-bs-toggle="modal" data-bs-target="#crearRutaModal">
-                <i class="fas fa-plus-circle me-1"></i> Nueva Ruta
+            <button type="button" class="btn-primary-gradient" data-bs-toggle="modal" data-bs-target="#crearRutaModal">
+                <i class="bi bi-plus-circle-fill"></i> Nueva Ruta
             </button>
         </div>
     </div>
 
-    <!-- Tabla de rutas -->
-    <div class="card-premium-section mb-4">
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover table-modern align-middle mb-0" id="tablaRutas" width="100%">
-                    <thead class="table-light">
-                        <tr>
-                            <th>ID</th>
-                            <th>Nombre</th>
-                            <th>Descripción</th>
-                            <th>Empresa</th>
-                            <th>Estado</th>
-                            <th>Fecha Creación</th>
-                            <th class="text-center">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for ruta in rutas %}
-                        <tr>
-                            <td><span class="badge bg-light text-dark border">#{{ ruta.ID_Ruta }}</span></td>
-                            <td class="fw-bold text-slate-800">{{ ruta.Nombre_Ruta }}</td>
-                            <td class="text-slate-800 small">{{ ruta.Descripcion or 'Sin descripción' }}</td>
-                            <td>
-                                {% if ruta.Nombre_Empresa %}
-                                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">{{ ruta.Nombre_Empresa }}</span>
-                                {% else %}
-                                <span class="text-muted small">Sin empresa</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <span class="badge {% if ruta.Estado == 'Activa' %}bg-success bg-opacity-10 text-success border border-success border-opacity-25{% else %}bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25{% endif %} rounded-pill px-2.5 py-1.5 fw-bold">
-                                    {{ ruta.Estado }}
-                                </span>
-                            </td>
-                            <td class="font-monospace small">{{ ruta.Fecha_Creacion or 'N/A' }}</td>
-                            <td class="text-center">
-                                <div class="d-flex justify-content-center gap-1">
-                                    <!-- BOTÓN EDITAR -->
-                                    <a href="{{ url_for('admin.admin_editar_ruta', id_ruta=ruta.ID_Ruta) }}" 
-                                       class="btn btn-sm btn-outline-warning rounded-3"
-                                       title="Editar Ruta">
-                                        <i class="fas fa-edit me-1"></i> Editar
-                                    </a>
-                                    
-                                    <!-- Botón Cambiar Estado -->
-                                    <form action="{{ url_for('admin.cambiar_estado_ruta', id_ruta=ruta.ID_Ruta) }}" 
-                                          method="POST" class="d-inline">
-                                        <button type="submit" class="btn btn-sm btn-{{ 'outline-secondary' if ruta.Estado == 'Activa' else 'outline-success' }} rounded-3"
-                                                title="{{ 'Desactivar' if ruta.Estado == 'Activa' else 'Activar' }}">
-                                            <i class="fas fa-{{ 'ban' if ruta.Estado == 'Activa' else 'check-circle' }} me-1"></i> {{ 'Desactivar' if ruta.Estado == 'Activa' else 'Activar' }}
-                                        </button>
-                                    </form>
-                                    
-                                    <!-- Botón Eliminar -->
-                                    <button type="button" class="btn btn-sm btn-outline-danger btn-eliminar rounded-3"
-                                            data-ruta-id="{{ ruta.ID_Ruta }}"
-                                            data-ruta-nombre="{{ ruta.Nombre_Ruta }}"
-                                            title="Eliminar Ruta">
-                                        <i class="fas fa-trash me-1"></i> Eliminar
-                                    </button>
-                                    
-                                    <!-- Botón Detalles -->
-                                    <button type="button" class="btn btn-sm btn-outline-info btn-detalles rounded-3"
-                                            data-ruta-id="{{ ruta.ID_Ruta }}"
-                                            data-ruta-nombre="{{ ruta.Nombre_Ruta }}"
-                                            data-ruta-descripcion="{{ ruta.Descripcion or 'Sin descripción' }}"
-                                            data-ruta-empresa="{{ ruta.Nombre_Empresa or 'Sin empresa' }}"
-                                            data-ruta-estado="{{ ruta.Estado }}"
-                                            data-ruta-fecha="{{ ruta.Fecha_Creacion or 'No disponible' }}"
-                                            title="Ver Detalles">
-                                        <i class="fas fa-info-circle me-1"></i> Detalles
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="7" class="text-center text-muted py-4">
-                                No hay rutas registradas. Crea una nueva ruta para comenzar.
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+    <!-- ===== TARJETAS KPI DE RESUMEN ===== -->
+    {% set total_activas = rutas|selectattr('Estado', 'equalto', 'Activa')|list|length %}
+    {% set total_inactivas = rutas|length - total_activas %}
+    {% set empresas_unicas = [] %}
+    {% for r in rutas %}
+        {% if r.Nombre_Empresa and r.Nombre_Empresa not in empresas_unicas %}
+            {% set _ = empresas_unicas.append(r.Nombre_Empresa) %}
+        {% endif %}
+    {% endfor %}
+
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="kpi-card kpi-indigo">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <div class="kpi-label">Total de Rutas</div>
+                        <div class="kpi-value" style="color: var(--accent-indigo);">{{ rutas|length }}</div>
+                    </div>
+                    <div class="kpi-icon-wrapper kpi-icon-indigo">
+                        <i class="bi bi-map"></i>
+                    </div>
+                </div>
+                <small class="text-muted"><i class="bi bi-layers me-1 text-indigo"></i>Catálogo comercial</small>
             </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="kpi-card kpi-emerald">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <div class="kpi-label">Rutas Activas</div>
+                        <div class="kpi-value text-success">{{ total_activas }}</div>
+                    </div>
+                    <div class="kpi-icon-wrapper kpi-icon-emerald">
+                        <i class="bi bi-check2-circle"></i>
+                    </div>
+                </div>
+                <small class="text-muted"><i class="bi bi-broadcast me-1 text-success"></i>En operación comercial</small>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="kpi-card kpi-amber">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <div class="kpi-label">Rutas Inactivas</div>
+                        <div class="kpi-value text-warning">{{ total_inactivas }}</div>
+                    </div>
+                    <div class="kpi-icon-wrapper kpi-icon-amber">
+                        <i class="bi bi-pause-circle"></i>
+                    </div>
+                </div>
+                <small class="text-muted"><i class="bi bi-clock-history me-1 text-warning"></i>Deshabilitadas</small>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="kpi-card kpi-cyan">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <div class="kpi-label">Empresas Asignadas</div>
+                        <div class="kpi-value text-info">{{ empresas_unicas|length }}</div>
+                    </div>
+                    <div class="kpi-icon-wrapper kpi-icon-cyan">
+                        <i class="bi bi-building"></i>
+                    </div>
+                </div>
+                <small class="text-muted"><i class="bi bi-shield-check me-1 text-info"></i>Sociedades responsables</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== BARRA DE BÚSQUEDA Y FILTROS RÁPIDOS ===== -->
+    <div class="filter-card-premium">
+        <div class="row g-3 align-items-end">
+            <!-- Búsqueda en vivo -->
+            <div class="col-12 col-md-5">
+                <label class="form-label"><i class="bi bi-search text-muted me-1"></i> Búsqueda en Tiempo Real</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                    <input type="text" id="filtroTexto" class="form-control border-start-0" 
+                           placeholder="Buscar por nombre, descripción, ID...">
+                </div>
+            </div>
+
+            <!-- Filtro por Estado -->
+            <div class="col-12 col-sm-6 col-md-3">
+                <label class="form-label"><i class="bi bi-funnel text-success me-1"></i> Filtrar por Estado</label>
+                <select id="filtroEstado" class="form-select">
+                    <option value="">Todos los estados</option>
+                    <option value="Activa">🟢 Activas</option>
+                    <option value="Inactiva">⚪ Inactivas</option>
+                </select>
+            </div>
+
+            <!-- Filtro por Empresa -->
+            <div class="col-12 col-sm-6 col-md-3">
+                <label class="form-label"><i class="bi bi-building text-info me-1"></i> Filtrar por Empresa</label>
+                <select id="filtroEmpresa" class="form-select">
+                    <option value="">Todas las empresas</option>
+                    {% for emp in empresas %}
+                    <option value="{{ emp.Nombre_Empresa }}">{{ emp.Nombre_Empresa }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Botón reset -->
+            <div class="col-12 col-md-1">
+                <button type="button" class="btn btn-light w-100 border text-muted" id="btnLimpiarFiltros" title="Limpiar filtros">
+                    <i class="bi bi-arrow-counterclockwise"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== TABLA DE RUTAS ===== -->
+    <div class="content-card-premium mb-4">
+        <div class="content-card-header">
+            <h6>
+                <i class="bi bi-table text-success"></i> Catálogo de Rutas
+            </h6>
+            <span class="badge badge-pill-custom badge-slate" id="contadorFilas">
+                Mostrando {{ rutas|length }} registros
+            </span>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table-custom-premium" id="tablaRutas">
+                <thead>
+                    <tr>
+                        <th style="width: 80px;" class="text-center">ID</th>
+                        <th>Ruta</th>
+                        <th>Descripción</th>
+                        <th>Empresa Asignada</th>
+                        <th class="text-center">Estado</th>
+                        <th>Fecha Creación</th>
+                        <th class="text-center" style="width: 140px;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ruta in rutas %}
+                    <tr data-estado="{{ ruta.Estado }}" data-empresa="{{ ruta.Nombre_Empresa|default('') }}">
+                        <td class="text-center">
+                            <span class="badge bg-light text-secondary border font-monospace px-2 py-1">
+                                #{{ ruta.ID_Ruta }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2.5">
+                                <div class="ruta-avatar">
+                                    {{ ruta.Nombre_Ruta[:2]|upper }}
+                                </div>
+                                <div>
+                                    <strong class="text-slate-900 fs-6 d-block">{{ ruta.Nombre_Ruta }}</strong>
+                                    <small class="text-muted">Ruta Comercial</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            {% if ruta.Descripcion %}
+                            <span class="text-slate-700 small" title="{{ ruta.Descripcion }}">
+                                {{ ruta.Descripcion|truncate(55, true, '...') }}
+                            </span>
+                            {% else %}
+                            <span class="text-muted fst-italic small">Sin descripción</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if ruta.Nombre_Empresa %}
+                            <span class="badge-pill-custom badge-indigo">
+                                <i class="bi bi-building"></i> {{ ruta.Nombre_Empresa }}
+                            </span>
+                            {% else %}
+                            <span class="text-muted small">Sin empresa</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if ruta.Estado == 'Activa' %}
+                            <span class="badge-pill-custom badge-emerald">
+                                <i class="bi bi-circle-fill" style="font-size: 6px;"></i> Activa
+                            </span>
+                            {% else %}
+                            <span class="badge-pill-custom badge-slate">
+                                <i class="bi bi-circle-fill" style="font-size: 6px;"></i> Inactiva
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="text-muted small font-monospace">
+                                <i class="bi bi-calendar3 me-1"></i>{{ ruta.Fecha_Creacion or 'N/A' }}
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            <div class="btn-action-group">
+                                <!-- Botón Ver Detalles -->
+                                <button type="button" class="btn-action btn-action-view btn-detalles"
+                                        data-ruta-id="{{ ruta.ID_Ruta }}"
+                                        data-ruta-nombre="{{ ruta.Nombre_Ruta }}"
+                                        data-ruta-descripcion="{{ ruta.Descripcion or 'Sin descripción disponible' }}"
+                                        data-ruta-empresa="{{ ruta.Nombre_Empresa or 'Sin empresa asignada' }}"
+                                        data-ruta-estado="{{ ruta.Estado }}"
+                                        data-ruta-fecha="{{ ruta.Fecha_Creacion or 'No disponible' }}"
+                                        title="Ver detalles completos">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+
+                                <!-- Botón Editar -->
+                                <a href="{{ url_for('admin.admin_editar_ruta', id_ruta=ruta.ID_Ruta) }}" 
+                                   class="btn-action btn-action-edit"
+                                   title="Editar ruta">
+                                    <i class="bi bi-pencil-square"></i>
+                                </a>
+
+                                <!-- Botón Cambiar Estado -->
+                                <form action="{{ url_for('admin.cambiar_estado_ruta', id_ruta=ruta.ID_Ruta) }}" 
+                                      method="POST" class="d-inline form-toggle-estado">
+                                    <button type="submit" 
+                                            class="btn-action btn-action-toggle {% if ruta.Estado != 'Activa' %}active-toggle{% endif %}"
+                                            title="{{ 'Desactivar ruta' if ruta.Estado == 'Activa' else 'Activar ruta' }}"
+                                            data-nombre="{{ ruta.Nombre_Ruta }}"
+                                            data-accion="{{ 'desactivar' if ruta.Estado == 'Activa' else 'activar' }}">
+                                        <i class="bi bi-{{ 'slash-circle' if ruta.Estado == 'Activa' else 'check-circle' }}"></i>
+                                    </button>
+                                </form>
+
+                                <!-- Botón Eliminar -->
+                                <button type="button" class="btn-action btn-action-delete btn-eliminar"
+                                        data-ruta-id="{{ ruta.ID_Ruta }}"
+                                        data-ruta-nombre="{{ ruta.Nombre_Ruta }}"
+                                        title="Eliminar ruta">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-5 text-muted">
+                            <i class="bi bi-inbox fs-2 d-block mb-2 text-muted"></i>
+                            No hay rutas registradas en el sistema.
+                            <div class="mt-3">
+                                <button type="button" class="btn-primary-gradient" data-bs-toggle="modal" data-bs-target="#crearRutaModal">
+                                    <i class="bi bi-plus-circle-fill"></i> Crear Primera Ruta
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
 
-<!-- ========== MODALES ========== -->
+<!-- ======================================================= -->
+<!-- ===================== MODALES ========================= -->
+<!-- ======================================================= -->
 
-<!-- 1. MODAL PARA CREAR RUTA -->
+<!-- 1. MODAL CREAR RUTA -->
 <div class="modal fade" id="crearRutaModal" tabindex="-1" aria-labelledby="crearRutaModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content border-0 shadow-lg rounded-3">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content modal-content-premium">
+            <div class="modal-header modal-header-premium">
+                <h5 class="modal-title" id="crearRutaModalLabel">
+                    <i class="bi bi-plus-circle text-success"></i> Crear Nueva Ruta Comercial
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+
             <form method="POST" action="{{ url_for('admin.crear_ruta') }}" id="formCrearRuta" novalidate>
-                <div class="modal-header border-bottom-0 pb-0">
-                    <h5 class="modal-title fw-bold text-slate-800" id="crearRutaModalLabel">
-                        <i class="fas fa-plus-circle text-primary me-2"></i>Crear Nueva Ruta
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    
-                    <div class="row g-3">
-                        <!-- Columna izquierda -->
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="nombre_ruta" class="form-label-premium fw-bold mb-1">Nombre de la Ruta *</label>
-                                <input type="text" class="form-control form-control-premium" id="nombre_ruta" name="nombre_ruta" 
-                                       placeholder="Ej: Ruta Norte, Ruta Centro, etc." required
+                <div class="modal-body modal-body-premium">
+                    <div class="row g-3 mb-3">
+                        <!-- Nombre de la Ruta -->
+                        <div class="col-12 col-md-6">
+                            <label for="nombre_ruta" class="form-floating-label">
+                                Nombre de la Ruta <span class="text-danger">*</span>
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0"><i class="bi bi-signpost-2 text-muted"></i></span>
+                                <input type="text" class="form-control form-control-modal border-start-0" 
+                                       id="nombre_ruta" name="nombre_ruta" 
+                                       placeholder="Ej: Ruta Granada, Ruta Masaya..." required
                                        maxlength="255" autocomplete="off">
-                                <div class="form-text small text-muted">Nombre único para identificar la ruta</div>
                             </div>
+                            <div class="form-text small text-muted">Identificador único y representativo de la zona</div>
                         </div>
-                        
-                        <!-- Columna derecha -->
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="id_empresa" class="form-label-premium fw-bold mb-1">Empresa Asignada *</label>
-                                <select class="form-select form-select-premium" id="id_empresa" name="id_empresa" required>
-                                    <option value="" selected disabled>-- Seleccione una empresa --</option>
+
+                        <!-- Empresa Asignada -->
+                        <div class="col-12 col-md-6">
+                            <label for="id_empresa" class="form-floating-label">
+                                Empresa Comercial Responsable <span class="text-danger">*</span>
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0"><i class="bi bi-building text-muted"></i></span>
+                                <select class="form-select form-select-modal border-start-0" id="id_empresa" name="id_empresa" required>
+                                    <option value="" selected disabled>-- Seleccionar Empresa --</option>
                                     {% for empresa in empresas %}
                                     <option value="{{ empresa.ID_Empresa }}">{{ empresa.Nombre_Empresa }}</option>
                                     {% endfor %}
                                 </select>
-                                <div class="form-text small text-muted">Seleccione la empresa responsable de esta ruta</div>
                             </div>
+                            <div class="form-text small text-muted">Sociedad responsable de la facturación y ruta</div>
                         </div>
                     </div>
-                    
-                    <!-- Descripción en fila completa -->
-                    <div class="row">
-                        <div class="col-12">
-                            <div class="mb-3">
-                                <label for="descripcion" class="form-label-premium fw-bold mb-1">Descripción</label>
-                                <textarea class="form-control form-control-premium" id="descripcion" name="descripcion" 
-                                          rows="3" placeholder="Descripción detallada de la ruta..."></textarea>
-                                <div class="form-text small text-muted">Opcional: Detalles sobre municipios cubiertos, características, etc.</div>
-                            </div>
+
+                    <!-- Descripción -->
+                    <div class="mb-3">
+                        <label for="descripcion" class="form-floating-label">Descripción o Cobertura</label>
+                        <textarea class="form-control form-control-modal" id="descripcion" name="descripcion" 
+                                  rows="3" placeholder="Detalles de municipios, barrios o tramos cubiertos por esta ruta..."></textarea>
+                        <div class="d-flex justify-content-between align-items-center mt-1">
+                            <span class="form-text small text-muted">Opcional: Información logística o puntos de interés</span>
+                            <span class="small text-muted font-monospace" id="contadorDesc">0/500</span>
                         </div>
                     </div>
-                    
-                    <div class="alert alert-info bg-info bg-opacity-10 text-info border border-info border-opacity-20 rounded-3 p-3 mb-0 small">
-                        <small>
-                            <i class="fas fa-info-circle me-1"></i> 
-                            Los campos marcados con (*) son obligatorios. 
-                            La ruta se creará con estado "Activa" por defecto.
-                        </small>
+
+                    <!-- Nota Informativa -->
+                    <div class="alert alert-info bg-light border-info border-opacity-25 rounded-3 p-3 mb-0 d-flex align-items-center gap-2.5">
+                        <i class="bi bi-info-circle-fill text-info fs-5"></i>
+                        <div class="small text-slate-700">
+                            La nueva ruta se registrará con estado <strong>Activa</strong> por defecto y estará lista de inmediato para asignarle vendedores y vehículos.
+                        </div>
                     </div>
                 </div>
-                <div class="modal-footer border-top-0 pt-0">
-                    <button type="button" class="btn btn-outline-secondary px-3 py-1.5 rounded-3" data-bs-dismiss="modal">
-                        <i class="fas fa-times-circle me-1"></i> Cancelar
+
+                <div class="modal-footer modal-footer-premium d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-light px-3 py-2 rounded-3 border" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle me-1"></i> Cancelar
                     </button>
-                    <button type="submit" class="btn btn-outline-primary px-3 py-1.5 rounded-3" id="btnCrearRuta">
-                        <i class="fas fa-save me-1"></i> Guardar Ruta
+                    <button type="submit" class="btn-primary-gradient" id="btnCrearRuta">
+                        <i class="bi bi-save me-1"></i> Guardar Ruta
                     </button>
                 </div>
             </form>
@@ -186,375 +832,279 @@
     </div>
 </div>
 
-<!-- 2. MODAL PARA ELIMINAR RUTA -->
-<div class="modal fade" id="eliminarRutaModal" tabindex="-1" aria-labelledby="eliminarRutaModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content border-0 shadow-lg rounded-3">
-            <form method="POST" action="{{ url_for('admin.eliminar_ruta') }}" id="formEliminarRuta">
-                <div class="modal-header border-bottom-0 pb-0">
-                    <h5 class="modal-title fw-bold text-slate-800" id="eliminarRutaModalLabel">
-                        <i class="fas fa-exclamation-triangle text-danger me-2"></i>Confirmar Eliminación
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <!-- Campo oculto para el ID de la ruta -->
-                    <input type="hidden" name="id_ruta" id="delete_id_ruta">
-                    
-                    <div class="text-center mb-3">
-                        <i class="fas fa-trash-alt text-danger fa-3x"></i>
-                        <h5 class="mt-3 fw-bold text-slate-800">¿Está seguro de eliminar esta ruta?</h5>
-                    </div>
-                    
-                    <div class="card-premium-section bg-light p-3 mb-3">
-                        <p class="mb-1 text-slate-800 small"><strong>ID de Ruta:</strong> <span class="font-monospace" id="delete_ruta_id"></span></p>
-                        <p class="mb-0 text-slate-800 small"><strong>Nombre:</strong> <span id="delete_ruta_nombre"></span></p>
-                    </div>
-                    
-                    <div class="alert alert-warning bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20 rounded-3 p-3 small mb-0">
-                        <i class="fas fa-exclamation-circle me-1"></i>
-                        <strong>Advertencia:</strong> Si esta ruta está asignada a clientes activos en el sistema, 
-                        es preferible desactivarla en lugar de eliminarla del todo. Esta acción no se puede deshacer.
-                    </div>
-                </div>
-                <div class="modal-footer border-top-0 pt-0">
-                    <button type="button" class="btn btn-outline-secondary px-3 py-1.5 rounded-3" data-bs-dismiss="modal">
-                        <i class="fas fa-times-circle me-1"></i> Cancelar
-                    </button>
-                    <button type="submit" class="btn btn-outline-danger px-3 py-1.5 rounded-3" id="btnEliminarRuta">
-                        <i class="fas fa-trash me-1"></i> Sí, Eliminar
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- 3. MODAL PARA VER DETALLES -->
+<!-- 2. MODAL DETALLES DE RUTA -->
 <div class="modal fade" id="detallesRutaModal" tabindex="-1" aria-labelledby="detallesRutaModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content border-0 shadow-lg rounded-3">
-            <div class="modal-header border-bottom-0 pb-0">
-                <h5 class="modal-title fw-bold text-slate-800" id="detallesRutaModalLabel">
-                    <i class="fas fa-info-circle text-primary me-2"></i>Detalles de la Ruta
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-content-premium">
+            <div class="modal-header modal-header-premium">
+                <h5 class="modal-title" id="detallesRutaModalLabel">
+                    <i class="bi bi-info-circle text-info"></i> Ficha Técnica de la Ruta
                 </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-            <div class="modal-body">
-                <dl class="row mb-0 small">
-                    <dt class="col-sm-4 text-muted mb-2">ID Ruta:</dt>
-                    <dd class="col-sm-8 text-slate-800 mb-2 font-monospace" id="detalle_id">-</dd>
-                    
-                    <dt class="col-sm-4 text-muted mb-2">Nombre:</dt>
-                    <dd class="col-sm-8 text-slate-800 fw-bold mb-2" id="detalle_nombre">-</dd>
-                    
-                    <dt class="col-sm-4 text-muted mb-2">Descripción:</dt>
-                    <dd class="col-sm-8 text-slate-800 mb-2" id="detalle_descripcion">-</dd>
-                    
-                    <dt class="col-sm-4 text-muted mb-2">Empresa:</dt>
-                    <dd class="col-sm-8 text-slate-800 mb-2" id="detalle_empresa">-</dd>
-                    
-                    <dt class="col-sm-4 text-muted mb-2">Estado:</dt>
-                    <dd class="col-sm-8 mb-2">
-                        <span class="badge" id="detalle_estado_badge">-</span>
-                    </dd>
-                    
-                    <dt class="col-sm-4 text-muted mb-0">Fecha Creación:</dt>
-                    <dd class="col-sm-8 text-slate-800 mb-0 font-monospace" id="detalle_fecha">-</dd>
-                </dl>
+
+            <div class="modal-body modal-body-premium">
+                <div class="d-flex align-items-center gap-3 mb-4 pb-3 border-bottom">
+                    <div class="ruta-avatar" style="width: 52px; height: 52px; font-size: 1.3rem;">
+                        <i class="bi bi-geo-alt-fill"></i>
+                    </div>
+                    <div>
+                        <h5 class="fw-bold text-slate-900 mb-0" id="detalle_nombre">-</h5>
+                        <div class="d-flex gap-2 align-items-center mt-1">
+                            <span class="badge bg-light text-secondary border font-monospace small" id="detalle_id">-</span>
+                            <span class="badge-pill-custom badge-emerald" id="detalle_estado_badge">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-card-preview mb-3">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <div class="info-item">
+                                <div class="info-item-label"><i class="bi bi-building me-1"></i> Empresa Asignada</div>
+                                <div class="info-item-value text-indigo" id="detalle_empresa">-</div>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="info-item">
+                                <div class="info-item-label"><i class="bi bi-card-text me-1"></i> Descripción / Cobertura</div>
+                                <div class="info-item-value text-slate-700" id="detalle_descripcion" style="white-space: pre-line;">-</div>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="info-item">
+                                <div class="info-item-label"><i class="bi bi-calendar-event me-1"></i> Fecha de Creación</div>
+                                <div class="info-item-value font-monospace small text-slate-800" id="detalle_fecha">-</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="modal-footer border-top-0 pt-0">
-                <button type="button" class="btn btn-outline-secondary px-3 py-1.5 rounded-3" data-bs-dismiss="modal">
-                    <i class="fas fa-times-circle me-1"></i> Cerrar
+
+            <div class="modal-footer modal-footer-premium">
+                <button type="button" class="btn btn-light px-4 py-2 rounded-3 border" data-bs-dismiss="modal">
+                    <i class="bi bi-check2 me-1"></i> Entendido
                 </button>
             </div>
         </div>
     </div>
 </div>
 
-<style>
-/* Ajustar altura del textarea de descripción */
-textarea#descripcion {
-    min-height: 100px;
-    resize: vertical;
-}
+<!-- 3. MODAL ELIMINAR RUTA -->
+<div class="modal fade" id="eliminarRutaModal" tabindex="-1" aria-labelledby="eliminarRutaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-content-premium">
+            <form method="POST" action="{{ url_for('admin.eliminar_ruta') }}" id="formEliminarRuta">
+                <input type="hidden" name="id_ruta" id="delete_id_ruta">
 
-/* Estilos para lista de detalles */
-dl.row dt {
-    font-weight: 600;
-}
+                <div class="modal-header bg-danger text-white px-4 py-3 border-0">
+                    <h5 class="modal-title fw-bold text-white d-flex align-items-center gap-2" id="eliminarRutaModalLabel">
+                        <i class="bi bi-exclamation-triangle-fill"></i> Confirmar Eliminación
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
 
-/* Ajustes específicos para la tabla */
-#tablaRutas th:nth-child(1) { width: 5%; }  /* ID */
-#tablaRutas th:nth-child(2) { width: 20%; } /* Nombre */
-#tablaRutas th:nth-child(3) { width: 25%; } /* Descripción */
-#tablaRutas th:nth-child(4) { width: 20%; } /* Empresa */
-#tablaRutas th:nth-child(5) { width: 10%; }  /* Estado */
-#tablaRutas th:nth-child(6) { width: 15%; } /* Fecha Creación */
-#tablaRutas th:nth-child(7) { width: 5%; }  /* Acciones */
-</style>
+                <div class="modal-body modal-body-premium text-center">
+                    <div class="mx-auto mb-3 d-inline-flex align-items-center justify-content-center bg-danger bg-opacity-10 text-danger rounded-circle" style="width: 60px; height: 60px;">
+                        <i class="bi bi-trash fs-2"></i>
+                    </div>
+
+                    <h5 class="fw-bold text-slate-900 mb-2">¿Deseas eliminar esta ruta?</h5>
+                    <p class="text-muted small mb-3">
+                        Estás a punto de eliminar de forma permanente la ruta comercial:
+                    </p>
+
+                    <div class="p-3 bg-light rounded-3 border mb-3 text-start">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted small">ID:</span>
+                            <span class="font-monospace fw-bold text-slate-800" id="delete_ruta_id"></span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted small">Nombre:</span>
+                            <strong class="text-danger" id="delete_ruta_nombre"></strong>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-warning bg-warning bg-opacity-10 text-warning border-warning border-opacity-25 rounded-3 p-2.5 small mb-0 text-start">
+                        <i class="bi bi-shield-exclamation me-1"></i>
+                        <strong>Consejo:</strong> Si esta ruta ya tiene historial o facturas, te recomendamos <strong>desactivarla</strong> en lugar de eliminarla.
+                    </div>
+                </div>
+
+                <div class="modal-footer modal-footer-premium d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-light px-3 py-2 rounded-3 border" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle me-1"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-danger px-3 py-2 rounded-3 fw-bold" id="btnEliminarRuta">
+                        <i class="bi bi-trash me-1"></i> Sí, Eliminar Ruta
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
-<!-- jQuery (necesario para DataTables) -->
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<!-- DataTables CSS y JS -->
-<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css">
-<script type="text/javascript" src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
-<script type="text/javascript" src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
-
 <script>
-$(document).ready(function() {
-    // Inicializar DataTable
-    var table = $('#tablaRutas').DataTable({
-        "order": [[0, "desc"]],
-        "language": {
-            "url": "//cdn.datatables.net/plug-ins/1.11.5/i18n/es-ES.json",
-            "search": "Buscar:",
-            "lengthMenu": "Mostrar _MENU_ registros por página",
-            "zeroRecords": "No se encontraron registros",
-            "info": "Mostrando página _PAGE_ de _PAGES_",
-            "infoEmpty": "No hay registros disponibles",
-            "infoFiltered": "(filtrado de _MAX_ registros totales)",
-            "paginate": {
-                "first": "Primera",
-                "last": "Última",
-                "next": "Siguiente",
-                "previous": "Anterior"
+document.addEventListener('DOMContentLoaded', function () {
+    // Referencias a elementos de filtrado
+    var inputTexto = document.getElementById('filtroTexto');
+    var selectEstado = document.getElementById('filtroEstado');
+    var selectEmpresa = document.getElementById('filtroEmpresa');
+    var btnLimpiar = document.getElementById('btnLimpiarFiltros');
+    var filas = document.querySelectorAll('#tablaRutas tbody tr[data-estado]');
+    var contadorFilas = document.getElementById('contadorFilas');
+
+    // Función de filtrado en vivo
+    function filtrarTabla() {
+        var texto = (inputTexto ? inputTexto.value.toLowerCase().trim() : '');
+        var estado = (selectEstado ? selectEstado.value : '');
+        var empresa = (selectEmpresa ? selectEmpresa.value : '');
+        var visibles = 0;
+
+        filas.forEach(function (fila) {
+            var filaEstado = fila.getAttribute('data-estado') || '';
+            var filaEmpresa = fila.getAttribute('data-empresa') || '';
+            var filaTexto = fila.textContent.toLowerCase();
+
+            var coincideTexto = !texto || filaTexto.includes(texto);
+            var coincideEstado = !estado || filaEstado === estado;
+            var coincideEmpresa = !empresa || filaEmpresa === empresa;
+
+            if (coincideTexto && coincideEstado && coincideEmpresa) {
+                fila.style.display = '';
+                visibles++;
+            } else {
+                fila.style.display = 'none';
             }
-        },
-        "responsive": true,
-        "pageLength": 10,
-        "lengthMenu": [10, 25, 50, 100],
-        "columnDefs": [
-            { 
-                "orderable": false, 
-                "targets": [5, 6], // Deshabilitar orden en columna Estado y Acciones
-                "className": "text-center"
-            },
-            { 
-                "width": "5%", 
-                "targets": 0, // ID
-                "className": "text-center"
-            },
-            { "width": "20%", "targets": 1 }, // Nombre
-            { "width": "25%", "targets": 2 }, // Descripción
-            { "width": "20%", "targets": 3 }, // Empresa
-            { 
-                "width": "10%", 
-                "targets": 4, // Estado
-                "className": "text-center"
-            },
-            { "width": "15%", "targets": 5 }, // Fecha Creación
-            { 
-                "width": "5%", 
-                "targets": 6, // Acciones
-                "className": "text-center"
-            }
-        ],
-        "dom": '<"row mb-3"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6 d-flex justify-content-md-end"f>>rt<"row"<"col-sm-12 col-md-6"i><"col-sm-12 col-md-6"p>>',
-        "initComplete": function(settings, json) {
-            console.log('✅ DataTable de rutas inicializado');
-        }
-    });
-    
-    // ========== EVENTO PARA BOTONES ELIMINAR ==========
-    $(document).on('click', '.btn-eliminar', function() {
-        var rutaId = $(this).data('ruta-id');
-        var nombre = $(this).data('ruta-nombre');
-        
-        console.log('Solicitando eliminación de ruta:', {rutaId, nombre});
-        
-        // Llenar el modal de eliminar con los datos
-        $('#delete_id_ruta').val(rutaId);
-        $('#delete_ruta_id').text(rutaId);
-        $('#delete_ruta_nombre').text(nombre);
-        
-        // Mostrar el modal
-        var eliminarModal = new bootstrap.Modal(document.getElementById('eliminarRutaModal'));
-        eliminarModal.show();
-    });
-    
-    // ========== EVENTO PARA BOTONES DETALLES ==========
-    $(document).on('click', '.btn-detalles', function() {
-        var rutaId = $(this).data('ruta-id');
-        var nombre = $(this).data('ruta-nombre');
-        var descripcion = $(this).data('ruta-descripcion');
-        var empresa = $(this).data('ruta-empresa');
-        var estado = $(this).data('ruta-estado');
-        var fecha = $(this).data('ruta-fecha');
-        
-        // Llenar el modal de detalles
-        $('#detalle_id').text(rutaId);
-        $('#detalle_nombre').text(nombre);
-        $('#detalle_descripcion').text(descripcion);
-        $('#detalle_empresa').text(empresa);
-        $('#detalle_estado_badge').text(estado);
-        $('#detalle_fecha').text(fecha);
-        
-        // Establecer color del badge según el estado
-        var badge = $('#detalle_estado_badge');
-        badge.removeClass('bg-success bg-secondary bg-opacity-10 text-success text-secondary border border-success border-secondary border-opacity-25 rounded-pill px-2.5 py-1 fw-bold');
-        if (estado === 'Activa') {
-            badge.addClass('bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2.5 py-1 fw-bold');
-        } else {
-            badge.addClass('bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-2.5 py-1 fw-bold');
-        }
-        
-        // Mostrar el modal
-        var detallesModal = new bootstrap.Modal(document.getElementById('detallesRutaModal'));
-        detallesModal.show();
-    });
-    
-    // ========== VALIDACIONES PARA CREAR RUTA ==========
-    $('#formCrearRuta').on('submit', function(e) {
-        var nombre = $('#nombre_ruta').val().trim();
-        var empresa = $('#id_empresa').val();
-        
-        // Validar nombre
-        if (!nombre) {
-            e.preventDefault();
-            mostrarErrorModal('crear', 'El nombre de la ruta es obligatorio', '#nombre_ruta');
-            return false;
-        }
-        
-        if (nombre.length < 3) {
-            e.preventDefault();
-            mostrarErrorModal('crear', 'El nombre debe tener al menos 3 caracteres', '#nombre_ruta');
-            return false;
-        }
-        
-        // Validar empresa
-        if (!empresa) {
-            e.preventDefault();
-            mostrarErrorModal('crear', 'Debe seleccionar una empresa', '#id_empresa');
-            return false;
-        }
-        
-        // Mostrar indicador de carga
-        $('#btnCrearRuta').html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...').prop('disabled', true);
-        
-        console.log('Creando nueva ruta:', {
-            nombre: nombre,
-            empresa: empresa,
-            descripcion: $('#descripcion').val().trim()
         });
-        
-        return true;
-    });
-    
-    // Confirmación para eliminar
-    $('#formEliminarRuta').on('submit', function(e) {
-        var nombre = $('#delete_ruta_nombre').text();
-        var id = $('#delete_ruta_id').text();
-        
-        var confirmMessage = `¿Está completamente seguro de eliminar la ruta #${id} "${nombre}"?\n\n` +
-                            `Esta acción es permanente y no se puede deshacer.\n` +
-                            `Si la ruta está siendo utilizada en el sistema, podría causar problemas.`;
-        
-        if (!confirm(confirmMessage)) {
-            e.preventDefault();
-            return false;
-        }
-        
-        // Mostrar indicador de carga
-        $('#btnEliminarRuta').html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Eliminando...').prop('disabled', true);
-        
-        console.log('Eliminando ruta:', {id, nombre});
-        
-        return true;
-    });
-    
-    // Confirmación para cambiar estado
-    $('form[action*="cambiar_estado"]').on('submit', function(e) {
-        var accion = $(this).find('button[type="submit"]').attr('title');
-        var nombreRuta = $(this).closest('tr').find('td:nth-child(2)').text().trim();
-        var idRuta = $(this).closest('tr').find('td:nth-child(1)').text().trim();
-        
-        var confirmMessage = `¿Está seguro de ${accion.toLowerCase()} la ruta #${idRuta} "${nombreRuta}"?`;
-        
-        if (!confirm(confirmMessage)) {
-            e.preventDefault();
-            return false;
-        }
-        
-        // Mostrar indicador de carga
-        var btn = $(this).find('button[type="submit"]');
-        var iconOriginal = btn.html();
-        btn.html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>').prop('disabled', true);
-        
-        console.log(`${accion} ruta:`, {idRuta, nombreRuta});
-        
-        // Restaurar botón después de 3 segundos por si falla
-        setTimeout(function() {
-            btn.html(iconOriginal).prop('disabled', false);
-        }, 3000);
-    });
-    
-    // Limpiar formularios al cerrar modales
-    $('#crearRutaModal').on('hidden.bs.modal', function() {
-        $(this).find('form')[0].reset();
-        $('#btnCrearRuta').html('<i class="fas fa-save me-1"></i> Guardar Ruta').prop('disabled', false);
-        limpiarErroresModal('crear');
-        // Limpiar mensajes flash
-        $(this).find('.alert').remove();
-    });
-    
-    $('#eliminarRutaModal').on('hidden.bs.modal', function() {
-        $('#btnEliminarRuta').html('<i class="fas fa-trash me-1"></i> Sí, Eliminar').prop('disabled', false);
-    });
-    
-    // Función para mostrar errores en modales
-    function mostrarErrorModal(tipo, mensaje, selector) {
-        // Remover errores anteriores
-        limpiarErroresModal(tipo);
-        
-        // Agregar clase de error al campo
-        $(selector).addClass('is-invalid');
-        
-        // Crear mensaje de error
-        var errorDiv = $('<div>', {
-            class: 'invalid-feedback d-block',
-            html: '<i class="fas fa-exclamation-circle me-1"></i> ' + mensaje
-        });
-        
-        $(selector).after(errorDiv);
-        $(selector).focus();
-        
-        // Remover error después de 5 segundos
-        setTimeout(function() {
-            limpiarErroresModal(tipo);
-        }, 5000);
-    }
-    
-    // Función para limpiar errores de modales
-    function limpiarErroresModal(tipo) {
-        if (tipo === 'crear') {
-            $('#crearRutaModal .is-invalid').removeClass('is-invalid');
-            $('#crearRutaModal .invalid-feedback').remove();
+
+        if (contadorFilas) {
+            contadorFilas.textContent = 'Mostrando ' + visibles + ' de ' + filas.length + ' registros';
         }
     }
-    
-    // Auto-focus en el campo de nombre cuando se abre el modal de crear
-    $('#crearRutaModal').on('shown.bs.modal', function() {
-        $('#nombre_ruta').focus();
+
+    if (inputTexto) inputTexto.addEventListener('input', filtrarTabla);
+    if (selectEstado) selectEstado.addEventListener('change', filtrarTabla);
+    if (selectEmpresa) selectEmpresa.addEventListener('change', filtrarTabla);
+
+    if (btnLimpiar) {
+        btnLimpiar.addEventListener('click', function () {
+            if (inputTexto) inputTexto.value = '';
+            if (selectEstado) selectEstado.value = '';
+            if (selectEmpresa) selectEmpresa.value = '';
+            filtrarTabla();
+        });
+    }
+
+    // Contador de caracteres en descripción
+    var descTextarea = document.getElementById('descripcion');
+    var contadorDesc = document.getElementById('contadorDesc');
+    if (descTextarea && contadorDesc) {
+        descTextarea.addEventListener('input', function () {
+            contadorDesc.textContent = this.value.length + '/500';
+        });
+    }
+
+    // Modal de Detalles
+    document.querySelectorAll('.btn-detalles').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var id = this.getAttribute('data-ruta-id');
+            var nombre = this.getAttribute('data-ruta-nombre');
+            var descripcion = this.getAttribute('data-ruta-descripcion');
+            var empresa = this.getAttribute('data-ruta-empresa');
+            var estado = this.getAttribute('data-ruta-estado');
+            var fecha = this.getAttribute('data-ruta-fecha');
+
+            document.getElementById('detalle_id').textContent = '#' + id;
+            document.getElementById('detalle_nombre').textContent = nombre;
+            document.getElementById('detalle_descripcion').textContent = descripcion;
+            document.getElementById('detalle_empresa').textContent = empresa;
+            document.getElementById('detalle_fecha').textContent = fecha;
+
+            var badge = document.getElementById('detalle_estado_badge');
+            badge.textContent = estado;
+            if (estado === 'Activa') {
+                badge.className = 'badge-pill-custom badge-emerald';
+            } else {
+                badge.className = 'badge-pill-custom badge-slate';
+            }
+
+            var modal = new bootstrap.Modal(document.getElementById('detallesRutaModal'));
+            modal.show();
+        });
     });
-    
-    // Búsqueda rápida con DataTables
-    $('#tablaRutas_filter input').addClass('form-control form-control-sm form-control-premium');
-    $('#tablaRutas_length select').addClass('form-select form-select-sm form-select-premium');
-    
-    console.log('✅ Sistema de gestión de rutas cargado correctamente');
-    console.log('Total de rutas cargadas:', {{ rutas|length }});
-    
-    // Mostrar mensajes flash en consola para debugging
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                console.log('Flash message ({{ category }}):', '{{ message }}');
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
+
+    // Modal de Eliminar
+    document.querySelectorAll('.btn-eliminar').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var id = this.getAttribute('data-ruta-id');
+            var nombre = this.getAttribute('data-ruta-nombre');
+
+            document.getElementById('delete_id_ruta').value = id;
+            document.getElementById('delete_ruta_id').textContent = '#' + id;
+            document.getElementById('delete_ruta_nombre').textContent = nombre;
+
+            var modal = new bootstrap.Modal(document.getElementById('eliminarRutaModal'));
+            modal.show();
+        });
+    });
+
+    // Confirmación al activar / desactivar
+    document.querySelectorAll('.form-toggle-estado').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+            var btn = this.querySelector('button');
+            var nombre = btn.getAttribute('data-nombre') || 'la ruta';
+            var accion = btn.getAttribute('data-accion') || 'cambiar el estado de';
+
+            if (!confirm('¿Estás seguro de que deseas ' + accion + ' la ruta "' + nombre + '"?')) {
+                e.preventDefault();
+                return false;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span>';
+        });
+    });
+
+    // Validación y feedback al crear ruta
+    var formCrear = document.getElementById('formCrearRuta');
+    if (formCrear) {
+        formCrear.addEventListener('submit', function (e) {
+            var nombre = document.getElementById('nombre_ruta').value.trim();
+            var empresa = document.getElementById('id_empresa').value;
+
+            if (!nombre || nombre.length < 3) {
+                e.preventDefault();
+                alert('Por favor, ingresa un nombre de ruta válido de al menos 3 caracteres.');
+                document.getElementById('nombre_ruta').focus();
+                return false;
+            }
+
+            if (!empresa) {
+                e.preventDefault();
+                alert('Por favor, selecciona una empresa responsable.');
+                document.getElementById('id_empresa').focus();
+                return false;
+            }
+
+            var btnSubmit = document.getElementById('btnCrearRuta');
+            btnSubmit.disabled = true;
+            btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Guardando...';
+        });
+    }
+
+    // Auto-focus en el input de nombre al abrir el modal de crear
+    var crearModalEl = document.getElementById('crearRutaModal');
+    if (crearModalEl) {
+        crearModalEl.addEventListener('shown.bs.modal', function () {
+            var input = document.getElementById('nombre_ruta');
+            if (input) input.focus();
+        });
+    }
 });
 </script>
 {% endblock %}

@@ -324,14 +324,14 @@
                             C$ {{ "{:,.2f}".format(mov.Monto) }}
                         </td>
                         <td>
-                            {% if mov.Estado == 'ACTIVO' and mov.Referencia_Documento not in ['APERTURA', 'CIERRE'] and caja.estado == 'ABIERTA' %}
+                            {% if mov.Estado == 'ACTIVO' and mov.Referencia_Documento not in ['APERTURA', 'CIERRE'] and caja.estado == 'ABIERTA' and not (mov.ID_Movimiento|string).startswith('RUT-') %}
                             <button type="button" class="btn btn-sm btn-outline-danger" 
                                     data-bs-toggle="modal" data-bs-target="#modalAnular{{ mov.ID_Movimiento }}">
                                 <i class="bi bi-ban"></i>
                                 <span class="d-none d-md-inline">Anular</span>
                             </button>
                             {% elif mov.Estado == 'ANULADO' %}
-                            <span class="text-muted"><i class="bi bi-ban"></i></span>
+                            <span class="badge bg-secondary"><i class="bi bi-ban me-1"></i>Anulado</span>
                             {% else %}
                             <span class="text-muted"><i class="bi bi-lock"></i></span>
                             {% endif %}
@@ -740,7 +740,7 @@
 
 <!-- Modales de anulación -->
 {% for mov in caja.movimientos %}
-{% if mov.Estado == 'ACTIVO' and mov.Referencia_Documento not in ['APERTURA', 'CIERRE'] and caja.estado == 'ABIERTA' %}
+{% if mov.Estado == 'ACTIVO' and mov.Referencia_Documento not in ['APERTURA', 'CIERRE'] and caja.estado == 'ABIERTA' and not (mov.ID_Movimiento|string).startswith('RUT-') %}
 <div class="modal fade" id="modalAnular{{ mov.ID_Movimiento }}" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">

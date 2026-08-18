@@ -1876,37 +1876,37 @@ def admin_anular_venta(id_factura):
                 movimientos_caja_anulados = 0
                 monto_total_revertido = 0
                 
-                if hay_que_revertir_efectivo and total_venta > 0:
-                    print(f"💰 Cambiando estado de movimientos de caja...")
-                    
-                    cursor.execute("""
-                        SELECT ID_Movimiento, Monto, Tipo_Movimiento, Estado, Descripcion, Es_Ajuste
-                        FROM caja_movimientos 
-                        WHERE ID_Factura = %s AND Estado = 'ACTIVO'
-                        ORDER BY Fecha DESC
-                    """, (id_factura,))
-                    
-                    movimientos_existentes = cursor.fetchall()
-                    
-                    if movimientos_existentes:
-                        for movimiento in movimientos_existentes:
-                            cursor.execute("""
-                                UPDATE caja_movimientos 
-                                SET Estado = 'ANULADO',
-                                    Fecha_Anulacion = NOW(),
-                                    ID_Usuario_Anula = %s,
-                                    Comentario_Ajuste = CONCAT(
-                                        COALESCE(Comentario_Ajuste, ''), 
-                                        ' | ANULADO POR ANULACIÓN DE VENTA #', %s, ': ', %s
-                                    )
-                                WHERE ID_Movimiento = %s AND Estado = 'ACTIVO'
-                            """, (id_usuario, id_factura, motivo_anulacion, movimiento['ID_Movimiento']))
-                            
-                            if cursor.rowcount > 0:
-                                movimientos_caja_anulados += 1
-                                monto_total_revertido += float(movimiento['Monto'])
-                    
-                    print(f"✅ Movimientos de caja anulados: {movimientos_caja_anulados}")
+                print(f"💰 Anulando movimientos de caja para factura #{id_factura}...")
+                
+                cursor.execute("""
+                    SELECT ID_Movimiento, Monto, Tipo_Movimiento, Estado, Descripcion, Es_Ajuste
+                    FROM caja_movimientos 
+                    WHERE (ID_Factura = %s OR Referencia_Documento = %s) AND Estado = 'ACTIVO'
+                    ORDER BY Fecha DESC
+                """, (id_factura, f'FAC-{id_factura:05d}'))
+                
+                movimientos_existentes = cursor.fetchall()
+                
+                if movimientos_existentes:
+                    for movimiento in movimientos_existentes:
+                        cursor.execute("""
+                            UPDATE caja_movimientos 
+                            SET Estado = 'ANULADO',
+                                Fecha_Anulacion = NOW(),
+                                ID_Usuario_Anula = %s,
+                                Comentario_Ajuste = CONCAT(
+                                    COALESCE(Comentario_Ajuste, ''), 
+                                    CASE WHEN Comentario_Ajuste IS NOT NULL AND Comentario_Ajuste != '' THEN ' | ' ELSE '' END,
+                                    'ANULADO POR ANULACIÓN DE VENTA #', %s, ': ', %s
+                                )
+                            WHERE ID_Movimiento = %s AND Estado = 'ACTIVO'
+                        """, (id_usuario, id_factura, motivo_anulacion, movimiento['ID_Movimiento']))
+                        
+                        if cursor.rowcount > 0:
+                            movimientos_caja_anulados += 1
+                            monto_total_revertido += float(movimiento['Monto'] or 0)
+                
+                print(f"✅ Movimientos de caja anulados: {movimientos_caja_anulados}, Total monto: C${monto_total_revertido:,.2f}")
                 
                 # 4. MODIFICAR EL MOVIMIENTO DE INVENTARIO ORIGINAL (NO CREAR NUEVO)
                 if not venta['id_movimiento_original']:
@@ -2071,15 +2071,32 @@ def admin_anular_venta(id_factura):
 def admin_facturas_ventas():
     try:
         # Obtener parámetros de filtro
-        filtro = request.args.get('filtro', 'mes')
+        vista = request.args.get('vista', 'general')  # general, vendedores, detalle_vendedor, detalle_factura
+        filtro_default = 'hoy' if vista == 'vendedores' else 'mes'
+        filtro = request.args.get('filtro', filtro_default)
+        filtro_asignacion = request.args.get('filtro_asignacion', 'dia' if vista == 'vendedores' else 'todas')  # 'dia', 'activas', 'todas'
+        id_ruta_filtro = request.args.get('id_ruta', '')
+        id_vendedor_filtro = request.args.get('id_vendedor_filtro', '')
         fecha_inicio = request.args.get('fecha_inicio', '')
         fecha_fin = request.args.get('fecha_fin', '')
-        vista = request.args.get('vista', 'general')  # general, vendedores, detalle_vendedor, detalle_factura
         id_vendedor = request.args.get('id_vendedor', '')
         estado_factura = request.args.get('estado', 'todas')  # todas, activas, anuladas
         
         with get_db_cursor() as cursor:
-            # Construir condición WHERE según el filtro
+            # Rutas y vendedores activos para los filtros
+            cursor.execute("SELECT ID_Ruta, Nombre_Ruta FROM rutas WHERE Estado = 'Activa' ORDER BY Nombre_Ruta")
+            rutas_disponibles = cursor.fetchall()
+            
+            cursor.execute("""
+                SELECT ID_Usuario, NombreUsuario 
+                FROM usuarios 
+                WHERE ID_Rol = (SELECT ID_Rol FROM roles WHERE Nombre_Rol = 'Vendedor' LIMIT 1) 
+                  AND Estado = 'Activo' 
+                ORDER BY NombreUsuario
+            """)
+            lista_vendedores = cursor.fetchall()
+
+            # Construir condición WHERE según el filtro de fechas
             where_condition_ruta = ""
             where_condition_local = ""
             params = []
@@ -2096,6 +2113,9 @@ def admin_facturas_ventas():
             elif filtro == 'mes':
                 where_condition_ruta = "AND fr.Fecha BETWEEN DATE_FORMAT(CURDATE(), '%Y-%m-01') AND LAST_DAY(CURDATE())"
                 where_condition_local = "AND f.Fecha BETWEEN DATE_FORMAT(CURDATE(), '%Y-%m-01') AND LAST_DAY(CURDATE())"
+            elif filtro == 'todas':
+                where_condition_ruta = ""
+                where_condition_local = ""
             elif filtro == 'rango' and fecha_inicio and fecha_fin:
                 where_condition_ruta = "AND fr.Fecha BETWEEN %s AND %s"
                 where_condition_local = "AND f.Fecha BETWEEN %s AND %s"
@@ -2272,6 +2292,11 @@ def admin_facturas_ventas():
                     total_local=total_local,
                     total_anuladas=total_anuladas,
                     filtro_actual=filtro,
+                    filtro_asignacion=filtro_asignacion,
+                    id_ruta_filtro=id_ruta_filtro,
+                    id_vendedor_filtro=id_vendedor_filtro,
+                    rutas_disponibles=rutas_disponibles,
+                    lista_vendedores=lista_vendedores,
                     fecha_inicio=fecha_inicio,
                     fecha_fin=fecha_fin,
                     fechas_grafico=[f.strftime('%Y-%m-%d') if hasattr(f, 'strftime') else str(f) for f in fechas],
@@ -2283,20 +2308,29 @@ def admin_facturas_ventas():
             
             # ============ VISTA VENDEDORES ASIGNADOS ============
             elif vista == 'vendedores':
-                # Preparar parámetros separados para cada consulta
-                params_ruta = [session.get('empresa_id',1)]
-                params_local = [session.get('empresa_id',1)]
+                # Construir condiciones para asignaciones
+                asignacion_cond = ""
+                asignacion_params = []
                 
-                if params and len(params) > 0:
-                    params_ruta.extend(params)
-                    params_local.extend(params)
+                if filtro_asignacion == 'dia':
+                    asignacion_cond += " AND (av.Fecha_Asignacion = CURDATE() OR (av.Fecha_Asignacion <= CURDATE() AND (av.Fecha_Finalizacion >= CURDATE() OR av.Fecha_Finalizacion IS NULL) AND av.Estado = 'Activa'))"
+                elif filtro_asignacion == 'activas':
+                    asignacion_cond += " AND av.Estado = 'Activa'"
                 
-                # Construir las condiciones WHERE con formato adecuado
+                if id_ruta_filtro:
+                    asignacion_cond += " AND av.ID_Ruta = %s"
+                    asignacion_params.append(id_ruta_filtro)
+                
+                if id_vendedor_filtro:
+                    asignacion_cond += " AND av.ID_Usuario = %s"
+                    asignacion_params.append(id_vendedor_filtro)
+
+                # Construir las condiciones WHERE de facturación
                 where_condition_ruta_formatted = where_condition_ruta + " " if where_condition_ruta else ""
                 where_condition_local_formatted = where_condition_local + " " if where_condition_local else ""
                 
                 # 1. Vendedores de RUTA con sus asignaciones
-                query_vendedores_ruta = """
+                query_vendedores_ruta = f"""
                     SELECT 
                         'RUTA' AS tipo_vendedor,
                         u.ID_Usuario,
@@ -2306,6 +2340,11 @@ def admin_facturas_ventas():
                         av.Fecha_Asignacion,
                         av.Fecha_Finalizacion,
                         av.Estado AS estado_asignacion,
+                        (CASE 
+                            WHEN av.Fecha_Asignacion = CURDATE() THEN 1 
+                            WHEN (av.Fecha_Asignacion <= CURDATE() AND (av.Fecha_Finalizacion >= CURDATE() OR av.Fecha_Finalizacion IS NULL) AND av.Estado = 'Activa') THEN 1 
+                            ELSE 0 
+                        END) AS es_hoy,
                         av.Hora_Inicio,
                         av.Hora_Fin,
                         v.Placa AS vehiculo_placa,
@@ -2316,20 +2355,27 @@ def admin_facturas_ventas():
                         SUM(CASE WHEN fr.Estado = 'Anulada' THEN 1 ELSE 0 END) AS facturas_anuladas,
                         MAX(fr.Fecha) AS ultima_venta
                     FROM usuarios u
-                    INNER JOIN asignacion_vendedores av ON u.ID_Usuario = av.ID_Usuario
+                    INNER JOIN asignacion_vendedores av ON u.ID_Usuario = av.ID_Usuario {asignacion_cond}
                     INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
                     LEFT JOIN vehiculos v ON av.ID_Vehiculo = v.ID_Vehiculo
-                    LEFT JOIN facturacion_ruta fr ON av.ID_Asignacion = fr.ID_Asignacion
-                        """ + where_condition_ruta_formatted + """
+                    LEFT JOIN facturacion_ruta fr ON av.ID_Asignacion = fr.ID_Asignacion {where_condition_ruta_formatted}
                     LEFT JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
                     WHERE u.ID_Empresa = %s
                         AND u.ID_Rol = (SELECT ID_Rol FROM roles WHERE Nombre_Rol = 'Vendedor' LIMIT 1)
                     GROUP BY u.ID_Usuario, av.ID_Asignacion, r.ID_Ruta, v.ID_Vehiculo
-                    ORDER BY total_vendido DESC, u.NombreUsuario
+                    ORDER BY es_hoy DESC, av.Fecha_Asignacion DESC, (CASE WHEN av.Estado = 'Activa' THEN 1 ELSE 2 END) ASC, total_vendido DESC, u.NombreUsuario
                 """
                 
                 # 2. Vendedores de LOCAL
-                query_vendedores_local = """
+                cond_vendedor_local = ""
+                params_local = [session.get('empresa_id', 1)]
+                if id_vendedor_filtro:
+                    cond_vendedor_local = " AND u.ID_Usuario = %s"
+                    params_local.append(id_vendedor_filtro)
+                if params and len(params) > 0:
+                    params_local.extend(params)
+                
+                query_vendedores_local = f"""
                     SELECT 
                         'LOCAL' AS tipo_vendedor,
                         u.ID_Usuario,
@@ -2339,6 +2385,7 @@ def admin_facturas_ventas():
                         NULL AS Fecha_Asignacion,
                         NULL AS Fecha_Finalizacion,
                         'Activa' AS estado_asignacion,
+                        1 AS es_hoy,
                         NULL AS Hora_Inicio,
                         NULL AS Hora_Fin,
                         NULL AS vehiculo_placa,
@@ -2353,10 +2400,15 @@ def admin_facturas_ventas():
                     LEFT JOIN detalle_facturacion df ON f.ID_Factura = df.ID_Factura
                     WHERE u.ID_Empresa = %s
                         AND u.ID_Rol = (SELECT ID_Rol FROM roles WHERE Nombre_Rol = 'Vendedor' LIMIT 1)
-                        """ + where_condition_local_formatted + """
+                        {cond_vendedor_local}
+                        {where_condition_local_formatted}
                     GROUP BY u.ID_Usuario
                     ORDER BY total_vendido DESC, u.NombreUsuario
                 """
+                
+                params_ruta = asignacion_params + [session.get('empresa_id', 1)]
+                if params and len(params) > 0:
+                    params_ruta.extend(params)
                 
                 # Ejecutar consultas con parámetros correctos
                 cursor.execute(query_vendedores_ruta, params_ruta)
@@ -2383,6 +2435,11 @@ def admin_facturas_ventas():
                     total_vendido_local=total_vendido_local,
                     total_anuladas=total_anuladas,
                     filtro_actual=filtro,
+                    filtro_asignacion=filtro_asignacion,
+                    id_ruta_filtro=id_ruta_filtro,
+                    id_vendedor_filtro=id_vendedor_filtro,
+                    rutas_disponibles=rutas_disponibles,
+                    lista_vendedores=lista_vendedores,
                     fecha_inicio=fecha_inicio,
                     fecha_fin=fecha_fin
                 )
@@ -2903,7 +2960,132 @@ def admin_anular_factura():
                                 VALUES (%s, %s, %s)
                             """, (id_bodega, id_producto, cantidad))
                 
-                # ============ 3. CANCELAR PEDIDO SI EXISTE ============
+                # ============ 3. ANULAR MOVIMIENTOS DE CAJA (EFECTIVO) ============
+                monto_caja_anulado = 0.0
+                if tipo == 'ruta':
+                    # Anular en movimientos_caja_ruta (Caja del vendedor de la ruta)
+                    cursor.execute("""
+                        SELECT ID_Movimiento, Monto 
+                        FROM movimientos_caja_ruta 
+                        WHERE ID_FacturaRuta = %s AND Estado = 'ACTIVO'
+                    """, (id_factura,))
+                    movs_caja_ruta = cursor.fetchall()
+                    for mcr in movs_caja_ruta:
+                        monto_caja_anulado += float(mcr['Monto'] or 0)
+                    
+                    if movs_caja_ruta:
+                        cursor.execute("""
+                            UPDATE movimientos_caja_ruta 
+                            SET Estado = 'ANULADO'
+                            WHERE ID_FacturaRuta = %s AND Estado = 'ACTIVO'
+                        """, (id_factura,))
+                    
+                    # Buscar y anular si existiera algún registro en caja_movimientos general para la factura de ruta
+                    cursor.execute("""
+                        SELECT ID_Movimiento, Monto 
+                        FROM caja_movimientos 
+                        WHERE (Referencia_Documento = %s OR Referencia_Documento = %s)
+                        AND Estado = 'ACTIVO'
+                    """, (f'RUT-{id_factura:05d}', f'RUT-{id_factura}'))
+                    movs_caja = cursor.fetchall()
+                    for mc in movs_caja:
+                        monto_caja_anulado += float(mc['Monto'] or 0)
+                    
+                    if movs_caja:
+                        cursor.execute("""
+                            UPDATE caja_movimientos 
+                            SET Estado = 'ANULADO',
+                                Fecha_Anulacion = NOW(),
+                                ID_Usuario_Anula = %s,
+                                Comentario_Ajuste = CONCAT(
+                                    COALESCE(Comentario_Ajuste, ''), 
+                                    CASE WHEN Comentario_Ajuste IS NOT NULL AND Comentario_Ajuste != '' THEN ' | ' ELSE '' END,
+                                    %s
+                                )
+                            WHERE (Referencia_Documento = %s OR Referencia_Documento = %s)
+                            AND Estado = 'ACTIVO'
+                        """, (user_id, f'ANULADO POR ANULACIÓN DE FACTURA RUTA #{id_factura}: {motivo}', f'RUT-{id_factura:05d}', f'RUT-{id_factura}'))
+                else:
+                    # Factura local: anular movimientos de caja asociados a la factura
+                    cursor.execute("""
+                        SELECT ID_Movimiento, Monto 
+                        FROM caja_movimientos 
+                        WHERE (ID_Factura = %s OR Referencia_Documento = %s)
+                        AND Estado = 'ACTIVO'
+                    """, (id_factura, f'FAC-{id_factura:05d}'))
+                    movs_caja = cursor.fetchall()
+                    for mc in movs_caja:
+                        monto_caja_anulado += float(mc['Monto'] or 0)
+                    
+                    if movs_caja:
+                        cursor.execute("""
+                            UPDATE caja_movimientos 
+                            SET Estado = 'ANULADO',
+                                Fecha_Anulacion = NOW(),
+                                ID_Usuario_Anula = %s,
+                                Comentario_Ajuste = CONCAT(
+                                    COALESCE(Comentario_Ajuste, ''), 
+                                    CASE WHEN Comentario_Ajuste IS NOT NULL AND Comentario_Ajuste != '' THEN ' | ' ELSE '' END,
+                                    %s
+                                )
+                            WHERE (ID_Factura = %s OR Referencia_Documento = %s)
+                            AND Estado = 'ACTIVO'
+                        """, (user_id, f'ANULADO POR ANULACIÓN DE FACTURA #{id_factura}: {motivo}', id_factura, f'FAC-{id_factura:05d}'))
+
+                # ============ 4. ANULAR CUENTAS POR COBRAR ASOCIADAS ============
+                if tipo == 'ruta':
+                    cursor.execute("""
+                        SELECT ID_Movimiento, Saldo_Pendiente, ID_Cliente 
+                        FROM cuentas_por_cobrar 
+                        WHERE ID_FacturaRuta = %s AND Estado != 'Anulada'
+                    """, (id_factura,))
+                else:
+                    cursor.execute("""
+                        SELECT ID_Movimiento, Saldo_Pendiente, ID_Cliente 
+                        FROM cuentas_por_cobrar 
+                        WHERE ID_Factura = %s AND Estado != 'Anulada'
+                    """, (id_factura,))
+                cxc_list = cursor.fetchall()
+
+                for cxc in cxc_list:
+                    id_cxc = cxc['ID_Movimiento']
+                    saldo_cxc = float(cxc['Saldo_Pendiente'] or 0)
+                    id_cliente = cxc['ID_Cliente']
+                    
+                    cursor.execute("""
+                        UPDATE cuentas_por_cobrar 
+                        SET Estado = 'Anulada',
+                            Saldo_Pendiente = 0,
+                            Observacion = CONCAT(
+                                COALESCE(Observacion, ''), 
+                                ' | [ANULADA POR ANULACION DE FACTURA #', %s, ': ', %s, ']'
+                            )
+                        WHERE ID_Movimiento = %s
+                    """, (id_factura, motivo, id_cxc))
+                    
+                    if saldo_cxc > 0 and id_cliente:
+                        cursor.execute("""
+                            UPDATE clientes 
+                            SET Saldo_Pendiente_Total = GREATEST(0, COALESCE(Saldo_Pendiente_Total, 0) - %s),
+                                Fecha_Ultimo_Movimiento = NOW()
+                            WHERE ID_Cliente = %s
+                        """, (saldo_cxc, id_cliente))
+                    
+                    # Anular posibles movimientos en caja generados por pagos de esta CxC
+                    cursor.execute("""
+                        UPDATE caja_movimientos 
+                        SET Estado = 'ANULADO',
+                            Fecha_Anulacion = NOW(),
+                            ID_Usuario_Anula = %s,
+                            Comentario_Ajuste = CONCAT(
+                                COALESCE(Comentario_Ajuste, ''), 
+                                ' | ANULADO POR ANULACIÓN DE CXC #', %s, ' (FACTURA #', %s, ')'
+                            )
+                        WHERE ID_Pagos_cxc IN (SELECT ID_Pago FROM pagos_cxc WHERE ID_Movimiento = %s)
+                        AND Estado = 'ACTIVO'
+                    """, (user_id, id_cxc, id_factura, id_cxc))
+
+                # ============ 5. CANCELAR PEDIDO SI EXISTE ============
                 if factura.get('ID_Pedido'):
                     cursor.execute("""
                         UPDATE pedidos 
@@ -2913,7 +3095,7 @@ def admin_anular_factura():
                         WHERE ID_Pedido = %s
                     """, (id_factura, factura['ID_Pedido']))
                 
-                # ============ 4. REGISTRAR EN LOG ============
+                # ============ 6. REGISTRAR EN LOG ============
                 cursor.execute("""
                     INSERT INTO log_anulaciones 
                     (ID_Factura, Tipo, Motivo, ID_Usuario_Anula, Fecha_Anulacion, ID_Empresa)
@@ -2927,12 +3109,14 @@ def admin_anular_factura():
                 total_cantidad = sum(float(d['Cantidad']) for d in detalles)
                 total_monto = sum(float(d['Total']) for d in detalles if d['Total'])
                 
+                caja_msg = f' y C${monto_caja_anulado:,.2f} anulados de caja' if monto_caja_anulado > 0 else ''
+                
                 if tipo == 'ruta':
-                    mensaje = 'Factura de ruta #{} anulada. {} unidades devueltas al inventario.'.format(
-                        id_factura, total_cantidad)
+                    mensaje = 'Factura de ruta #{} anulada. {} unidades devueltas al inventario{}.'.format(
+                        id_factura, total_cantidad, caja_msg)
                 else:
-                    mensaje = 'Factura de local #{} anulada. Movimiento #{} modificado. {} unidades devueltas. Monto: C${:,.2f}'.format(
-                        id_factura, id_movimiento_original, total_cantidad, total_monto)
+                    mensaje = 'Factura de local #{} anulada. Movimiento #{} modificado. {} unidades devueltas. Monto: C${:,.2f}{}.'.format(
+                        id_factura, id_movimiento_original, total_cantidad, total_monto, caja_msg)
                 
                 if id_vendedor:
                     redirect_url = url_for('admin.admin_facturas_ventas', vista='detalle_vendedor',

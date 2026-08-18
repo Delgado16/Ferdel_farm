@@ -286,15 +286,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Auto-cerrar alertas
+    // Auto-cerrar alertas flash descartables
     function setupAutoCloseAlerts() {
-        const alerts = document.querySelectorAll('.alert');
+        const alerts = document.querySelectorAll('.alert-dismissible:not(.alert-permanent):not([data-permanent])');
         alerts.forEach(alert => {
             setTimeout(() => {
                 if (alert && alert.parentNode) {
                     try {
                         const bsAlert = bootstrap.Alert.getOrCreateInstance(alert);
-                        bsAlert.close();
+                        if (bsAlert) bsAlert.close();
                     } catch (e) {
                         // Fallback
                         alert.style.opacity = '0';

@@ -181,10 +181,20 @@
                         
                         <!-- Listado de Productos a Transferir -->
                         <div class="mt-4 pt-3 border-top">
-                            <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
                                 <h5 class="fw-bold text-slate-800 mb-0">
                                     <i class="fas fa-boxes text-warning me-2"></i>Productos a Cargar
                                 </h5>
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-outline-warning text-dark btn-sm rounded-3 fw-bold shadow-sm" 
+                                            id="btn-cargar-todos" onclick="cargarTodosLosProductos()" disabled>
+                                        <i class="fas fa-layer-group me-1 text-warning"></i> Cargar Todos con Stock
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-3" 
+                                            id="btn-limpiar-tabla" onclick="limpiarTablaProductos()" style="display: none;">
+                                        <i class="fas fa-trash-alt me-1"></i> Vaciar
+                                    </button>
+                                </div>
                             </div>
                             
                             <div class="table-responsive border rounded-3">
@@ -192,8 +202,8 @@
                                     <thead>
                                         <tr class="table-light">
                                             <th>Producto</th>
-                                            <th class="text-center" style="width: 130px;">Stock Disponible</th>
-                                            <th class="text-center" style="width: 160px;">Cantidad a Cargar</th>
+                                            <th class="text-center" style="width: 140px;">Stock Disponible</th>
+                                            <th class="text-center" style="width: 200px;">Cantidad a Cargar</th>
                                             <th class="text-center" style="width: 60px;"></th>
                                         </tr>
                                     </thead>
@@ -205,7 +215,7 @@
                             
                             <div id="mensaje-vacio" class="text-center text-muted py-4 border rounded-3 mt-2 bg-light">
                                 <i class="fas fa-box-open fa-2x mb-2 text-slate-300"></i>
-                                <p class="small mb-0">Seleccione la bodega de origen y haga clic en un producto de la derecha para agregarlo.</p>
+                                <p class="small mb-0" id="mensaje-vacio-texto">Seleccione la bodega de origen y haga clic en un producto de la derecha para agregarlo.</p>
                             </div>
                             
                             <input type="hidden" name="productos" id="productos-json" value="[]" required>
@@ -235,14 +245,14 @@
                     <span id="contador-disponibles" class="badge bg-light text-dark border font-monospace stock-badge-premium">0</span>
                 </div>
                 <div class="card-body p-3">
-                    <div class="alert alert-warning border-0 rounded-3 small py-2" id="alerta-origen">
+                    <div class="alert alert-warning alert-permanent border-0 rounded-3 small py-2 mb-3" id="alerta-origen" data-permanent="true">
                         <i class="fas fa-exclamation-triangle me-1"></i>
                         <span id="texto-estado">Seleccione bodega origen</span>
                     </div>
                     
                     <div class="input-group input-group-sm mb-3">
                         <input type="text" id="buscar-producto-bodega" class="form-control form-control-premium" 
-                               placeholder="Buscar producto..." disabled>
+                               placeholder="Buscar producto por nombre o código..." disabled>
                         <button class="btn btn-primary" type="button" id="btn-buscar" disabled>
                             <i class="fas fa-search"></i>
                         </button>
@@ -303,7 +313,9 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('select-asignacion-destino').addEventListener('change', habilitarBotonGuardar);
     document.getElementById('btn-buscar').addEventListener('click', filtrarProductos);
     
-    document.getElementById('buscar-producto-bodega').addEventListener('keypress', function(e) {
+    const buscarInput = document.getElementById('buscar-producto-bodega');
+    buscarInput.addEventListener('input', filtrarProductos);
+    buscarInput.addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
             e.preventDefault();
             filtrarProductos();
@@ -317,10 +329,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function actualizarMensajeVacio() {
     const mensaje = document.getElementById('mensaje-vacio');
+    const mensajeTexto = document.getElementById('mensaje-vacio-texto');
+    const btnLimpiar = document.getElementById('btn-limpiar-tabla');
+    const bodegaOrigen = document.getElementById('select-bodega-origen').value;
+    
     if (productosCarga.length === 0) {
         mensaje.style.display = 'block';
+        if (btnLimpiar) btnLimpiar.style.display = 'none';
+        
+        if (!bodegaOrigen) {
+            mensajeTexto.innerHTML = '<i class="fas fa-warehouse text-warning me-1"></i> Seleccione primero la <strong>bodega de origen</strong> arriba.';
+        } else if (productosDisponibles.length === 0) {
+            mensajeTexto.innerHTML = '<i class="fas fa-exclamation-triangle text-danger me-1"></i> No hay productos con existencias en esta bodega.';
+        } else {
+            mensajeTexto.innerHTML = `✨ Se encontraron <strong>${productosDisponibles.length} productos</strong> con stock. Haga clic en los productos de la derecha o pulse <button type="button" class="btn btn-warning btn-sm py-0 px-2 fw-bold text-dark mx-1" onclick="cargarTodosLosProductos()">Cargar Todos con Stock</button> para agregarlos.`;
+        }
     } else {
         mensaje.style.display = 'none';
+        if (btnLimpiar) btnLimpiar.style.display = 'inline-block';
     }
 }
 
@@ -328,56 +354,80 @@ function actualizarEstado() {
     const estadoTexto = document.getElementById('texto-estado');
     const alertaOrigen = document.getElementById('alerta-origen');
     const contador = document.getElementById('contador-disponibles');
-    const bodegaOrigen = document.getElementById('select-bodega-origen').value;
+    const btnCargarTodos = document.getElementById('btn-cargar-todos');
+    const bodegaOrigen = document.getElementById('select-bodega-origen') ? document.getElementById('select-bodega-origen').value : '';
     
     if (!bodegaOrigen) {
-        if (alertaOrigen) alertaOrigen.style.display = 'block';
-        estadoTexto.textContent = 'Seleccione bodega origen';
-        contador.textContent = '0';
+        if (alertaOrigen) {
+            alertaOrigen.className = 'alert alert-warning alert-permanent border-0 rounded-3 small py-2 mb-3';
+            alertaOrigen.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i> <span>Seleccione bodega origen</span>';
+        }
+        if (contador) contador.textContent = '0';
+        if (btnCargarTodos) btnCargarTodos.disabled = true;
     } else if (productosDisponibles.length === 0) {
-        if (alertaOrigen) alertaOrigen.style.display = 'none';
-        estadoTexto.textContent = 'Cargando...';
-        contador.textContent = '0';
+        if (alertaOrigen) {
+            alertaOrigen.className = 'alert alert-secondary alert-permanent border-0 rounded-3 small py-2 mb-3';
+            alertaOrigen.innerHTML = '<i class="fas fa-info-circle me-1"></i> <span>Sin productos con existencias</span>';
+        }
+        if (contador) contador.textContent = '0';
+        if (btnCargarTodos) btnCargarTodos.disabled = true;
     } else {
-        if (alertaOrigen) alertaOrigen.style.display = 'none';
-        estadoTexto.textContent = 'Productos disponibles';
-        contador.textContent = productosDisponibles.length;
+        if (alertaOrigen) {
+            alertaOrigen.className = 'alert alert-success alert-permanent border-0 rounded-3 small py-2 mb-3';
+            alertaOrigen.innerHTML = `<i class="fas fa-check-circle me-1"></i> <span>${productosDisponibles.length} productos con stock listos</span>`;
+        }
+        if (contador) contador.textContent = productosDisponibles.length;
+        if (btnCargarTodos) btnCargarTodos.disabled = false;
     }
 }
 
 function cargarProductosBodega() {
-    const bodegaId = document.getElementById('select-bodega-origen').value;
+    const bodegaSelect = document.getElementById('select-bodega-origen');
+    const bodegaId = bodegaSelect ? bodegaSelect.value : '';
     const lista = document.getElementById('lista-productos-bodega');
     const buscarInput = document.getElementById('buscar-producto-bodega');
     const btnBuscar = document.getElementById('btn-buscar');
+    const alertaOrigen = document.getElementById('alerta-origen');
     
     productosDisponibles = [];
     productosCarga = [];
     dibujarTabla();
-    actualizarEstado();
     
     if (!bodegaId) {
-        lista.innerHTML = `
-            <div class="text-center text-muted py-4">
-                <i class="fas fa-warehouse fa-2x mb-2 text-slate-300"></i>
-                <p class="small mb-0">Seleccione bodega origen para ver productos</p>
-            </div>
-        `;
-        buscarInput.disabled = true;
-        btnBuscar.disabled = true;
-        buscarInput.value = '';
+        if (lista) {
+            lista.innerHTML = `
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-warehouse fa-2x mb-2 text-slate-300"></i>
+                    <p class="small mb-0">Seleccione bodega origen para ver productos</p>
+                </div>
+            `;
+        }
+        if (buscarInput) {
+            buscarInput.disabled = true;
+            buscarInput.value = '';
+        }
+        if (btnBuscar) btnBuscar.disabled = true;
+        actualizarEstado();
+        actualizarMensajeVacio();
         return;
     }
     
-    lista.innerHTML = `
-        <div class="text-center py-4">
-            <div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div>
-            <p class="small text-muted mb-0">Obteniendo productos con existencias...</p>
-        </div>
-    `;
+    if (alertaOrigen) {
+        alertaOrigen.className = 'alert alert-info alert-permanent border-0 rounded-3 small py-2 mb-3';
+        alertaOrigen.innerHTML = '<div class="spinner-border spinner-border-sm text-primary me-1" role="status"></div> <span>Obteniendo productos con existencias...</span>';
+    }
     
-    buscarInput.disabled = false;
-    btnBuscar.disabled = false;
+    if (lista) {
+        lista.innerHTML = `
+            <div class="text-center py-4">
+                <div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div>
+                <p class="small text-muted mb-0">Obteniendo productos con existencias...</p>
+            </div>
+        `;
+    }
+    
+    if (buscarInput) buscarInput.disabled = false;
+    if (btnBuscar) btnBuscar.disabled = false;
     
     const apiUrl = getProductosBodegaUrl(bodegaId);
     
@@ -394,7 +444,7 @@ function cargarProductosBodega() {
             if (productosDisponibles.length === 0) {
                 lista.innerHTML = `
                     <div class="text-center text-muted py-4 small">
-                        <i class="fas fa-box fa-2x mb-2 text-slate-300"></i><br>No hay productos en esta bodega
+                        <i class="fas fa-box fa-2x mb-2 text-slate-300"></i><br>No hay productos con existencias en esta bodega
                     </div>
                 `;
             } else {
@@ -402,51 +452,59 @@ function cargarProductosBodega() {
             }
             
             actualizarEstado();
+            actualizarMensajeVacio();
         })
         .catch(error => {
             console.error('Error:', error);
             lista.innerHTML = `
                 <div class="text-center text-danger py-4 small">
-                    <i class="fas fa-exclamation-circle fa-2x mb-2"></i><br>Error al obtener productos
+                    <i class="fas fa-exclamation-circle fa-2x mb-2"></i><br>Error al obtener productos: ${error.message}
                 </div>
             `;
-            actualizarEstado();
+            alertaOrigen.className = 'alert alert-danger border-0 rounded-3 small py-2 mb-3';
+            alertaOrigen.innerHTML = '<i class="fas fa-exclamation-circle me-1"></i> <span>Error al consultar existencias</span>';
+            actualizarMensajeVacio();
         });
 }
 
 function mostrarProductos(productos) {
     const lista = document.getElementById('lista-productos-bodega');
     if (!productos || productos.length === 0) {
-        lista.innerHTML = '<div class="text-center text-muted py-3 small">No hay productos</div>';
+        lista.innerHTML = '<div class="text-center text-muted py-3 small">No se encontraron productos</div>';
         return;
     }
     
     const agregados = obtenerProductosAgregados();
-    const disponibles = productos.filter(p => !agregados.includes(p.ID_Producto.toString()));
-    
-    if (disponibles.length === 0) {
-        lista.innerHTML = `
-            <div class="text-center text-success py-4 small">
-                <i class="fas fa-check-circle fa-2x mb-2"></i><br>Todos los productos agregados
-            </div>
-        `;
-        return;
-    }
     
     let html = '';
-    disponibles.forEach(producto => {
+    productos.forEach(producto => {
+        const yaAgregado = agregados.includes(producto.ID_Producto.toString());
         const stock = parseFloat(producto.Existencias || producto.Stock_Bodega || 0);
+        const unidad = escapeHtml(producto.Unidad_Abreviatura || producto.Unidad_Descripcion || '');
+        
         html += `
-            <a href="#" class="list-group-item list-group-item-action product-search-item p-2" 
-               onclick="seleccionarProducto(${producto.ID_Producto}); return false;">
+            <div class="list-group-item list-group-item-action product-search-item p-2.5 ${yaAgregado ? 'bg-light opacity-75' : ''}" 
+                 style="cursor: pointer;"
+                 onclick="seleccionarProducto(${producto.ID_Producto})">
                 <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <strong class="small text-slate-800">${escapeHtml(producto.Descripcion)}</strong>
-                        <div class="micro-text text-muted font-monospace mt-1">Cód: ${escapeHtml(producto.COD_Producto || '-')}</div>
+                    <div class="me-2" style="flex: 1;">
+                        <div class="d-flex align-items-center gap-1">
+                            <strong class="small text-slate-800">${escapeHtml(producto.Descripcion)}</strong>
+                            ${yaAgregado ? '<span class="badge bg-success-subtle text-success border border-success-subtle micro-text"><i class="fas fa-check me-0.5"></i>Agregado</span>' : ''}
+                        </div>
+                        <div class="micro-text text-muted font-monospace mt-0.5">
+                            Cód: ${escapeHtml(producto.COD_Producto || '-')}
+                            ${producto.Categoria_Descripcion ? ' • ' + escapeHtml(producto.Categoria_Descripcion) : ''}
+                        </div>
                     </div>
-                    <span class="badge bg-light text-dark border stock-badge-premium">${stock.toFixed(2)}</span>
+                    <div class="text-end">
+                        <span class="badge bg-white text-dark border stock-badge-premium font-monospace">${stock.toFixed(2)} ${unidad}</span>
+                        <div class="micro-text text-primary mt-1 fw-bold">
+                            <i class="fas fa-plus me-0.5"></i>Agregar
+                        </div>
+                    </div>
                 </div>
-            </a>
+            </div>
         `;
     });
     
@@ -474,7 +532,8 @@ function filtrarProductos() {
     const filtrados = productosDisponibles.filter(p => {
         const desc = (p.Descripcion || '').toLowerCase();
         const cod = (p.COD_Producto || '').toLowerCase();
-        return desc.includes(query) || cod.includes(query);
+        const cat = (p.Categoria_Descripcion || '').toLowerCase();
+        return desc.includes(query) || cod.includes(query) || cat.includes(query);
     });
     
     mostrarProductos(filtrados);
@@ -484,25 +543,77 @@ function seleccionarProducto(productoId) {
     const producto = productosDisponibles.find(p => p.ID_Producto === productoId);
     if (!producto) return;
     
+    // Si ya está agregado, podemos saltar o no duplicar
+    const indexExistente = productosCarga.findIndex(p => p.id_producto === productoId);
+    if (indexExistente !== -1) {
+        // Enfocar fila existente
+        const fila = document.getElementById(`fila-prod-${indexExistente}`);
+        if (fila) {
+            fila.classList.add('table-warning');
+            setTimeout(() => fila.classList.remove('table-warning'), 1000);
+            const input = fila.querySelector('input[type="number"]');
+            if (input) input.focus();
+        }
+        return;
+    }
+    
     const stock = parseFloat(producto.Existencias || producto.Stock_Bodega || 0);
     
     productosCarga.push({
         id_producto: producto.ID_Producto,
         descripcion: producto.Descripcion,
         codigo: producto.COD_Producto,
+        unidad: producto.Unidad_Abreviatura || producto.Unidad_Descripcion || '',
         stock: stock,
         cantidad: 1.00
     });
     
     dibujarTabla();
-    mostrarProductos(productosDisponibles);
+    filtrarProductos();
     habilitarBotonGuardar();
+}
+
+function cargarTodosLosProductos() {
+    if (!productosDisponibles || productosDisponibles.length === 0) return;
+    
+    productosCarga = [];
+    productosDisponibles.forEach(producto => {
+        const stock = parseFloat(producto.Existencias || producto.Stock_Bodega || 0);
+        productosCarga.push({
+            id_producto: producto.ID_Producto,
+            descripcion: producto.Descripcion,
+            codigo: producto.COD_Producto,
+            unidad: producto.Unidad_Abreviatura || producto.Unidad_Descripcion || '',
+            stock: stock,
+            cantidad: 1.00
+        });
+    });
+    
+    dibujarTabla();
+    filtrarProductos();
+    habilitarBotonGuardar();
+}
+
+function limpiarTablaProductos() {
+    if (productosCarga.length > 0 && confirm('¿Desea vaciar todos los productos seleccionados de la tabla?')) {
+        productosCarga = [];
+        dibujarTabla();
+        filtrarProductos();
+        habilitarBotonGuardar();
+    }
 }
 
 function removerProducto(index) {
     productosCarga.splice(index, 1);
     dibujarTabla();
-    mostrarProductos(productosDisponibles);
+    filtrarProductos();
+    habilitarBotonGuardar();
+}
+
+function llenarMaximoStock(index) {
+    if (!productosCarga[index]) return;
+    productosCarga[index].cantidad = productosCarga[index].stock;
+    dibujarTabla();
     habilitarBotonGuardar();
 }
 
@@ -532,20 +643,29 @@ function dibujarTabla() {
     
     productosCarga.forEach((prod, index) => {
         const tr = document.createElement('tr');
+        tr.id = `fila-prod-${index}`;
         tr.innerHTML = `
             <td>
                 <div class="fw-bold text-slate-800 small">${escapeHtml(prod.descripcion)}</div>
                 <div class="micro-text text-muted font-monospace mt-0.5">Cód: ${escapeHtml(prod.codigo || '-')}</div>
             </td>
-            <td class="text-center font-monospace small">${prod.stock.toFixed(2)}</td>
+            <td class="text-center font-monospace small">
+                <span class="badge bg-light text-dark border px-2 py-1">${prod.stock.toFixed(2)} ${escapeHtml(prod.unidad || '')}</span>
+            </td>
             <td class="text-center">
-                <input type="number" step="0.01" class="form-control form-control-sm text-center font-monospace" 
-                       value="${prod.cantidad.toFixed(2)}" min="0.01" max="${prod.stock}" 
-                       onchange="cambiarCantidad(${index}, this)" onkeyup="cambiarCantidad(${index}, this)">
+                <div class="input-group input-group-sm justify-content-center mx-auto" style="max-width: 170px;">
+                    <input type="number" step="0.01" class="form-control form-control-sm text-center font-monospace ${prod.cantidad > prod.stock ? 'is-invalid' : ''}" 
+                           value="${prod.cantidad.toFixed(2)}" min="0.01" max="${prod.stock}" 
+                           onchange="cambiarCantidad(${index}, this)" onkeyup="cambiarCantidad(${index}, this)">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" title="Usar stock máximo disponible" 
+                            onclick="llenarMaximoStock(${index})">
+                        Max
+                    </button>
+                </div>
             </td>
             <td class="text-center">
                 <button type="button" class="btn btn-sm btn-outline-danger border-0 rounded-circle" 
-                        onclick="removerProducto(${index})">
+                        title="Eliminar de la lista" onclick="removerProducto(${index})">
                     <i class="fas fa-trash-alt"></i>
                 </button>
             </td>
@@ -563,7 +683,7 @@ function calcularResumen() {
     const estValidacion = document.getElementById('estado-validacion');
     
     let totalItems = productosCarga.length;
-    let totalUnidades = productosCarga.reduce((sum, p) => sum + p.cantidad, 0);
+    let totalUnidades = productosCarga.reduce((sum, p) => sum + (parseFloat(p.cantidad) || 0), 0);
     
     resCantidad.textContent = totalItems;
     resUnidades.textContent = totalUnidades.toFixed(2);
@@ -579,7 +699,7 @@ function calcularResumen() {
         estValidacion.textContent = 'Pendiente';
         estValidacion.className = 'badge bg-secondary font-monospace';
     } else if (tieneErrores) {
-        estValidacion.textContent = 'Error: Invalidas';
+        estValidacion.textContent = 'Error: Inválidas';
         estValidacion.className = 'badge bg-danger font-monospace';
     } else {
         estValidacion.textContent = 'Válido';

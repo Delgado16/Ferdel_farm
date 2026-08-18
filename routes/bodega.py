@@ -1588,6 +1588,7 @@ def verificar_transferencia(id_movimiento):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
 @bodega_bp.route('/bodega/api/inventario/productos-bodega/<int:id_bodega>')
 @admin_or_bodega_required
 def api_productos_bodega_con_stock(id_bodega):
@@ -1596,53 +1597,48 @@ def api_productos_bodega_con_stock(id_bodega):
         id_empresa = session.get('id_empresa', 1)
         
         with get_db_cursor(True) as cursor:
-            # Obtener productos activos
+            # Obtener productos activos con stock en la bodega
             cursor.execute("""
                 SELECT 
                     p.ID_Producto, 
-                    p.Descripcion, 
                     p.COD_Producto,
+                    p.Descripcion, 
                     p.Precio_Mercado as Precio_Venta,
+                    p.Precio_Ruta,
                     um.Descripcion as Unidad_Descripcion,
-                    cp.Descripcion as Categoria_Descripcion
+                    um.Abreviatura as Unidad_Abreviatura,
+                    cp.Descripcion as Categoria_Descripcion,
+                    COALESCE(ib.Existencias, 0) as Existencias,
+                    COALESCE(ib.Existencias, 0) as Stock_Bodega
                 FROM productos p
+                INNER JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto AND ib.ID_Bodega = %s
                 LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
                 LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
-                WHERE p.Estado = 'activo' AND p.ID_Empresa = %s
+                WHERE p.Estado = 'activo' AND p.ID_Empresa = %s AND COALESCE(ib.Existencias, 0) > 0
                 ORDER BY p.Descripcion
-            """, (id_empresa,))
+            """, (id_bodega, id_empresa))
             
-            todos_productos = cursor.fetchall()
+            productos = cursor.fetchall()
             productos_con_stock = []
             
-            for producto in todos_productos:
-                # Obtener stock en esta bodega específica
-                cursor.execute("""
-                    SELECT COALESCE(Existencias, 0) as Existencias
-                    FROM inventario_bodega
-                    WHERE ID_Bodega = %s AND ID_Producto = %s
-                """, (id_bodega, producto['ID_Producto']))
-                
-                stock_result = cursor.fetchone()
-                stock = stock_result['Existencias'] if stock_result else 0
-                
-                if stock > 0:
-                    # Obtener existencias totales usando TU función
-                    existencias_totales = obtener_existencias_producto(producto['ID_Producto'])
-                    
-                    producto['Existencias'] = float(stock)
-                    producto['Stock_Bodega'] = float(stock)
-                    producto['Existencias_Totales'] = float(existencias_totales)
-                    productos_con_stock.append(producto)
+            for producto in productos:
+                p_dict = dict(producto)
+                p_dict['Existencias'] = float(p_dict['Existencias'] or 0)
+                p_dict['Stock_Bodega'] = float(p_dict['Stock_Bodega'] or 0)
+                if p_dict.get('Precio_Venta') is not None:
+                    p_dict['Precio_Venta'] = float(p_dict['Precio_Venta'])
+                productos_con_stock.append(p_dict)
             
             return jsonify({
                 'success': True,
+                'status': 'success',
                 'productos': productos_con_stock,
                 'total': len(productos_con_stock)
             })
             
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        traceback.print_exc()
+        return jsonify({'error': str(e), 'success': False, 'productos': []}), 500
 
 # 8. DETALLE DE MOVIMIENTO
 @bodega_bp.route('/bodega/movimientos/detalle/<int:id_movimiento>')
@@ -2055,6 +2051,29 @@ def bodega_anular_movimiento(id_movimiento):
                     ' | ANULADO: ', %s)
                 WHERE ID_Movimiento = %s
             """, (session.get('user_id'), motivo, id_movimiento))
+            
+            # Si el movimiento pertenecía a una factura de venta, anular la factura y la caja
+            if movimiento.get('ID_Factura_Venta'):
+                id_fac_venta = movimiento['ID_Factura_Venta']
+                cursor.execute("""
+                    UPDATE facturacion 
+                    SET Estado = 'Anulada',
+                        Observacion = CONCAT(COALESCE(Observacion, ''), ' | [ANULADA POR ANULACION DE MOVIMIENTO #', %s, ']')
+                    WHERE ID_Factura = %s
+                """, (id_movimiento, id_fac_venta))
+                
+                cursor.execute("""
+                    UPDATE caja_movimientos 
+                    SET Estado = 'ANULADO',
+                        Fecha_Anulacion = NOW(),
+                        ID_Usuario_Anula = %s,
+                        Comentario_Ajuste = CONCAT(
+                            COALESCE(Comentario_Ajuste, ''), 
+                            CASE WHEN Comentario_Ajuste IS NOT NULL AND Comentario_Ajuste != '' THEN ' | ' ELSE '' END,
+                            'ANULADO POR ANULACIÓN DE MOVIMIENTO #', %s
+                        )
+                    WHERE (ID_Factura = %s OR Referencia_Documento = %s) AND Estado = 'ACTIVO'
+                """, (session.get('user_id'), id_movimiento, id_fac_venta, f'FAC-{id_fac_venta:05d}'))
             
             flash(f"✅ Movimiento #{id_movimiento} anulado exitosamente", 'success')
             

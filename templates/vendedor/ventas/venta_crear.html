@@ -315,28 +315,23 @@
                     <div class="row g-1">
                         <div class="col-6"><strong>Abono:</strong> <span id="abonoModal">C$ 0.00</span></div>
                         <div class="col-6"><strong>Método:</strong> <span id="metodoPagoModal">Efectivo</span></div>
+                        <div class="col-12 mt-1"><strong class="text-success">Nuevo saldo restante:</strong> <span id="nuevoSaldoModalResumen" class="fw-bold">C$ 0.00</span></div>
                     </div>
                 </div>
-                <h6 class="mt-3 mb-2">Detalle de productos:</h6>
-                <div class="table-responsive">
-                    <table class="table table-sm table-bordered" id="tablaResumenProductos">
-                        <thead class="table-light">
-                            <tr>
-                                <th>#</th>
-                                <th>Producto</th>
-                                <th class="text-center">Cant.</th>
-                                <th class="text-end">P.Unit.</th>
-                                <th class="text-end">Subtotal</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tbodyResumenProductos"></tbody>
-                        <tfoot>
-                            <tr class="table-active">
-                                <td colspan="4" class="text-end fw-bold">TOTAL:</td>
-                                <td class="text-end fw-bold text-success" id="totalResumen">C$ 0.00</td>
-                            </tr>
-                        </tfoot>
-                    </table>
+                <div class="d-flex justify-content-between align-items-center mt-3 mb-2">
+                    <h6 class="fw-bold mb-0 text-dark">
+                        <i class="bi bi-box-seam me-1 text-primary"></i>Detalle de productos:
+                    </h6>
+                    <span class="badge bg-primary rounded-pill" id="badgeTotalItemsResumen">0 items</span>
+                </div>
+
+                <div id="contenedorResumenProductos" class="d-flex flex-column gap-2 mb-3" style="max-height: 260px; overflow-y: auto; padding-right: 2px;">
+                    <!-- Lista de productos generada dinámicamente -->
+                </div>
+
+                <div class="p-2.5 px-3 bg-light rounded-3 border d-flex justify-content-between align-items-center mb-2 shadow-sm">
+                    <span class="fw-bold text-muted text-uppercase small">Total de la Venta:</span>
+                    <span class="h4 mb-0 fw-bold text-success" id="totalResumen">C$ 0.00</span>
                 </div>
                 <div id="infoCreditoModal" class="alert alert-warning mt-2" style="display: none;">
                     <i class="bi bi-exclamation-triangle me-2"></i>
@@ -369,7 +364,7 @@
                     <div class="card-body">
                         <h6 class="fw-bold border-bottom pb-1 mb-2">Resumen de Cuentas</h6>
                         <div class="row g-1">
-                            <div class="col-6"><small class="text-muted">Saldo Pendiente Anterior:</small></div>
+                            <div class="col-6"><small class="text-muted">Saldo Anterior:</small></div>
                             <div class="col-6 text-end"><span class="text-danger fw-bold" id="modalSaldoAnterior">C$
                                     0.00</span></div>
                             <div class="row g-1" id="filaNuevaVenta">
@@ -413,17 +408,17 @@
                         <div class="bg-light p-2 rounded mt-2">
                             <h6 class="fw-bold mb-2">Después del Abono:</h6>
                             <div class="row g-1">
-                                <div class="col-6"><small>Nuevo Saldo Pendiente:</small></div>
+                                <div class="col-6"><small>Nuevo Saldo:</small></div>
                                 <div class="col-6 text-end"><span class="fw-bold" id="modalNuevoSaldo">C$ 0.00</span>
                                 </div>
                                 <div class="row g-1" id="filaNuevaVentaDespues">
-                                    <div class="col-6"><small>Total Nueva Venta:</small></div>
+                                    <div class="col-6"><small>Nueva Venta:</small></div>
                                     <div class="col-6 text-end"><span class="fw-bold" id="modalNuevaVentaDespues">C$
                                             0.00</span></div>
                                 </div>
                                 <hr class="my-1">
                                 <div class="row g-1" id="filaTotalFinalDespues">
-                                    <div class="col-6"><strong id="labelTotalFinal">Total Final a Deber:</strong></div>
+                                    <div class="col-6"><strong id="labelTotalFinal">Total a Deber:</strong></div>
                                     <div class="col-6 text-end"><strong class="text-success" id="modalTotalFinal">C$
                                             0.00</strong></div>
                                 </div>
@@ -499,40 +494,7 @@
     </div>
 </div>
 
-<!-- Template para productos en vista móvil -->
-<template id="productoMovilTemplate">
-    <div class="producto-movil-card p-3 mb-2 bg-white rounded shadow-sm">
-        <div class="d-flex justify-content-between align-items-start mb-2">
-            <div>
-                <span class="badge bg-secondary me-1 codigo-badge"></span>
-                <span class="badge bg-primary index-badge"></span>
-            </div>
-            <span class="fw-bold text-success h5 mb-0 subtotal-movil">C$ 0.00</span>
-        </div>
-        <h6 class="mb-2 nombre-producto fw-bold"></h6>
-        <div class="row g-2">
-            <div class="col-5">
-                <small class="text-muted d-block mb-1">Cantidad</small>
-                <input type="number" class="form-control form-control-sm text-center cantidad-movil" value="1"
-                    min="0.01" step="0.01">
-                <small class="text-muted d-block mt-1 stock-movil"></small>
-            </div>
-            <div class="col-4">
-                <small class="text-muted d-block mb-1">Precio</small>
-                <div class="input-group input-group-sm">
-                    <span class="input-group-text">C$</span>
-                    <input type="number" class="form-control precio-movil" value="0.00" step="0.01" min="0">
-                </div>
-            </div>
-            <div class="col-3">
-                <small class="text-muted d-block mb-1">Acción</small>
-                <button class="btn btn-sm btn-danger w-100 btn-eliminar-movil">
-                    <i class="bi bi-trash"></i>
-                </button>
-            </div>
-        </div>
-    </div>
-</template>
+
 <img id="logo-ferdel-fuente" src="{{ url_for('static', filename='ferdel.png') }}" style="display: none;"
     crossorigin="anonymous">
 
@@ -594,7 +556,7 @@
             icon: type,
             title,
             text: message,
-            timer: 3000,
+            timer: 2500,
             showConfirmButton: false,
             position: isMobile ? 'top' : 'top-end',
             toast: true,
@@ -1485,7 +1447,7 @@
                         <td class="text-center">
                             <button type="button" class="btn btn-sm btn-primary py-0 px-2" style="font-size: 0.7rem;"
                                 onclick="agregarDesdeInventario('${prod.ID_Producto}', '${nombreEscaped}', '${prod.COD_Producto || ''}', ${prod.Precio_Ruta}, ${stock}, '${prod.Unidad_Medida || ''}')">
-                                <i class="fas fa-cart-plus"></i>
+                                <i class="bi bi-cart-plus"></i>
                             </button>
                         </td>
                     </tr>
@@ -1613,7 +1575,7 @@
         if (!idCliente) { ocultarAlertaSaldo(); return; }
 
         const saldoInfo = getElement('saldo-info');
-        if (saldoInfo) saldoInfo.innerHTML = '<div class="alert alert-info text-center py-2"><i class="fas fa-spinner fa-spin me-2"></i><small>Verificando saldo...</small></div>';
+        if (saldoInfo) saldoInfo.innerHTML = '<div class="alert alert-info text-center py-2"><div class="spinner-border spinner-border-sm me-2 text-primary" role="status"></div><small>Verificando saldo...</small></div>';
 
         // Intentar leer el saldo anterior inmediatamente desde el dataset de la opción seleccionada
         const clienteSelect = getElement('cliente');
@@ -1670,7 +1632,7 @@
             } else if (!clientesLocal || !clientesLocal.data[idCliente]) {
                 ocultarAlertaSaldo();
                 if (saldoInfo) {
-                    saldoInfo.innerHTML = '<div class="alert alert-warning text-center py-2"><i class="fas fa-wifi-slash me-2"></i><small>Sin conexión - Datos de saldo no disponibles</small></div>';
+                    saldoInfo.innerHTML = '<div class="alert alert-warning text-center py-2"><i class="bi bi-wifi-off me-2"></i><small>Sin conexión - Datos de saldo no disponibles</small></div>';
                     setTimeout(() => ocultarAlertaSaldo(), 3000);
                 }
             }
@@ -1684,28 +1646,44 @@
         const saldoInfo = getElement('saldo-info');
         if (!saldoInfo) return;
 
-        let html = `<div class="card mb-2 border-warning" style="border-width: 2px;">
+        const facturas = cliente.facturas_detalle || [];
+
+        let html = `<div class="card mb-2 border-warning shadow-sm" style="border-width: 2px;">
             <div class="card-header bg-warning py-2">
-                <h6 class="mb-0 small fw-bold"><i class="fas fa-exclamation-triangle me-2"></i>Cliente con Saldo Pendiente</h6>
+                <h6 class="mb-0 small fw-bold text-dark"><i class="bi bi-exclamation-triangle-fill me-2"></i>Cliente con Saldo Pendiente</h6>
             </div>
             <div class="card-body p-2">
                 <div class="row g-2">
                     <div class="col-6"><small><strong>Cliente:</strong> ${cliente.Nombre || cliente.nombre}</small></div>
-                    <div class="col-6"><small><strong>Documento:</strong> ${cliente.RUC_CEDULA || cliente.ruc}</small></div>
-                    <div class="col-6"><small><strong>Saldo Pendiente:</strong></small></div>
+                    <div class="col-6"><small><strong>Doc / RUC:</strong> ${cliente.RUC_CEDULA || cliente.ruc}</small></div>
+                    <div class="col-6"><small><strong>Saldo Pend.:</strong></small></div>
                     <div class="col-6 text-end"><small class="text-danger fw-bold" style="font-size: 14px;">${formatoCordoba(saldoClienteActual)}</small></div>
                 </div>
+                ${facturas.length > 0 ? `
                 <hr class="my-2">
-                <div class="row g-2 mt-2 p-2 bg-light rounded">
-                    <div class="col-6"><small><strong>Total Nueva Venta:</strong></small></div>
+                <div class="d-flex flex-column gap-1 my-2" style="max-height: 160px; overflow-y: auto;">
+                    ${facturas.map(f => `
+                        <div class="d-flex justify-content-between align-items-center p-1.5 px-2 bg-white border rounded small">
+                            <div>
+                                <span class="fw-bold text-dark font-monospace">${f.Num_Documento}</span>
+                                <span class="text-muted ms-1" style="font-size: 0.75rem;">(${formatearFecha(f.Fecha)})</span>
+                            </div>
+                            <div class="text-end">
+                                <span class="text-danger fw-bold">${formatoCordoba(f.Saldo_Pendiente)}</span>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>` : ''}
+                <hr class="my-2">
+                <div class="row g-2 p-2 bg-light rounded">
+                    <div class="col-6"><small><strong>Nueva Venta:</strong></small></div>
                     <div class="col-6 text-end"><small><span id="total-nueva-venta" class="fw-bold">C$ 0.00</span></small></div>
-                    <div class="col-6"><small><strong>Total Pendiente con Nueva:</strong></small></div>
+                    <div class="col-6"><small><strong>Total a Deber:</strong></small></div>
                     <div class="col-6 text-end"><small class="text-danger fw-bold" style="font-size: 14px;"><span id="total-pendiente-con-nueva">${formatoCordoba(saldoClienteActual)}</span></small></div>
                 </div>
-                ${cliente.facturas_detalle && cliente.facturas_detalle.length > 0 ? `
                 <div class="mt-2">
-                    <small class="text-muted"><i class="fas fa-info-circle"></i> Datos de saldo obtenidos de caché local</small>
-                </div>` : ''}
+                    <small class="text-muted"><i class="bi bi-info-circle me-1"></i> Datos de saldo obtenidos de caché local</small>
+                </div>
             </div>
         </div>`;
         saldoInfo.innerHTML = html;
@@ -1718,7 +1696,41 @@
         const saldoInfo = getElement('saldo-info');
         if (!saldoInfo) return;
 
-        let html = `<div class="card mb-2 border-warning" style="border-width: 2px;"><div class="card-header bg-warning py-2"><h6 class="mb-0 small fw-bold"><i class="fas fa-exclamation-triangle me-2"></i>Cliente con Saldo Pendiente</h6></div><div class="card-body p-2"><div class="row g-2"><div class="col-6"><small><strong>Cliente:</strong> ${cliente.nombre}</small></div><div class="col-6"><small><strong>Documento:</strong> ${cliente.ruc}</small></div><div class="col-6"><small><strong>Saldo Pendiente:</strong></small></div><div class="col-6 text-end"><small class="text-danger fw-bold" style="font-size: 14px;">${formatoCordoba(cliente.saldo_pendiente)}</small></div></div><hr class="my-2"><div class="table-responsive" style="max-height: 150px; overflow-y: auto;"><table class="table table-sm table-bordered small"><thead class="table-light" style="position: sticky; top: 0;"><th>Documento</th><th>Fecha</th><th class="text-end">Saldo</th> </thead><tbody>${facturas.map(f => `<tr><td class="small">${f.Num_Documento}</td><td class="small">${formatearFecha(f.Fecha)}</td><td class="text-end small">${formatoCordoba(f.Saldo_Pendiente)}</td></tr>`).join('')}</tbody></table></div><div class="row g-2 mt-2 p-2 bg-light rounded"><div class="col-6"><small><strong>Total Nueva Venta:</strong></small></div><div class="col-6 text-end"><small><span id="total-nueva-venta" class="fw-bold">C$ 0.00</span></small></div><div class="col-6"><small><strong>Total Pendiente con Nueva:</strong></small></div><div class="col-6 text-end"><small class="text-danger fw-bold" style="font-size: 14px;"><span id="total-pendiente-con-nueva">${formatoCordoba(cliente.saldo_pendiente)}</span></small></div></div></div></div>`;
+        let html = `<div class="card mb-2 border-warning shadow-sm" style="border-width: 2px;">
+            <div class="card-header bg-warning py-2">
+                <h6 class="mb-0 small fw-bold text-dark"><i class="bi bi-exclamation-triangle-fill me-2"></i>Cliente con Saldo Pendiente</h6>
+            </div>
+            <div class="card-body p-2">
+                <div class="row g-2">
+                    <div class="col-6"><small><strong>Cliente:</strong> ${cliente.nombre}</small></div>
+                    <div class="col-6"><small><strong>Doc / RUC:</strong> ${cliente.ruc}</small></div>
+                    <div class="col-6"><small><strong>Saldo Pend.:</strong></small></div>
+                    <div class="col-6 text-end"><small class="text-danger fw-bold" style="font-size: 14px;">${formatoCordoba(cliente.saldo_pendiente)}</small></div>
+                </div>
+                ${facturas.length > 0 ? `
+                <hr class="my-2">
+                <div class="d-flex flex-column gap-1 my-2" style="max-height: 160px; overflow-y: auto;">
+                    ${facturas.map(f => `
+                        <div class="d-flex justify-content-between align-items-center p-1.5 px-2 bg-white border rounded small">
+                            <div>
+                                <span class="fw-bold text-dark font-monospace">${f.Num_Documento}</span>
+                                <span class="text-muted ms-1" style="font-size: 0.75rem;">(${formatearFecha(f.Fecha)})</span>
+                            </div>
+                            <div class="text-end">
+                                <span class="text-danger fw-bold">${formatoCordoba(f.Saldo_Pendiente)}</span>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>` : ''}
+                <hr class="my-2">
+                <div class="row g-2 p-2 bg-light rounded">
+                    <div class="col-6"><small><strong>Nueva Venta:</strong></small></div>
+                    <div class="col-6 text-end"><small><span id="total-nueva-venta" class="fw-bold">C$ 0.00</span></small></div>
+                    <div class="col-6"><small><strong>Total a Deber:</strong></small></div>
+                    <div class="col-6 text-end"><small class="text-danger fw-bold" style="font-size: 14px;"><span id="total-pendiente-con-nueva">${formatoCordoba(cliente.saldo_pendiente)}</span></small></div>
+                </div>
+            </div>
+        </div>`;
         saldoInfo.innerHTML = html;
         actualizarTotalesConSaldo();
     }
@@ -1942,13 +1954,13 @@
             if (filaNuevaVenta) filaNuevaVenta.style.display = 'none';
             if (filaTotalDeber) filaTotalDeber.style.display = 'none';
             const modalTitle = document.querySelector('#modalAbonoCredito .modal-title');
-            if (modalTitle) modalTitle.innerHTML = '<i class="fas fa-money-bill-wave me-2"></i>Abono a Saldo Pendiente';
+            if (modalTitle) modalTitle.innerHTML = '<i class="bi bi-cash-stack me-2"></i>Abono a Saldo Pendiente';
         } else {
             totalDeber = saldoAnterior + totalVenta;
             if (filaNuevaVenta) filaNuevaVenta.style.display = 'flex';
             if (filaTotalDeber) filaTotalDeber.style.display = 'flex';
             const modalTitle = document.querySelector('#modalAbonoCredito .modal-title');
-            if (modalTitle) modalTitle.innerHTML = '<i class="fas fa-money-bill-wave me-2"></i>Registrar Abono';
+            if (modalTitle) modalTitle.innerHTML = '<i class="bi bi-cash-stack me-2"></i>Registrar Abono';
         }
 
         if (modalTotalDeber) modalTotalDeber.textContent = formatoCordoba(totalDeber);
@@ -1974,12 +1986,12 @@
         if (mensajeInfo) {
             if (esContado) {
                 mensajeInfo.innerHTML = `<div class="d-flex">
-                <i class="fas fa-info-circle me-2 mt-1"></i>
+                <i class="bi bi-info-circle me-2 mt-1"></i>
                 <span>Venta al <strong>Contado</strong>. El abono se aplicará SOLO al saldo pendiente del cliente.</span>
             </div>`;
             } else {
                 mensajeInfo.innerHTML = `<div class="d-flex">
-                <i class="fas fa-info-circle me-2 mt-1"></i>
+                <i class="bi bi-info-circle me-2 mt-1"></i>
                 <span>Venta a <strong>Crédito</strong>. El abono se aplicará a la deuda total (Saldo anterior + Venta actual).</span>
             </div>`;
             }
@@ -2267,23 +2279,47 @@
         const resumenVenta = getElement('resumenVenta');
         if (resumenVenta) {
             const fechaActual = new Date().toLocaleDateString('es-ES');
-            resumenVenta.innerHTML = `<div class="row g-2 mb-2"><div class="col-12 col-md-6"><div class="card h-100"><div class="card-body p-2"><h6 class="small fw-bold border-bottom pb-1 mb-2"><i class="fas fa-user me-2"></i>Datos del Cliente</h6><div class="row g-1"><div class="col-5"><small>Cliente:</small></div><div class="col-7"><small class="fw-bold">${clienteNombre}</small></div><div class="col-5"><small>Documento:</small></div><div class="col-7"><small>${clienteRUC}</small></div><div class="col-5"><small>Perfil:</small></div><div class="col-7"><span class="badge bg-info">${clientePerfil}</span></div></div></div></div></div><div class="col-12 col-md-6"><div class="card h-100"><div class="card-body p-2"><h6 class="small fw-bold border-bottom pb-1 mb-2"><i class="fas fa-info-circle me-2"></i>Info Venta</h6><div class="row g-1"><div class="col-5"><small>Ruta:</small></div><div class="col-7"><small>Ruta Actual</small></div><div class="col-5"><small>Fecha:</small></div><div class="col-7"><small>${fechaActual}</small></div><div class="col-5"><small>Tipo:</small></div><div class="col-7"><span class="badge ${tipoVenta.value === '1' ? 'bg-success' : 'bg-warning text-dark'}">${tipoVentaText}</span></div></div></div></div></div></div>`;
+            resumenVenta.innerHTML = `<div class="row g-2 mb-2"><div class="col-12 col-md-6"><div class="card h-100"><div class="card-body p-2"><h6 class="small fw-bold border-bottom pb-1 mb-2"><i class="bi bi-person-circle me-2 text-primary"></i>Datos del Cliente</h6><div class="row g-1"><div class="col-5"><small>Cliente:</small></div><div class="col-7"><small class="fw-bold">${clienteNombre}</small></div><div class="col-5"><small>Documento:</small></div><div class="col-7"><small>${clienteRUC}</small></div><div class="col-5"><small>Perfil:</small></div><div class="col-7"><span class="badge bg-info">${clientePerfil}</span></div></div></div></div></div><div class="col-12 col-md-6"><div class="card h-100"><div class="card-body p-2"><h6 class="small fw-bold border-bottom pb-1 mb-2"><i class="bi bi-info-circle me-2 text-primary"></i>Info Venta</h6><div class="row g-1"><div class="col-5"><small>Ruta:</small></div><div class="col-7"><small>Ruta Actual</small></div><div class="col-5"><small>Fecha:</small></div><div class="col-7"><small>${fechaActual}</small></div><div class="col-5"><small>Tipo:</small></div><div class="col-7"><span class="badge ${tipoVenta.value === '1' ? 'bg-success' : 'bg-warning text-dark'}">${tipoVentaText}</span></div></div></div></div></div></div>`;
         }
 
-        const tbodyResumen = getElement('tbodyResumenProductos');
+        const contenedorResumen = getElement('contenedorResumenProductos');
         const totalResumen = getElement('totalResumen');
-        if (!tbodyResumen || !totalResumen) return false;
+        const badgeTotalItems = getElement('badgeTotalItemsResumen');
+        if (!contenedorResumen || !totalResumen) return false;
 
         let htmlResumen = '';
         let total = 0;
 
         productos.forEach((prod, index) => {
-            total += prod.subtotal;
-            htmlResumen += `<tr><td class="small align-middle text-center">${index + 1}</td><td class="small align-middle">${prod.nombre}<br><small class="text-muted">Código: ${prod.codigo}</small></td><td class="text-center small align-middle">${formatNumber(prod.cantidad)}</td><td class="text-end small align-middle">${formatoCordoba(prod.precio)}</td><td class="text-end fw-bold small align-middle text-success">${formatoCordoba(prod.subtotal)}</td></tr>`;
+            const subtotal = prod.cantidad * prod.precio;
+            total += subtotal;
+            htmlResumen += `<div class="p-2.5 px-3 bg-white border rounded-3 d-flex justify-content-between align-items-center gap-2 shadow-sm">
+                <div class="d-flex align-items-center gap-2 min-w-0" style="flex: 1;">
+                    <span class="badge bg-primary rounded-circle flex-shrink-0" style="width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem;">
+                        ${index + 1}
+                    </span>
+                    <div class="min-w-0">
+                        <div class="fw-bold text-dark text-truncate" style="font-size: 0.9rem;" title="${prod.nombre}">
+                            ${prod.nombre}
+                        </div>
+                        <div class="text-muted" style="font-size: 0.75rem;">
+                            ${prod.codigo && prod.codigo !== 'N/A' ? `<span class="badge bg-secondary font-monospace me-1">${prod.codigo}</span>` : ''}
+                            <span class="fw-semibold text-dark">${formatNumber(prod.cantidad)} ${prod.unidad || 'Und'}</span>
+                            <span class="text-muted">× ${formatoCordoba(prod.precio)}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-end flex-shrink-0 ps-2">
+                    <span class="fw-bold text-success" style="font-size: 0.95rem;">${formatoCordoba(subtotal)}</span>
+                </div>
+            </div>`;
         });
 
-        tbodyResumen.innerHTML = htmlResumen;
+        contenedorResumen.innerHTML = htmlResumen;
         totalResumen.textContent = formatoCordoba(total);
+        if (badgeTotalItems) {
+            badgeTotalItems.textContent = `${productos.length} producto${productos.length !== 1 ? 's' : ''}`;
+        }
         return true;
     }
 
@@ -2442,25 +2478,25 @@
                     icon: 'success',
                     title: '📱 Venta guardada sin conexión',
                     html: `<div style="text-align: left;">
-    <p><i class="fas fa-check-circle text-success"></i> Venta guardada localmente.</p>
+    <p><i class="bi bi-check-circle-fill text-success me-1"></i> Venta guardada localmente.</p>
     <p class="fw-bold text-success" style="font-size: 18px;">${formatoCordoba(ventaOffline.datos.total)}</p>
     <div class="alert alert-info mt-2">
-        <i class="fas fa-warehouse"></i> <strong>Inventario actualizado</strong><br>
+        <i class="bi bi-building me-1"></i> <strong>Inventario actualizado</strong><br>
         <small>El stock se ha descontado localmente. Se sincronizará cuando tengas conexión.</small>
     </div>
     ${abonoSeleccionado > 0 ? `<div class="alert alert-success mt-2">
-        <i class="fas fa-money-bill-wave"></i> <strong>Abono registrado: ${formatoCordoba(abonoSeleccionado)}</strong><br>
+        <i class="bi bi-cash-stack me-1"></i> <strong>Abono registrado: ${formatoCordoba(abonoSeleccionado)}</strong><br>
         <small>El saldo del cliente se actualizará después de generar la factura.</small>
     </div>` : ''}
     <div style="background: #f8f9fa; padding: 10px; border-radius: 5px; margin: 10px 0;">
-        <p class="text-info mb-1"><i class="fas fa-info-circle"></i> ¿Qué deseas hacer?</p>
+        <p class="text-info mb-1"><i class="bi bi-info-circle me-1"></i> ¿Qué deseas hacer?</p>
     </div>
 </div>`,
                     showCancelButton: true,
-                    confirmButtonText: '<i class="fas fa-file-invoice"></i> Ver factura',
-                    cancelButtonText: '<i class="fas fa-shopping-cart"></i> Seguir vendiendo',
+                    confirmButtonText: '<i class="bi bi-receipt me-1"></i> Ver factura',
+                    cancelButtonText: '<i class="bi bi-cart me-1"></i> Seguir vendiendo',
                     showDenyButton: true,
-                    denyButtonText: '<i class="fas fa-print"></i> Ver e imprimir',
+                    denyButtonText: '<i class="bi bi-printer me-1"></i> Ver e imprimir',
                     denyButtonColor: '#28a745',
                     customClass: { confirmButton: 'btn btn-primary mx-1', cancelButton: 'btn btn-secondary mx-1', denyButton: 'btn btn-success mx-1' }
                 });
@@ -2565,12 +2601,12 @@
                 html: `<p>Hay <strong>${pendientes.length}</strong> venta(s) pendiente(s).</p>
                        <p class="text-warning">Total: ${formatoCordoba(pendientes.reduce((sum, v) => sum + (v.datos?.total || 0), 0))}</p>
                        <div class="alert alert-info mt-2">
-                           <i class="fas fa-info-circle"></i> Las ventas se sincronizarán con el servidor.
+                           <i class="bi bi-info-circle me-1"></i> Las ventas se sincronizarán con el servidor.
                        </div>`,
                 icon: 'question',
                 showCancelButton: true,
-                confirmButtonText: '<i class="fas fa-sync"></i> Sincronizar',
-                cancelButtonText: '<i class="fas fa-times"></i> Cancelar'
+                confirmButtonText: '<i class="bi bi-arrow-repeat me-1"></i> Sincronizar',
+                cancelButtonText: '<i class="bi bi-x-lg me-1"></i> Cancelar'
             });
 
             if (!confirmar.isConfirmed) {
@@ -2584,7 +2620,7 @@
                     <div id="sync-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
                          style="width: 0%; background-color: #28a745;">0%</div>
                 </div>
-                <div id="sync-status"><p><i class="fas fa-spinner fa-spin"></i> Procesando 0 de ${pendientes.length}</p></div>
+                <div id="sync-status"><p><div class="spinner-border spinner-border-sm text-primary me-1" role="status"></div> Procesando 0 de ${pendientes.length}</p></div>
                 <div id="sync-details" style="max-height: 200px; overflow-y: auto; margin-top: 10px;"></div>
             </div>
             `;
@@ -2608,7 +2644,7 @@
                     progressBar.textContent = progress + '%';
                 }
                 if (syncStatus) {
-                    syncStatus.innerHTML = `<p><i class="fas fa-spinner fa-spin text-primary"></i> Procesando ${i + 1} de ${pendientes.length}</p><p class="fw-bold">Venta: ${formatoCordoba(venta.datos?.total || 0)}</p>`;
+                    syncStatus.innerHTML = `<p><div class="spinner-border spinner-border-sm text-primary me-1" role="status"></div> Procesando ${i + 1} de ${pendientes.length}</p><p class="fw-bold">Venta: ${formatoCordoba(venta.datos?.total || 0)}</p>`;
                 }
 
                 try {
@@ -2641,7 +2677,7 @@
                             sincronizadas++;
 
                             if (syncDetails) {
-                                syncDetails.innerHTML += `<div class="alert alert-success py-1 mb-1 small"><i class="fas fa-check-circle"></i> Venta #${facturaId} sincronizada - ${formatoCordoba(venta.datos?.total || 0)}</div>`;
+                                syncDetails.innerHTML += `<div class="alert alert-success py-1 mb-1 small"><i class="bi bi-check-circle-fill me-1"></i> Venta #${facturaId} sincronizada - ${formatoCordoba(venta.datos?.total || 0)}</div>`;
                                 syncDetails.scrollTop = syncDetails.scrollHeight;
                             }
 
@@ -2678,7 +2714,7 @@
                                 sincronizadas++;
 
                                 if (syncDetails) {
-                                    syncDetails.innerHTML += `<div class="alert alert-success py-1 mb-1 small"><i class="fas fa-check-circle"></i> Venta #${data.id_venta} sincronizada - ${formatoCordoba(venta.datos?.total || 0)}</div>`;
+                                    syncDetails.innerHTML += `<div class="alert alert-success py-1 mb-1 small"><i class="bi bi-check-circle-fill me-1"></i> Venta #${data.id_venta} sincronizada - ${formatoCordoba(venta.datos?.total || 0)}</div>`;
                                     syncDetails.scrollTop = syncDetails.scrollHeight;
                                 }
 
@@ -2715,7 +2751,7 @@
                     console.error('Error sincronizando venta:', error);
                     fallidas++;
                     if (syncDetails) {
-                        syncDetails.innerHTML += `<div class="alert alert-danger py-1 mb-1 small"><i class="fas fa-exclamation-triangle"></i> Error: ${error.message}</div>`;
+                        syncDetails.innerHTML += `<div class="alert alert-danger py-1 mb-1 small"><i class="bi bi-exclamation-triangle-fill me-1"></i> Error: ${error.message}</div>`;
                         syncDetails.scrollTop = syncDetails.scrollHeight;
                     }
                 }
@@ -2745,8 +2781,8 @@
                            ${fallidas > 0 ? `<p class="text-warning"><strong>${fallidas}</strong> venta(s) fallaron.</p>` : ''}
                            <p class="text-success"><strong>${ticketsGenerados.length}</strong> factura(s) generada(s).</p>`,
                     showCancelButton: true,
-                    confirmButtonText: '<i class="fas fa-eye"></i> Ver tickets',
-                    cancelButtonText: '<i class="fas fa-clock"></i> Después'
+                    confirmButtonText: '<i class="bi bi-eye me-1"></i> Ver tickets',
+                    cancelButtonText: '<i class="bi bi-clock me-1"></i> Después'
                 });
 
                 if (verTickets.isConfirmed && ticketsGenerados.length > 0) {
@@ -2781,10 +2817,10 @@
         let html = '<div style="max-height: 400px; overflow-y: auto; padding: 5px;">';
         tickets.forEach((t, i) => {
             const fecha = new Date(t.fecha).toLocaleString();
-            html += `<div class="border rounded p-3 mb-2" style="background: #f8f9fa;"><div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center"><div style="flex: 1;"><strong style="font-size: 14px;">Factura #${t.id}</strong><br><small class="text-muted">${fecha}</small><br><span class="text-success fw-bold">${formatoCordoba(t.total)}</span></div><button onclick="window.location.href='${t.url}?autoPrint=1'" class="btn btn-sm btn-primary mt-2 mt-sm-0" style="min-width: 100px;"><i class="fas fa-print"></i> Imprimir</button></div></div>`;
+            html += `<div class="border rounded p-3 mb-2" style="background: #f8f9fa;"><div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center"><div style="flex: 1;"><strong style="font-size: 14px;">Factura #${t.id}</strong><br><small class="text-muted">${fecha}</small><br><span class="text-success fw-bold">${formatoCordoba(t.total)}</span></div><button onclick="window.location.href='${t.url}?autoPrint=1'" class="btn btn-sm btn-primary mt-2 mt-sm-0" style="min-width: 100px;"><i class="bi bi-printer me-1"></i> Imprimir</button></div></div>`;
         });
         html += '</div>';
-        Swal.fire({ title: '<i class="fas fa-ticket-alt"></i> Tickets generados', html: html, width: '500px', confirmButtonText: '<i class="fas fa-check"></i> Cerrar', confirmButtonColor: '#6c757d' });
+        Swal.fire({ title: '<i class="bi bi-ticket-perforated me-1"></i> Tickets generados', html: html, width: '500px', confirmButtonText: '<i class="bi bi-check-lg me-1"></i> Cerrar', confirmButtonColor: '#6c757d' });
     }
 
     window.verTicketsSincronizados = async function () {
@@ -2800,17 +2836,17 @@
             let html = '<div style="max-height: 400px; overflow-y: auto; padding: 5px;">';
             sincronizadas.forEach((v, i) => {
                 const fecha = new Date(v.fecha_sincronizacion || v.fecha_creacion).toLocaleString();
-                html += `<div class="border rounded p-3 mb-2" style="background: #f8f9fa;"><div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center"><div style="flex: 1;"><strong style="font-size: 14px;">Factura #${v.factura_id}</strong><br><small class="text-muted">${fecha}</small><br><span class="text-success fw-bold">${formatoCordoba(v.datos.total)}</span></div><div class="d-flex gap-2 mt-2 mt-sm-0"><button onclick="window.location.href='${v.ticket_url}?autoPrint=1'" class="btn btn-sm btn-primary"><i class="fas fa-print"></i></button><button onclick="eliminarTicket('${v.id}')" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></button></div></div></div>`;
+                html += `<div class="border rounded p-3 mb-2" style="background: #f8f9fa;"><div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center"><div style="flex: 1;"><strong style="font-size: 14px;">Factura #${v.factura_id}</strong><br><small class="text-muted">${fecha}</small><br><span class="text-success fw-bold">${formatoCordoba(v.datos.total)}</span></div><div class="d-flex gap-2 mt-2 mt-sm-0"><button onclick="window.location.href='${v.ticket_url}?autoPrint=1'" class="btn btn-sm btn-primary"><i class="bi bi-printer"></i></button><button onclick="eliminarTicket('${v.id}')" class="btn btn-sm btn-danger"><i class="bi bi-trash3"></i></button></div></div></div>`;
             });
             html += '</div>';
 
             Swal.fire({
-                title: '<i class="fas fa-ticket-alt"></i> Tickets pendientes',
+                title: '<i class="bi bi-ticket-perforated me-1"></i> Tickets pendientes',
                 html: html,
                 width: '500px',
                 showCancelButton: true,
-                confirmButtonText: '<i class="fas fa-check"></i> Cerrar',
-                cancelButtonText: '<i class="fas fa-trash"></i> Eliminar todos',
+                confirmButtonText: '<i class="bi bi-check-lg me-1"></i> Cerrar',
+                cancelButtonText: '<i class="bi bi-trash3 me-1"></i> Eliminar todos',
                 cancelButtonColor: '#d33',
                 reverseButtons: true
             }).then(async (result) => {
@@ -2911,7 +2947,7 @@
                            <p>¿Deseas actualizar el saldo pendiente del cliente en tu dispositivo?</p>
                            <small class="text-muted">El saldo se actualizará localmente y se sincronizará cuando tengas conexión.</small>`,
                     showCancelButton: true,
-                    confirmButtonText: '<i class="fas fa-sync"></i> Actualizar ahora',
+                    confirmButtonText: '<i class="bi bi-arrow-repeat me-1"></i> Actualizar ahora',
                     cancelButtonText: 'Después'
                 });
 
@@ -2950,15 +2986,15 @@
                         <div class="alert ${pendientes.length > 0 || abonosNoSincronizados.length > 0 ? 'alert-warning' : 'alert-info'} mb-2 py-2 px-3" style="border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                             <div class="d-flex flex-column flex-lg-row align-items-start align-items-lg-center justify-content-between">
                                 <div class="mb-2 mb-lg-0">
-                                    ${pendientes.length > 0 ? `<div><i class="fas fa-cloud-upload-alt me-2" style="color: #856404;"></i><strong>${pendientes.length}</strong> venta(s) pendiente(s) de sincronizar</div><small class="text-muted">Total: ${formatoCordoba(totalPendiente)}</small>` : ''}
-                                    ${abonosNoSincronizados.length > 0 ? `<div class="${pendientes.length > 0 ? 'mt-2' : ''}"><i class="fas fa-money-bill-wave me-2 text-warning"></i><strong>${abonosNoSincronizados.length}</strong> abono(s) pendiente(s) de sincronizar</div><small class="text-muted">Total: ${formatoCordoba(totalAbonos)}</small>` : ''}
-                                    ${sincronizadas.length > 0 ? `<div class="${pendientes.length > 0 || abonosNoSincronizados.length > 0 ? 'mt-2' : ''}"><i class="fas fa-ticket-alt me-2 text-success"></i><strong>${sincronizadas.length}</strong> ticket(s) disponible(s)</div><small class="text-success">Total: ${formatoCordoba(totalSincronizadas)}</small>` : ''}
+                                    ${pendientes.length > 0 ? `<div><i class="bi bi-cloud-arrow-up me-2" style="color: #856404;"></i><strong>${pendientes.length}</strong> venta(s) pendiente(s) de sincronizar</div><small class="text-muted">Total: ${formatoCordoba(totalPendiente)}</small>` : ''}
+                                    ${abonosNoSincronizados.length > 0 ? `<div class="${pendientes.length > 0 ? 'mt-2' : ''}"><i class="bi bi-cash-stack me-2 text-warning"></i><strong>${abonosNoSincronizados.length}</strong> abono(s) pendiente(s) de sincronizar</div><small class="text-muted">Total: ${formatoCordoba(totalAbonos)}</small>` : ''}
+                                    ${sincronizadas.length > 0 ? `<div class="${pendientes.length > 0 || abonosNoSincronizados.length > 0 ? 'mt-2' : ''}"><i class="bi bi-ticket-perforated me-2 text-success"></i><strong>${sincronizadas.length}</strong> ticket(s) disponible(s)</div><small class="text-success">Total: ${formatoCordoba(totalSincronizadas)}</small>` : ''}
                                 </div>
                                 <div class="d-flex gap-2 flex-wrap">
-                                    ${(pendientes.length > 0 || abonosNoSincronizados.length > 0) ? `<button class="btn btn-sm btn-primary" onclick="enviarVentasPendientes()" ${!navigator.onLine ? 'disabled' : ''} style="min-width: 120px;"><i class="fas fa-sync me-1"></i>Sincronizar</button>` : ''}
-                                    ${sincronizadas.length > 0 ? `<button class="btn btn-sm btn-success" onclick="verTicketsSincronizados()" style="min-width: 120px;"><i class="fas fa-ticket-alt me-1"></i>Ver Tickets (${sincronizadas.length})</button>` : ''}
-                                    ${(pendientes.length > 0 || abonosNoSincronizados.length > 0) ? `<button class="btn btn-sm btn-danger" onclick="eliminarTodasLasVentas()" style="min-width: 100px;"><i class="fas fa-trash me-1"></i>Eliminar</button>` : ''}
-                                    <button class="btn btn-sm btn-outline-secondary" onclick="verDetallePendientes()" style="min-width: 80px;"><i class="fas fa-list me-1"></i>Detalle</button>
+                                    ${(pendientes.length > 0 || abonosNoSincronizados.length > 0) ? `<button class="btn btn-sm btn-primary" onclick="enviarVentasPendientes()" ${!navigator.onLine ? 'disabled' : ''} style="min-width: 120px;"><i class="bi bi-arrow-repeat me-1"></i>Sincronizar</button>` : ''}
+                                    ${sincronizadas.length > 0 ? `<button class="btn btn-sm btn-success" onclick="verTicketsSincronizados()" style="min-width: 120px;"><i class="bi bi-ticket-perforated me-1"></i>Ver Tickets (${sincronizadas.length})</button>` : ''}
+                                    ${(pendientes.length > 0 || abonosNoSincronizados.length > 0) ? `<button class="btn btn-sm btn-danger" onclick="eliminarTodasLasVentas()" style="min-width: 100px;"><i class="bi bi-trash3 me-1"></i>Eliminar</button>` : ''}
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="verDetallePendientes()" style="min-width: 80px;"><i class="bi bi-list-check me-1"></i>Detalle</button>
                                 </div>
                             </div>
                         </div>
@@ -2988,7 +3024,7 @@
             let html = '<div class="small" style="max-height: 400px; overflow-y: auto; padding: 5px;">';
 
             if (abonosNoSincronizados.length > 0) {
-                html += '<h6 class="text-warning mb-2"><i class="fas fa-money-bill-wave"></i> 💰 Abonos pendientes de sincronizar:</h6>';
+                html += '<h6 class="text-warning mb-2"><i class="bi bi-cash-stack"></i> 💰 Abonos pendientes de sincronizar:</h6>';
                 abonosNoSincronizados.forEach((abono, index) => {
                     const fecha = new Date(abono.fecha_creacion).toLocaleString();
                     html += `<div class="border rounded p-2 mb-2" style="border-left: 4px solid #ffc107; background: #fff9e6;">
@@ -3006,28 +3042,28 @@
             }
 
             if (pendientes.length > 0) {
-                html += '<h6 class="text-warning mt-3 mb-2"><i class="fas fa-cloud-upload-alt"></i> 📤 Pendientes de sincronizar:</h6>';
+                html += '<h6 class="text-warning mt-3 mb-2"><i class="bi bi-cloud-arrow-up"></i> 📤 Pendientes de sincronizar:</h6>';
                 pendientes.forEach((venta, index) => {
                     const fecha = new Date(venta.fecha_creacion).toLocaleString();
                     const total = venta.datos?.total || 0;
                     const tipoVenta = venta.datos?.tipo_venta === '1' ? 'Contado' : 'Crédito';
 
-                    html += `<div class="border rounded p-2 mb-2" style="border-left: 4px solid #ffc107; background: #fff9e6;"><div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center"><div style="flex: 1;"><strong>Venta ${venta.factura_id || (index + 1)}</strong><span class="badge bg-warning ms-2">${venta.intentos || 0}/3</span><div class="small text-muted">${fecha}</div><div>Cliente ID: ${venta.datos?.cliente}</div><div>${tipoVenta} - Total: <strong class="text-success">${formatoCordoba(total)}</strong></div>${venta.abono_realizado > 0 ? `<div class="text-success small">Abono: ${formatoCordoba(venta.abono_realizado)}</div>` : ''}</div><button class="btn btn-sm btn-info mt-2 mt-sm-0" onclick="verFacturaPendiente('${venta.id}')" style="min-width: 100px;"><i class="fas fa-file-invoice"></i> Ver factura</button></div></div>`;
+                    html += `<div class="border rounded p-2 mb-2" style="border-left: 4px solid #ffc107; background: #fff9e6;"><div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center"><div style="flex: 1;"><strong>Venta ${venta.factura_id || (index + 1)}</strong><span class="badge bg-warning ms-2">${venta.intentos || 0}/3</span><div class="small text-muted">${fecha}</div><div>Cliente ID: ${venta.datos?.cliente}</div><div>${tipoVenta} - Total: <strong class="text-success">${formatoCordoba(total)}</strong></div>${venta.abono_realizado > 0 ? `<div class="text-success small">Abono: ${formatoCordoba(venta.abono_realizado)}</div>` : ''}</div><button class="btn btn-sm btn-info mt-2 mt-sm-0" onclick="verFacturaPendiente('${venta.id}')" style="min-width: 100px;"><i class="bi bi-receipt"></i> Ver factura</button></div></div>`;
                 });
             }
 
             if (sincronizadas.length > 0) {
-                html += '<h6 class="text-success mt-3"><i class="fas fa-check-circle"></i> ✅ Sincronizadas con ticket:</h6>';
+                html += '<h6 class="text-success mt-3"><i class="bi bi-check-circle"></i> ✅ Sincronizadas con ticket:</h6>';
                 sincronizadas.forEach((venta, index) => {
                     const fecha = new Date(venta.fecha_sincronizacion || venta.fecha_creacion).toLocaleString();
                     const total = venta.datos?.total || 0;
 
-                    html += `<div class="border rounded p-2 mb-2" style="border-left: 4px solid #28a745; background: #f0fff0;"><div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center"><div style="flex: 1;"><strong>Factura #${venta.factura_id}</strong><br><small class="text-muted">${fecha}</small><br><span class="text-success">${formatoCordoba(total)}</span></div><button onclick="window.location.href='${venta.ticket_url}?autoPrint=1'" class="btn btn-sm btn-primary mt-2 mt-sm-0" style="min-width: 100px;"><i class="fas fa-print"></i> Imprimir</button></div></div>`;
+                    html += `<div class="border rounded p-2 mb-2" style="border-left: 4px solid #28a745; background: #f0fff0;"><div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center"><div style="flex: 1;"><strong>Factura #${venta.factura_id}</strong><br><small class="text-muted">${fecha}</small><br><span class="text-success">${formatoCordoba(total)}</span></div><button onclick="window.location.href='${venta.ticket_url}?autoPrint=1'" class="btn btn-sm btn-primary mt-2 mt-sm-0" style="min-width: 100px;"><i class="bi bi-printer"></i> Imprimir</button></div></div>`;
                 });
             }
 
             html += '</div>';
-            Swal.fire({ title: '<i class="fas fa-list"></i> Datos offline', html: html, width: '550px', confirmButtonText: '<i class="fas fa-check"></i> Cerrar', confirmButtonColor: '#6c757d' });
+            Swal.fire({ title: '<i class="bi bi-list-check"></i> Datos offline', html: html, width: '550px', confirmButtonText: '<i class="bi bi-check"></i> Cerrar', confirmButtonColor: '#6c757d' });
         } catch (error) {
             console.error('Error:', error);
         }
@@ -3157,7 +3193,7 @@
         if (!tablaBody) return;
 
         if (productos.length === 0) {
-            tablaBody.innerHTML = `<tr id="fila_vacia"><td colspan="7" class="text-center text-muted py-4"><i class="fas fa-box-open fa-2x mb-2 d-block"></i><small>No hay productos agregados</small></td></tr>`;
+            tablaBody.innerHTML = `<tr id="fila_vacia"><td colspan="7" class="text-center text-muted py-4"><i class="bi bi-box-seam fs-1 mb-2 d-block text-secondary opacity-75"></i><small>No hay productos agregados</small></td></tr>`;
             if (tfootTotales) tfootTotales.style.display = 'none';
             return;
         }
@@ -3176,7 +3212,7 @@
                 <td class="text-center align-middle"><input type="number" class="form-control form-control-sm text-center cantidad-input" data-index="${index}" value="${prod.cantidad}" min="0.01" max="${prod.stock}" step="0.01" style="width: 70px; margin: 0 auto;"><small class="text-muted d-block">Stock: ${formatNumber(prod.stock)}</small></td>
                 <td class="text-end align-middle"><div class="input-group input-group-sm"><span class="input-group-text">C$</span><input type="number" class="form-control text-end precio-input" data-index="${index}" value="${prod.precio.toFixed(2)}" min="0.01" step="0.01" style="width: 90px;"></div></td>
                 <td class="text-end fw-bold text-success align-middle small">${formatoCordoba(subtotal)}</td>
-                <td class="text-center align-middle"><button type="button" class="btn btn-sm btn-danger" onclick="event.preventDefault(); event.stopPropagation(); eliminarProducto(${index})" title="Eliminar producto"><i class="fas fa-trash"></i></button></td>
+                <td class="text-center align-middle"><button type="button" class="btn btn-sm btn-outline-danger" onclick="event.preventDefault(); event.stopPropagation(); eliminarProducto(${index})" title="Eliminar producto"><i class="bi bi-trash3"></i></button></td>
             </tr>`;
         });
 
@@ -3207,38 +3243,60 @@
         if (!container) return;
 
         if (productos.length === 0) {
-            container.innerHTML = `<div class="text-center text-muted py-4"><i class="fas fa-box-open fa-2x mb-2 d-block"></i><small>No hay productos agregados</small></div>`;
+            container.innerHTML = `<div class="text-center text-muted py-4"><i class="bi bi-box-seam fs-1 mb-2 d-block text-secondary opacity-75"></i><small>No hay productos agregados</small></div>`;
             return;
         }
 
         let html = '';
         productos.forEach((prod, index) => {
-            html += `<div class="producto-movil-card-premium" data-index="${index}" style="border-left: 5px solid #10b981;">
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                    <div>
-                        <span class="badge bg-secondary me-1 font-monospace">${prod.codigo}</span>
-                        <span class="badge bg-primary rounded-circle">${index + 1}</span>
+            const subtotal = prod.cantidad * prod.precio;
+            html += `<div class="producto-movil-item card mb-2.5 border-0 shadow-sm rounded-3 overflow-hidden" data-index="${index}">
+                <div class="card-header bg-light py-2 px-3 d-flex justify-content-between align-items-center border-bottom-0">
+                    <div class="d-flex align-items-center gap-1.5 flex-wrap">
+                        <span class="badge bg-primary rounded-pill px-2">#${index + 1}</span>
+                        ${prod.codigo && prod.codigo !== 'N/A' ? `<span class="badge bg-secondary font-monospace">${prod.codigo}</span>` : ''}
+                        <span class="badge bg-info text-dark">${prod.unidad || 'Und'}</span>
                     </div>
-                    <span class="fw-bold text-success fs-5">${formatoCordoba(prod.cantidad * prod.precio)}</span>
+                    <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-2.5 py-0 d-flex align-items-center gap-1"
+                        onclick="event.preventDefault(); event.stopPropagation(); eliminarProductoMovil(${index})"
+                        title="Quitar producto" style="height: 28px; font-size: 0.75rem;">
+                        <i class="bi bi-trash3"></i>
+                        <span>Quitar</span>
+                    </button>
                 </div>
-                <h6 class="mb-3 fw-bold text-slate-800">${prod.nombre}</h6>
-                <div class="row g-2 align-items-end">
-                    <div class="col-5">
-                        <label class="small text-muted mb-1 d-block">Cantidad</label>
-                        <input type="number" class="form-control text-center input-premium-sm w-100" value="${prod.cantidad}" min="0.01" max="${prod.stock}" step="0.01" onchange="actualizarCantidadMovil(${index}, this.value)">
-                        <small class="text-muted d-block mt-1 font-size-xs">Stock: ${formatNumber(prod.stock)}</small>
-                    </div>
-                    <div class="col-5">
-                        <label class="small text-muted mb-1 d-block">Precio</label>
-                        <div class="input-group input-group-sm">
-                            <span class="input-group-text bg-light border-end-0">C$</span>
-                            <input type="number" class="form-control input-premium-sm text-end" value="${prod.precio.toFixed(2)}" step="0.01" min="0" onchange="actualizarPrecioMovil(${index}, this.value)">
+                
+                <div class="card-body p-3 pt-2">
+                    <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                        <div class="fw-bold text-dark" style="font-size: 0.95rem; line-height: 1.35;">
+                            ${prod.nombre}
+                        </div>
+                        <div class="text-end flex-shrink-0">
+                            <span class="text-muted d-block" style="font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.5px;">Subtotal</span>
+                            <span class="fw-bold text-success fs-6">${formatoCordoba(subtotal)}</span>
                         </div>
                     </div>
-                    <div class="col-2">
-                        <button class="btn btn-sm btn-outline-danger w-100 py-2 rounded-3 border-2" onclick="event.preventDefault(); event.stopPropagation(); eliminarProductoMovil(${index})" title="Quitar producto">
-                            <i class="fas fa-trash"></i>
-                        </button>
+
+                    <div class="row g-2 pt-2 border-top">
+                        <div class="col-6">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label class="form-label small fw-semibold text-muted mb-0" style="font-size: 0.75rem;">Cantidad</label>
+                                <span class="badge bg-light text-secondary border px-1" style="font-size: 0.65rem;">Stock: ${formatNumber(prod.stock)}</span>
+                            </div>
+                            <input type="number" class="form-control form-control-sm text-center fw-bold" value="${prod.cantidad}"
+                                min="0.01" max="${prod.stock}" step="0.01"
+                                onchange="actualizarCantidadMovil(${index}, this.value)">
+                        </div>
+                        <div class="col-6">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label class="form-label small fw-semibold text-muted mb-0" style="font-size: 0.75rem;">Precio Unit.</label>
+                            </div>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-light text-muted px-1.5" style="font-size: 0.8rem;">C$</span>
+                                <input type="number" class="form-control text-end fw-bold px-1.5" value="${prod.precio.toFixed(2)}"
+                                    step="0.01" min="0"
+                                    onchange="actualizarPrecioMovil(${index}, this.value)">
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>`;
@@ -3353,23 +3411,23 @@
     function eliminarProductoMovil(index) { eliminarProducto(index); }
 
     function actualizarEstadoConexion() {
-        const connectionStatus = getElement('connection-status');
+        const connectionStatus = getElement('venta-connection-status') || getElement('connection-status');
         const confirmacionMensaje = getElement('confirmacionMensajeConexion');
 
         if (navigator.onLine) {
             if (connectionStatus) {
-                connectionStatus.innerHTML = `<div class="alert alert-success py-1 mb-0" style="border-radius: 20px;"><i class="fas fa-wifi me-2"></i><small><strong>Conectado</strong> - Las ventas se registrarán en línea</small></div>`;
+                connectionStatus.innerHTML = `<div class="alert alert-success py-1.5 px-3 mb-0 d-flex align-items-center shadow-sm rounded-pill"><i class="bi bi-wifi me-2 text-success"></i><small><strong>Conectado</strong> — Las ventas se registrarán y facturarán en línea</small></div>`;
             }
             if (confirmacionMensaje) {
-                confirmacionMensaje.innerHTML = '<i class="fas fa-check-circle text-success me-2"></i>La venta se registrará y se descontará del inventario disponible en ruta.';
+                confirmacionMensaje.innerHTML = '<i class="bi bi-check-circle-fill text-success me-2"></i>La venta se registrará y se descontará del inventario disponible en ruta.';
             }
             verificarVentasPendientes();
         } else {
             if (connectionStatus) {
-                connectionStatus.innerHTML = `<div class="alert alert-warning py-1 mb-0" style="border-radius: 20px;"><i class="fas fa-wifi-slash me-2"></i><small><strong>Modo sin conexión</strong> - Las ventas se guardarán localmente</small></div>`;
+                connectionStatus.innerHTML = `<div class="alert alert-warning py-1.5 px-3 mb-0 d-flex align-items-center shadow-sm rounded-pill"><i class="bi bi-wifi-off me-2 text-warning"></i><small><strong>Modo sin conexión</strong> — Las ventas se guardarán localmente en el dispositivo</small></div>`;
             }
             if (confirmacionMensaje) {
-                confirmacionMensaje.innerHTML = '<i class="fas fa-cloud-upload-alt text-warning me-2"></i>📱 MODO SIN CONEXIÓN: Las ventas se guardarán localmente y se sincronizará cuando tenga internet.';
+                confirmacionMensaje.innerHTML = '<i class="bi bi-cloud-arrow-up text-warning me-2"></i>📱 MODO SIN CONEXIÓN: Las ventas se guardarán localmente y se sincronizarán cuando haya internet.';
             }
         }
     }
@@ -3416,7 +3474,7 @@
                     </div>
                     <div>
                         <span class="fw-bold text-success me-2 small">${formatoCordoba(parseFloat(opt.dataset.precio))}</span>
-                        <i class="fas fa-plus-circle text-primary"></i>
+                        <i class="bi bi-plus-circle-fill text-primary"></i>
                     </div>
                 </div>
             </div>`;
@@ -3995,40 +4053,52 @@
 
 {% block extra_css %}
 <style>
-    .producto-movil-card-premium {
+    /* Ocultar elementos de checkbox o inputs residuales en SweetAlert2 */
+
+    .swal2-container .swal2-checkbox,
+    .swal2-popup .swal2-checkbox,
+    .swal2-toast .swal2-checkbox,
+    .swal2-toast input[type="checkbox"] {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        height: 0 !important;
+        width: 0 !important;
+        pointer-events: none !important;
+    }
+
+    /* Tarjetas de productos en vista móvil */
+    .producto-movil-item {
         background: #ffffff;
-        border-radius: 14px;
-        border: 1px solid rgba(226, 232, 240, 0.8);
-        box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.04);
-        padding: 1rem;
-        margin-bottom: 1rem;
-        transition: all 0.2s ease;
-    }
-    .producto-movil-card-premium:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 16px -2px rgba(15, 23, 42, 0.08);
-    }
-    .input-premium-sm {
-        border-radius: 8px;
-        border: 1px solid #cbd5e1;
-        padding: 0.35rem 0.5rem;
-        font-size: 0.875rem;
-        font-weight: 600;
-        transition: all 0.2s ease;
-    }
-    .input-premium-sm:focus {
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        border: 1px solid #e2e8f0 !important;
+        border-left: 4px solid #28a745 !important;
+        border-radius: 12px !important;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04) !important;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
 
-    /* Tarjetas móviles */
-    .producto-movil-card {
-        transition: all 0.2s ease;
-        border-left: 3px solid #2c5e2e;
+    .producto-movil-item:hover,
+    .producto-movil-item:focus-within {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+        transform: translateY(-1px);
     }
 
-    .producto-movil-card:active {
-        transform: scale(0.99);
+    .producto-movil-item .input-group .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 32px;
+        font-weight: bold;
+    }
+
+    .producto-movil-item input[type=number] {
+        -moz-appearance: textfield;
+    }
+
+    .producto-movil-item input[type=number]::-webkit-outer-spin-button,
+    .producto-movil-item input[type=number]::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
     }
 
     /* Campo requerido */

@@ -1888,12 +1888,12 @@
                 });
             }
 
-            document.querySelectorAll('.alert').forEach(alert => {
+            document.querySelectorAll('.alert-dismissible:not(.alert-permanent):not([data-permanent])').forEach(alert => {
                 setTimeout(() => {
                     if (document.body.contains(alert)) {
                         if (window.bootstrap && bootstrap.Alert) {
-                            const bsAlert = new bootstrap.Alert(alert);
-                            bsAlert.close();
+                            const bsAlert = bootstrap.Alert.getOrCreateInstance(alert);
+                            if (bsAlert) bsAlert.close();
                         } else {
                             // Fallback manual si Bootstrap no ha cargado (ej. modo offline de PWA)
                             alert.classList.remove('show');

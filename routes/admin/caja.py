@@ -74,11 +74,6 @@ def admin_caja():
                 Estado
             FROM caja_movimientos
             WHERE DATE(Fecha) = %s
-            AND Estado = 'ACTIVO'
-            AND (Descripcion NOT LIKE '%%Anulación%%' 
-                 AND Descripcion NOT LIKE '%%Contramovimiento%%'
-                 AND (Referencia_Documento IS NULL 
-                      OR Referencia_Documento NOT LIKE '%%ANUL%%'))
             ORDER BY Fecha DESC
         """, (fecha_actual,))
         
@@ -160,8 +155,8 @@ def admin_caja_aperturar():
             # Registrar apertura
             cursor.execute("""
                 INSERT INTO caja_movimientos 
-                (Fecha, Tipo_Movimiento, Descripcion, Monto, ID_Usuario, Estado)
-                VALUES (NOW(), 'ENTRADA', %s, %s, %s, 'ACTIVO')
+                (Fecha, Tipo_Movimiento, Descripcion, Monto, Referencia_Documento, ID_Usuario, Estado)
+                VALUES (NOW(), 'ENTRADA', %s, %s, 'APERTURA', %s, 'ACTIVO')
             """, (f"Apertura de caja", monto, current_user.id))
             
             flash(f'Caja aperturada con C${monto:.2f}', 'success')
@@ -254,8 +249,8 @@ def admin_caja_cerrar():
             # Registrar cierre
             cursor.execute("""
                 INSERT INTO caja_movimientos 
-                (Fecha, Tipo_Movimiento, Descripcion, Monto, ID_Usuario, Estado)
-                VALUES (NOW(), 'SALIDA', %s, %s, %s, 'ACTIVO')
+                (Fecha, Tipo_Movimiento, Descripcion, Monto, Referencia_Documento, ID_Usuario, Estado)
+                VALUES (NOW(), 'SALIDA', %s, %s, 'CIERRE', %s, 'ACTIVO')
             """, ("Cierre de caja", saldo, current_user.id))
             
             flash(f'Caja cerrada. Saldo final: C${saldo:.2f}', 'success')
@@ -270,39 +265,61 @@ def admin_caja_cerrar():
 def admin_caja_anular(id_movimiento):
     """Anula un movimiento de caja"""
     try:
+        motivo = request.form.get('motivo', '').strip()
+        if not motivo:
+            motivo = "Anulación directa por administrador"
+            
         with get_db_cursor(True) as cursor:
             # Obtener movimiento
             cursor.execute("""
-                SELECT Monto, Tipo_Movimiento FROM caja_movimientos
-                WHERE ID_Movimiento = %s AND Estado = 'ACTIVO'
+                SELECT ID_Movimiento, Monto, Tipo_Movimiento, Descripcion, Referencia_Documento, Estado 
+                FROM caja_movimientos
+                WHERE ID_Movimiento = %s
             """, (id_movimiento,))
             
             movimiento = cursor.fetchone()
             if not movimiento:
                 flash('Movimiento no encontrado', 'error')
                 return redirect(url_for('admin.admin_caja'))
+                
+            if movimiento['Estado'] == 'ANULADO':
+                flash('Este movimiento ya se encuentra anulado', 'warning')
+                return redirect(url_for('admin.admin_caja'))
             
-            # Marcar como anulado
+            # Validar que no sea Apertura o Cierre
+            ref = str(movimiento.get('Referencia_Documento') or '').upper()
+            desc = str(movimiento.get('Descripcion') or '').lower()
+            if 'APERTURA' in ref or 'apertura' in desc:
+                flash('No se puede anular la apertura de caja directamente', 'error')
+                return redirect(url_for('admin.admin_caja'))
+                
+            if 'CIERRE' in ref or 'cierre' in desc:
+                flash('No se puede anular el cierre de caja directamente', 'error')
+                return redirect(url_for('admin.admin_caja'))
+            
+            # Marcar como anulado con fecha, usuario y motivo
             cursor.execute("""
                 UPDATE caja_movimientos
-                SET Estado = 'ANULADO'
-                WHERE ID_Movimiento = %s
-            """, (id_movimiento,))
+                SET Estado = 'ANULADO',
+                    Fecha_Anulacion = NOW(),
+                    ID_Usuario_Anula = %s,
+                    Comentario_Ajuste = CONCAT(
+                        COALESCE(Comentario_Ajuste, ''), 
+                        CASE WHEN Comentario_Ajuste IS NOT NULL AND Comentario_Ajuste != '' THEN ' | ' ELSE '' END,
+                        'Motivo Anulación: ', %s
+                    )
+                WHERE ID_Movimiento = %s AND Estado = 'ACTIVO'
+            """, (current_user.id, motivo, id_movimiento))
             
-            # Registrar contramovimiento
-            tipo_inverso = 'SALIDA' if movimiento['Tipo_Movimiento'] == 'ENTRADA' else 'ENTRADA'
-            cursor.execute("""
-                INSERT INTO caja_movimientos 
-                (Fecha, Tipo_Movimiento, Descripcion, Monto, Referencia_Documento, ID_Usuario, Estado)
-                VALUES (NOW(), %s, %s, %s, %s, %s, 'ACTIVO')
-            """, (tipo_inverso, f"Anulación de movimiento {id_movimiento}", 
-                  movimiento['Monto'], f"ANUL-{id_movimiento}", current_user.id))
+            flash(f'Movimiento #{id_movimiento} anulado correctamente', 'success')
             
-            flash('Movimiento anulado', 'success')
+            referrer = request.referrer
+            if referrer and ('admin/caja/historial' in referrer or 'admin/caja' in referrer):
+                return redirect(referrer)
             return redirect(url_for('admin.admin_caja'))
             
     except Exception as e:
-        flash(f'Error: {str(e)}', 'error')
+        flash(f'Error al anular movimiento: {str(e)}', 'error')
         return redirect(url_for('admin.admin_caja'))
 
 @admin_bp.route('/admin/caja/historial')

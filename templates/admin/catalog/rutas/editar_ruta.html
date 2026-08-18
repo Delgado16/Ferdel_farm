@@ -2,197 +2,350 @@
 
 {% block title %}Editar Ruta - FerDel{% endblock %}
 
+{% block extra_css %}
+<style>
+    .editar-ruta-wrapper {
+        animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(12px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .card-premium-form {
+        background: #ffffff;
+        border-radius: 18px;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.05);
+        overflow: hidden;
+    }
+
+    .form-header-banner {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        padding: 1.5rem 2rem;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .ruta-avatar-large {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(99, 102, 241, 0.2));
+        color: #10b981;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.3rem;
+        font-weight: 800;
+        border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .info-summary-card {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 1.25rem 1.5rem;
+        margin-bottom: 1.75rem;
+    }
+
+    .form-label-premium {
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #475569;
+        margin-bottom: 0.4rem;
+        display: block;
+    }
+
+    .form-control-premium,
+    .form-select-premium {
+        border-radius: 10px;
+        border: 1px solid #cbd5e1;
+        padding: 0.7rem 0.95rem;
+        font-size: 0.95rem;
+        color: #1e293b;
+        transition: all 0.2s;
+    }
+
+    .form-control-premium:focus,
+    .form-select-premium:focus {
+        border-color: #10b981;
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+    }
+
+    .badge-pill-custom {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: 9999px;
+        font-weight: 700;
+        font-size: 0.75rem;
+    }
+
+    .badge-emerald {
+        background: rgba(16, 185, 129, 0.12);
+        color: #059669;
+        border: 1px solid rgba(16, 185, 129, 0.25);
+    }
+
+    .badge-slate {
+        background: rgba(100, 116, 139, 0.12);
+        color: #475569;
+        border: 1px solid rgba(100, 116, 139, 0.25);
+    }
+
+    .btn-primary-gradient {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: #ffffff;
+        border: none;
+        padding: 0.65rem 1.4rem;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 0.9rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+        transition: all 0.2s;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    .btn-primary-gradient:hover:not(:disabled) {
+        background: linear-gradient(135deg, #059669 0%, #047857 100%);
+        color: #ffffff;
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
+    }
+
+    .btn-primary-gradient:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .btn-secondary-outline {
+        background: #ffffff;
+        color: #475569;
+        border: 1px solid #cbd5e1;
+        padding: 0.65rem 1.25rem;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 0.9rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.2s;
+        text-decoration: none;
+    }
+
+    .btn-secondary-outline:hover {
+        background: #f8fafc;
+        color: #1e293b;
+        border-color: #94a3b8;
+    }
+
+    textarea#descripcion {
+        min-height: 110px;
+        resize: vertical;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container-fluid py-4 fade-in-up">
+<div class="container-fluid py-4 editar-ruta-wrapper">
     <!-- Encabezado con botón de volver -->
-    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <div>
-            <h3 class="fw-bold text-slate-800 mb-1">
-                <i class="fas fa-route text-primary me-2"></i>Editar Ruta
-            </h3>
-            <p class="text-muted small mb-0">Modificar el nombre de la ruta, descripción detallada y empresa comercial asignada</p>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <h3 class="fw-bold text-slate-900 mb-0">
+                    <i class="bi bi-pencil-square text-warning me-1"></i> Editar Ruta Comercial
+                </h3>
+                <span class="badge bg-light text-secondary border font-monospace px-2 py-1">#{{ ruta.ID_Ruta }}</span>
+            </div>
+            <p class="text-muted small mb-0">
+                Actualizar información de cobertura, denominación y empresa asignada
+            </p>
         </div>
+
         <div>
-            <a href="{{ url_for('admin.admin_rutas') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
-                <i class="fas fa-arrow-left me-1"></i> Volver a Lista
+            <a href="{{ url_for('admin.admin_rutas') }}" class="btn-secondary-outline">
+                <i class="bi bi-arrow-left"></i> Volver al Catálogo
             </a>
         </div>
     </div>
     
     <div class="row justify-content-center">
-        <div class="col-lg-10 col-xl-8">
-            <div class="card-premium-section mb-4">
-                <div class="card-body p-4">
-                    <!-- Resumen / ID de la ruta -->
-                    <div class="card-premium-section p-3 border-start border-3 border-primary mb-4">
-                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-                            <h5 class="fw-bold text-slate-800 mb-0">Información del Registro</h5>
-                            <span class="badge bg-light text-dark border font-monospace">ID Ruta: #{{ ruta.ID_Ruta }}</span>
+        <div class="col-12 col-lg-9 col-xl-8">
+            <div class="card-premium-form mb-4">
+                <!-- Header Banner -->
+                <div class="form-header-banner">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="ruta-avatar-large">
+                            {{ ruta.Nombre_Ruta[:2]|upper }}
                         </div>
-                        <div class="row mt-3 g-3">
-                            <div class="col-md-4">
-                                <small class="text-muted d-block">Estado Actual:</small>
-                                <span class="badge {% if ruta.Estado == 'Activa' %}bg-success bg-opacity-10 text-success border border-success border-opacity-25{% else %}bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25{% endif %} rounded-pill px-2.5 py-1.5 fw-bold mt-1.5">
-                                    {{ ruta.Estado }}
-                                </span>
-                                <div class="mt-1 small text-muted">
-                                    <i class="fas fa-info-circle me-1"></i>Para cambiar el estado, use la lista principal
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <small class="text-muted d-block">ID de Ruta:</small>
-                                <strong class="text-slate-800 font-monospace d-inline-block mt-2">#{{ ruta.ID_Ruta }}</strong>
-                            </div>
-                            <div class="col-md-4">
-                                <small class="text-muted d-block">Fecha de Creación:</small>
-                                <strong class="text-slate-800 small d-inline-block mt-2">
-                                    {% if ruta.Fecha_Creacion %}
-                                        {{ ruta.Fecha_Creacion.strftime('%d/%m/%Y %H:%M') }}
-                                    {% else %}
-                                        <span class="text-muted">No disponible</span>
-                                    {% endif %}
-                                </strong>
-                            </div>
+                        <div>
+                            <h5 class="fw-bold mb-0 text-white">{{ ruta.Nombre_Ruta }}</h5>
+                            <small class="text-slate-300">Ruta Comercial de Reparto</small>
                         </div>
-                        
-                        {% if ruta.Nombre_Empresa %}
-                        <div class="mt-3 pt-3 border-top border-light">
-                            <small class="text-muted d-block mb-1">Empresa Actual:</small>
-                            <div class="alert alert-info bg-info bg-opacity-10 text-info border border-info border-opacity-20 py-2.5 px-3 rounded-3 small mb-0 d-flex align-items-center">
-                                <i class="fas fa-building me-2 text-primary"></i>
-                                <div>
-                                    <strong>{{ ruta.Nombre_Empresa }}</strong>
-                                    <span class="text-muted ms-2">(ID: #{{ ruta.ID_Empresa }})</span>
-                                </div>
-                            </div>
-                        </div>
+                    </div>
+                    <div>
+                        {% if ruta.Estado == 'Activa' %}
+                        <span class="badge-pill-custom badge-emerald">
+                            <i class="bi bi-circle-fill" style="font-size: 6px;"></i> Activa
+                        </span>
+                        {% else %}
+                        <span class="badge-pill-custom badge-slate">
+                            <i class="bi bi-circle-fill" style="font-size: 6px;"></i> Inactiva
+                        </span>
                         {% endif %}
                     </div>
+                </div>
 
+                <div class="p-4 p-md-5">
+                    <!-- Resumen del Registro -->
+                    <div class="info-summary-card">
+                        <div class="row g-3">
+                            <div class="col-12 col-sm-4">
+                                <span class="text-muted text-uppercase fw-bold small" style="font-size: 0.7rem;">ID del Registro</span>
+                                <div class="font-monospace fw-bold text-slate-900 mt-1">#{{ ruta.ID_Ruta }}</div>
+                            </div>
+                            <div class="col-12 col-sm-4">
+                                <span class="text-muted text-uppercase fw-bold small" style="font-size: 0.7rem;">Fecha Creación</span>
+                                <div class="font-monospace text-slate-800 mt-1 small">
+                                    {% if ruta.Fecha_Creacion %}
+                                        {{ ruta.Fecha_Creacion.strftime('%d/%m/%Y %H:%M') if ruta.Fecha_Creacion is not string else ruta.Fecha_Creacion }}
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-12 col-sm-4">
+                                <span class="text-muted text-uppercase fw-bold small" style="font-size: 0.7rem;">Empresa Actual</span>
+                                <div class="fw-semibold text-indigo mt-1 small">
+                                    <i class="bi bi-building me-1"></i>{{ ruta.Nombre_Empresa or 'Sin empresa' }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Formulario de Edición -->
                     <form method="POST" action="{{ url_for('admin.admin_editar_ruta', id_ruta=ruta.ID_Ruta) }}" id="formEditarRuta" novalidate>
-                        <!-- Campos editables - Información básica -->
+                        <!-- Nombre de la Ruta -->
                         <div class="mb-3">
-                            <label for="nombre_ruta" class="form-label-premium fw-bold mb-1">
-                                Nombre de la Ruta *
+                            <label for="nombre_ruta" class="form-label-premium">
+                                Nombre de la Ruta <span class="text-danger">*</span>
                             </label>
-                            <input type="text" class="form-control form-control-premium form-control-lg" 
-                                   id="nombre_ruta" name="nombre_ruta" 
-                                   value="{{ ruta.Nombre_Ruta }}" 
-                                   required maxlength="255" autocomplete="off"
-                                   placeholder="Ej: Ruta Norte, Ruta Centro, etc.">
-                            <div class="form-text small text-muted">Nombre único para identificar la ruta</div>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0"><i class="bi bi-signpost-2 text-muted"></i></span>
+                                <input type="text" class="form-control form-control-premium border-start-0" 
+                                       id="nombre_ruta" name="nombre_ruta" 
+                                       value="{{ ruta.Nombre_Ruta }}" 
+                                       required maxlength="255" autocomplete="off"
+                                       placeholder="Ej: Ruta Granada, Ruta Masaya...">
+                            </div>
+                            <div class="form-text small text-muted">Nombre único para identificar la ruta en reportes y asignaciones</div>
                         </div>
                         
-                        <!-- Descripción -->
+                        <!-- Empresa Asignada -->
                         <div class="mb-3">
-                            <label for="descripcion" class="form-label-premium fw-bold mb-1">Descripción</label>
+                            <label for="id_empresa" class="form-label-premium">
+                                Empresa Comercial Asignada <span class="text-danger">*</span>
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0"><i class="bi bi-building text-muted"></i></span>
+                                <select class="form-select form-select-premium border-start-0" id="id_empresa" name="id_empresa" required>
+                                    <option value="" disabled>-- Seleccione una empresa --</option>
+                                    {% for empresa in empresas %}
+                                    <option value="{{ empresa.ID_Empresa }}" 
+                                            {% if empresa.ID_Empresa|string == ruta.ID_Empresa|string %}selected{% endif %}>
+                                        {{ empresa.Nombre_Empresa }} {% if empresa.ID_Empresa|string == ruta.ID_Empresa|string %}(Asignada actualmente){% endif %}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="form-text small text-muted">Empresa responsable legal y contable de esta ruta</div>
+                        </div>
+
+                        <!-- Descripción / Cobertura -->
+                        <div class="mb-4">
+                            <label for="descripcion" class="form-label-premium">Descripción o Cobertura</label>
                             <textarea class="form-control form-control-premium" id="descripcion" name="descripcion" 
-                                      rows="4" placeholder="Descripción detallada de la ruta..."
-                                      maxlength="65535">{{ ruta.Descripcion or '' }}</textarea>
-                            <div class="form-text small text-muted">
-                                Opcional: Municipios cubiertos, características, etc.
-                                <span id="contadorDescripcion" class="float-end">0/65535 caracteres</span>
+                                      rows="3" placeholder="Detalles sobre municipios cubiertos, paradas y puntos de entrega..."
+                                      maxlength="500">{{ ruta.Descripcion or '' }}</textarea>
+                            <div class="d-flex justify-content-between align-items-center mt-1">
+                                <span class="form-text small text-muted">Opcional: Información logística o puntos de interés</span>
+                                <span id="contadorDescripcion" class="small text-muted font-monospace">0/500</span>
                             </div>
                         </div>
                         
-                        <!-- Empresa -->
-                        <div class="mb-4">
-                            <label for="id_empresa" class="form-label-premium fw-bold mb-1">
-                                Empresa Asignada *
-                            </label>
-                            <select class="form-select form-select-premium form-select-lg" id="id_empresa" name="id_empresa" required>
-                                <option value="" disabled>-- Seleccione una empresa --</option>
-                                {% for empresa in empresas %}
-                                <option value="{{ empresa.ID_Empresa }}" 
-                                        {% if empresa.ID_Empresa == ruta.ID_Empresa %}selected{% endif %}>
-                                    {{ empresa.Nombre_Empresa }} {% if empresa.ID_Empresa == ruta.ID_Empresa %}(Actual){% endif %}
-                                </option>
-                                {% endfor %}
-                            </select>
-                            <div class="form-text small text-muted">Empresa responsable de esta ruta</div>
+                        <!-- Alertas / Tips -->
+                        <div class="alert alert-info bg-light border-info border-opacity-25 rounded-3 p-3 mb-4 d-flex align-items-center gap-2.5">
+                            <i class="bi bi-info-circle-fill text-info fs-5"></i>
+                            <div class="small text-slate-700">
+                                Para activar o desactivar la ruta, puedes hacerlo directamente con el botón de alternar estado en la tabla principal de rutas.
+                            </div>
                         </div>
-                        
-                        <!-- Alertas importantes -->
-                        <div class="alert alert-warning bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20 rounded-3 p-3 mb-4 small">
-                            <strong class="d-block mb-2"><i class="fas fa-exclamation-triangle me-1"></i> Notas importantes:</strong>
-                            <ul class="mb-0 ps-3">
-                                <li class="mb-1">Los campos marcados con asterisco (*) son obligatorios.</li>
-                                <li class="mb-1">El estado de la ruta solo se puede modificar desde el catálogo principal.</li>
-                                <li>Después de guardar, será redirigido al listado de rutas.</li>
-                            </ul>
+
+                        <!-- Botones de Acción -->
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 pt-3 border-top">
+                            <button type="button" class="btn btn-light border px-3 py-2 rounded-3 text-danger fw-semibold" 
+                                    onclick="confirmarCancelar()">
+                                <i class="bi bi-x-circle me-1"></i> Cancelar
+                            </button>
+                            
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn-primary-gradient" id="btnGuardar">
+                                    <i class="bi bi-save me-1"></i> Guardar Cambios
+                                </button>
+                            </div>
                         </div>
                     </form>
                 </div>
-                
-                <!-- Footer de acciones -->
-                <div class="card-footer bg-light border-0 py-3 rounded-bottom-3">
-                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-                        <div>
-                            <button type="button" class="btn btn-outline-danger px-3 py-2 rounded-3" 
-                                    onclick="confirmarCancelar()">
-                                <i class="fas fa-times-circle me-1"></i> Cancelar
-                            </button>
-                        </div>
-                        
-                        <div class="d-flex gap-2">
-                            <a href="{{ url_for('admin.admin_rutas') }}" class="btn btn-outline-info px-3 py-2 rounded-3">
-                                <i class="fas fa-list me-1"></i> Ver Lista
-                            </a>
-                            <button type="submit" form="formEditarRuta" 
-                                    class="btn btn-outline-warning px-3 py-2 rounded-3 fw-bold text-dark" id="btnGuardar">
-                                <i class="fas fa-save me-1"></i> Guardar Cambios
-                            </button>
-                        </div>
-                    </div>
-                </div>
             </div>
-
         </div>
     </div>
 </div>
 
 <!-- Modal para confirmar cancelación -->
 <div class="modal fade" id="confirmarCancelarModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content border-0 shadow-lg rounded-3">
-            <div class="modal-header border-bottom-0 pb-0">
-                <h5 class="modal-title fw-bold text-slate-800">
-                    <i class="fas fa-exclamation-triangle text-warning me-2"></i>Confirmar Cancelación
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header bg-warning bg-opacity-10 border-0 px-4 py-3">
+                <h5 class="modal-title fw-bold text-slate-900 d-flex align-items-center gap-2">
+                    <i class="bi bi-exclamation-triangle-fill text-warning"></i> Confirmar Cancelación
                 </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-            <div class="modal-body">
-                <p>¿Está seguro de que desea cancelar la edición?</p>
-                <div class="alert alert-light border rounded-3 p-2.5 mb-0 small">
-                    <i class="fas fa-info-circle me-1 text-secondary"></i>
-                    Los cambios no guardados se perderán permanentemente.
+            <div class="modal-body p-4">
+                <p class="text-slate-800 mb-2">¿Estás seguro de que deseas salir sin guardar?</p>
+                <div class="alert alert-light border rounded-3 p-2.5 mb-0 small text-muted">
+                    <i class="bi bi-info-circle me-1"></i> Los cambios que hayas realizado no se conservarán.
                 </div>
             </div>
-            <div class="modal-footer border-top-0 pt-0">
-                <button type="button" class="btn btn-outline-secondary px-3 py-1.5 rounded-3" data-bs-dismiss="modal">
-                    <i class="fas fa-arrow-left me-1"></i> Continuar Editando
+            <div class="modal-footer border-0 px-4 pb-4 pt-0">
+                <button type="button" class="btn btn-light border rounded-3 px-3 py-2" data-bs-dismiss="modal">
+                    Continuar Editando
                 </button>
-                <a href="{{ url_for('admin.admin_rutas') }}" class="btn btn-outline-warning px-3 py-1.5 rounded-3">
-                    <i class="fas fa-times-circle me-1"></i> Sí, Cancelar
+                <a href="{{ url_for('admin.admin_rutas') }}" class="btn btn-warning rounded-3 px-3 py-2 fw-bold text-dark">
+                    Salir sin Guardar
                 </a>
             </div>
         </div>
     </div>
 </div>
-
-<style>
-/* Ajustes específicos de textarea */
-textarea#descripcion {
-    min-height: 120px;
-    resize: vertical;
-}
-</style>
 {% endblock %}
 
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Referencias a elementos importantes
     const formEditar = document.getElementById('formEditarRuta');
     const btnGuardar = document.getElementById('btnGuardar');
     const inputNombre = document.getElementById('nombre_ruta');
@@ -200,236 +353,48 @@ document.addEventListener('DOMContentLoaded', function() {
     const selectEmpresa = document.getElementById('id_empresa');
     const contadorDescripcion = document.getElementById('contadorDescripcion');
     
-    // Estado original
-    const estadoOriginal = {
-        nombre: inputNombre.value.trim(),
-        descripcion: inputDescripcion.value.trim(),
-        empresa: selectEmpresa.value
-    };
-    
-    console.log('=== FORMULARIO DE EDICIÓN DE RUTA ===');
-    console.log('ID Ruta:', {{ ruta.ID_Ruta }});
-    console.log('Estado original:', estadoOriginal);
-    
-    // Inicializar contador de descripción
-    function actualizarContadorDescripcion() {
-        const longitud = inputDescripcion.value.length;
-        const maximo = 65535;
-        contadorDescripcion.textContent = `${longitud}/${maximo} caracteres`;
-        
-        if (longitud > maximo * 0.9) {
-            contadorDescripcion.classList.remove('text-muted');
-            contadorDescripcion.classList.add('text-warning');
-        } else if (longitud > maximo) {
-            contadorDescripcion.classList.remove('text-warning');
-            contadorDescripcion.classList.add('text-danger');
-        } else {
-            contadorDescripcion.classList.remove('text-warning', 'text-danger');
-            contadorDescripcion.classList.add('text-muted');
+    // Contador de descripción
+    function actualizarContador() {
+        if (inputDescripcion && contadorDescripcion) {
+            contadorDescripcion.textContent = inputDescripcion.value.length + '/500';
         }
     }
-    
-    // Inicializar contador
-    actualizarContadorDescripcion();
-    inputDescripcion.addEventListener('input', actualizarContadorDescripcion);
-    
-    // Función para detectar cambios
-    function detectarCambios() {
-        const nombreActual = inputNombre.value.trim();
-        const descripcionActual = inputDescripcion.value.trim();
-        const empresaActual = selectEmpresa.value;
-        
-        const cambios = {
-            nombre: nombreActual !== estadoOriginal.nombre,
-            descripcion: descripcionActual !== estadoOriginal.descripcion,
-            empresa: empresaActual !== estadoOriginal.empresa
-        };
-        
-        const hayCambios = Object.values(cambios).some(cambio => cambio);
-        
-        return { hayCambios, cambios };
+    actualizarContador();
+    if (inputDescripcion) {
+        inputDescripcion.addEventListener('input', actualizarContador);
     }
     
-    // Actualizar estado del botón según cambios
-    function actualizarEstadoBoton() {
-        const { hayCambios } = detectarCambios();
-        
-        if (hayCambios) {
-            btnGuardar.disabled = false;
-            btnGuardar.innerHTML = '<i class="fas fa-save me-1"></i> Guardar Cambios';
-            btnGuardar.classList.remove('btn-outline-secondary');
-            btnGuardar.classList.add('btn-outline-warning');
-        } else {
-            btnGuardar.disabled = true;
-            btnGuardar.innerHTML = '<i class="fas fa-check me-1"></i> Sin cambios';
-            btnGuardar.classList.remove('btn-outline-warning');
-            btnGuardar.classList.add('btn-outline-secondary');
-        }
-    }
-    
-    // Escuchar cambios en los campos
-    [inputNombre, inputDescripcion, selectEmpresa].forEach(element => {
-        element.addEventListener('input', actualizarEstadoBoton);
-        element.addEventListener('change', actualizarEstadoBoton);
-    });
-    
-    // Inicializar estado del botón
-    actualizarEstadoBoton();
-    
-    // Validación del formulario
-    formEditar.addEventListener('submit', function(e) {
-        const nombre = inputNombre.value.trim();
-        const empresa = selectEmpresa.value;
-        const descripcion = inputDescripcion.value;
-        
-        // Validar campos obligatorios
-        let hayErrores = false;
-        let mensajeError = '';
-        let elementoError = null;
-        
-        if (!nombre) {
-            mensajeError = 'El nombre de la ruta es obligatorio';
-            elementoError = inputNombre;
-            hayErrores = true;
-        } else if (nombre.length < 3) {
-            mensajeError = 'El nombre debe tener al menos 3 caracteres';
-            elementoError = inputNombre;
-            hayErrores = true;
-        } else if (nombre.length > 255) {
-            mensajeError = 'El nombre no puede exceder los 255 caracteres';
-            elementoError = inputNombre;
-            hayErrores = true;
-        }
-        
-        if (!empresa) {
-            mensajeError = 'Debe seleccionar una empresa';
-            if (!hayErrores) elementoError = selectEmpresa;
-            hayErrores = true;
-        }
-        
-        if (descripcion.length > 65535) {
-            mensajeError = 'La descripción no puede exceder los 65535 caracteres';
-            if (!hayErrores) elementoError = inputDescripcion;
-            hayErrores = true;
-        }
-        
-        if (hayErrores) {
-            e.preventDefault();
-            mostrarError(mensajeError, elementoError);
-            return false;
-        }
-        
-        // Mostrar resumen de cambios
-        const { cambios } = detectarCambios();
-        const cambiosTexto = Object.entries(cambios)
-            .filter(([_, cambio]) => cambio)
-            .map(([campo]) => {
-                switch(campo) {
-                    case 'nombre': return 'Nombre';
-                    case 'descripcion': return 'Descripción';
-                    case 'empresa': return 'Empresa';
-                    default: return campo;
-                }
-            })
-            .join(', ');
-        
-        const confirmacion = confirm(
-            '¿Está seguro de guardar los cambios?\n\n' +
-            `Cambios a guardar: ${cambiosTexto || 'Ninguno'}\n\n` +
-            'Será redirigido a la lista principal después de guardar.'
-        );
-        
-        if (!confirmacion) {
-            e.preventDefault();
-            return false;
-        }
-        
-        // Mostrar indicador de carga
-        btnGuardar.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...';
-        btnGuardar.disabled = true;
-        
-        // Deshabilitar todos los campos mientras se envía
-        formEditar.querySelectorAll('input, select, textarea, button').forEach(el => {
-            if (el !== btnGuardar) {
-                el.disabled = true;
-            }
-        });
-        
-        console.log('Guardando cambios y redirigiendo a la lista principal...');
-        console.log('Cambios detectados:', cambios);
-        
-        return true;
-    });
-    
-    // Función para mostrar errores
-    function mostrarError(mensaje, elemento) {
-        // Remover errores anteriores
-        const errorAnterior = elemento.parentElement.querySelector('.text-danger');
-        if (errorAnterior) {
-            errorAnterior.remove();
-        }
-        
-        // Agregar feedback visual al elemento
-        elemento.classList.add('is-invalid');
-        
-        // Crear mensaje de error
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'text-danger mt-1 small';
-        errorDiv.innerHTML = `<i class="fas fa-exclamation-circle me-1"></i> ${mensaje}`;
-        
-        elemento.parentElement.appendChild(errorDiv);
-        
-        // Enfocar el elemento
-        elemento.focus();
-        
-        // Remover el error después de corregir
-        elemento.addEventListener('input', function limpiarError() {
-            elemento.classList.remove('is-invalid');
-            errorDiv.remove();
-            elemento.removeEventListener('input', limpiarError);
-        }, { once: true });
-    }
-    
-    // Función para confirmar cancelación
-    window.confirmarCancelar = function() {
-        const { hayCambios } = detectarCambios();
-        
-        if (hayCambios) {
-            // Mostrar modal de confirmación
-            const modal = new bootstrap.Modal(document.getElementById('confirmarCancelarModal'));
-            modal.show();
-        } else {
-            // No hay cambios, redirigir directamente
-            window.location.href = "{{ url_for('admin.admin_rutas') }}";
-        }
-    };
-    
-    // Prevenir envío accidental con Enter en campos individuales
-    formEditar.querySelectorAll('input, textarea').forEach(element => {
-        element.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+    // Validación al enviar
+    if (formEditar) {
+        formEditar.addEventListener('submit', function(e) {
+            const nombre = inputNombre.value.trim();
+            const empresa = selectEmpresa.value;
+            
+            if (!nombre || nombre.length < 3) {
                 e.preventDefault();
+                alert('El nombre de la ruta debe contener al menos 3 caracteres.');
+                inputNombre.focus();
+                return false;
             }
+            
+            if (!empresa) {
+                e.preventDefault();
+                alert('Debes seleccionar una empresa responsable.');
+                selectEmpresa.focus();
+                return false;
+            }
+            
+            btnGuardar.disabled = true;
+            btnGuardar.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Guardando...';
+            return true;
         });
-    });
+    }
     
-    // Permitir Ctrl+Enter en textarea para enviar
-    inputDescripcion.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' && e.ctrlKey) {
-            e.preventDefault();
-            if (!btnGuardar.disabled) {
-                formEditar.requestSubmit();
-            }
-        }
-    });
-    
-    // Enfoque automático en el primer campo
-    setTimeout(() => {
-        inputNombre.focus();
-        inputNombre.select();
-    }, 100);
-    
-    console.log('Formulario de edición inicializado correctamente');
+    // Cancelar
+    window.confirmarCancelar = function() {
+        const modal = new bootstrap.Modal(document.getElementById('confirmarCancelarModal'));
+        modal.show();
+    };
 });
 </script>
 {% endblock %}

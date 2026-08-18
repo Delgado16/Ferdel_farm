@@ -1466,6 +1466,28 @@ def vendedor_venta_anular(id_venta):
                 WHERE ID_FacturaRuta = %s
             """, (motivo, id_venta))
             
+            # Anular movimientos en caja de ruta (movimientos_caja_ruta)
+            cursor.execute("""
+                UPDATE movimientos_caja_ruta 
+                SET Estado = 'ANULADO'
+                WHERE ID_FacturaRuta = %s AND Estado = 'ACTIVO'
+            """, (id_venta,))
+            
+            # Anular movimientos en caja_movimientos si existen
+            cursor.execute("""
+                UPDATE caja_movimientos 
+                SET Estado = 'ANULADO',
+                    Fecha_Anulacion = NOW(),
+                    ID_Usuario_Anula = %s,
+                    Comentario_Ajuste = CONCAT(
+                        COALESCE(Comentario_Ajuste, ''), 
+                        CASE WHEN Comentario_Ajuste IS NOT NULL AND Comentario_Ajuste != '' THEN ' | ' ELSE '' END,
+                        'ANULADO POR ANULACIÓN DE VENTA RUTA #', %s, ': ', %s
+                    )
+                WHERE (Referencia_Documento = %s OR Referencia_Documento = %s)
+                AND Estado = 'ACTIVO'
+            """, (id_vendedor, id_venta, motivo, f'RUT-{id_venta:05d}', f'RUT-{id_venta}'))
+            
             flash('Venta anulada exitosamente', 'success')
             
     except Exception as e:
