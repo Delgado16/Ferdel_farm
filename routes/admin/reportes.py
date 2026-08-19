@@ -1384,7 +1384,7 @@ def reporte_consolidado_carga_ventas():
                 JOIN movimientos_ruta_detalle mrd ON mrc.ID_Movimiento = mrd.ID_Movimiento
                 JOIN asignacion_vendedores av ON mrc.ID_Asignacion = av.ID_Asignacion
                 WHERE mrc.Estado = 'ACTIVO'
-                  AND mrc.ID_TipoMovimiento IN (13, 15) -- Carga Inicial / Traslado desde Bodega Local
+                  AND (mrc.Documento_Numero LIKE 'TS-%%' OR mrc.Documento_Numero LIKE 'CARGA-%%' OR mrc.ID_TipoMovimiento = 13) -- Despacho/Traslado de Bodega Local
                   AND DATE(mrc.Fecha_Movimiento) BETWEEN %s AND %s
                   AND av.ID_Usuario = %s
                 GROUP BY mrd.ID_Producto
@@ -1397,7 +1397,7 @@ def reporte_consolidado_carga_ventas():
                 JOIN movimientos_ruta_detalle mrd ON mrc.ID_Movimiento = mrd.ID_Movimiento
                 JOIN asignacion_vendedores av ON mrc.ID_Asignacion = av.ID_Asignacion
                 WHERE mrc.Estado = 'ACTIVO'
-                  AND mrc.ID_TipoMovimiento = 1 -- Compra / Proveedor directo a ruta
+                  AND (mrc.ID_TipoMovimiento = 1 OR (mrc.ID_TipoMovimiento = 15 AND mrc.Documento_Numero NOT LIKE 'TS-%%' AND mrc.Documento_Numero NOT LIKE 'CARGA-%%')) -- Carga Inmediata / Compra en Ruta
                   AND DATE(mrc.Fecha_Movimiento) BETWEEN %s AND %s
                   AND av.ID_Usuario = %s
                 GROUP BY mrd.ID_Producto
@@ -1524,7 +1524,7 @@ def reporte_consolidado_carga_ventas():
             JOIN asignacion_vendedores av ON mrc.ID_Asignacion = av.ID_Asignacion
             JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
             WHERE mrc.Estado = 'ACTIVO'
-              AND mrc.ID_TipoMovimiento IN (13, 15) -- Carga de Bodega
+              AND (mrc.Documento_Numero LIKE 'TS-%%' OR mrc.Documento_Numero LIKE 'CARGA-%%' OR mrc.ID_TipoMovimiento = 13) -- Despacho Local
               AND av.ID_Usuario = %s
               AND DATE(mrc.Fecha_Movimiento) BETWEEN %s AND %s
             ORDER BY mrc.Fecha_Movimiento DESC
@@ -1545,7 +1545,7 @@ def reporte_consolidado_carga_ventas():
             JOIN asignacion_vendedores av ON mrc.ID_Asignacion = av.ID_Asignacion
             JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
             WHERE mrc.Estado = 'ACTIVO'
-              AND mrc.ID_TipoMovimiento = 1 -- Compra / Proveedor
+              AND (mrc.ID_TipoMovimiento = 1 OR (mrc.ID_TipoMovimiento = 15 AND mrc.Documento_Numero NOT LIKE 'TS-%%' AND mrc.Documento_Numero NOT LIKE 'CARGA-%%')) -- Carga Inmediata / Proveedor
               AND av.ID_Usuario = %s
               AND DATE(mrc.Fecha_Movimiento) BETWEEN %s AND %s
             ORDER BY mrc.Fecha_Movimiento DESC
@@ -1585,7 +1585,7 @@ def reporte_consolidado_carga_ventas_detalle():
             if vendedor_id:
                 filter_vendedor = " AND av.ID_Usuario = %s"
                 
-            # 1. Cargas desde Bodega Central (ID 13, 15)
+            # 1. Cargas desde Bodega Central (TS-xxx, CARGA-xxx, Traslado)
             params_carga_bodega = [producto_id, fecha_inicio, fecha_fin]
             if vendedor_id:
                 params_carga_bodega.append(vendedor_id)
@@ -1606,7 +1606,7 @@ def reporte_consolidado_carga_ventas_detalle():
                 JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
                 WHERE mrd.ID_Producto = %s
                   AND mrc.Estado = 'ACTIVO'
-                  AND mrc.ID_TipoMovimiento IN (13, 15) -- Bodega Local
+                  AND (mrc.Documento_Numero LIKE 'TS-%%' OR mrc.Documento_Numero LIKE 'CARGA-%%' OR mrc.ID_TipoMovimiento = 13) -- Bodega Local
                   AND DATE(mrc.Fecha_Movimiento) BETWEEN %s AND %s
                   AND av.Estado IN ('Activa', 'Finalizada')
                   {filter_vendedor}
@@ -1614,7 +1614,7 @@ def reporte_consolidado_carga_ventas_detalle():
             """, params_carga_bodega)
             cargas_bodega = cursor.fetchall()
             
-            # 2. Cargas / Compras de Proveedor (ID 1)
+            # 2. Cargas Inmediatas a Venta / Compras de Proveedor en Ruta
             params_carga_prov = [producto_id, fecha_inicio, fecha_fin]
             if vendedor_id:
                 params_carga_prov.append(vendedor_id)
@@ -1635,7 +1635,7 @@ def reporte_consolidado_carga_ventas_detalle():
                 JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
                 WHERE mrd.ID_Producto = %s
                   AND mrc.Estado = 'ACTIVO'
-                  AND mrc.ID_TipoMovimiento = 1 -- Proveedor
+                  AND (mrc.ID_TipoMovimiento = 1 OR (mrc.ID_TipoMovimiento = 15 AND mrc.Documento_Numero NOT LIKE 'TS-%%' AND mrc.Documento_Numero NOT LIKE 'CARGA-%%')) -- Carga Inmediata / Proveedor
                   AND DATE(mrc.Fecha_Movimiento) BETWEEN %s AND %s
                   AND av.Estado IN ('Activa', 'Finalizada')
                   {filter_vendedor}
@@ -1827,28 +1827,48 @@ def reporte_consolidado_carga_ventas_detalle():
                     saldo_acumulado -= item['cantidad']
                 item['saldo_acumulado'] = saldo_acumulado
                 
+            # Sanitizar objetos para JSON serializable
+            def sanitize_dict_list(items):
+                clean = []
+                for item in items:
+                    d = dict(item)
+                    for k, v in list(d.items()):
+                        if v is not None and not isinstance(v, (int, float, str, bool, list, dict)):
+                            d[k] = str(v)
+                    clean.append(d)
+                return clean
+
+            cargas_bodega_clean = sanitize_dict_list(cargas_bodega)
+            cargas_prov_clean = sanitize_dict_list(cargas_proveedor)
+            ventas_clean = sanitize_dict_list(ventas)
+            devoluciones_clean = sanitize_dict_list(devoluciones)
+            mermas_clean = sanitize_dict_list(mermas)
+
             # Cargas consolidadas para retrocompatibilidad
             cargas_consolidadas = []
-            for cb in cargas_bodega:
+            for cb in cargas_bodega_clean:
                 cb_copy = dict(cb)
                 cb_copy['Origen'] = 'Bodega Central'
                 cargas_consolidadas.append(cb_copy)
-            for cp in cargas_proveedor:
+            for cp in cargas_prov_clean:
                 cp_copy = dict(cp)
                 cp_copy['Origen'] = 'Proveedor'
                 cargas_consolidadas.append(cp_copy)
             cargas_consolidadas.sort(key=lambda x: str(x.get('Fecha_Raw', '')), reverse=True)
 
             return jsonify({
-                'cargas_bodega': cargas_bodega,
-                'cargas_proveedor': cargas_proveedor,
+                'cargas_bodega': cargas_bodega_clean,
+                'cargas_proveedor': cargas_prov_clean,
                 'cargas': cargas_consolidadas,
-                'ventas': ventas,
-                'devoluciones': devoluciones,
-                'mermas': mermas,
+                'ventas': ventas_clean,
+                'devoluciones': devoluciones_clean,
+                'mermas': mermas_clean,
                 'timeline': timeline_items
             })
     except Exception as e:
+        import traceback
+        print("Error en reporte_consolidado_carga_ventas_detalle:", e)
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 @admin_bp.route('/admin/reporte/categoria_compras')
