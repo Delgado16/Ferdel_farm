@@ -303,7 +303,7 @@
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
             <div>
                 <h5 class="mb-0 fw-bold text-dark">
-                    <i class="bi bi-table text-primary me-1"></i> Auditoría y Validación por Producto ({{ VendedorNombre }})
+                    <i class="bi bi-table text-primary me-1"></i> Auditoría y Validación por Producto {% if vendedor_nombre or VendedorNombre %}({{ vendedor_nombre or VendedorNombre }}){% endif %}
                 </h5>
                 <small class="text-muted">Filtra por tipo de carga para auditar el origen del inventario por separado</small>
             </div>
@@ -331,14 +331,14 @@
                 </button>
             </div>
             
-            <span class="badge bg-secondary p-2" id="vistaInfoBadge">Mostrando: Todos los productos</span>
+            <span class="badge bg-secondary p-2" id="vistaInfoBadge">Mostrando: Consolidado General</span>
         </div>
     </div>
 
     <!-- Banner informativo según el filtro activo -->
     <div id="filtroInfoAlert" class="alert alert-light border-bottom rounded-0 mb-0 py-2 px-3 small d-flex align-items-center">
         <i class="bi bi-info-circle-fill text-primary me-2 fs-6"></i>
-        <span id="filtroInfoText">Mostrando el consolidado completo de cargas (local + proveedores) vs salidas en ruta.</span>
+        <span id="filtroInfoText">Mostrando el consolidado completo (Carga Local + Carga Inmediata) vs salidas en ruta.</span>
     </div>
 
     <div class="card-body p-0">
@@ -361,7 +361,9 @@
                         <th class="text-center py-3 text-success">Vendido</th>
                         <th class="text-center py-3 text-warning">Devuelto</th>
                         <th class="text-center py-3 text-danger">Mermado</th>
-                        <th class="text-center py-3 text-info">Stock Camión</th>
+                        <th class="text-center py-3 text-info col-stock-camion" title="Stock remanente que aún está en el camión. Muestra 0 si ya se vendió o retornó a bodega por liquidación.">
+                            <i class="bi bi-truck"></i> Stock Camión
+                        </th>
                         <th class="text-center py-3">Diferencia</th>
                         <th class="text-center py-3">Estado</th>
                         <th class="text-center py-3">Acciones</th>
@@ -424,7 +426,15 @@
                         <!-- Mermado -->
                         <td class="text-center fw-bold text-danger">{{ "%.0f"|format(item.Total_Mermado) }}</td>
                         <!-- Stock Camión -->
-                        <td class="text-center fw-bold text-info">{{ "%.0f"|format(item.Stock_Camion) }}</td>
+                        <td class="text-center fw-bold col-stock-camion">
+                            {% if item.Stock_Camion|float > 0 %}
+                            <span class="badge bg-info text-dark px-2 py-1 shadow-2xs" title="Producto actualmente en el camión">
+                                <i class="bi bi-truck me-1"></i>{{ "%.0f"|format(item.Stock_Camion) }}
+                            </span>
+                            {% else %}
+                            <span class="text-muted opacity-75" title="0 cajas en camión (Liquidado)">0</span>
+                            {% endif %}
+                        </td>
                         <!-- Diferencia -->
                         <td class="text-center fw-bold {% if item.Diferencia|float == 0 %}text-success{% else %}text-danger{% endif %}">
                             {{ "%.0f"|format(item.Diferencia) }}
@@ -471,7 +481,7 @@
                         <td class="text-center text-success" id="footVendido">{{ "%.0f"|format(total_vendido) }}</td>
                         <td class="text-center text-warning" id="footDevuelto">{{ "%.0f"|format(total_devuelto) }}</td>
                         <td class="text-center text-danger" id="footMermado">{{ "%.0f"|format(total_mermado) }}</td>
-                        <td class="text-center text-info" id="footStock">{{ "%.0f"|format(total_stock) }}</td>
+                        <td class="text-center text-info col-stock-camion" id="footStock">{{ "%.0f"|format(total_stock) }}</td>
                         <td class="text-center {% if total_diferencia == 0 %}text-success{% else %}text-danger{% endif %}" id="footDiferencia">
                             {{ "%.0f"|format(total_diferencia) }}
                         </td>
@@ -685,13 +695,53 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-4">
-                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4 p-3 bg-light rounded border">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3 p-3 bg-light rounded border">
                     <div>
                         <span class="text-muted text-uppercase fw-bold" style="font-size: 0.75rem; letter-spacing: 0.05em;">Producto Auditado:</span>
                         <h4 id="modalProductoNombre" class="fw-bold text-primary mb-0"></h4>
                     </div>
                     <div>
                         <span class="badge bg-secondary p-2" id="modalRangoFechas"></span>
+                    </div>
+                </div>
+
+                <!-- Resumen de Auditoría en Tarjetas dentro del Modal -->
+                <div class="row g-2 mb-4">
+                    <div class="col-6 col-md-2">
+                        <div class="p-2.5 rounded bg-primary-subtle border border-primary text-center">
+                            <span class="text-muted small d-block" style="font-size: 0.7rem;">🏢 Carga Local</span>
+                            <strong class="fs-6 text-primary" id="modalKpiLocal">0</strong> <small class="text-muted">cajas</small>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <div class="p-2.5 rounded bg-info-subtle border border-info text-center">
+                            <span class="text-muted small d-block" style="font-size: 0.7rem;">🚚 Carga Prov.</span>
+                            <strong class="fs-6 text-info" id="modalKpiProv">0</strong> <small class="text-muted">cajas</small>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <div class="p-2.5 rounded bg-success-subtle border border-success text-center">
+                            <span class="text-muted small d-block" style="font-size: 0.7rem;">🧾 Vendido</span>
+                            <strong class="fs-6 text-success" id="modalKpiVendido">0</strong> <small class="text-muted">cajas</small>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <div class="p-2.5 rounded bg-warning-subtle border border-warning text-center">
+                            <span class="text-muted small d-block" style="font-size: 0.7rem;">↩️ Devuelto</span>
+                            <strong class="fs-6 text-warning" id="modalKpiDevuelto">0</strong> <small class="text-muted">cajas</small>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <div class="p-2.5 rounded bg-danger-subtle border border-danger text-center">
+                            <span class="text-muted small d-block" style="font-size: 0.7rem;">🗑️ Mermado</span>
+                            <strong class="fs-6 text-danger" id="modalKpiMermado">0</strong> <small class="text-muted">cajas</small>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <div class="p-2.5 rounded bg-dark text-white text-center shadow-sm">
+                            <span class="text-white-50 small d-block" style="font-size: 0.7rem;">🚚 Stock Camión</span>
+                            <strong class="fs-6 text-white" id="modalKpiStock">0</strong> <small class="text-white-50">cajas</small>
+                        </div>
                     </div>
                 </div>
                 
@@ -1140,6 +1190,26 @@
             footDiferencia.innerText = sumDiferencia.toFixed(0);
             footDiferencia.className = 'text-center ' + (Math.abs(sumDiferencia) < 0.001 ? 'text-success' : 'text-danger');
         }
+
+        // Alternar visibilidad de columnas según el filtro activo (Solo mostrar la columna correspondiente en cada vista)
+        const colCargaLocalElements = document.querySelectorAll('.col-carga-local');
+        const colCargaProvElements = document.querySelectorAll('.col-carga-prov');
+        const colCargaTotalElements = document.querySelectorAll('.col-carga-total');
+
+        if (currentFiltro === 'carga_local') {
+            colCargaLocalElements.forEach(el => el.classList.remove('d-none'));
+            colCargaProvElements.forEach(el => el.classList.add('d-none'));
+            colCargaTotalElements.forEach(el => el.classList.add('d-none'));
+        } else if (currentFiltro === 'carga_inmediata') {
+            colCargaLocalElements.forEach(el => el.classList.add('d-none'));
+            colCargaProvElements.forEach(el => el.classList.remove('d-none'));
+            colCargaTotalElements.forEach(el => el.classList.add('d-none'));
+        } else {
+            // Consolidado General / Descuadre (muestra todas las columnas de carga juntas)
+            colCargaLocalElements.forEach(el => el.classList.remove('d-none'));
+            colCargaProvElements.forEach(el => el.classList.remove('d-none'));
+            colCargaTotalElements.forEach(el => el.classList.remove('d-none'));
+        }
     }
 
     // Event listeners para los botones de detalles
@@ -1169,6 +1239,14 @@
         document.getElementById('tableDevolucionesBody').innerHTML = loadingHtml;
         document.getElementById('tableMermasBody').innerHTML = loadingHtml;
         
+        // Reset KPIs en modal
+        document.getElementById('modalKpiLocal').innerText = '0';
+        document.getElementById('modalKpiProv').innerText = '0';
+        document.getElementById('modalKpiVendido').innerText = '0';
+        document.getElementById('modalKpiDevuelto').innerText = '0';
+        document.getElementById('modalKpiMermado').innerText = '0';
+        document.getElementById('modalKpiStock').innerText = '0';
+
         document.getElementById('countTimeline').innerText = '0';
         document.getElementById('countCargasBodega').innerText = '0';
         document.getElementById('countCargasProv').innerText = '0';
@@ -1195,9 +1273,25 @@
                     alert('Error: ' + data.error);
                     return;
                 }
+
+                // Calcular totales para los KPIs del modal
+                const totalLocal = (data.cargas_bodega || []).reduce((acc, curr) => acc + (parseFloat(curr.Cantidad) || 0), 0);
+                const totalProv = (data.cargas_proveedor || []).reduce((acc, curr) => acc + (parseFloat(curr.Cantidad) || 0), 0);
+                const totalVentas = (data.ventas || []).reduce((acc, curr) => acc + (parseFloat(curr.Cantidad) || 0), 0);
+                const totalDevuelto = (data.devoluciones || []).reduce((acc, curr) => acc + (parseFloat(curr.Cantidad) || 0), 0);
+                const totalMermas = (data.mermas || []).reduce((acc, curr) => acc + (parseFloat(curr.Cantidad) || 0), 0);
+                
+                const timeline = data.timeline || [];
+                const stockFinalCamion = timeline.length > 0 ? (timeline[timeline.length - 1].saldo_acumulado || 0) : 0;
+
+                document.getElementById('modalKpiLocal').innerText = totalLocal.toFixed(0);
+                document.getElementById('modalKpiProv').innerText = totalProv.toFixed(0);
+                document.getElementById('modalKpiVendido').innerText = totalVentas.toFixed(0);
+                document.getElementById('modalKpiDevuelto').innerText = totalDevuelto.toFixed(0);
+                document.getElementById('modalKpiMermado').innerText = totalMermas.toFixed(0);
+                document.getElementById('modalKpiStock').innerText = stockFinalCamion.toFixed(0);
                 
                 // 0. Timeline (Kardex Cronológico)
-                const timeline = data.timeline || [];
                 document.getElementById('countTimeline').innerText = timeline.length;
                 let htmlTimeline = '';
                 if (timeline.length === 0) {

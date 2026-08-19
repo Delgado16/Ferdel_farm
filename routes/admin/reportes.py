@@ -1552,6 +1552,8 @@ def reporte_consolidado_carga_ventas():
         """, (vendedor_id, fecha_inicio, fecha_fin))
         cargas_proveedor_realizadas = cursor.fetchall()
         
+        vendedor_nombre = next((v['NombreUsuario'] for v in vendedores if str(v['ID_Usuario']) == str(vendedor_id)), '')
+
         return resultados, 'admin/reportes/reporte_consolidado_carga_ventas.html', {
             'resultados': resultados,
             'facturas_realizadas': facturas_realizadas,
@@ -1563,6 +1565,7 @@ def reporte_consolidado_carga_ventas():
             'fecha_inicio': fecha_inicio,
             'fecha_fin': fecha_fin,
             'vendedor_id': vendedor_id,
+            'vendedor_nombre': vendedor_nombre,
             'categoria_id': categoria_id
         }
 
