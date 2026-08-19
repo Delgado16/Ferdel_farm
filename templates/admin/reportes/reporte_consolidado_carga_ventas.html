@@ -297,29 +297,65 @@
 </div>
 {% endif %}
 
-<!-- Tabla Detallada -->
+<!-- Tabla Detallada con Filtros de Validación -->
 <div class="card shadow-sm mb-5">
-    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-        <div>
-            <i class="bi bi-table text-primary"></i> <strong>Consolidado de Productos de {{ VendedorNombre }}</strong>
+    <div class="card-header bg-white py-3">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <div>
+                <h5 class="mb-0 fw-bold text-dark">
+                    <i class="bi bi-table text-primary me-1"></i> Auditoría y Validación por Producto ({{ VendedorNombre }})
+                </h5>
+                <small class="text-muted">Filtra por tipo de carga para auditar el origen del inventario por separado</small>
+            </div>
+            <!-- Buscador rápido en tabla -->
+            <div class="input-group input-group-sm" style="width: 260px;">
+                <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                <input type="text" id="tablaBuscador" class="form-control form-control-sm border-start-0 ps-0" placeholder="Buscar por nombre o código...">
+            </div>
         </div>
-        <span class="badge bg-secondary">{{ resultados|length }} productos con movimiento</span>
+
+        <!-- Barra de Botones / Filtros de Validación -->
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="btn-group flex-wrap" role="group" id="tablaFiltrosGroup">
+                <button type="button" class="btn btn-sm btn-dark active filter-btn" data-filtro="todos">
+                    <i class="bi bi-grid-fill me-1"></i> Consolidado General (<span id="badgeCountTodos">{{ resultados|length }}</span>)
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-primary filter-btn" data-filtro="carga_local">
+                    <i class="bi bi-building me-1"></i> 1. Carga Local / Bodega (<span id="badgeCountLocal">0</span>)
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-info filter-btn" data-filtro="carga_inmediata">
+                    <i class="bi bi-truck-flatbed me-1"></i> 2. Carga Inmediata a Venta / Prov. (<span id="badgeCountInmediata">0</span>)
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-danger filter-btn" data-filtro="descuadre">
+                    <i class="bi bi-exclamation-triangle-fill me-1"></i> Con Descuadre (<span id="badgeCountDescuadre">0</span>)
+                </button>
+            </div>
+            
+            <span class="badge bg-secondary p-2" id="vistaInfoBadge">Mostrando: Todos los productos</span>
+        </div>
     </div>
+
+    <!-- Banner informativo según el filtro activo -->
+    <div id="filtroInfoAlert" class="alert alert-light border-bottom rounded-0 mb-0 py-2 px-3 small d-flex align-items-center">
+        <i class="bi bi-info-circle-fill text-primary me-2 fs-6"></i>
+        <span id="filtroInfoText">Mostrando el consolidado completo de cargas (local + proveedores) vs salidas en ruta.</span>
+    </div>
+
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
+            <table class="table table-hover align-middle mb-0" id="tablaProductosConsolidado">
                 <thead class="table-light">
                     <tr>
                         <th class="py-3">Código</th>
                         <th class="py-3">Producto</th>
                         <th class="py-3">Categoría</th>
-                        <th class="text-center py-3 text-primary" title="Salida de Bodega Central">
+                        <th class="text-center py-3 text-primary col-carga-local" title="Salida de Bodega Central">
                             <i class="bi bi-building"></i> Carga Local
                         </th>
-                        <th class="text-center py-3 text-info" title="Compras de Proveedor en Ruta">
-                            <i class="bi bi-truck-flatbed"></i> Carga Prov.
+                        <th class="text-center py-3 text-info col-carga-prov" title="Compras de Proveedor / Carga Inmediata en Ruta">
+                            <i class="bi bi-truck-flatbed"></i> Carga Inmediata
                         </th>
-                        <th class="text-center py-3 fw-bold" style="background-color: #f8fafc;" title="Total Carga (Local + Proveedor)">
+                        <th class="text-center py-3 fw-bold col-carga-total" style="background-color: #f8fafc;" title="Total Carga (Local + Inmediata)">
                             Total Carga
                         </th>
                         <th class="text-center py-3 text-success">Vendido</th>
@@ -331,20 +367,42 @@
                         <th class="text-center py-3">Acciones</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="tablaProductosBody">
                     {% for item in resultados %}
-                    <tr class="{% if item.Diferencia|float != 0 %}table-danger-light{% endif %}">
+                    <tr class="producto-row {% if item.Diferencia|float != 0 %}table-danger-light{% endif %}"
+                        data-carga-local="{{ item.Carga_Bodega|float }}"
+                        data-carga-prov="{{ item.Carga_Proveedor|float }}"
+                        data-cargado="{{ item.Total_Cargado|float }}"
+                        data-vendido="{{ item.Total_Vendido|float }}"
+                        data-devuelto="{{ item.Total_Devuelto|float }}"
+                        data-mermado="{{ item.Total_Mermado|float }}"
+                        data-stock="{{ item.Stock_Camion|float }}"
+                        data-diferencia="{{ item.Diferencia|float }}"
+                        data-search="{{ item.Codigo|lower }} {{ item.Producto|lower }} {{ item.Categoria|lower }}">
                         <td><code>{{ item.Codigo }}</code></td>
-                        <td><strong>{{ item.Producto }}</strong></td>
+                        <td>
+                            <strong>{{ item.Producto }}</strong>
+                            {% if item.Carga_Proveedor|float > 0 and item.Carga_Bodega|float == 0 %}
+                            <span class="badge bg-info-subtle text-info border border-info ms-1 small" style="font-size: 0.65rem;">Directo Prov.</span>
+                            {% elif item.Carga_Proveedor|float > 0 and item.Carga_Bodega|float > 0 %}
+                            <span class="badge bg-warning-subtle text-warning border border-warning ms-1 small" style="font-size: 0.65rem;">Mixto</span>
+                            {% endif %}
+                        </td>
                         <td><span class="badge bg-light text-dark border">{{ item.Categoria }}</span></td>
                         
                         <!-- Carga Local -->
-                        <td class="text-center fw-bold text-primary">
-                            {{ "%.0f"|format(item.Carga_Bodega) }}
+                        <td class="text-center fw-bold text-primary col-carga-local">
+                            {% if item.Carga_Bodega|float > 0 %}
+                            <span class="badge bg-primary-subtle text-primary border border-primary px-2">
+                                {{ "%.0f"|format(item.Carga_Bodega) }}
+                            </span>
+                            {% else %}
+                            <span class="text-muted">0</span>
+                            {% endif %}
                         </td>
                         
-                        <!-- Carga Proveedor -->
-                        <td class="text-center fw-bold text-info">
+                        <!-- Carga Inmediata / Proveedor -->
+                        <td class="text-center fw-bold text-info col-carga-prov">
                             {% if item.Carga_Proveedor|float > 0 %}
                             <span class="badge bg-info-subtle text-info border border-info px-2">
                                 +{{ "%.0f"|format(item.Carga_Proveedor) }}
@@ -355,7 +413,7 @@
                         </td>
                         
                         <!-- Total Cargado -->
-                        <td class="text-center fw-bold" style="background-color: rgba(241, 245, 249, 0.5);">
+                        <td class="text-center fw-bold col-carga-total" style="background-color: rgba(241, 245, 249, 0.5);">
                             {{ "%.0f"|format(item.Total_Cargado) }}
                         </td>
                         
@@ -396,19 +454,25 @@
                         </td>
                     </tr>
                     {% endfor %}
+                    <tr id="noResultadosFilterRow" class="d-none">
+                        <td colspan="13" class="text-center text-muted py-4">
+                            <i class="bi bi-funnel fs-1 text-secondary opacity-50"></i><br>
+                            <span class="mt-2 d-block">No hay productos que coincidan con el filtro o búsqueda actual.</span>
+                        </td>
+                    </tr>
                 </tbody>
                 {% if resultados|length > 0 %}
-                <tfoot class="table-light fw-bold">
+                <tfoot class="table-light fw-bold" id="tablaFoot">
                     <tr>
-                        <td colspan="3" class="text-end">TOTALES:</td>
-                        <td class="text-center text-primary">{{ "%.0f"|format(total_carga_bodega) }}</td>
-                        <td class="text-center text-info">{{ "%.0f"|format(total_carga_prov) }}</td>
-                        <td class="text-center" style="background-color: #e2e8f0;">{{ "%.0f"|format(total_cargado) }}</td>
-                        <td class="text-center text-success">{{ "%.0f"|format(total_vendido) }}</td>
-                        <td class="text-center text-warning">{{ "%.0f"|format(total_devuelto) }}</td>
-                        <td class="text-center text-danger">{{ "%.0f"|format(total_mermado) }}</td>
-                        <td class="text-center text-info">{{ "%.0f"|format(total_stock) }}</td>
-                        <td class="text-center {% if total_diferencia == 0 %}text-success{% else %}text-danger{% endif %}">
+                        <td colspan="3" class="text-end">TOTALES VISIBLES:</td>
+                        <td class="text-center text-primary col-carga-local" id="footCargaLocal">{{ "%.0f"|format(total_carga_bodega) }}</td>
+                        <td class="text-center text-info col-carga-prov" id="footCargaProv">{{ "%.0f"|format(total_carga_prov) }}</td>
+                        <td class="text-center col-carga-total" style="background-color: #e2e8f0;" id="footTotalCarga">{{ "%.0f"|format(total_cargado) }}</td>
+                        <td class="text-center text-success" id="footVendido">{{ "%.0f"|format(total_vendido) }}</td>
+                        <td class="text-center text-warning" id="footDevuelto">{{ "%.0f"|format(total_devuelto) }}</td>
+                        <td class="text-center text-danger" id="footMermado">{{ "%.0f"|format(total_mermado) }}</td>
+                        <td class="text-center text-info" id="footStock">{{ "%.0f"|format(total_stock) }}</td>
+                        <td class="text-center {% if total_diferencia == 0 %}text-success{% else %}text-danger{% endif %}" id="footDiferencia">
                             {{ "%.0f"|format(total_diferencia) }}
                         </td>
                         <td></td>
@@ -902,6 +966,182 @@
 {% endif %}
 
 <script>
+    // ========================================================
+    // FILTROS Y BÚSQUEDA INTERACTIVA EN TABLA CONSOLIDADA
+    // ========================================================
+    document.addEventListener('DOMContentLoaded', function() {
+        initTablaFiltros();
+    });
+
+    let currentFiltro = 'todos';
+
+    function initTablaFiltros() {
+        const rows = document.querySelectorAll('#tablaProductosBody .producto-row');
+        if (!rows.length) return;
+
+        // 1. Contar cantidades para cada badge de filtro
+        let countTodos = rows.length;
+        let countLocal = 0;
+        let countInmediata = 0;
+        let countDescuadre = 0;
+
+        rows.forEach(row => {
+            const cargaLocal = parseFloat(row.getAttribute('data-carga-local') || 0);
+            const cargaProv = parseFloat(row.getAttribute('data-carga-prov') || 0);
+            const diferencia = parseFloat(row.getAttribute('data-diferencia') || 0);
+
+            if (cargaLocal > 0) countLocal++;
+            if (cargaProv > 0) countInmediata++;
+            if (Math.abs(diferencia) > 0.001) countDescuadre++;
+        });
+
+        const elCountTodos = document.getElementById('badgeCountTodos');
+        const elCountLocal = document.getElementById('badgeCountLocal');
+        const elCountInmediata = document.getElementById('badgeCountInmediata');
+        const elCountDescuadre = document.getElementById('badgeCountDescuadre');
+
+        if (elCountTodos) elCountTodos.innerText = countTodos;
+        if (elCountLocal) elCountLocal.innerText = countLocal;
+        if (elCountInmediata) elCountInmediata.innerText = countInmediata;
+        if (elCountDescuadre) elCountDescuadre.innerText = countDescuadre;
+
+        // 2. Event Listeners para los botones de filtro
+        document.querySelectorAll('#tablaFiltrosGroup .filter-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                // Remover clase active de todos
+                document.querySelectorAll('#tablaFiltrosGroup .filter-btn').forEach(b => {
+                    b.classList.remove('active');
+                    if (b.getAttribute('data-filtro') === 'todos') b.className = 'btn btn-sm btn-outline-dark filter-btn';
+                    else if (b.getAttribute('data-filtro') === 'carga_local') b.className = 'btn btn-sm btn-outline-primary filter-btn';
+                    else if (b.getAttribute('data-filtro') === 'carga_inmediata') b.className = 'btn btn-sm btn-outline-info filter-btn';
+                    else if (b.getAttribute('data-filtro') === 'descuadre') b.className = 'btn btn-sm btn-outline-danger filter-btn';
+                });
+
+                // Activar el seleccionado
+                this.classList.add('active');
+                currentFiltro = this.getAttribute('data-filtro');
+
+                if (currentFiltro === 'todos') this.className = 'btn btn-sm btn-dark active filter-btn';
+                else if (currentFiltro === 'carga_local') this.className = 'btn btn-sm btn-primary active filter-btn';
+                else if (currentFiltro === 'carga_inmediata') this.className = 'btn btn-sm btn-info active filter-btn text-white';
+                else if (currentFiltro === 'descuadre') this.className = 'btn btn-sm btn-danger active filter-btn';
+
+                // Actualizar textos informativos
+                const infoTextEl = document.getElementById('filtroInfoText');
+                const infoBadgeEl = document.getElementById('vistaInfoBadge');
+                
+                if (currentFiltro === 'todos') {
+                    if (infoTextEl) infoTextEl.innerText = 'Mostrando el consolidado completo de cargas (local + proveedores) vs salidas en ruta.';
+                    if (infoBadgeEl) { infoBadgeEl.innerText = 'Vista: Consolidado General'; infoBadgeEl.className = 'badge bg-secondary p-2'; }
+                } else if (currentFiltro === 'carga_local') {
+                    if (infoTextEl) infoTextEl.innerText = '📍 Auditando exclusivamente productos que salieron físicamente de la Bodega Central del Local.';
+                    if (infoBadgeEl) { infoBadgeEl.innerText = 'Vista: 1. Carga Bodega Local'; infoBadgeEl.className = 'badge bg-primary p-2'; }
+                } else if (currentFiltro === 'carga_inmediata') {
+                    if (infoTextEl) infoTextEl.innerText = '⚡ Auditando productos ingresados por compras de proveedores en ruta directamente para venta inmediata.';
+                    if (infoBadgeEl) { infoBadgeEl.innerText = 'Vista: 2. Carga Inmediata / Proveedores'; infoBadgeEl.className = 'badge bg-info text-dark p-2'; }
+                } else if (currentFiltro === 'descuadre') {
+                    if (infoTextEl) infoTextEl.innerText = '⚠️ Auditando productos con diferencias entre carga total y salidas/stock en ruta.';
+                    if (infoBadgeEl) { infoBadgeEl.innerText = 'Vista: Solo con Descuadre'; infoBadgeEl.className = 'badge bg-danger p-2'; }
+                }
+
+                aplicarFiltrosYBusqueda();
+            });
+        });
+
+        // 3. Event Listener para el Buscador rápido
+        const searchInput = document.getElementById('tablaBuscador');
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                aplicarFiltrosYBusqueda();
+            });
+        }
+    }
+
+    function aplicarFiltrosYBusqueda() {
+        const rows = document.querySelectorAll('#tablaProductosBody .producto-row');
+        const searchTerm = (document.getElementById('tablaBuscador')?.value || '').trim().toLowerCase();
+        let visibleCount = 0;
+
+        // Acumuladores para el footer
+        let sumLocal = 0, sumProv = 0, sumTotal = 0, sumVendido = 0, sumDevuelto = 0, sumMermado = 0, sumStock = 0, sumDiferencia = 0;
+
+        rows.forEach(row => {
+            const cargaLocal = parseFloat(row.getAttribute('data-carga-local') || 0);
+            const cargaProv = parseFloat(row.getAttribute('data-carga-prov') || 0);
+            const cargado = parseFloat(row.getAttribute('data-cargado') || 0);
+            const vendido = parseFloat(row.getAttribute('data-vendido') || 0);
+            const devuelto = parseFloat(row.getAttribute('data-devuelto') || 0);
+            const mermado = parseFloat(row.getAttribute('data-mermado') || 0);
+            const stock = parseFloat(row.getAttribute('data-stock') || 0);
+            const diferencia = parseFloat(row.getAttribute('data-diferencia') || 0);
+            const searchData = (row.getAttribute('data-search') || '').toLowerCase();
+
+            let cumpleFiltro = false;
+            if (currentFiltro === 'todos') {
+                cumpleFiltro = true;
+            } else if (currentFiltro === 'carga_local') {
+                cumpleFiltro = cargaLocal > 0;
+            } else if (currentFiltro === 'carga_inmediata') {
+                cumpleFiltro = cargaProv > 0;
+            } else if (currentFiltro === 'descuadre') {
+                cumpleFiltro = Math.abs(diferencia) > 0.001;
+            }
+
+            let cumpleBusqueda = true;
+            if (searchTerm) {
+                cumpleBusqueda = searchData.includes(searchTerm);
+            }
+
+            if (cumpleFiltro && cumpleBusqueda) {
+                row.classList.remove('d-none');
+                visibleCount++;
+
+                sumLocal += cargaLocal;
+                sumProv += cargaProv;
+                sumTotal += cargado;
+                sumVendido += vendido;
+                sumDevuelto += devuelto;
+                sumMermado += mermado;
+                sumStock += stock;
+                sumDiferencia += diferencia;
+            } else {
+                row.classList.add('d-none');
+            }
+        });
+
+        // Mostrar / ocultar fila de sin resultados
+        const noResultadosRow = document.getElementById('noResultadosFilterRow');
+        if (noResultadosRow) {
+            if (visibleCount === 0) {
+                noResultadosRow.classList.remove('d-none');
+            } else {
+                noResultadosRow.classList.add('d-none');
+            }
+        }
+
+        // Actualizar valores del pie de tabla (footer)
+        const footCargaLocal = document.getElementById('footCargaLocal');
+        const footCargaProv = document.getElementById('footCargaProv');
+        const footTotalCarga = document.getElementById('footTotalCarga');
+        const footVendido = document.getElementById('footVendido');
+        const footDevuelto = document.getElementById('footDevuelto');
+        const footMermado = document.getElementById('footMermado');
+        const footStock = document.getElementById('footStock');
+        const footDiferencia = document.getElementById('footDiferencia');
+
+        if (footCargaLocal) footCargaLocal.innerText = sumLocal.toFixed(0);
+        if (footCargaProv) footCargaProv.innerText = sumProv.toFixed(0);
+        if (footTotalCarga) footTotalCarga.innerText = sumTotal.toFixed(0);
+        if (footVendido) footVendido.innerText = sumVendido.toFixed(0);
+        if (footDevuelto) footDevuelto.innerText = sumDevuelto.toFixed(0);
+        if (footMermado) footMermado.innerText = sumMermado.toFixed(0);
+        if (footStock) footStock.innerText = sumStock.toFixed(0);
+        if (footDiferencia) {
+            footDiferencia.innerText = sumDiferencia.toFixed(0);
+            footDiferencia.className = 'text-center ' + (Math.abs(sumDiferencia) < 0.001 ? 'text-success' : 'text-danger');
+        }
+    }
+
     // Event listeners para los botones de detalles
     document.querySelectorAll('.btn-ver-detalle').forEach(button => {
         button.addEventListener('click', function() {
@@ -965,7 +1205,6 @@
                 } else {
                     timeline.forEach(t => {
                         const esPositivo = t.signo === '+';
-                        const badgeColor = esPositivo ? 'text-primary bg-primary-subtle border-primary' : 'text-danger bg-danger-subtle border-danger';
                         htmlTimeline += `
                             <tr>
                                 <td class="small fw-semibold">${t.fecha}</td>
