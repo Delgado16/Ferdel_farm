@@ -140,6 +140,8 @@
 <!-- VISTA 2: CONSOLIDACIÓN DETALLADA DEL VENDEDOR SELECCIONADO -->
 
 <!-- KPIs -->
+{% set total_carga_bodega = resultados|sum(attribute='Carga_Bodega')|default(0)|float %}
+{% set total_carga_prov = resultados|sum(attribute='Carga_Proveedor')|default(0)|float %}
 {% set total_cargado = resultados|sum(attribute='Total_Cargado')|default(0)|float %}
 {% set total_vendido = resultados|sum(attribute='Total_Vendido')|default(0)|float %}
 {% set total_devuelto = resultados|sum(attribute='Total_Devuelto')|default(0)|float %}
@@ -155,87 +157,128 @@
     {% endif %}
 {% endfor %}
 
-<div class="row mb-4">
-    <div class="col-md-2 mb-3">
-        <div class="card bg-primary text-white shadow-sm h-100">
-            <div class="card-body d-flex flex-column justify-content-between">
-                <div>
-                    <h6 class="card-subtitle mb-2 text-white-50 text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.05em;">Total Cargado</h6>
-                    <h3 class="card-title mb-0 fw-bold">{{ "{:,.0f}".format(total_cargado) }} Cajas</h3>
+<div class="row g-3 mb-4">
+    <!-- Carga Bodega Local -->
+    <div class="col-xl-3 col-md-6">
+        <div class="card shadow-sm h-100 border-start border-primary border-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-muted text-uppercase fw-semibold" style="font-size: 0.75rem; letter-spacing: 0.05em;">1. Carga Bodega (Local)</span>
+                        <h3 class="mb-0 fw-bold text-primary mt-1">{{ "{:,.0f}".format(total_carga_bodega) }} <small class="fs-6 text-muted">Cajas</small></h3>
+                    </div>
+                    <div class="rounded-circle bg-primary bg-opacity-10 p-3 text-primary">
+                        <i class="bi bi-building fs-4"></i>
+                    </div>
                 </div>
-                <div class="mt-3 text-white-50" style="font-size: 0.85rem;">
-                    <i class="bi bi-truck"></i> Despachado al camión
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-2 mb-3">
-        <div class="card bg-success text-white shadow-sm h-100">
-            <div class="card-body d-flex flex-column justify-content-between">
-                <div>
-                    <h6 class="card-subtitle mb-2 text-white-50 text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.05em;">Total Vendido</h6>
-                    <h3 class="card-title mb-0 fw-bold">{{ "{:,.0f}".format(total_vendido) }} Cajas</h3>
-                </div>
-                <div class="mt-3 text-white-50" style="font-size: 0.85rem;">
-                    <i class="bi bi-receipt"></i> Facturado en ruta
+                <div class="mt-2 text-muted small">
+                    <i class="bi bi-box-arrow-right text-primary me-1"></i> Despacho inicial del local
                 </div>
             </div>
         </div>
     </div>
-    <div class="col-md-2 mb-3">
-        <div class="card bg-warning text-dark shadow-sm h-100" style="background-color: #f59e0b !important;">
-            <div class="card-body d-flex flex-column justify-content-between">
-                <div>
-                    <h6 class="card-subtitle mb-2 text-dark-50 text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.05em;">Devoluciones</h6>
-                    <h3 class="card-title mb-0 fw-bold text-dark">{{ "{:,.0f}".format(total_devuelto) }} Cajas</h3>
+
+    <!-- Carga Proveedores -->
+    <div class="col-xl-3 col-md-6">
+        <div class="card shadow-sm h-100 border-start border-info border-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-muted text-uppercase fw-semibold" style="font-size: 0.75rem; letter-spacing: 0.05em;">2. Carga Proveedores</span>
+                        <h3 class="mb-0 fw-bold text-info mt-1">{{ "{:,.0f}".format(total_carga_prov) }} <small class="fs-6 text-muted">Cajas</small></h3>
+                    </div>
+                    <div class="rounded-circle bg-info bg-opacity-10 p-3 text-info">
+                        <i class="bi bi-truck-flatbed fs-4"></i>
+                    </div>
                 </div>
-                <div class="mt-3 text-dark-50" style="font-size: 0.85rem;">
-                    <i class="bi bi-arrow-return-left"></i> Retornado a bodega
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-2 mb-3">
-        <div class="card bg-danger text-white shadow-sm h-100" style="background-color: #ef4444 !important;">
-            <div class="card-body d-flex flex-column justify-content-between">
-                <div>
-                    <h6 class="card-subtitle mb-2 text-white-50 text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.05em;">Mermas</h6>
-                    <h3 class="card-title mb-0 fw-bold text-white">{{ "{:,.0f}".format(total_mermado) }} Cajas</h3>
-                </div>
-                <div class="mt-3 text-white-50" style="font-size: 0.85rem;">
-                    <i class="bi bi-trash"></i> Descartado en ruta
+                <div class="mt-2 text-muted small">
+                    <i class="bi bi-cart-plus text-info me-1"></i> Compras recibidas en ruta
                 </div>
             </div>
         </div>
     </div>
-    <div class="col-md-2 mb-3">
-        <div class="card bg-info text-white shadow-sm h-100" style="background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%) !important;">
-            <div class="card-body d-flex flex-column justify-content-between">
-                <div>
-                    <h6 class="card-subtitle mb-2 text-white-50 text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.05em;">Remanente en Ruta</h6>
-                    <h3 class="card-title mb-0 fw-bold">{{ "{:,.0f}".format(total_stock) }} Cajas</h3>
+
+    <!-- Total Vendido -->
+    <div class="col-xl-3 col-md-6">
+        <div class="card shadow-sm h-100 border-start border-success border-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-muted text-uppercase fw-semibold" style="font-size: 0.75rem; letter-spacing: 0.05em;">Total Facturado</span>
+                        <h3 class="mb-0 fw-bold text-success mt-1">{{ "{:,.0f}".format(total_vendido) }} <small class="fs-6 text-muted">Cajas</small></h3>
+                    </div>
+                    <div class="rounded-circle bg-success bg-opacity-10 p-3 text-success">
+                        <i class="bi bi-receipt fs-4"></i>
+                    </div>
                 </div>
-                <div class="mt-3 text-white-50" style="font-size: 0.85rem;">
-                    <i class="bi bi-box-seam"></i> Stock actual en camión
+                <div class="mt-2 text-muted small">
+                    <i class="bi bi-check2-circle text-success me-1"></i> Ventas a clientes
                 </div>
             </div>
         </div>
     </div>
-    <div class="col-md-2 mb-3">
-        <div class="card {% if total_diferencia|abs > 0 %}bg-danger{% else %}bg-secondary{% endif %} text-white shadow-sm h-100">
-            <div class="card-body d-flex flex-column justify-content-between">
-                <div>
-                    <h6 class="card-subtitle mb-2 text-white-50 text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.05em;">Diferencia</h6>
-                    <h3 class="card-title mb-0 fw-bold">{{ "{:,.0f}".format(total_diferencia) }} Cajas</h3>
+
+    <!-- Diferencia / Cuadre -->
+    <div class="col-xl-3 col-md-6">
+        <div class="card shadow-sm h-100 border-start {% if total_diferencia|abs > 0 %}border-danger bg-danger-subtle{% else %}border-success bg-success-subtle{% endif %} border-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-uppercase fw-semibold {% if total_diferencia|abs > 0 %}text-danger{% else %}text-success{% endif %}" style="font-size: 0.75rem; letter-spacing: 0.05em;">Balance / Cuadre</span>
+                        <h3 class="mb-0 fw-bold {% if total_diferencia|abs > 0 %}text-danger{% else %}text-success{% endif %} mt-1">{{ "{:,.0f}".format(total_diferencia) }} <small class="fs-6">Cajas</small></h3>
+                    </div>
+                    <div class="rounded-circle {% if total_diferencia|abs > 0 %}bg-danger text-white{% else %}bg-success text-white{% endif %} p-3">
+                        <i class="bi {% if total_diferencia|abs > 0 %}bi-exclamation-triangle-fill{% else %}bi-shield-check{% endif %} fs-4"></i>
+                    </div>
                 </div>
-                <div class="mt-3 text-white-50" style="font-size: 0.85rem;">
+                <div class="mt-2 small {% if total_diferencia|abs > 0 %}text-danger fw-semibold{% else %}text-success fw-semibold{% endif %}">
                     {% if total_diferencia|abs > 0 %}
-                    <i class="bi bi-exclamation-triangle-fill text-warning"></i> Requiere revisión
+                    <i class="bi bi-exclamation-circle-fill me-1"></i> Requiere revisión
                     {% else %}
-                    <i class="bi bi-check-circle-fill"></i> Cuadre perfecto
+                    <i class="bi bi-check-circle-fill me-1"></i> Cuadre exacto
                     {% endif %}
                 </div>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Barra de Resumen Secundario -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="p-3 bg-white rounded shadow-sm border d-flex align-items-center justify-content-between">
+            <div>
+                <span class="text-muted small d-block">📦 Total Carga Disponible</span>
+                <strong class="fs-5 text-dark">{{ "{:,.0f}".format(total_cargado) }} Cajas</strong>
+            </div>
+            <span class="badge bg-primary rounded-pill">1 + 2</span>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="p-3 bg-white rounded shadow-sm border d-flex align-items-center justify-content-between">
+            <div>
+                <span class="text-muted small d-block">↩️ Devolución a Bodega</span>
+                <strong class="fs-5 text-warning">{{ "{:,.0f}".format(total_devuelto) }} Cajas</strong>
+            </div>
+            <i class="bi bi-arrow-return-left text-warning fs-5"></i>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="p-3 bg-white rounded shadow-sm border d-flex align-items-center justify-content-between">
+            <div>
+                <span class="text-muted small d-block">🗑️ Mermas / Pérdidas</span>
+                <strong class="fs-5 text-danger">{{ "{:,.0f}".format(total_mermado) }} Cajas</strong>
+            </div>
+            <i class="bi bi-trash text-danger fs-5"></i>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="p-3 bg-white rounded shadow-sm border d-flex align-items-center justify-content-between">
+            <div>
+                <span class="text-muted small d-block">🚚 Stock Remanente Camión</span>
+                <strong class="fs-5 text-info">{{ "{:,.0f}".format(total_stock) }} Cajas</strong>
+            </div>
+            <i class="bi bi-box-seam text-info fs-5"></i>
         </div>
     </div>
 </div>
@@ -244,7 +287,7 @@
 {% if resultados|length > 0 %}
 <div class="card shadow-sm mb-4">
     <div class="card-header bg-white py-3">
-        <i class="bi bi-bar-chart-fill text-primary"></i> <strong>Comparación Carga vs Ventas vs Devoluciones ({{ VendedorNombre }})</strong>
+        <i class="bi bi-bar-chart-fill text-primary"></i> <strong>Comparación Cargas vs Ventas ({{ VendedorNombre }})</strong>
     </div>
     <div class="card-body">
         <div style="position: relative; height: 350px; width: 100%;">
@@ -256,9 +299,11 @@
 
 <!-- Tabla Detallada -->
 <div class="card shadow-sm mb-5">
-    <div class="card-header bg-white py-3">
-        <i class="bi bi-table text-primary"></i> <strong>Consolidado de Productos de {{ VendedorNombre }}</strong>
-        <span class="badge bg-secondary float-end">{{ resultados|length }} productos</span>
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <div>
+            <i class="bi bi-table text-primary"></i> <strong>Consolidado de Productos de {{ VendedorNombre }}</strong>
+        </div>
+        <span class="badge bg-secondary">{{ resultados|length }} productos con movimiento</span>
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -268,7 +313,15 @@
                         <th class="py-3">Código</th>
                         <th class="py-3">Producto</th>
                         <th class="py-3">Categoría</th>
-                        <th class="text-center py-3 text-primary">Cargado</th>
+                        <th class="text-center py-3 text-primary" title="Salida de Bodega Central">
+                            <i class="bi bi-building"></i> Carga Local
+                        </th>
+                        <th class="text-center py-3 text-info" title="Compras de Proveedor en Ruta">
+                            <i class="bi bi-truck-flatbed"></i> Carga Prov.
+                        </th>
+                        <th class="text-center py-3 fw-bold" style="background-color: #f8fafc;" title="Total Carga (Local + Proveedor)">
+                            Total Carga
+                        </th>
                         <th class="text-center py-3 text-success">Vendido</th>
                         <th class="text-center py-3 text-warning">Devuelto</th>
                         <th class="text-center py-3 text-danger">Mermado</th>
@@ -284,14 +337,41 @@
                         <td><code>{{ item.Codigo }}</code></td>
                         <td><strong>{{ item.Producto }}</strong></td>
                         <td><span class="badge bg-light text-dark border">{{ item.Categoria }}</span></td>
-                        <td class="text-center fw-bold text-primary">{{ "%.0f"|format(item.Total_Cargado) }}</td>
+                        
+                        <!-- Carga Local -->
+                        <td class="text-center fw-bold text-primary">
+                            {{ "%.0f"|format(item.Carga_Bodega) }}
+                        </td>
+                        
+                        <!-- Carga Proveedor -->
+                        <td class="text-center fw-bold text-info">
+                            {% if item.Carga_Proveedor|float > 0 %}
+                            <span class="badge bg-info-subtle text-info border border-info px-2">
+                                +{{ "%.0f"|format(item.Carga_Proveedor) }}
+                            </span>
+                            {% else %}
+                            <span class="text-muted">0</span>
+                            {% endif %}
+                        </td>
+                        
+                        <!-- Total Cargado -->
+                        <td class="text-center fw-bold" style="background-color: rgba(241, 245, 249, 0.5);">
+                            {{ "%.0f"|format(item.Total_Cargado) }}
+                        </td>
+                        
+                        <!-- Vendido -->
                         <td class="text-center fw-bold text-success">{{ "%.0f"|format(item.Total_Vendido) }}</td>
+                        <!-- Devuelto -->
                         <td class="text-center fw-bold text-warning">{{ "%.0f"|format(item.Total_Devuelto) }}</td>
+                        <!-- Mermado -->
                         <td class="text-center fw-bold text-danger">{{ "%.0f"|format(item.Total_Mermado) }}</td>
+                        <!-- Stock Camión -->
                         <td class="text-center fw-bold text-info">{{ "%.0f"|format(item.Stock_Camion) }}</td>
+                        <!-- Diferencia -->
                         <td class="text-center fw-bold {% if item.Diferencia|float == 0 %}text-success{% else %}text-danger{% endif %}">
                             {{ "%.0f"|format(item.Diferencia) }}
                         </td>
+                        <!-- Estado -->
                         <td class="text-center">
                             {% if item.Diferencia|float == 0 %}
                             <span class="badge bg-success"><i class="bi bi-check"></i> Cuadrado</span>
@@ -299,17 +379,18 @@
                             <span class="badge bg-danger"><i class="bi bi-x-circle"></i> Descuadre</span>
                             {% endif %}
                         </td>
+                        <!-- Acciones -->
                         <td class="text-center">
-                            <button type="button" class="btn btn-sm btn-outline-primary btn-ver-detalle px-3" 
+                            <button type="button" class="btn btn-sm btn-outline-primary btn-ver-detalle px-3 shadow-2xs" 
                                     data-id="{{ item.ID_Producto }}" 
                                     data-nombre="{{ item.Producto|escape }}">
-                                <i class="bi bi-eye"></i> Ver Detalles
+                                <i class="bi bi-search"></i> Ver Auditoría
                             </button>
                         </td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="11" class="text-center text-muted py-4">
+                        <td colspan="13" class="text-center text-muted py-4">
                             <i class="bi bi-inbox fs-1"></i><br>
                             No se encontraron datos de productos en la ruta para el período seleccionado.
                         </td>
@@ -320,7 +401,9 @@
                 <tfoot class="table-light fw-bold">
                     <tr>
                         <td colspan="3" class="text-end">TOTALES:</td>
-                        <td class="text-center text-primary">{{ "%.0f"|format(total_cargado) }}</td>
+                        <td class="text-center text-primary">{{ "%.0f"|format(total_carga_bodega) }}</td>
+                        <td class="text-center text-info">{{ "%.0f"|format(total_carga_prov) }}</td>
+                        <td class="text-center" style="background-color: #e2e8f0;">{{ "%.0f"|format(total_cargado) }}</td>
                         <td class="text-center text-success">{{ "%.0f"|format(total_vendido) }}</td>
                         <td class="text-center text-warning">{{ "%.0f"|format(total_devuelto) }}</td>
                         <td class="text-center text-danger">{{ "%.0f"|format(total_mermado) }}</td>
@@ -338,15 +421,25 @@
     </div>
 </div>
 
-<!-- Tabs de Transacciones -->
+<!-- Tabs de Transacciones Históricas -->
 <div class="card shadow-sm mb-4">
     <div class="card-header bg-white py-3">
-        <i class="bi bi-card-checklist text-primary"></i> <strong>Historial de Transacciones de Ruta</strong>
+        <i class="bi bi-card-checklist text-primary"></i> <strong>Historial Completo de Transacciones en el Período</strong>
     </div>
     <div class="card-body">
         <ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
             <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="pills-facturas-tab" data-bs-toggle="pill" data-bs-target="#pills-facturas" type="button" role="tab" aria-controls="pills-facturas" aria-selected="true">
+                <button class="nav-link active" id="pills-cargas-bodega-tab" data-bs-toggle="pill" data-bs-target="#pills-cargas-bodega" type="button" role="tab" aria-controls="pills-cargas-bodega" aria-selected="true">
+                    <i class="bi bi-building me-1"></i> Despachos Bodega Local ({{ cargas_bodega_realizadas|length }})
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="pills-cargas-prov-tab" data-bs-toggle="pill" data-bs-target="#pills-cargas-prov" type="button" role="tab" aria-controls="pills-cargas-prov" aria-selected="false">
+                    <i class="bi bi-truck-flatbed me-1"></i> Compras de Proveedor en Ruta ({{ cargas_proveedor_realizadas|length }})
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="pills-facturas-tab" data-bs-toggle="pill" data-bs-target="#pills-facturas" type="button" role="tab" aria-controls="pills-facturas" aria-selected="false">
                     <i class="bi bi-receipt me-1"></i> Facturas Realizadas ({{ facturas_realizadas|length }})
                 </button>
             </li>
@@ -358,8 +451,84 @@
         </ul>
         
         <div class="tab-content" id="pills-tabContent">
-            <!-- Facturas -->
-            <div class="tab-pane fade show active" id="pills-facturas" role="tabpanel" aria-labelledby="pills-facturas-tab">
+            <!-- 1. Despachos Bodega Local -->
+            <div class="tab-pane fade show active" id="pills-cargas-bodega" role="tabpanel" aria-labelledby="pills-cargas-bodega-tab">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle border">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Movimiento #</th>
+                                <th>Fecha y Hora</th>
+                                <th>Ruta</th>
+                                <th>Doc. Traslado</th>
+                                <th class="text-center">Total Productos</th>
+                                <th class="text-center">Total Cajas</th>
+                                <th class="text-end">Monto Estimado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cb in cargas_bodega_realizadas %}
+                            <tr>
+                                <td><code>#{{ cb.ID_Movimiento }}</code></td>
+                                <td>{{ cb.Fecha.strftime('%d/%m/%Y %I:%M %p') if cb.Fecha else '-' }}</td>
+                                <td>{{ cb.Ruta }}</td>
+                                <td><span class="badge bg-primary-subtle text-primary border border-primary">{{ cb.Documento_Numero or '-' }}</span></td>
+                                <td class="text-center">{{ cb.Total_Productos }}</td>
+                                <td class="text-center fw-bold text-primary">{{ "%.0f"|format(cb.Total_Items) }}</td>
+                                <td class="text-end fw-bold">C$ {{ "{:,.2f}".format(cb.Total_Subtotal) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="7" class="text-center text-muted py-3">
+                                    No se registraron despachos desde bodega local para este vendedor en el período.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 2. Compras de Proveedor en Ruta -->
+            <div class="tab-pane fade" id="pills-cargas-prov" role="tabpanel" aria-labelledby="pills-cargas-prov-tab">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle border">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Movimiento #</th>
+                                <th>Fecha y Hora</th>
+                                <th>Ruta</th>
+                                <th>Doc. / Proveedor Ref</th>
+                                <th class="text-center">Total Productos</th>
+                                <th class="text-center">Total Cajas</th>
+                                <th class="text-end">Monto Compra</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cp in cargas_proveedor_realizadas %}
+                            <tr>
+                                <td><code>#{{ cp.ID_Movimiento }}</code></td>
+                                <td>{{ cp.Fecha.strftime('%d/%m/%Y %I:%M %p') if cp.Fecha else '-' }}</td>
+                                <td>{{ cp.Ruta }}</td>
+                                <td><span class="badge bg-info-subtle text-info border border-info">{{ cp.Documento_Numero or '-' }}</span></td>
+                                <td class="text-center">{{ cp.Total_Productos }}</td>
+                                <td class="text-center fw-bold text-info">{{ "%.0f"|format(cp.Total_Items) }}</td>
+                                <td class="text-end fw-bold text-info">C$ {{ "{:,.2f}".format(cp.Total_Subtotal) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="7" class="text-center text-muted py-3">
+                                    No se registraron compras/cargas de proveedor en ruta en este período.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 3. Facturas -->
+            <div class="tab-pane fade" id="pills-facturas" role="tabpanel" aria-labelledby="pills-facturas-tab">
                 <div class="table-responsive">
                     <table class="table table-hover align-middle border">
                         <thead class="table-light">
@@ -400,7 +569,7 @@
                 </div>
             </div>
             
-            <!-- Devoluciones -->
+            <!-- 4. Devoluciones -->
             <div class="tab-pane fade" id="pills-devoluciones" role="tabpanel" aria-labelledby="pills-devoluciones-tab">
                 <div class="table-responsive">
                     <table class="table table-hover align-middle border">
@@ -410,7 +579,7 @@
                                 <th>Fecha y Hora</th>
                                 <th>Ruta</th>
                                 <th>Documento Ref</th>
-                                <th class="text-center">Total Productos (Cajas)</th>
+                                <th class="text-center">Total Productos</th>
                                 <th class="text-end">Monto Equivalente</th>
                             </tr>
                         </thead>
@@ -441,76 +610,137 @@
 
 {% endif %}
 
-<!-- Modal de Detalles -->
+<!-- Modal de Auditoría y Trazabilidad Cronológica -->
 <div class="modal fade" id="detalleModal" tabindex="-1" aria-labelledby="detalleModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content" style="border-radius: 16px; overflow: hidden; border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.15);">
             <div class="modal-header bg-dark text-white py-3">
                 <h5 class="modal-title fw-bold" id="detalleModalLabel">
-                    <i class="bi bi-search me-2"></i> Detalle de Movimientos en Ruta
+                    <i class="bi bi-clipboard-data-fill me-2 text-primary"></i> Auditoría y Kardex de Movimientos en Ruta
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-4">
-                <div class="mb-4">
-                    <span class="text-muted text-uppercase fw-bold" style="font-size: 0.8rem; letter-spacing: 0.05em;">Producto Seleccionado:</span>
-                    <h4 id="modalProductoNombre" class="fw-bold text-primary mb-1"></h4>
-                    <span class="badge bg-secondary p-2 mt-1" id="modalRangoFechas"></span>
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4 p-3 bg-light rounded border">
+                    <div>
+                        <span class="text-muted text-uppercase fw-bold" style="font-size: 0.75rem; letter-spacing: 0.05em;">Producto Auditado:</span>
+                        <h4 id="modalProductoNombre" class="fw-bold text-primary mb-0"></h4>
+                    </div>
+                    <div>
+                        <span class="badge bg-secondary p-2" id="modalRangoFechas"></span>
+                    </div>
                 </div>
                 
                 <!-- Nav tabs -->
                 <ul class="nav nav-tabs mb-4" id="modalTab" role="tablist" style="border-bottom: 2px solid #f1f5f9;">
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link active fw-bold px-4 py-2.5" id="cargas-tab" data-bs-toggle="tab" data-bs-target="#modalCargas" type="button" role="tab" aria-controls="modalCargas" aria-selected="true" style="border: none; border-bottom: 3px solid transparent; transition: all 0.2s;">
-                            <i class="bi bi-truck me-2 text-primary"></i>Cargas al Camión (<span id="countCargas" class="badge bg-primary">0</span>)
+                        <button class="nav-link active fw-bold px-3 py-2.5" id="timeline-tab" data-bs-toggle="tab" data-bs-target="#modalTimeline" type="button" role="tab" aria-controls="modalTimeline" aria-selected="true">
+                            <i class="bi bi-clock-history me-1 text-primary"></i> Cronología / Kardex (<span id="countTimeline" class="badge bg-primary">0</span>)
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link fw-bold px-4 py-2.5" id="ventas-tab" data-bs-toggle="tab" data-bs-target="#modalVentas" type="button" role="tab" aria-controls="modalVentas" aria-selected="false" style="border: none; border-bottom: 3px solid transparent; transition: all 0.2s;">
-                            <i class="bi bi-receipt me-2 text-success"></i>Facturas Emitidas (<span id="countVentas" class="badge bg-success">0</span>)
+                        <button class="nav-link fw-bold px-3 py-2.5" id="cargas-bodega-tab" data-bs-toggle="tab" data-bs-target="#modalCargasBodega" type="button" role="tab" aria-controls="modalCargasBodega" aria-selected="false">
+                            <i class="bi bi-building me-1 text-primary"></i> Carga Local (<span id="countCargasBodega" class="badge bg-primary">0</span>)
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link fw-bold px-4 py-2.5" id="devoluciones-tab" data-bs-toggle="tab" data-bs-target="#modalDevoluciones" type="button" role="tab" aria-controls="modalDevoluciones" aria-selected="false" style="border: none; border-bottom: 3px solid transparent; transition: all 0.2s;">
-                            <i class="bi bi-arrow-return-left me-2 text-warning"></i>Devoluciones Bodega (<span id="countDevoluciones" class="badge bg-warning text-dark">0</span>)
+                        <button class="nav-link fw-bold px-3 py-2.5" id="cargas-prov-tab" data-bs-toggle="tab" data-bs-target="#modalCargasProv" type="button" role="tab" aria-controls="modalCargasProv" aria-selected="false">
+                            <i class="bi bi-truck-flatbed me-1 text-info"></i> Carga Proveedor (<span id="countCargasProv" class="badge bg-info text-dark">0</span>)
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link fw-bold px-4 py-2.5" id="mermas-tab" data-bs-toggle="tab" data-bs-target="#modalMermas" type="button" role="tab" aria-controls="modalMermas" aria-selected="false" style="border: none; border-bottom: 3px solid transparent; transition: all 0.2s;">
-                            <i class="bi bi-trash me-2 text-danger"></i>Mermas en Ruta (<span id="countMermas" class="badge bg-danger">0</span>)
+                        <button class="nav-link fw-bold px-3 py-2.5" id="ventas-tab" data-bs-toggle="tab" data-bs-target="#modalVentas" type="button" role="tab" aria-controls="modalVentas" aria-selected="false">
+                            <i class="bi bi-receipt me-1 text-success"></i> Facturas (<span id="countVentas" class="badge bg-success">0</span>)
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-bold px-3 py-2.5" id="devoluciones-tab" data-bs-toggle="tab" data-bs-target="#modalDevoluciones" type="button" role="tab" aria-controls="modalDevoluciones" aria-selected="false">
+                            <i class="bi bi-arrow-return-left me-1 text-warning"></i> Devoluciones (<span id="countDevoluciones" class="badge bg-warning text-dark">0</span>)
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-bold px-3 py-2.5" id="mermas-tab" data-bs-toggle="tab" data-bs-target="#modalMermas" type="button" role="tab" aria-controls="modalMermas" aria-selected="false">
+                            <i class="bi bi-trash me-1 text-danger"></i> Mermas (<span id="countMermas" class="badge bg-danger">0</span>)
                         </button>
                     </li>
                 </ul>
                 
                 <!-- Tab panes -->
                 <div class="tab-content" id="modalTabContent">
-                    <!-- Tab Cargas -->
-                    <div class="tab-pane fade show active" id="modalCargas" role="tabpanel" aria-labelledby="cargas-tab">
+                    <!-- Tab 0: Cronología / Kardex en Ruta -->
+                    <div class="tab-pane fade show active" id="modalTimeline" role="tabpanel" aria-labelledby="timeline-tab">
+                        <div class="alert alert-light border d-flex align-items-center mb-3">
+                            <i class="bi bi-info-circle-fill text-primary fs-5 me-2"></i>
+                            <span class="small text-muted">
+                                Esta vista muestra el flujo cronológico paso a paso (entradas ➕ y salidas ➖) calculando el saldo acumulado en el camión.
+                            </span>
+                        </div>
                         <div class="table-responsive">
                             <table class="table table-hover align-middle mb-0 border">
                                 <thead class="table-light">
                                     <tr>
-                                        <th class="py-2.5">Fecha</th>
+                                        <th class="py-2.5">Fecha y Hora</th>
+                                        <th class="py-2.5">Tipo de Movimiento</th>
+                                        <th class="py-2.5">Doc / Ref</th>
+                                        <th class="py-2.5">Detalle / Cliente</th>
+                                        <th class="text-center py-2.5">Movimiento</th>
+                                        <th class="text-center py-2.5 fw-bold bg-light">Saldo en Camión</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tableTimelineBody">
+                                    <!-- Dinámico -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Tab 1: Cargas Bodega Local -->
+                    <div class="tab-pane fade" id="modalCargasBodega" role="tabpanel" aria-labelledby="cargas-bodega-tab">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0 border">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="py-2.5">Fecha y Hora</th>
                                         <th class="py-2.5">Vendedor</th>
                                         <th class="py-2.5">Ruta</th>
-                                        <th class="py-2.5">Documento Carga</th>
+                                        <th class="py-2.5">Documento Traslado</th>
                                         <th class="text-center py-2.5 text-primary">Cantidad (Cajas)</th>
                                     </tr>
                                 </thead>
-                                <tbody id="tableCargasBody">
+                                <tbody id="tableCargasBodegaBody">
+                                    <!-- Dinámico -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Tab 2: Cargas Proveedor -->
+                    <div class="tab-pane fade" id="modalCargasProv" role="tabpanel" aria-labelledby="cargas-prov-tab">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0 border">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="py-2.5">Fecha y Hora</th>
+                                        <th class="py-2.5">Vendedor</th>
+                                        <th class="py-2.5">Ruta</th>
+                                        <th class="py-2.5">Doc. / Proveedor</th>
+                                        <th class="text-center py-2.5 text-info">Cantidad (Cajas)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tableCargasProvBody">
                                     <!-- Dinámico -->
                                 </tbody>
                             </table>
                         </div>
                     </div>
                     
-                    <!-- Tab Ventas -->
+                    <!-- Tab 3: Ventas -->
                     <div class="tab-pane fade" id="modalVentas" role="tabpanel" aria-labelledby="ventas-tab">
                         <div class="table-responsive">
                             <table class="table table-hover align-middle mb-0 border">
                                 <thead class="table-light">
                                     <tr>
-                                        <th class="py-2.5">Fecha</th>
+                                        <th class="py-2.5">Fecha y Hora</th>
                                         <th class="py-2.5">Vendedor</th>
                                         <th class="py-2.5">Ruta</th>
                                         <th class="py-2.5">Factura #</th>
@@ -526,16 +756,16 @@
                         </div>
                     </div>
 
-                    <!-- Tab Devoluciones -->
+                    <!-- Tab 4: Devoluciones -->
                     <div class="tab-pane fade" id="modalDevoluciones" role="tabpanel" aria-labelledby="devoluciones-tab">
                         <div class="table-responsive">
                             <table class="table table-hover align-middle mb-0 border">
                                 <thead class="table-light">
                                     <tr>
-                                        <th class="py-2.5">Fecha</th>
+                                        <th class="py-2.5">Fecha y Hora</th>
                                         <th class="py-2.5">Vendedor</th>
                                         <th class="py-2.5">Ruta</th>
-                                        <th class="py-2.5">Movimiento #</th>
+                                        <th class="py-2.5">Documento Ref</th>
                                         <th class="text-center py-2.5 text-warning">Cantidad (Cajas)</th>
                                     </tr>
                                 </thead>
@@ -546,13 +776,13 @@
                         </div>
                     </div>
 
-                    <!-- Tab Mermas -->
+                    <!-- Tab 5: Mermas -->
                     <div class="tab-pane fade" id="modalMermas" role="tabpanel" aria-labelledby="mermas-tab">
                         <div class="table-responsive">
                             <table class="table table-hover align-middle mb-0 border">
                                 <thead class="table-light">
                                     <tr>
-                                        <th class="py-2.5">Fecha</th>
+                                        <th class="py-2.5">Fecha y Hora</th>
                                         <th class="py-2.5">Vendedor</th>
                                         <th class="py-2.5">Ruta</th>
                                         <th class="py-2.5">Documento / Observación</th>
@@ -568,7 +798,7 @@
                 </div>
             </div>
             <div class="modal-footer bg-light">
-                <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Cerrar Detalles</button>
+                <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Cerrar Auditoría</button>
             </div>
         </div>
     </div>
@@ -584,10 +814,10 @@
         {% for item in resultados[:15] %}
         {
             producto: "{{ item.Producto }}",
-            cargado: {{ item.Total_Cargado|float }},
+            carga_bodega: {{ item.Carga_Bodega|float }},
+            carga_prov: {{ item.Carga_Proveedor|float }},
             vendido: {{ item.Total_Vendido|float }},
             devuelto: {{ item.Total_Devuelto|float }},
-            mermado: {{ item.Total_Mermado|float }},
             stock: {{ item.Stock_Camion|float }}
         },
         {% endfor %}
@@ -600,10 +830,18 @@
             labels: chartData.map(d => d.producto.substring(0, 20) + (d.producto.length > 20 ? '...' : '')),
             datasets: [
                 {
-                    label: 'Cargado (Camión)',
-                    data: chartData.map(d => d.cargado),
+                    label: 'Carga Bodega (Local)',
+                    data: chartData.map(d => d.carga_bodega),
                     backgroundColor: 'rgba(59, 130, 246, 0.85)',
                     borderColor: 'rgb(59, 130, 246)',
+                    borderWidth: 1,
+                    borderRadius: 4
+                },
+                {
+                    label: 'Carga Proveedor',
+                    data: chartData.map(d => d.carga_prov),
+                    backgroundColor: 'rgba(14, 165, 233, 0.85)',
+                    borderColor: 'rgb(14, 165, 233)',
                     borderWidth: 1,
                     borderRadius: 4
                 },
@@ -624,18 +862,10 @@
                     borderRadius: 4
                 },
                 {
-                    label: 'Mermado (Ruta)',
-                    data: chartData.map(d => d.mermado),
-                    backgroundColor: 'rgba(239, 68, 68, 0.85)',
-                    borderColor: 'rgb(239, 68, 68)',
-                    borderWidth: 1,
-                    borderRadius: 4
-                },
-                {
                     label: 'Stock Remanente',
                     data: chartData.map(d => d.stock),
-                    backgroundColor: 'rgba(14, 165, 233, 0.85)',
-                    borderColor: 'rgb(14, 165, 233)',
+                    backgroundColor: 'rgba(100, 116, 139, 0.85)',
+                    borderColor: 'rgb(100, 116, 139)',
                     borderWidth: 1,
                     borderRadius: 4
                 }
@@ -691,12 +921,17 @@
         document.getElementById('modalRangoFechas').innerText = `Rango: ${fechaInicio} al ${fechaFin}`;
         
         // Mostrar cargando
-        document.getElementById('tableCargasBody').innerHTML = '<tr><td colspan="5" class="text-center py-4"><div class="spinner-border text-primary" role="status"></div><br><span class="mt-2 d-block text-muted">Obteniendo cargas...</span></td></tr>';
-        document.getElementById('tableVentasBody').innerHTML = '<tr><td colspan="7" class="text-center py-4"><div class="spinner-border text-success" role="status"></div><br><span class="mt-2 d-block text-muted">Obteniendo facturas...</span></td></tr>';
-        document.getElementById('tableDevolucionesBody').innerHTML = '<tr><td colspan="5" class="text-center py-4"><div class="spinner-border text-warning" role="status"></div><br><span class="mt-2 d-block text-muted">Obteniendo devoluciones...</span></td></tr>';
-        document.getElementById('tableMermasBody').innerHTML = '<tr><td colspan="5" class="text-center py-4"><div class="spinner-border text-danger" role="status"></div><br><span class="mt-2 d-block text-muted">Obteniendo mermas...</span></td></tr>';
+        const loadingHtml = '<tr><td colspan="7" class="text-center py-4"><div class="spinner-border text-primary" role="status"></div><br><span class="mt-2 d-block text-muted">Cargando registros...</span></td></tr>';
+        document.getElementById('tableTimelineBody').innerHTML = loadingHtml;
+        document.getElementById('tableCargasBodegaBody').innerHTML = loadingHtml;
+        document.getElementById('tableCargasProvBody').innerHTML = loadingHtml;
+        document.getElementById('tableVentasBody').innerHTML = loadingHtml;
+        document.getElementById('tableDevolucionesBody').innerHTML = loadingHtml;
+        document.getElementById('tableMermasBody').innerHTML = loadingHtml;
         
-        document.getElementById('countCargas').innerText = '0';
+        document.getElementById('countTimeline').innerText = '0';
+        document.getElementById('countCargasBodega').innerText = '0';
+        document.getElementById('countCargasProv').innerText = '0';
         document.getElementById('countVentas').innerText = '0';
         document.getElementById('countDevoluciones').innerText = '0';
         document.getElementById('countMermas').innerText = '0';
@@ -705,6 +940,10 @@
         const modalEl = document.getElementById('detalleModal');
         const modal = new bootstrap.Modal(modalEl);
         modal.show();
+        
+        // Reset tab to timeline
+        const firstTab = new bootstrap.Tab(document.getElementById('timeline-tab'));
+        firstTab.show();
         
         // Fetch
         const url = `{{ url_for('admin.reporte_consolidado_carga_ventas_detalle') }}?producto_id=${productoId}&fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}&vendedor_id=${vendedorId}`;
@@ -717,28 +956,83 @@
                     return;
                 }
                 
-                // 1. Cargas
-                const cargas = data.cargas || [];
-                document.getElementById('countCargas').innerText = cargas.length;
-                let htmlCargas = '';
-                if (cargas.length === 0) {
-                    htmlCargas = '<tr><td colspan="5" class="text-center text-muted py-4"><i class="bi bi-inbox fs-4"></i><br>No se registraron cargas para este producto.</td></tr>';
+                // 0. Timeline (Kardex Cronológico)
+                const timeline = data.timeline || [];
+                document.getElementById('countTimeline').innerText = timeline.length;
+                let htmlTimeline = '';
+                if (timeline.length === 0) {
+                    htmlTimeline = '<tr><td colspan="6" class="text-center text-muted py-4"><i class="bi bi-inbox fs-4"></i><br>No se registraron movimientos en este período.</td></tr>';
                 } else {
-                    cargas.forEach(c => {
-                        htmlCargas += `
+                    timeline.forEach(t => {
+                        const esPositivo = t.signo === '+';
+                        const badgeColor = esPositivo ? 'text-primary bg-primary-subtle border-primary' : 'text-danger bg-danger-subtle border-danger';
+                        htmlTimeline += `
                             <tr>
-                                <td>${c.Fecha}</td>
+                                <td class="small fw-semibold">${t.fecha}</td>
+                                <td>
+                                    <span class="badge ${t.badge_class} px-2 py-1">
+                                        <i class="bi ${t.icono} me-1"></i> ${t.tipo_texto}
+                                    </span>
+                                </td>
+                                <td><code>${t.documento}</code></td>
+                                <td class="small text-muted">${t.detalle}</td>
+                                <td class="text-center fw-bold ${esPositivo ? 'text-primary' : 'text-danger'}">
+                                    ${t.signo}${t.cantidad.toFixed(0)}
+                                </td>
+                                <td class="text-center fw-bold bg-light">
+                                    <span class="badge bg-dark-subtle text-dark border px-2.5 py-1">
+                                        ${t.saldo_acumulado.toFixed(0)} Cajas
+                                    </span>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                }
+                document.getElementById('tableTimelineBody').innerHTML = htmlTimeline;
+
+                // 1. Cargas Bodega Local
+                const cargasBodega = data.cargas_bodega || [];
+                document.getElementById('countCargasBodega').innerText = cargasBodega.length;
+                let htmlCB = '';
+                if (cargasBodega.length === 0) {
+                    htmlCB = '<tr><td colspan="5" class="text-center text-muted py-4"><i class="bi bi-inbox fs-4"></i><br>No se registraron cargas de bodega local para este producto.</td></tr>';
+                } else {
+                    cargasBodega.forEach(c => {
+                        htmlCB += `
+                            <tr>
+                                <td>${c.Fecha_Formato || c.Fecha_Raw}</td>
                                 <td>${c.Vendedor}</td>
                                 <td><span class="badge bg-light text-dark border">${c.Ruta}</span></td>
-                                <td><code>#${c.Movimiento_ID}</code></td>
+                                <td><span class="badge bg-primary-subtle text-primary border border-primary">${c.Documento || '#' + c.Movimiento_ID}</span></td>
                                 <td class="text-center fw-bold text-primary">${c.Cantidad.toFixed(0)}</td>
                             </tr>
                         `;
                     });
                 }
-                document.getElementById('tableCargasBody').innerHTML = htmlCargas;
+                document.getElementById('tableCargasBodegaBody').innerHTML = htmlCB;
+
+                // 2. Cargas Proveedor
+                const cargasProv = data.cargas_proveedor || [];
+                document.getElementById('countCargasProv').innerText = cargasProv.length;
+                let htmlCP = '';
+                if (cargasProv.length === 0) {
+                    htmlCP = '<tr><td colspan="5" class="text-center text-muted py-4"><i class="bi bi-inbox fs-4"></i><br>No se registraron compras/cargas de proveedor en ruta para este producto.</td></tr>';
+                } else {
+                    cargasProv.forEach(c => {
+                        htmlCP += `
+                            <tr>
+                                <td>${c.Fecha_Formato || c.Fecha_Raw}</td>
+                                <td>${c.Vendedor}</td>
+                                <td><span class="badge bg-light text-dark border">${c.Ruta}</span></td>
+                                <td><span class="badge bg-info-subtle text-info border border-info">${c.Documento || '#' + c.Movimiento_ID}</span></td>
+                                <td class="text-center fw-bold text-info">${c.Cantidad.toFixed(0)}</td>
+                            </tr>
+                        `;
+                    });
+                }
+                document.getElementById('tableCargasProvBody').innerHTML = htmlCP;
                 
-                // 2. Ventas
+                // 3. Ventas
                 const ventas = data.ventas || [];
                 document.getElementById('countVentas').innerText = ventas.length;
                 let htmlVentas = '';
@@ -748,7 +1042,7 @@
                     ventas.forEach(v => {
                         htmlVentas += `
                             <tr>
-                                <td>${v.Fecha}</td>
+                                <td>${v.Fecha_Formato || v.Fecha_Raw}</td>
                                 <td>${v.Vendedor}</td>
                                 <td><span class="badge bg-light text-dark border">${v.Ruta}</span></td>
                                 <td><code>${v.Factura_N}</code></td>
@@ -761,7 +1055,7 @@
                 }
                 document.getElementById('tableVentasBody').innerHTML = htmlVentas;
 
-                // 3. Devoluciones
+                // 4. Devoluciones
                 const devoluciones = data.devoluciones || [];
                 document.getElementById('countDevoluciones').innerText = devoluciones.length;
                 let htmlDevoluciones = '';
@@ -771,10 +1065,10 @@
                     devoluciones.forEach(d => {
                         htmlDevoluciones += `
                             <tr>
-                                <td>${d.Fecha}</td>
+                                <td>${d.Fecha_Formato || d.Fecha_Raw}</td>
                                 <td>${d.Vendedor}</td>
                                 <td><span class="badge bg-light text-dark border">${d.Ruta}</span></td>
-                                <td><code>#${d.Movimiento_ID}</code></td>
+                                <td><code>${d.Documento || '#' + d.Movimiento_ID}</code></td>
                                 <td class="text-center fw-bold text-warning">${d.Cantidad.toFixed(0)}</td>
                             </tr>
                         `;
@@ -782,7 +1076,7 @@
                 }
                 document.getElementById('tableDevolucionesBody').innerHTML = htmlDevoluciones;
 
-                // 4. Mermas
+                // 5. Mermas
                 const mermas = data.mermas || [];
                 document.getElementById('countMermas').innerText = mermas.length;
                 let htmlMermas = '';
@@ -792,7 +1086,7 @@
                     mermas.forEach(m => {
                         htmlMermas += `
                             <tr>
-                                <td>${m.Fecha}</td>
+                                <td>${m.Fecha_Formato || m.Fecha_Raw}</td>
                                 <td>${m.Vendedor}</td>
                                 <td><span class="badge bg-light text-dark border">${m.Ruta}</span></td>
                                 <td><code>${m.Observaciones || '-'}</code></td>
@@ -805,10 +1099,8 @@
             })
             .catch(err => {
                 console.error(err);
-                document.getElementById('tableCargasBody').innerHTML = '<tr><td colspan="5" class="text-center text-danger py-4">Error al cargar datos.</td></tr>';
-                document.getElementById('tableVentasBody').innerHTML = '<tr><td colspan="7" class="text-center text-danger py-4">Error al cargar datos.</td></tr>';
-                document.getElementById('tableDevolucionesBody').innerHTML = '<tr><td colspan="5" class="text-center text-danger py-4">Error al cargar datos.</td></tr>';
-                document.getElementById('tableMermasBody').innerHTML = '<tr><td colspan="5" class="text-center text-danger py-4">Error al cargar datos.</td></tr>';
+                const errorHtml = '<tr><td colspan="7" class="text-center text-danger py-4">Error al cargar datos.</td></tr>';
+                document.getElementById('tableTimelineBody').innerHTML = errorHtml;
             });
     }
 </script>
@@ -818,7 +1110,7 @@
     }
     .nav-tabs .nav-link.active {
         color: #0f172a !important;
-        border-bottom-color: #0f172a !important;
+        border-bottom: 2px solid #0f172a !important;
     }
     .modal-xl {
         max-width: 1140px;

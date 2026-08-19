@@ -1349,7 +1349,8 @@ def reporte_consolidado_carga_ventas():
             }
         
         # Si hay un vendedor_id seleccionado, obtenemos su consolidado
-        params_carga = [fecha_inicio, fecha_fin, vendedor_id]
+        params_carga_bodega = [fecha_inicio, fecha_fin, vendedor_id]
+        params_carga_prov = [fecha_inicio, fecha_fin, vendedor_id]
         params_venta = [fecha_inicio, fecha_fin, vendedor_id]
         params_devolucion = [fecha_inicio, fecha_fin, vendedor_id]
         params_merma = [fecha_inicio, fecha_fin, vendedor_id]
@@ -1361,12 +1362,14 @@ def reporte_consolidado_carga_ventas():
                 p.COD_Producto AS Codigo,
                 p.Descripcion AS Producto,
                 cp.Descripcion AS Categoria,
-                COALESCE(carga.Total_Cargado, 0.00) AS Total_Cargado,
+                COALESCE(carga_bodega.Carga_Bodega, 0.00) AS Carga_Bodega,
+                COALESCE(carga_prov.Carga_Proveedor, 0.00) AS Carga_Proveedor,
+                (COALESCE(carga_bodega.Carga_Bodega, 0.00) + COALESCE(carga_prov.Carga_Proveedor, 0.00)) AS Total_Cargado,
                 COALESCE(venta.Total_Vendido, 0.00) AS Total_Vendido,
                 COALESCE(devolucion.Total_Devuelto, 0.00) AS Total_Devuelto,
                 COALESCE(merma.Total_Mermado, 0.00) AS Total_Mermado,
                 COALESCE(stock.Stock_Camion, 0.00) AS Stock_Camion,
-                (COALESCE(carga.Total_Cargado, 0.00) 
+                ((COALESCE(carga_bodega.Carga_Bodega, 0.00) + COALESCE(carga_prov.Carga_Proveedor, 0.00))
                  - COALESCE(venta.Total_Vendido, 0.00) 
                  - COALESCE(devolucion.Total_Devuelto, 0.00) 
                  - COALESCE(merma.Total_Mermado, 0.00) 
@@ -1376,17 +1379,29 @@ def reporte_consolidado_carga_ventas():
             LEFT JOIN (
                 SELECT 
                     mrd.ID_Producto,
-                    SUM(mrd.Cantidad) AS Total_Cargado
+                    SUM(mrd.Cantidad) AS Carga_Bodega
                 FROM movimientos_ruta_cabecera mrc
                 JOIN movimientos_ruta_detalle mrd ON mrc.ID_Movimiento = mrd.ID_Movimiento
-                JOIN catalogo_movimientos cm ON mrc.ID_TipoMovimiento = cm.ID_TipoMovimiento
                 JOIN asignacion_vendedores av ON mrc.ID_Asignacion = av.ID_Asignacion
                 WHERE mrc.Estado = 'ACTIVO'
-                  AND (cm.Descripcion LIKE '%%CARGA%%' OR cm.Letra = 'C' OR mrc.ID_TipoMovimiento = 15)
+                  AND mrc.ID_TipoMovimiento IN (13, 15) -- Carga Inicial / Traslado desde Bodega Local
                   AND DATE(mrc.Fecha_Movimiento) BETWEEN %s AND %s
                   AND av.ID_Usuario = %s
                 GROUP BY mrd.ID_Producto
-            ) carga ON p.ID_Producto = carga.ID_Producto
+            ) carga_bodega ON p.ID_Producto = carga_bodega.ID_Producto
+            LEFT JOIN (
+                SELECT 
+                    mrd.ID_Producto,
+                    SUM(mrd.Cantidad) AS Carga_Proveedor
+                FROM movimientos_ruta_cabecera mrc
+                JOIN movimientos_ruta_detalle mrd ON mrc.ID_Movimiento = mrd.ID_Movimiento
+                JOIN asignacion_vendedores av ON mrc.ID_Asignacion = av.ID_Asignacion
+                WHERE mrc.Estado = 'ACTIVO'
+                  AND mrc.ID_TipoMovimiento = 1 -- Compra / Proveedor directo a ruta
+                  AND DATE(mrc.Fecha_Movimiento) BETWEEN %s AND %s
+                  AND av.ID_Usuario = %s
+                GROUP BY mrd.ID_Producto
+            ) carga_prov ON p.ID_Producto = carga_prov.ID_Producto
             LEFT JOIN (
                 SELECT 
                     dfr.ID_Producto,
@@ -1435,10 +1450,15 @@ def reporte_consolidado_carga_ventas():
                   AND av.ID_Usuario = %s
                 GROUP BY ir.ID_Producto
             ) stock ON p.ID_Producto = stock.ID_Producto
-            WHERE (carga.Total_Cargado > 0 OR venta.Total_Vendido > 0 OR devolucion.Total_Devuelto > 0 OR merma.Total_Mermado > 0 OR stock.Stock_Camion > 0)
+            WHERE (COALESCE(carga_bodega.Carga_Bodega, 0) > 0 
+                OR COALESCE(carga_prov.Carga_Proveedor, 0) > 0 
+                OR venta.Total_Vendido > 0 
+                OR devolucion.Total_Devuelto > 0 
+                OR merma.Total_Mermado > 0 
+                OR stock.Stock_Camion > 0)
         """
         
-        params = params_carga + params_venta + params_devolucion + params_merma + params_stock
+        params = params_carga_bodega + params_carga_prov + params_venta + params_devolucion + params_merma + params_stock
         
         if categoria_id:
             query += " AND p.ID_Categoria = %s"
@@ -1489,11 +1509,55 @@ def reporte_consolidado_carga_ventas():
             ORDER BY mrc.Fecha_Movimiento DESC
         """, (vendedor_id, fecha_inicio, fecha_fin))
         devoluciones_realizadas = cursor.fetchall()
+
+        # Obtener despachos/cargas desde bodega local en el período
+        cursor.execute("""
+            SELECT 
+                mrc.ID_Movimiento,
+                mrc.Fecha_Movimiento AS Fecha,
+                r.Nombre_Ruta AS Ruta,
+                mrc.Documento_Numero,
+                mrc.Total_Productos,
+                mrc.Total_Items,
+                mrc.Total_Subtotal
+            FROM movimientos_ruta_cabecera mrc
+            JOIN asignacion_vendedores av ON mrc.ID_Asignacion = av.ID_Asignacion
+            JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+            WHERE mrc.Estado = 'ACTIVO'
+              AND mrc.ID_TipoMovimiento IN (13, 15) -- Carga de Bodega
+              AND av.ID_Usuario = %s
+              AND DATE(mrc.Fecha_Movimiento) BETWEEN %s AND %s
+            ORDER BY mrc.Fecha_Movimiento DESC
+        """, (vendedor_id, fecha_inicio, fecha_fin))
+        cargas_bodega_realizadas = cursor.fetchall()
+
+        # Obtener compras/cargas de proveedor en ruta en el período
+        cursor.execute("""
+            SELECT 
+                mrc.ID_Movimiento,
+                mrc.Fecha_Movimiento AS Fecha,
+                r.Nombre_Ruta AS Ruta,
+                mrc.Documento_Numero,
+                mrc.Total_Productos,
+                mrc.Total_Items,
+                mrc.Total_Subtotal
+            FROM movimientos_ruta_cabecera mrc
+            JOIN asignacion_vendedores av ON mrc.ID_Asignacion = av.ID_Asignacion
+            JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+            WHERE mrc.Estado = 'ACTIVO'
+              AND mrc.ID_TipoMovimiento = 1 -- Compra / Proveedor
+              AND av.ID_Usuario = %s
+              AND DATE(mrc.Fecha_Movimiento) BETWEEN %s AND %s
+            ORDER BY mrc.Fecha_Movimiento DESC
+        """, (vendedor_id, fecha_inicio, fecha_fin))
+        cargas_proveedor_realizadas = cursor.fetchall()
         
         return resultados, 'admin/reportes/reporte_consolidado_carga_ventas.html', {
             'resultados': resultados,
             'facturas_realizadas': facturas_realizadas,
             'devoluciones_realizadas': devoluciones_realizadas,
+            'cargas_bodega_realizadas': cargas_bodega_realizadas,
+            'cargas_proveedor_realizadas': cargas_proveedor_realizadas,
             'vendedores': vendedores,
             'categorias': categorias,
             'fecha_inicio': fecha_inicio,
@@ -1505,7 +1569,7 @@ def reporte_consolidado_carga_ventas():
 @admin_bp.route('/admin/reporte/consolidado_carga_ventas/detalle')
 @admin_required
 def reporte_consolidado_carga_ventas_detalle():
-    """Obtiene el desglose de movimientos de carga, facturas y devoluciones de un producto"""
+    """Obtiene el desglose estructurado y cronológico de movimientos de un producto"""
     from flask import jsonify
     try:
         producto_id = request.args.get('producto_id', '')
@@ -1517,52 +1581,79 @@ def reporte_consolidado_carga_ventas_detalle():
             return jsonify({'error': 'Parámetros insuficientes'}), 400
             
         with get_db_cursor() as cursor:
-            # 1. Cargar detalles de Carga (Movimientos)
-            params_carga = [producto_id, fecha_inicio, fecha_fin]
             filter_vendedor = ""
             if vendedor_id:
                 filter_vendedor = " AND av.ID_Usuario = %s"
-                params_carga.append(vendedor_id)
                 
-            query_cargas = f"""
+            # 1. Cargas desde Bodega Central (ID 13, 15)
+            params_carga_bodega = [producto_id, fecha_inicio, fecha_fin]
+            if vendedor_id:
+                params_carga_bodega.append(vendedor_id)
+                
+            cursor.execute(f"""
                 SELECT 
                     mrc.ID_Movimiento AS Movimiento_ID,
-                    DATE_FORMAT(mrc.Fecha_Movimiento, '%d/%m/%Y') AS Fecha,
+                    DATE_FORMAT(mrc.Fecha_Movimiento, '%d/%m/%Y %H:%i') AS Fecha_Formato,
+                    mrc.Fecha_Movimiento AS Fecha_Raw,
                     u.NombreUsuario AS Vendedor,
                     r.Nombre_Ruta AS Ruta,
+                    mrc.Documento_Numero AS Documento,
                     mrd.Cantidad
                 FROM movimientos_ruta_detalle mrd
                 JOIN movimientos_ruta_cabecera mrc ON mrd.ID_Movimiento = mrc.ID_Movimiento
-                JOIN catalogo_movimientos cm ON mrc.ID_TipoMovimiento = cm.ID_TipoMovimiento
                 JOIN asignacion_vendedores av ON mrc.ID_Asignacion = av.ID_Asignacion
                 JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
                 JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
                 WHERE mrd.ID_Producto = %s
                   AND mrc.Estado = 'ACTIVO'
-                  AND (cm.Descripcion LIKE '%%CARGA%%' OR cm.Letra = 'C' OR mrc.ID_TipoMovimiento = 15)
+                  AND mrc.ID_TipoMovimiento IN (13, 15) -- Bodega Local
                   AND DATE(mrc.Fecha_Movimiento) BETWEEN %s AND %s
                   AND av.Estado IN ('Activa', 'Finalizada')
                   {filter_vendedor}
-                ORDER BY mrc.Fecha_Movimiento DESC
-            """
-            cursor.execute(query_cargas, params_carga)
-            cargas = cursor.fetchall()
+                ORDER BY mrc.Fecha_Movimiento ASC
+            """, params_carga_bodega)
+            cargas_bodega = cursor.fetchall()
             
-            # Formatear Decimales para cargas
-            for c in cargas:
-                if 'Cantidad' in c and c['Cantidad'] is not None:
-                    c['Cantidad'] = float(c['Cantidad'])
+            # 2. Cargas / Compras de Proveedor (ID 1)
+            params_carga_prov = [producto_id, fecha_inicio, fecha_fin]
+            if vendedor_id:
+                params_carga_prov.append(vendedor_id)
+                
+            cursor.execute(f"""
+                SELECT 
+                    mrc.ID_Movimiento AS Movimiento_ID,
+                    DATE_FORMAT(mrc.Fecha_Movimiento, '%d/%m/%Y %H:%i') AS Fecha_Formato,
+                    mrc.Fecha_Movimiento AS Fecha_Raw,
+                    u.NombreUsuario AS Vendedor,
+                    r.Nombre_Ruta AS Ruta,
+                    mrc.Documento_Numero AS Documento,
+                    mrd.Cantidad
+                FROM movimientos_ruta_detalle mrd
+                JOIN movimientos_ruta_cabecera mrc ON mrd.ID_Movimiento = mrc.ID_Movimiento
+                JOIN asignacion_vendedores av ON mrc.ID_Asignacion = av.ID_Asignacion
+                JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+                JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                WHERE mrd.ID_Producto = %s
+                  AND mrc.Estado = 'ACTIVO'
+                  AND mrc.ID_TipoMovimiento = 1 -- Proveedor
+                  AND DATE(mrc.Fecha_Movimiento) BETWEEN %s AND %s
+                  AND av.Estado IN ('Activa', 'Finalizada')
+                  {filter_vendedor}
+                ORDER BY mrc.Fecha_Movimiento ASC
+            """, params_carga_prov)
+            cargas_proveedor = cursor.fetchall()
             
-            # 2. Cargar detalles de Ventas (Facturas)
+            # 3. Ventas (Facturas)
             params_venta = [producto_id, fecha_inicio, fecha_fin]
             if vendedor_id:
                 params_venta.append(vendedor_id)
                 
-            query_ventas = f"""
+            cursor.execute(f"""
                 SELECT 
                     fr.ID_FacturaRuta AS Factura_ID,
                     CONCAT('R-', fr.ID_FacturaRuta) AS Factura_N,
-                    DATE_FORMAT(fr.Fecha_Creacion, '%d/%m/%Y') AS Fecha,
+                    DATE_FORMAT(fr.Fecha_Creacion, '%d/%m/%Y %H:%i') AS Fecha_Formato,
+                    fr.Fecha_Creacion AS Fecha_Raw,
                     u.NombreUsuario AS Vendedor,
                     r.Nombre_Ruta AS Ruta,
                     c.Nombre AS Cliente_Nombre,
@@ -1579,29 +1670,23 @@ def reporte_consolidado_carga_ventas_detalle():
                   AND DATE(fr.Fecha) BETWEEN %s AND %s
                   AND av.Estado IN ('Activa', 'Finalizada')
                   {filter_vendedor}
-                ORDER BY fr.Fecha_Creacion DESC
-            """
-            cursor.execute(query_ventas, params_venta)
+                ORDER BY fr.Fecha_Creacion ASC
+            """, params_venta)
             ventas = cursor.fetchall()
             
-            # Formatear Decimales para ventas
-            for v in ventas:
-                if 'Cantidad' in v and v['Cantidad'] is not None:
-                    v['Cantidad'] = float(v['Cantidad'])
-                if 'Total' in v and v['Total'] is not None:
-                    v['Total'] = float(v['Total'])
-                    
-            # 3. Cargar detalles de Devoluciones
+            # 4. Devoluciones (ID 11)
             params_devolucion = [producto_id, fecha_inicio, fecha_fin]
             if vendedor_id:
                 params_devolucion.append(vendedor_id)
                 
-            query_devoluciones = f"""
+            cursor.execute(f"""
                 SELECT 
                     mrc.ID_Movimiento AS Movimiento_ID,
-                    DATE_FORMAT(mrc.Fecha_Movimiento, '%d/%m/%Y') AS Fecha,
+                    DATE_FORMAT(mrc.Fecha_Movimiento, '%d/%m/%Y %H:%i') AS Fecha_Formato,
+                    mrc.Fecha_Movimiento AS Fecha_Raw,
                     u.NombreUsuario AS Vendedor,
                     r.Nombre_Ruta AS Ruta,
+                    mrc.Documento_Numero AS Documento,
                     mrd.Cantidad
                 FROM movimientos_ruta_detalle mrd
                 JOIN movimientos_ruta_cabecera mrc ON mrd.ID_Movimiento = mrc.ID_Movimiento
@@ -1614,25 +1699,20 @@ def reporte_consolidado_carga_ventas_detalle():
                   AND DATE(mrc.Fecha_Movimiento) BETWEEN %s AND %s
                   AND av.Estado IN ('Activa', 'Finalizada')
                   {filter_vendedor}
-                ORDER BY mrc.Fecha_Movimiento DESC
-            """
-            cursor.execute(query_devoluciones, params_devolucion)
+                ORDER BY mrc.Fecha_Movimiento ASC
+            """, params_devolucion)
             devoluciones = cursor.fetchall()
             
-            # Formatear Decimales para devoluciones
-            for d in devoluciones:
-                if 'Cantidad' in d and d['Cantidad'] is not None:
-                    d['Cantidad'] = float(d['Cantidad'])
-                    
-            # 4. Cargar detalles de Mermas
+            # 5. Mermas (ID 7)
             params_merma = [producto_id, fecha_inicio, fecha_fin]
             if vendedor_id:
                 params_merma.append(vendedor_id)
                 
-            query_mermas = f"""
+            cursor.execute(f"""
                 SELECT 
                     mrc.ID_Movimiento AS Movimiento_ID,
-                    DATE_FORMAT(mrc.Fecha_Movimiento, '%d/%m/%Y') AS Fecha,
+                    DATE_FORMAT(mrc.Fecha_Movimiento, '%d/%m/%Y %H:%i') AS Fecha_Formato,
+                    mrc.Fecha_Movimiento AS Fecha_Raw,
                     u.NombreUsuario AS Vendedor,
                     r.Nombre_Ruta AS Ruta,
                     mrd.Cantidad,
@@ -1648,21 +1728,125 @@ def reporte_consolidado_carga_ventas_detalle():
                   AND DATE(mrc.Fecha_Movimiento) BETWEEN %s AND %s
                   AND av.Estado IN ('Activa', 'Finalizada')
                   {filter_vendedor}
-                ORDER BY mrc.Fecha_Movimiento DESC
-            """
-            cursor.execute(query_mermas, params_merma)
+                ORDER BY mrc.Fecha_Movimiento ASC
+            """, params_merma)
             mermas = cursor.fetchall()
             
-            # Formatear Decimales para mermas
+            # Construir Cronología Unificada (Timeline)
+            timeline_items = []
+            
+            for cb in cargas_bodega:
+                cant = float(cb['Cantidad']) if cb.get('Cantidad') is not None else 0.0
+                cb['Cantidad'] = cant
+                timeline_items.append({
+                    'fecha_raw': str(cb['Fecha_Raw']),
+                    'fecha': cb['Fecha_Formato'],
+                    'tipo': 'CARGA_BODEGA',
+                    'tipo_texto': 'Carga Bodega Central (Local)',
+                    'badge_class': 'bg-primary',
+                    'icono': 'bi-building-fill-up',
+                    'signo': '+',
+                    'cantidad': cant,
+                    'documento': cb.get('Documento') or f"#{cb['Movimiento_ID']}",
+                    'detalle': f"Ruta: {cb['Ruta']}"
+                })
+                
+            for cp in cargas_proveedor:
+                cant = float(cp['Cantidad']) if cp.get('Cantidad') is not None else 0.0
+                cp['Cantidad'] = cant
+                timeline_items.append({
+                    'fecha_raw': str(cp['Fecha_Raw']),
+                    'fecha': cp['Fecha_Formato'],
+                    'tipo': 'CARGA_PROVEEDOR',
+                    'tipo_texto': 'Carga Proveedor (Ruta)',
+                    'badge_class': 'bg-info text-dark',
+                    'icono': 'bi-truck-flatbed',
+                    'signo': '+',
+                    'cantidad': cant,
+                    'documento': cp.get('Documento') or f"#{cp['Movimiento_ID']}",
+                    'detalle': f"Compra en ruta ({cp['Ruta']})"
+                })
+                
+            for v in ventas:
+                cant = float(v['Cantidad']) if v.get('Cantidad') is not None else 0.0
+                total = float(v['Total']) if v.get('Total') is not None else 0.0
+                v['Cantidad'] = cant
+                v['Total'] = total
+                timeline_items.append({
+                    'fecha_raw': str(v['Fecha_Raw']),
+                    'fecha': v['Fecha_Formato'],
+                    'tipo': 'VENTA',
+                    'tipo_texto': 'Venta Facturada',
+                    'badge_class': 'bg-success',
+                    'icono': 'bi-receipt',
+                    'signo': '-',
+                    'cantidad': cant,
+                    'documento': v['Factura_N'],
+                    'detalle': f"Cliente: {v['Cliente_Nombre']} | Total: C$ {total:,.2f}"
+                })
+                
+            for d in devoluciones:
+                cant = float(d['Cantidad']) if d.get('Cantidad') is not None else 0.0
+                d['Cantidad'] = cant
+                timeline_items.append({
+                    'fecha_raw': str(d['Fecha_Raw']),
+                    'fecha': d['Fecha_Formato'],
+                    'tipo': 'DEVOLUCION',
+                    'tipo_texto': 'Devolución a Bodega',
+                    'badge_class': 'bg-warning text-dark',
+                    'icono': 'bi-arrow-return-left',
+                    'signo': '-',
+                    'cantidad': cant,
+                    'documento': d.get('Documento') or f"#{d['Movimiento_ID']}",
+                    'detalle': f"Retorno a Bodega ({d['Ruta']})"
+                })
+                
             for m in mermas:
-                if 'Cantidad' in m and m['Cantidad'] is not None:
-                    m['Cantidad'] = float(m['Cantidad'])
-                    
+                cant = float(m['Cantidad']) if m.get('Cantidad') is not None else 0.0
+                m['Cantidad'] = cant
+                timeline_items.append({
+                    'fecha_raw': str(m['Fecha_Raw']),
+                    'fecha': m['Fecha_Formato'],
+                    'tipo': 'MERMA',
+                    'tipo_texto': 'Merma en Ruta',
+                    'badge_class': 'bg-danger',
+                    'icono': 'bi-trash',
+                    'signo': '-',
+                    'cantidad': cant,
+                    'documento': f"#{m['Movimiento_ID']}",
+                    'detalle': f"Obs: {m.get('Observaciones') or 'Sin observación'}"
+                })
+                
+            # Ordenar timeline por fecha ascendente y calcular saldo acumulado en camión
+            timeline_items.sort(key=lambda x: x['fecha_raw'])
+            saldo_acumulado = 0.0
+            for item in timeline_items:
+                if item['signo'] == '+':
+                    saldo_acumulado += item['cantidad']
+                else:
+                    saldo_acumulado -= item['cantidad']
+                item['saldo_acumulado'] = saldo_acumulado
+                
+            # Cargas consolidadas para retrocompatibilidad
+            cargas_consolidadas = []
+            for cb in cargas_bodega:
+                cb_copy = dict(cb)
+                cb_copy['Origen'] = 'Bodega Central'
+                cargas_consolidadas.append(cb_copy)
+            for cp in cargas_proveedor:
+                cp_copy = dict(cp)
+                cp_copy['Origen'] = 'Proveedor'
+                cargas_consolidadas.append(cp_copy)
+            cargas_consolidadas.sort(key=lambda x: str(x.get('Fecha_Raw', '')), reverse=True)
+
             return jsonify({
-                'cargas': cargas,
+                'cargas_bodega': cargas_bodega,
+                'cargas_proveedor': cargas_proveedor,
+                'cargas': cargas_consolidadas,
                 'ventas': ventas,
                 'devoluciones': devoluciones,
-                'mermas': mermas
+                'mermas': mermas,
+                'timeline': timeline_items
             })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
