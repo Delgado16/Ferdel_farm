@@ -80,10 +80,16 @@
         <form id="formAuditoria" method="POST" action="{{ url_for('bodega.bodega_procesar_auditoria') }}">
             <input type="hidden" name="id_bodega" value="{{ bodega_seleccionada.ID_Bodega }}">
             
-            <div class="p-3 bg-light border-bottom d-flex justify-content-between align-items-center">
-                <div class="input-group" style="max-width: 300px;">
-                    <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
-                    <input type="text" id="filtroBuscar" class="form-control border-start-0" placeholder="Buscar producto...">
+            <div class="p-3 bg-light border-bottom d-flex flex-wrap gap-3 justify-content-between align-items-center">
+                <div class="d-flex flex-wrap gap-3 align-items-center flex-grow-1">
+                    <div class="input-group" style="max-width: 300px;">
+                        <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
+                        <input type="text" id="filtroBuscar" class="form-control border-start-0" placeholder="Buscar producto...">
+                    </div>
+                    <select id="filtroEstado" class="form-select" style="max-width: 250px;">
+                        <option value="todos">Mostrar todos los productos</option>
+                        <option value="diferencias">Mostrar solo con diferencias</option>
+                    </select>
                 </div>
                 <div class="text-end">
                     <span class="text-muted small me-3">Diferencias Detectadas: <strong id="totalDiferencias" class="text-danger">0</strong></span>
@@ -210,16 +216,36 @@ function actualizarContadorDiferencias() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Filtro de búsqueda en tiempo real
     const buscador = document.getElementById('filtroBuscar');
-    if (buscador) {
-        buscador.addEventListener('input', function(e) {
-            const term = e.target.value.toLowerCase();
-            document.querySelectorAll('.producto-fila').forEach(fila => {
-                const text = fila.textContent.toLowerCase();
-                fila.style.display = text.includes(term) ? '' : 'none';
-            });
+    const filtroEstado = document.getElementById('filtroEstado');
+    
+    function aplicarFiltros() {
+        const term = buscador ? buscador.value.toLowerCase() : '';
+        const estado = filtroEstado ? filtroEstado.value : 'todos';
+        
+        document.querySelectorAll('.producto-fila').forEach(fila => {
+            const text = fila.textContent.toLowerCase();
+            const coincideTexto = text.includes(term);
+            
+            let coincideEstado = true;
+            if (estado === 'diferencias') {
+                const badge = fila.querySelector('.diff-badge');
+                if (badge) {
+                    const diff = parseFloat(badge.textContent) || 0;
+                    coincideEstado = Math.abs(diff) > 0.001;
+                }
+            }
+            
+            fila.style.display = (coincideTexto && coincideEstado) ? '' : 'none';
         });
+    }
+
+    if (buscador) {
+        buscador.addEventListener('input', aplicarFiltros);
+    }
+    
+    if (filtroEstado) {
+        filtroEstado.addEventListener('change', aplicarFiltros);
     }
 });
 </script>

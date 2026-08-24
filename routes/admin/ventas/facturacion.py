@@ -67,12 +67,38 @@ def admin_ventas_salidas():
     tipo_filtro = request.args.get('tipo', '').upper()
     
     try:
-        fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date() if fecha_str else datetime.now().date()
+        # Procesar los filtros especiales de fecha del frontend
+        if fecha_str == 'today':
+            fecha = datetime.now().date()
+        elif fecha_str == 'yesterday':
+            fecha = (datetime.now() - timedelta(days=1)).date()
+        elif fecha_str in ['week', 'month']:
+            fecha = datetime.now().date() # Se manejará diferente en el query
+        else:
+            fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date() if fecha_str else datetime.now().date()
 
+        # Verificar si hay filtros aplicados por el usuario
+        is_filtered = (estado_filtro != 'TODAS' or tipo_filtro != '' or (fecha_str is not None and fecha_str != ''))
+        
         with get_db_cursor(True) as cursor:
             # Construir condiciones WHERE dinámicamente
             where_conditions = []
             params = []
+            
+            # Comportamiento por defecto: Mostrar las ventas de hoy
+            if not is_filtered or fecha_str == 'today':
+                where_conditions.append("DATE(f.Fecha) = %s")
+                params.append(datetime.now().date())
+            elif fecha_str == 'yesterday':
+                where_conditions.append("DATE(f.Fecha) = %s")
+                params.append((datetime.now() - timedelta(days=1)).date())
+            elif fecha_str == 'week':
+                where_conditions.append("YEARWEEK(f.Fecha, 1) = YEARWEEK(CURDATE(), 1)")
+            elif fecha_str == 'month':
+                where_conditions.append("MONTH(f.Fecha) = MONTH(CURDATE()) AND YEAR(f.Fecha) = YEAR(CURDATE())")
+            elif fecha_str:
+                where_conditions.append("DATE(f.Fecha) = %s")
+                params.append(fecha)
             
             if estado_filtro == 'ACTIVAS':
                 where_conditions.append("f.Estado = 'Activa'")
@@ -88,6 +114,8 @@ def admin_ventas_salidas():
             where_clause = ""
             if where_conditions:
                 where_clause = "WHERE " + " AND ".join(where_conditions)
+                
+            limit_clause = "LIMIT 30" if is_filtered else ""
             
             # Usar subconsulta para obtener solo el movimiento más reciente de cada venta
             cursor.execute(f"""
@@ -148,7 +176,7 @@ def admin_ventas_salidas():
                 LEFT JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
                 {where_clause}
                 ORDER BY f.Fecha DESC, f.ID_Factura DESC
-                LIMIT 10 
+                {limit_clause} 
             """, tuple(params))
             ventas = cursor.fetchall()
             
@@ -295,9 +323,12 @@ def admin_ventas_salidas():
                                  creditos_cobrados=creditos_cobrados,
                                  total_cobrado=total_cobrado,
                                  
-                                 # Filtros
-                                 estado_filtro=estado_filtro,
-                                 tipo_filtro=tipo_filtro, 
+                                 # Filtros (para mantenerlos en el frontend)
+                                 estado_filtro=request.args.get('estado', ''),
+                                 tipo_filtro=request.args.get('tipo', ''),
+                                 fecha_filtro=request.args.get('fecha', ''),
+                                 search_filtro=request.args.get('search', ''),
+                                 
                                  estadisticas_estado=estadisticas_estado)
     except Exception as e:
         flash(f'Error al cargar ventas: {str(e)}', 'error')

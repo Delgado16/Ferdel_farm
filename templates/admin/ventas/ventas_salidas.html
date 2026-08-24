@@ -281,10 +281,10 @@
                     <!-- Búsqueda mejorada -->
                     <div class="position-relative flex-grow-1 flex-lg-grow-0" style="min-width: 250px;">
                         <input type="text" class="form-control form-control-premium ps-5" id="searchInput"
-                            placeholder="Buscar por cliente, ID, vendedor..." autocomplete="off">
+                            placeholder="Buscar por cliente, ID, vendedor..." autocomplete="off" value="{{ search_filtro }}">
                         <i class="fas fa-search position-absolute start-0 top-50 translate-middle-y ms-3 text-muted"></i>
                         <button class="btn btn-light border-0 btn-sm position-absolute end-0 top-50 translate-middle-y me-2" type="button" id="clearSearchBtn"
-                            style="display: none;">
+                            style="{% if search_filtro %}display: block;{% else %}display: none;{% endif %}">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
@@ -324,24 +324,24 @@
                 <div class="col-12 col-sm-6 col-md-3">
                     <select class="form-select form-select-premium" id="estadoFilter">
                         <option value="">📊 Todos los estados</option>
-                        <option value="ACTIVA">✅ Activas</option>
-                        <option value="ANULADA">❌ Anuladas</option>
+                        <option value="ACTIVA" {% if estado_filtro == 'ACTIVA' %}selected{% endif %}>✅ Activas</option>
+                        <option value="ANULADA" {% if estado_filtro == 'ANULADA' %}selected{% endif %}>❌ Anuladas</option>
                     </select>
                 </div>
                 <div class="col-12 col-sm-6 col-md-3">
                     <select class="form-select form-select-premium" id="tipoVentaFilter">
                         <option value="">💵 Todos los tipos</option>
-                        <option value="CONTADO">💰 Contado</option>
-                        <option value="CREDITO">💳 Crédito</option>
+                        <option value="CONTADO" {% if tipo_filtro == 'CONTADO' %}selected{% endif %}>💰 Contado</option>
+                        <option value="CREDITO" {% if tipo_filtro == 'CREDITO' %}selected{% endif %}>💳 Crédito</option>
                     </select>
                 </div>
                 <div class="col-12 col-sm-6 col-md-3">
                     <select class="form-select form-select-premium" id="fechaFilter">
                         <option value="">📅 Todas las fechas</option>
-                        <option value="today">Hoy</option>
-                        <option value="yesterday">Ayer</option>
-                        <option value="week">Esta semana</option>
-                        <option value="month">Este mes</option>
+                        <option value="today" {% if fecha_filtro == 'today' %}selected{% endif %}>Hoy</option>
+                        <option value="yesterday" {% if fecha_filtro == 'yesterday' %}selected{% endif %}>Ayer</option>
+                        <option value="week" {% if fecha_filtro == 'week' %}selected{% endif %}>Esta semana</option>
+                        <option value="month" {% if fecha_filtro == 'month' %}selected{% endif %}>Este mes</option>
                     </select>
                 </div>
                 <div class="col-12 col-sm-6 col-md-3">
@@ -798,15 +798,16 @@
         const estadoValue = document.getElementById('estadoFilter').value;
         const tipoValue = document.getElementById('tipoVentaFilter').value;
         const fechaValue = document.getElementById('fechaFilter').value;
-        const searchValue = document.getElementById('searchInput').value.toLowerCase().trim();
+        const searchValue = document.getElementById('searchInput').value.trim();
 
-        activeFilters.estado = estadoValue;
-        activeFilters.tipo = tipoValue;
-        activeFilters.fecha = fechaValue;
-        activeFilters.search = searchValue;
+        // Construir URL con parámetros GET para que el backend aplique los filtros
+        const params = new URLSearchParams();
+        if (estadoValue) params.append('estado', estadoValue);
+        if (tipoValue) params.append('tipo', tipoValue);
+        if (fechaValue) params.append('fecha', fechaValue);
+        if (searchValue) params.append('search', searchValue);
 
-        aplicarFiltros();
-        actualizarBadgesFiltros();
+        window.location.href = window.location.pathname + '?' + params.toString();
     }
 
     function aplicarFiltros() {
@@ -983,15 +984,7 @@
     }
 
     function limpiarFiltros() {
-        document.getElementById('estadoFilter').value = '';
-        document.getElementById('tipoVentaFilter').value = '';
-        document.getElementById('fechaFilter').value = '';
-        document.getElementById('searchInput').value = '';
-        document.getElementById('clearSearchBtn').style.display = 'none';
-
-        activeFilters = { estado: '', tipo: '', fecha: '', search: '' };
-        aplicarFiltros();
-        actualizarBadgesFiltros();
+        window.location.href = window.location.pathname;
     }
 
     // ============================================
@@ -1488,8 +1481,14 @@
         document.getElementById('tipoVentaFilter')?.addEventListener('change', actualizarFiltros);
         document.getElementById('fechaFilter')?.addEventListener('change', actualizarFiltros);
 
+        document.getElementById('searchInput')?.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                actualizarFiltros();
+            }
+        });
+
         document.getElementById('searchInput')?.addEventListener('input', function (e) {
-            actualizarFiltros();
             const clearBtn = document.getElementById('clearSearchBtn');
             if (clearBtn) clearBtn.style.display = e.target.value ? 'block' : 'none';
         });
@@ -1497,7 +1496,6 @@
         document.getElementById('clearSearchBtn')?.addEventListener('click', function () {
             document.getElementById('searchInput').value = '';
             actualizarFiltros();
-            this.style.display = 'none';
         });
 
         document.getElementById('clearFiltersBtn')?.addEventListener('click', limpiarFiltros);
