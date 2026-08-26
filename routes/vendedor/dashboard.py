@@ -575,7 +575,35 @@ def vendedor_finalizar_ruta(id):
         
         # Actualizar la asignación
         with get_db_cursor(commit=True) as cursor:
-            # Actualizar hora de fin y estado
+            # 1. Obtener datos de la ruta y vendedor para la caja principal
+            cursor.execute("""
+                SELECT r.Nombre_Ruta, u.NombreUsuario 
+                FROM asignacion_vendedores a
+                JOIN rutas r ON a.ID_Ruta = r.ID_Ruta
+                JOIN usuarios u ON a.ID_Usuario = u.ID_Usuario
+                WHERE a.ID_Asignacion = %s
+            """, (id,))
+            info_ruta = cursor.fetchone()
+            
+            nombre_ruta = info_ruta['Nombre_Ruta'] if info_ruta and info_ruta.get('Nombre_Ruta') else "Ruta"
+            nombre_vendedor = (info_ruta.get('NombreUsuario') if info_ruta else None) or getattr(current_user, 'NombreUsuario', None) or getattr(current_user, 'username', None) or "Vendedor"
+            
+            # 2. Calcular el saldo final sumando todos los movimientos de caja de la ruta ANTES de finalizarla
+            cursor.execute("""
+                SELECT COALESCE(SUM(CASE 
+                    WHEN Tipo = 'GASTO' THEN -Monto 
+                    WHEN Tipo = 'CIERRE' THEN 0
+                    ELSE Monto 
+                END), 0) as Saldo_Calculado
+                FROM movimientos_caja_ruta
+                WHERE ID_Asignacion = %s
+                  AND Estado = 'ACTIVO'
+            """, (id,))
+            resultado_saldo = cursor.fetchone()
+            
+            saldo_final = float(resultado_saldo['Saldo_Calculado']) if resultado_saldo else 0
+            
+            # 3. Actualizar hora de fin y estado de la asignación
             cursor.execute("""
                 UPDATE asignacion_vendedores 
                 SET Estado = 'Finalizada',
@@ -586,18 +614,39 @@ def vendedor_finalizar_ruta(id):
                 AND ID_Empresa = %s
             """, (hora_fin, id, usuario_id, empresa_id))
             
-            # Liberar el vehículo si estaba asignado
-            if asignacion['ID_Vehiculo']:
+            # 4. Liberar el vehículo si estaba asignado
+            if asignacion.get('ID_Vehiculo'):
                 cursor.execute("""
                     UPDATE vehiculos 
                     SET Estado = 'Disponible' 
                     WHERE ID_Vehiculo = %s
                 """, (asignacion['ID_Vehiculo'],))
+
+            # 5. Si hay dinero acumulado, enviar a la caja principal como consolidado
+            if saldo_final > 0:
+                cursor.execute("""
+                    SELECT ID_Movimiento 
+                    FROM caja_movimientos 
+                    WHERE Referencia_Documento IN (%s, %s) AND Estado = 'ACTIVO'
+                """, (f"RUTA-{id}", f"RUT-LIQ-{id}"))
+                ya_registrado = cursor.fetchone()
+                
+                if not ya_registrado:
+                    descripcion = f"Consolidado de Ruta: {nombre_ruta} - Vendedor: {nombre_vendedor}"
+                    cursor.execute("""
+                        INSERT INTO caja_movimientos 
+                        (Fecha, Tipo_Movimiento, Descripcion, Monto, Referencia_Documento, ID_Usuario, Estado)
+                        VALUES (NOW(), 'ENTRADA', %s, %s, %s, %s, 'ACTIVO')
+                    """, (descripcion, saldo_final, f"RUTA-{id}", usuario_id))
             
-        flash('Ruta finalizada exitosamente', 'success')
+        if saldo_final > 0:
+            flash(f'Ruta finalizada exitosamente. Se transfirieron C$ {saldo_final:,.2f} a la caja del local.', 'success')
+        else:
+            flash('Ruta finalizada exitosamente. No se registró traslado de efectivo (saldo de ruta en C$ 0.00).', 'info')
         
     except Exception as e:
-        flash(f'Error al finalizar ruta: {str(e)}', 'error')
+        traceback.print_exc()
+        flash(f'Error al finalizar ruta: {str(e)}', 'danger')
     
     return redirect(url_for('vendedor.vendedor_mis_rutas'))
 

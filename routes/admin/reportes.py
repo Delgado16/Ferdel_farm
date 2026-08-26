@@ -78,8 +78,10 @@ def report_handler(filename):
                         elif formato == 'excel':
                             return exportar_excel(datos, filename)
                         elif formato == 'pdf':
+                            if filename == 'reporte_diario':
+                                from helpers.export import exportar_pdf_diario
+                                return exportar_pdf_diario(context, filename)
                             return exportar_pdf(datos, filename)
-                    
                     if 'now' not in context:
                         context['now'] = datetime.now()
                         
@@ -2188,15 +2190,24 @@ def reporte_diario():
         compras_dia_db = cursor.fetchall()
         
         compras_total = 0.0
+        compras_contado = 0.0
+        compras_credito = 0.0
         compras_list = []
         for c in compras_dia_db:
             total_val = float(c['Total_Compra'] or 0)
             compras_total += total_val
+            
+            # Split Contado/Credito
+            if c['Tipo_Compra'] and c['Tipo_Compra'].upper() == 'CREDITO':
+                compras_credito += total_val
+            else:
+                compras_contado += total_val
+                
             compras_list.append({
                 'id_movimiento': c['ID_Movimiento'],
                 'factura': c['N_Factura_Externa'] or 'N/A',
                 'proveedor': c['Proveedor'] or 'N/A',
-                'tipo_compra': c['Tipo_Compra'],
+                'tipo_compra': c['Tipo_Compra'] or 'CONTADO',
                 'total': total_val
             })
 
@@ -2328,7 +2339,7 @@ def reporte_diario():
                 'total': float(p['Monto_Total'])
             })
 
-        # --- 8. PRODUCTOS BAJO STOCK CRÍTICO ---
+        # --- 8. PRODUCTOS BAJO STOCK CRÍTICO Y RESUMEN INVENTARIO ---
         cursor.execute("""
             SELECT 
                 p.Descripcion AS Producto,
@@ -2352,6 +2363,21 @@ def reporte_diario():
                 'existencias': b['Stock_Actual'],
                 'stock_minimo': b['Stock_Minimo']
             })
+            
+        # Total Productos Activos y Con Stock
+        cursor.execute("SELECT COUNT(ID_Producto) as Total_Cat FROM productos WHERE Estado = 'activo'")
+        inv_cat = cursor.fetchone()
+        inventario_total_productos = inv_cat['Total_Cat'] if inv_cat else 0
+        
+        # --- 9. CUENTAS POR COBRAR (Global) ---
+        cursor.execute("SELECT COALESCE(SUM(Saldo_Pendiente), 0) as Saldo_Total FROM cuentas_por_cobrar WHERE Estado IN ('Pendiente', 'Vencida') AND Saldo_Pendiente > 0")
+        cxc_res = cursor.fetchone()
+        cxc_saldo_total = float(cxc_res['Saldo_Total']) if cxc_res else 0.0
+        
+        # --- 10. CUENTAS POR PAGAR (Global) ---
+        cursor.execute("SELECT COALESCE(SUM(Saldo_Pendiente), 0) as Saldo_Total FROM cuentas_por_pagar WHERE Estado IN ('Pendiente', 'Vencida') AND Saldo_Pendiente > 0")
+        cxp_res = cursor.fetchone()
+        cxp_saldo_total = float(cxp_res['Saldo_Total']) if cxp_res else 0.0
 
         fecha_formatted = fecha_dt.strftime('%d/%m/%Y')
         
@@ -2370,7 +2396,12 @@ def reporte_diario():
             'gastos_total': gastos_total,
             'gastos': gastos_list,
             'compras_total': compras_total,
+            'compras_contado': compras_contado,
+            'compras_credito': compras_credito,
             'compras': compras_list,
+            'cxc_saldo_total': cxc_saldo_total,
+            'cxp_saldo_total': cxp_saldo_total,
+            'inventario_total_productos': inventario_total_productos,
             'caja_apertura': caja_apertura,
             'caja_entradas': caja_entradas,
             'caja_salidas': caja_salidas,
@@ -2382,14 +2413,18 @@ def reporte_diario():
         }
         
         datos_exportar = [
-            {'Metrica': 'Ventas Totales', 'Valor': ventas_total},
-            {'Metrica': 'Ventas Contado', 'Valor': ventas_contado},
-            {'Metrica': 'Ventas Crédito', 'Valor': ventas_credito},
-            {'Metrica': 'Cobros Totales', 'Valor': cobros_total},
-            {'Metrica': 'Cobros Efectivo', 'Valor': cobros_efectivo},
-            {'Metrica': 'Gastos Generales', 'Valor': gastos_total},
-            {'Metrica': 'Compras Totales', 'Valor': compras_total},
-            {'Metrica': 'Saldo Neto Caja Chica', 'Valor': caja_saldo_neto}
+            {'Metrica': 'VENTAS TOTALES', 'Valor': ventas_total},
+            {'Metrica': ' - Ventas Contado', 'Valor': ventas_contado},
+            {'Metrica': ' - Ventas Crédito', 'Valor': ventas_credito},
+            {'Metrica': 'COMPRAS TOTALES', 'Valor': compras_total},
+            {'Metrica': ' - Compras Contado', 'Valor': compras_contado},
+            {'Metrica': ' - Compras Crédito', 'Valor': compras_credito},
+            {'Metrica': 'CUENTAS POR COBRAR (Saldo)', 'Valor': cxc_saldo_total},
+            {'Metrica': 'COBROS RECIBIDOS HOY', 'Valor': cobros_total},
+            {'Metrica': 'CUENTAS POR PAGAR (Saldo)', 'Valor': cxp_saldo_total},
+            {'Metrica': 'INVENTARIO (Total Prod. Activos)', 'Valor': inventario_total_productos},
+            {'Metrica': 'GASTOS OPERATIVOS HOY', 'Valor': gastos_total},
+            {'Metrica': 'SALDO NETO CAJA CHICA', 'Valor': caja_saldo_neto}
         ]
         
         return datos_exportar, 'admin/reportes/reporte_diario.html', context

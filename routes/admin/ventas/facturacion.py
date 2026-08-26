@@ -212,7 +212,7 @@ def admin_ventas_salidas():
                 FROM facturacion f
                 INNER JOIN detalle_facturacion df ON f.ID_Factura = df.ID_Factura
                 WHERE f.Estado = 'Activa'
-                    AND f.Credito_Contado = 1
+                    AND f.Credito_Contado IN (1, 2)
             """)
             resultado_ventas_credito = cursor.fetchone()
             ventas_credito_total = resultado_ventas_credito['Ventas_Credito'] if resultado_ventas_credito else 0.0
@@ -295,7 +295,7 @@ def admin_ventas_salidas():
                 
                 if venta.get('Credito_Contado') == 0:
                     ventas_contado_mostradas += 1
-                elif venta.get('Credito_Contado') == 1:
+                elif venta.get('Credito_Contado') in (1, 2):
                     ventas_credito_mostradas += 1
                 
                 if venta.get('Estado_Factura') == 'Activa':

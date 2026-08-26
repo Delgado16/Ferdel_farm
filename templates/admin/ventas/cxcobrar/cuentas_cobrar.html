@@ -205,13 +205,13 @@
                     <a href="{{ url_for('admin.admin_historial_abonos') }}" class="btn btn-sm btn-outline-info rounded-3 px-3">
                         <i class="fas fa-history me-1"></i> Historial de Abonos
                     </a>
-                    <div class="input-group input-group-sm" style="max-width: 250px; width: 100%;">
-                        <input type="text" class="form-control form-control-premium" placeholder="Buscar cliente..." id="searchInput">
-                        <button class="btn btn-outline-secondary" type="button" id="clearSearch">
+                    <form id="searchForm" class="input-group input-group-sm" style="max-width: 250px; width: 100%;">
+                        <input type="text" id="liveSearchInput" class="form-control form-control-premium" placeholder="Buscar cliente...">
+                        <button class="btn btn-outline-secondary" type="button" id="clearSearchBtn">
                             <i class="fas fa-times"></i>
                         </button>
-                    </div>
-                    <span class="badge border border-primary border-opacity-25" style="color: #4f46e5 !important; background-color: rgba(79, 70, 229, 0.08) !important;">
+                    </form>
+                    <span id="headerBadge" class="badge border border-primary border-opacity-25" style="color: #4f46e5 !important; background-color: rgba(79, 70, 229, 0.08) !important;">
                         {{ cuentas|length }} registros
                     </span>
                 </div>
@@ -427,18 +427,72 @@
             </div>
         </div>
         
-        <div class="card-premium-footer">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <small class="text-muted">
-                        <i class="fas fa-info-circle me-1 text-primary"></i>
-                        Mostrando {{ cuentas|length }} registro(s) - Filtro: {{ filtro_actual }}
-                    </small>
+        <div id="paginationFooter" class="card-premium-footer py-3" style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; border-bottom-left-radius: 1rem; border-bottom-right-radius: 1rem;">
+            <style>
+                .pagination-modern {
+                    display: flex;
+                    gap: 0.35rem;
+                    margin: 0;
+                    padding: 0;
+                    list-style: none;
+                }
+                .pagination-modern .page-item .page-link {
+                    border-radius: 8px;
+                    border: 1px solid transparent;
+                    color: #475569;
+                    font-weight: 600;
+                    font-size: 0.875rem;
+                    padding: 0.4rem 0.8rem;
+                    background-color: transparent;
+                    transition: all 0.2s ease;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    min-width: 32px;
+                }
+                .pagination-modern .page-item:not(.active):not(.disabled) .page-link:hover {
+                    background-color: #e2e8f0;
+                    color: #0f172a;
+                    border-color: #cbd5e1;
+                }
+                .pagination-modern .page-item.active .page-link {
+                    background-color: #4f46e5;
+                    color: white;
+                    box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.3);
+                    border-color: #4f46e5;
+                }
+                .pagination-modern .page-item.disabled .page-link {
+                    color: #94a3b8;
+                    cursor: not-allowed;
+                    background-color: transparent;
+                }
+                .pagination-modern i {
+                    font-size: 0.75rem;
+                }
+            </style>
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3 px-2">
+                <div class="d-flex align-items-center">
+                    <div class="bg-white px-3 py-2 rounded-3 shadow-sm border border-slate-200" style="font-size: 0.875rem;">
+                        <span class="text-slate-500">Mostrando</span>
+                        <span class="fw-bold text-slate-800 mx-1">15</span>
+                        <span class="text-slate-500">de</span>
+                        <span class="fw-bold text-primary mx-1" id="totalVisibleInfo">{{ cuentas|length }}</span>
+                        <span class="text-slate-500">registros</span>
+                        <span class="badge bg-slate-100 text-slate-600 border ms-2 rounded-pill">{{ filtro_actual|capitalize }}</span>
+                    </div>
                 </div>
-                <div>
-                    <small class="text-muted">
-                        Actualizado: {{ hoy.strftime('%d/%m/%Y %H:%M') }}
-                    </small>
+                
+                <nav aria-label="Navegación de páginas">
+                    <ul class="pagination-modern">
+                        <!-- Generado por Javascript -->
+                    </ul>
+                </nav>
+                
+                <div class="d-none d-lg-block">
+                    <div class="text-slate-400 d-flex align-items-center" style="font-size: 0.8rem;">
+                        <i class="fas fa-sync-alt me-1"></i>
+                        {{ hoy.strftime('%d/%m/%Y') }}
+                    </div>
                 </div>
             </div>
         </div>
@@ -447,49 +501,122 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('searchInput');
-    const clearSearch = document.getElementById('clearSearch');
-    const tableRows = document.querySelectorAll('#dataTable tbody tr');
+    const searchInput = document.getElementById('liveSearchInput');
+    const clearSearchBtn = document.getElementById('clearSearchBtn');
+    const tableRows = Array.from(document.querySelectorAll('#dataTable tbody tr'));
+    const paginationContainer = document.querySelector('.pagination-modern');
+    const infoContainer = document.getElementById('totalVisibleInfo');
+    const headerBadge = document.getElementById('headerBadge');
     
-    // Función para filtrar
+    let currentPage = 1;
+    const itemsPerPage = 15;
+    let filteredRows = [...tableRows];
+
+    function updateTable() {
+        // Ocultar todas
+        tableRows.forEach(row => row.style.display = 'none');
+        
+        // Mostrar subconjunto
+        const start = (currentPage - 1) * itemsPerPage;
+        const end = start + itemsPerPage;
+        
+        for (let i = start; i < end && i < filteredRows.length; i++) {
+            filteredRows[i].style.display = '';
+        }
+        
+        // Actualizar estadísticas
+        if (infoContainer) {
+            infoContainer.textContent = filteredRows.length;
+        }
+        if (headerBadge) {
+            headerBadge.textContent = filteredRows.length + ' registros';
+        }
+        
+        renderPagination();
+    }
+    
+    function renderPagination() {
+        if (!paginationContainer) return;
+        
+        const totalPages = Math.ceil(filteredRows.length / itemsPerPage) || 1;
+        let html = '';
+        
+        // Prev button
+        html += `<li class="page-item ${currentPage <= 1 ? 'disabled' : ''}">
+                    <a class="page-link" href="#" data-page="${currentPage - 1}">
+                        <i class="fas fa-chevron-left"></i>
+                    </a>
+                 </li>`;
+                 
+        for (let p = 1; p <= totalPages; p++) {
+            if (p === currentPage) {
+                html += `<li class="page-item active"><span class="page-link">${p}</span></li>`;
+            } else if (p <= 2 || p >= totalPages - 1 || (p >= currentPage - 1 && p <= currentPage + 1)) {
+                html += `<li class="page-item"><a class="page-link" href="#" data-page="${p}">${p}</a></li>`;
+            } else if (p === 3 && currentPage > 4) {
+                html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+            } else if (p === totalPages - 2 && currentPage < totalPages - 3) {
+                html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+            }
+        }
+        
+        // Next button
+        html += `<li class="page-item ${currentPage >= totalPages ? 'disabled' : ''}">
+                    <a class="page-link" href="#" data-page="${currentPage + 1}">
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                 </li>`;
+                 
+        paginationContainer.innerHTML = html;
+        
+        // Add events
+        paginationContainer.querySelectorAll('a.page-link').forEach(a => {
+            a.addEventListener('click', function(e) {
+                e.preventDefault();
+                const page = parseInt(this.getAttribute('data-page'));
+                if (page && page >= 1 && page <= totalPages) {
+                    currentPage = page;
+                    updateTable();
+                }
+            });
+        });
+    }
+
     function filterTable() {
         const searchTerm = searchInput.value.toLowerCase().trim();
         
-        tableRows.forEach(row => {
+        filteredRows = tableRows.filter(row => {
             if (row.cells.length > 1) {
-                const clienteCell = row.cells[1];
-                const clienteText = clienteCell.textContent.toLowerCase();
-                
-                if (clienteText.includes(searchTerm)) {
-                    row.style.display = '';
-                } else {
-                    row.style.display = 'none';
-                }
+                const clienteText = row.cells[1].textContent.toLowerCase();
+                return clienteText.includes(searchTerm);
+            }
+            return false;
+        });
+        
+        currentPage = 1;
+        updateTable();
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener('input', filterTable);
+        const form = document.getElementById('searchForm');
+        if (form) {
+            form.addEventListener('submit', function(e) { e.preventDefault(); filterTable(); });
+        }
+    }
+    
+    if (clearSearchBtn) {
+        clearSearchBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (searchInput) {
+                searchInput.value = '';
+                filterTable();
             }
         });
     }
     
-    // Evento de búsqueda
-    searchInput.addEventListener('keyup', filterTable);
-    
-    // Limpiar búsqueda
-    clearSearch.addEventListener('click', function() {
-        searchInput.value = '';
-        tableRows.forEach(row => {
-            row.style.display = '';
-        });
-    });
-    
-    // Manejar tecla Enter
-    searchInput.addEventListener('keypress', function(e) {
-        if (e.which === 13) {
-            filterTable();
-        }
-    });
-    
-    // Inicializar Select2 en el modal si está disponible
-        });
-    }
+    // Inicializar
+    updateTable();
 });
 </script>
 {% endblock %}

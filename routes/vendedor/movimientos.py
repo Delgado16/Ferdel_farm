@@ -486,9 +486,10 @@ def vendedor_movimiento_liquidar_jornada():
         with get_db_cursor(commit=True) as cursor:
             # 1. Obtener la asignación activa del vendedor
             cursor.execute("""
-                SELECT av.ID_Asignacion, av.ID_Ruta, r.Nombre_Ruta, av.ID_Vehiculo
+                SELECT av.ID_Asignacion, av.ID_Ruta, r.Nombre_Ruta, av.ID_Vehiculo, u.NombreUsuario
                 FROM asignacion_vendedores av
                 LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                LEFT JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
                 WHERE av.ID_Usuario = %s AND av.Estado = 'Activa'
                 LIMIT 1
             """, (user_id,))
@@ -612,7 +613,26 @@ def vendedor_movimiento_liquidar_jornada():
                             ON DUPLICATE KEY UPDATE Existencias = Existencias + %s
                         """, (ID_BODEGA_CENTRAL, item['ID_Producto'], item['Cantidad'], item['Cantidad']))
                 
-                # 4. Finalizar asignación de ruta
+                # 4. Consolidar efectivo en caja del local si hay saldo acumulado
+                if saldo_caja > 0:
+                    cursor.execute("""
+                        SELECT ID_Movimiento 
+                        FROM caja_movimientos 
+                        WHERE Referencia_Documento IN (%s, %s) AND Estado = 'ACTIVO'
+                    """, (f"RUTA-{id_asignacion}", f"RUT-LIQ-{id_asignacion}"))
+                    ya_registrado = cursor.fetchone()
+                    
+                    if not ya_registrado:
+                        nombre_ruta = asignacion.get('Nombre_Ruta') or "Ruta"
+                        nombre_vendedor = asignacion.get('NombreUsuario') or getattr(current_user, 'NombreUsuario', None) or getattr(current_user, 'username', None) or "Vendedor"
+                        descripcion = f"Consolidado de Ruta: {nombre_ruta} - Vendedor: {nombre_vendedor}"
+                        cursor.execute("""
+                            INSERT INTO caja_movimientos 
+                            (Fecha, Tipo_Movimiento, Descripcion, Monto, Referencia_Documento, ID_Usuario, Estado)
+                            VALUES (NOW(), 'ENTRADA', %s, %s, %s, %s, 'ACTIVO')
+                        """, (descripcion, saldo_caja, f"RUT-LIQ-{id_asignacion}", user_id))
+                
+                # 5. Finalizar asignación de ruta
                 cursor.execute("""
                     UPDATE asignacion_vendedores
                     SET Estado = 'Finalizada',
@@ -621,15 +641,18 @@ def vendedor_movimiento_liquidar_jornada():
                     WHERE ID_Asignacion = %s
                 """, (id_asignacion,))
                 
-                # 5. Liberar el vehículo
-                if asignacion['ID_Vehiculo']:
+                # 6. Liberar el vehículo
+                if asignacion.get('ID_Vehiculo'):
                     cursor.execute("""
                         UPDATE vehiculos
                         SET Estado = 'Disponible'
                         WHERE ID_Vehiculo = %s
                     """, (asignacion['ID_Vehiculo'],))
                     
-                flash('Liquidación y cierre de jornada realizados con éxito.', 'success')
+                if saldo_caja > 0:
+                    flash(f'Liquidación y cierre de jornada realizados con éxito. Se transfirieron C$ {saldo_caja:,.2f} a la caja del local.', 'success')
+                else:
+                    flash('Liquidación y cierre de jornada realizados con éxito. No se registró traslado de efectivo (saldo en caja de ruta en C$ 0.00).', 'info')
                 return redirect(url_for('vendedor.vendedor_dashboard', download_pdf=id_asignacion))
                 
             return render_template('vendedor/movimientos/liquidar_jornada.html',
@@ -642,7 +665,7 @@ def vendedor_movimiento_liquidar_jornada():
     except Exception as e:
         print(f"Error en liquidacion: {str(e)}")
         traceback.print_exc()
-        flash(f'Error al liquidar jornada: {str(e)}', 'error')
+        flash(f'Error al liquidar jornada: {str(e)}', 'danger')
         return redirect(url_for('vendedor.vendedor_dashboard'))
 
 

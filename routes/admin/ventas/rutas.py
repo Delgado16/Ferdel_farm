@@ -815,13 +815,14 @@ def finalizar_asignacion_ruta(id):
         empresa_id = session.get('id_empresa', 1)
         
         with get_db_cursor(commit=True) as cursor:
-            # Obtener el vehículo asignado
+            # Obtener el vehículo asignado y detalles de la ruta
             cursor.execute("""
-                SELECT ID_Vehiculo 
-                FROM asignacion_vendedores 
-                WHERE ID_Asignacion = %s 
-                AND ID_Empresa = %s 
-                AND Estado = 'Activa'
+                SELECT av.ID_Vehiculo, r.Nombre_Ruta
+                FROM asignacion_vendedores av
+                LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                WHERE av.ID_Asignacion = %s 
+                AND av.ID_Empresa = %s 
+                AND av.Estado = 'Activa'
             """, (id, empresa_id))
             
             asignacion = cursor.fetchone()
@@ -829,6 +830,47 @@ def finalizar_asignacion_ruta(id):
             if not asignacion:
                 flash('Asignación no encontrada o ya finalizada', 'error')
                 return redirect(url_for('admin.admin_asignacion_rutas'))
+            
+            # 1. Calcular Ventas en Efectivo de la Ruta (Facturación)
+            cursor.execute("""
+                SELECT COALESCE(SUM(dfr.Total), 0) as total_ventas
+                FROM facturacion_ruta fr
+                INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                WHERE fr.ID_Asignacion = %s AND fr.Estado = 'Activa' AND fr.Credito_Contado = 1
+            """, (id,))
+            ventas_efectivo = float(cursor.fetchone()['total_ventas'] or 0)
+            
+            # 2. Calcular Abonos en Efectivo de la Ruta
+            cursor.execute("""
+                SELECT COALESCE(SUM(ad.Monto_Aplicado), 0) as total_abonos
+                FROM abonos_detalle ad
+                LEFT JOIN metodos_pago mp ON ad.ID_MetodoPago = mp.ID_MetodoPago
+                WHERE ad.ID_Asignacion = %s 
+                  AND (mp.Nombre = 'Efectivo' OR mp.Nombre = 'CONTADO' OR ad.ID_MetodoPago IS NULL)
+            """, (id,))
+            abonos_efectivo = float(cursor.fetchone()['total_abonos'] or 0)
+            
+            # 3. Calcular Gastos en Efectivo de la Ruta
+            cursor.execute("""
+                SELECT COALESCE(SUM(Monto), 0) as total_gastos
+                FROM movimientos_caja_ruta
+                WHERE ID_Asignacion = %s 
+                  AND Tipo = 'GASTO'
+                  AND Estado = 'ACTIVO'
+            """, (id,))
+            gastos = float(cursor.fetchone()['total_gastos'] or 0)
+            
+            # 4. Calcular Apertura de la Ruta
+            cursor.execute("""
+                SELECT COALESCE(SUM(Monto), 0) as total_apertura
+                FROM movimientos_caja_ruta
+                WHERE ID_Asignacion = %s 
+                  AND Tipo = 'APERTURA'
+                  AND Estado = 'ACTIVO'
+            """, (id,))
+            apertura = float(cursor.fetchone()['total_apertura'] or 0)
+            
+            total_consolidado = apertura + ventas_efectivo + abonos_efectivo - gastos
             
             # Actualizar estado de la asignación CON HORA_FIN
             cursor.execute("""
@@ -838,6 +880,17 @@ def finalizar_asignacion_ruta(id):
                     Hora_Fin = CURTIME()
                 WHERE ID_Asignacion = %s AND ID_Empresa = %s
             """, (id, empresa_id))
+            
+            # Registrar el movimiento consolidado en caja_movimientos si hay algo que reportar
+            if total_consolidado > 0:
+                nombre_ruta = asignacion.get('Nombre_Ruta') or f"Asignación {id}"
+                descripcion = f"Liquidación Ruta {nombre_ruta} - (Apertura: C${apertura:.2f} + Ventas: C${ventas_efectivo:.2f} + Abonos: C${abonos_efectivo:.2f} - Gastos: C${gastos:.2f})"
+                
+                cursor.execute("""
+                    INSERT INTO caja_movimientos 
+                    (Fecha, Tipo_Movimiento, Descripcion, Monto, Referencia_Documento, ID_Usuario, Estado)
+                    VALUES (NOW(), 'ENTRADA', %s, %s, %s, %s, 'ACTIVO')
+                """, (descripcion, total_consolidado, f"RUT-LIQ-{id}", current_user.id))
             
             # Liberar el vehículo si existe
             if asignacion['ID_Vehiculo']:

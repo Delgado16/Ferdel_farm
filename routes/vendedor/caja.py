@@ -47,10 +47,9 @@ def mis_movimientos_caja():
                     COALESCE(SUM(CASE WHEN Tipo = 'APERTURA' THEN 1 ELSE 0 END), 0) as tiene_apertura,
                     COALESCE(SUM(CASE WHEN Tipo = 'CIERRE' THEN 1 ELSE 0 END), 0) as tiene_cierre
                 FROM movimientos_caja_ruta
-                WHERE ID_Usuario = %s 
-                  AND DATE(Fecha) = %s
+                WHERE ID_Asignacion = %s 
                   AND Estado = 'ACTIVO'
-            """, (id_vendedor, fecha))
+            """, (asignacion['ID_Asignacion'],))
             
             estado_dia = cursor.fetchone()
             
@@ -75,10 +74,9 @@ def mis_movimientos_caja():
                         ELSE 0 
                     END), 0) as Total_Movimientos
                 FROM movimientos_caja_ruta
-                WHERE ID_Usuario = %s 
-                  AND DATE(Fecha) = %s
+                WHERE ID_Asignacion = %s 
                   AND Estado = 'ACTIVO'
-            """, (id_vendedor, fecha))
+            """, (asignacion['ID_Asignacion'],))
             
             resumen = cursor.fetchone()
             
@@ -103,11 +101,10 @@ def mis_movimientos_caja():
                     c.Telefono as Telefono_Cliente
                 FROM movimientos_caja_ruta m
                 LEFT JOIN clientes c ON m.ID_Cliente = c.ID_Cliente
-                WHERE m.ID_Usuario = %s 
-                  AND DATE(m.Fecha) = %s
+                WHERE m.ID_Asignacion = %s 
                   AND m.Estado = 'ACTIVO'
                 ORDER BY m.Fecha DESC
-            """, (id_vendedor, fecha))
+            """, (asignacion['ID_Asignacion'],))
             
             movimientos = cursor.fetchall()
             
@@ -119,10 +116,9 @@ def mis_movimientos_caja():
                     COALESCE(COUNT(CASE WHEN Tipo = 'ABONO' THEN 1 END), 0) as Total_Abonos_Dia,
                     COALESCE(COUNT(CASE WHEN Tipo = 'GASTO' THEN 1 END), 0) as Total_Gastos_Dia
                 FROM movimientos_caja_ruta
-                WHERE ID_Usuario = %s 
-                  AND DATE(Fecha) = %s
+                WHERE ID_Asignacion = %s 
                   AND Estado = 'ACTIVO'
-            """, (id_vendedor, fecha))
+            """, (asignacion['ID_Asignacion'],))
             
             estadisticas = cursor.fetchone()
             
@@ -142,8 +138,8 @@ def mis_movimientos_caja():
                 'total_movimientos': float(resumen['Total_Movimientos'] or 0)
             }
             
-            # Calcular saldo esperado para el cierre (saldo_actual + gastos)
-            saldo_esperado_cierre = resumen_seguro['saldo_actual'] + resumen_seguro['gastos']
+            # El saldo esperado para el cierre es exactamente el saldo actual en caja
+            saldo_esperado_cierre = resumen_seguro['saldo_actual']
             
             # Estadísticas seguras
             estadisticas_seguras = {
@@ -258,10 +254,9 @@ def cierre_caja_modal():
                     ELSE 0 
                 END), 0) as Saldo_Esperado
                 FROM movimientos_caja_ruta
-                WHERE ID_Usuario = %s 
-                  AND DATE(Fecha) = %s
+                WHERE ID_Asignacion = %s 
                   AND Estado = 'ACTIVO'
-            """, (id_vendedor, fecha_actual))
+            """, (asignacion['ID_Asignacion'],))
             
             saldo = cursor.fetchone()
             saldo_esperado = float(saldo['Saldo_Esperado'])
@@ -364,10 +359,9 @@ def vendedor_gastos():
                         ELSE 0 
                     END), 0) as Saldo_Actual
                     FROM movimientos_caja_ruta 
-                    WHERE ID_Usuario = %s 
-                    AND DATE(Fecha) = CURDATE()
+                    WHERE ID_Asignacion = %s 
                     AND Estado = 'ACTIVO'
-                """, (usuario_actual,))
+                """, (id_asignacion,))
                 
                 ultimo_movimiento = cursor.fetchone()
                 saldo_anterior = float(ultimo_movimiento['Saldo_Actual']) if ultimo_movimiento else 0.0
@@ -441,10 +435,9 @@ def vendedor_gastos():
                     ELSE 0 
                 END), 0) as Saldo_Actual
                 FROM movimientos_caja_ruta
-                WHERE ID_Usuario = %s 
-                AND DATE(Fecha) = CURDATE()
+                WHERE ID_Asignacion = %s 
                 AND Estado = 'ACTIVO'
-            """, (usuario_actual,))
+            """, (id_asignacion,))
             
             saldo_actual_res = cursor.fetchone()
             saldo_actual = float(saldo_actual_res['Saldo_Actual']) if saldo_actual_res else 0.0

@@ -15,7 +15,7 @@ from .. import admin_bp
 @bitacora_decorator("CUENTAS-POR-COBRAR")
 def admin_cuentascobrar():
     try:
-        # Obtener parámetro de filtro de la URL
+        # Obtener parámetro de filtro
         filtro_estado = request.args.get('estado', 'pendientes')
         
         # Definir hoy al principio
@@ -72,6 +72,20 @@ def admin_cuentascobrar():
             
             params = []
             
+            # === OBTENER TOTALES GLOBALES ===
+            cursor.execute("""
+                SELECT 
+                    SUM(CASE WHEN Saldo_Pendiente = 0 THEN 1 ELSE 0 END) as total_pagadas,
+                    SUM(CASE WHEN Saldo_Pendiente > 0 AND Fecha_Vencimiento < CURDATE() THEN 1 ELSE 0 END) as total_vencidas,
+                    SUM(CASE WHEN Saldo_Pendiente > 0 AND (Fecha_Vencimiento >= CURDATE() OR Fecha_Vencimiento IS NULL) AND Estado != 'Pagada' THEN 1 ELSE 0 END) as total_pendientes
+                FROM cuentas_por_cobrar
+                WHERE Estado != 'Anulada'
+            """)
+            stats = cursor.fetchone()
+            global_pagadas = int(stats['total_pagadas'] or 0)
+            global_vencidas = int(stats['total_vencidas'] or 0)
+            global_pendientes = int(stats['total_pendientes'] or 0)
+            
             # Aplicar filtros según el parámetro
             if filtro_estado == 'pagados':
                 query += " AND c.Saldo_Pendiente = 0"
@@ -121,18 +135,11 @@ def admin_cuentascobrar():
             cursor.execute(query, params)
             cuentas = cursor.fetchall()
             
-            # Calcular totales
-            total_pendiente = sum(cuenta['Monto_Movimiento'] for cuenta in cuentas)  # Monto original
-            total_saldo = sum(cuenta['Saldo_Pendiente'] for cuenta in cuentas)      # Saldo actual
+            # Calcular totales del filtro usando TODAS las cuentas filtradas
+            total_pendiente = sum(cuenta['Monto_Movimiento'] for cuenta in cuentas)
+            total_saldo = sum(cuenta['Saldo_Pendiente'] for cuenta in cuentas)
             
-            # Calcular estadísticas basadas en datos reales
-            cuentas_pagadas = [c for c in cuentas if c['Saldo_Pendiente'] == 0]
-            cuentas_vencidas = [c for c in cuentas if c['Fecha_Vencimiento'] and 
-                                c['Fecha_Vencimiento'] < hoy and 
-                                c['Saldo_Pendiente'] > 0]
-            cuentas_pendientes = [c for c in cuentas if c['Saldo_Pendiente'] > 0 and 
-                                  c['Fecha_Vencimiento'] and 
-                                  c['Fecha_Vencimiento'] >= hoy]
+            # Las estadísticas se obtuvieron al inicio con una consulta global.
             
             # Obtener clientes con saldo pendiente
             cursor.execute("""
@@ -155,9 +162,9 @@ def admin_cuentascobrar():
                                  total_saldo=total_saldo,
                                  hoy=hoy,
                                  filtro_actual=filtro_estado,
-                                 total_pagadas=len(cuentas_pagadas),
-                                 total_vencidas=len(cuentas_vencidas),
-                                 total_pendientes=len(cuentas_pendientes),
+                                 total_pagadas=global_pagadas,
+                                 total_vencidas=global_vencidas,
+                                 total_pendientes=global_pendientes,
                                  clientes_pendientes=clientes_pendientes)
     except Exception as e:
         flash(f"Error al cargar cuentas por cobrar: {e}")
