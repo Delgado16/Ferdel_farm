@@ -1,155 +1,471 @@
 {% extends "layout.html" %}
 
-{% block title %}Editar Proveedor - FerDel{% endblock %}
+{% block title %}Editar Proveedor: {{ proveedor.Nombre }} - FerDel{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ==========================================================
+       VARIABLES Y UTILIDADES DE COLOR Y TIPOGRAFÍA (FERDEL)
+       ========================================================== */
+    :root {
+        --ferdel-slate-900: #0f172a;
+        --ferdel-slate-800: #1e293b;
+        --ferdel-slate-700: #334155;
+        --ferdel-slate-600: #475569;
+        --ferdel-slate-500: #64748b;
+        --ferdel-slate-400: #94a3b8;
+        --ferdel-slate-300: #cbd5e1;
+        --ferdel-slate-200: #e2e8f0;
+        --ferdel-slate-100: #f1f5f9;
+        --ferdel-slate-50:  #f8fafc;
+        --ferdel-primary:   #2c5e2e;
+        --ferdel-emerald:   #10b981;
+    }
+
+    /* Clases explícitas de color de texto para asegurar alta legibilidad */
+    .text-slate-900 { color: #0f172a !important; }
+    .text-slate-800 { color: #1e293b !important; }
+    .text-slate-700 { color: #334155 !important; }
+    .text-slate-600 { color: #475569 !important; }
+    .text-slate-500 { color: #64748b !important; }
+    .text-slate-400 { color: #94a3b8 !important; }
+    .text-slate-300 { color: #cbd5e1 !important; }
+    .text-slate-200 { color: #e2e8f0 !important; }
+    .text-slate-100 { color: #f1f5f9 !important; }
+
+    /* ==========================================================
+       HERO HEADER DEL PROVEEDOR
+       ========================================================== */
+    .form-hero-header {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, var(--primary-color, #2c5e2e) 100%);
+        border-radius: 18px;
+        color: #ffffff;
+        padding: 1.5rem 2rem;
+        box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.35);
+        margin-bottom: 1.75rem;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .form-hero-header::before {
+        content: '';
+        position: absolute;
+        top: -30%;
+        right: -10%;
+        width: 320px;
+        height: 320px;
+        background: radial-gradient(circle, rgba(16, 185, 129, 0.22) 0%, rgba(16, 185, 129, 0) 70%);
+        border-radius: 50%;
+        pointer-events: none;
+    }
+
+    .proveedor-avatar-sm {
+        width: 58px;
+        height: 58px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #10b981 0%, #2c5e2e 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.55rem;
+        font-weight: 800;
+        color: #ffffff;
+        box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        flex-shrink: 0;
+    }
+
+    .hero-meta-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        color: #e2e8f0;
+        font-size: 0.88rem;
+        background: rgba(255, 255, 255, 0.08);
+        padding: 0.35rem 0.75rem;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .hero-meta-item strong {
+        color: #ffffff;
+    }
+
+    /* ==========================================================
+       SECCIONES Y TARJETAS DEL FORMULARIO
+       ========================================================== */
+    .form-section-card {
+        background: #ffffff;
+        border-radius: 16px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 15px -3px rgba(15, 23, 42, 0.04);
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .form-section-card:hover {
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.07);
+    }
+
+    .form-section-header {
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        padding: 1.15rem 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .form-section-body {
+        padding: 1.5rem;
+    }
+
+    .form-section-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 0.85rem;
+        font-size: 1.3rem;
+        flex-shrink: 0;
+    }
+
+    /* ==========================================================
+       CONTROLES DE FORMULARIO DE ALTA CALIDAD
+       ========================================================== */
+    .form-label-premium {
+        color: #334155 !important;
+        font-size: 0.8rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.04em !important;
+        text-transform: uppercase !important;
+        margin-bottom: 0.4rem !important;
+        display: block !important;
+    }
+
+    .form-control-premium,
+    .form-select-premium {
+        border-radius: 10px !important;
+        border: 1px solid #cbd5e1 !important;
+        color: #0f172a !important;
+        font-size: 0.92rem !important;
+        padding: 0.65rem 0.85rem !important;
+        background-color: #ffffff !important;
+        transition: all 0.2s ease !important;
+    }
+
+    .form-control-premium:focus,
+    .form-select-premium:focus {
+        border-color: #10b981 !important;
+        box-shadow: 0 0 0 3.5px rgba(16, 185, 129, 0.2) !important;
+        outline: none !important;
+    }
+
+    .input-group-text {
+        border-radius: 10px 0 0 10px !important;
+        border: 1px solid #cbd5e1 !important;
+        color: #475569 !important;
+        background-color: #f8fafc !important;
+        font-weight: 600 !important;
+    }
+
+    .input-group > .form-control-premium,
+    .input-group > .form-select-premium {
+        border-radius: 0 10px 10px 0 !important;
+    }
+
+    /* Botones */
+    .btn-brand-primary {
+        background: linear-gradient(135deg, #10b981 0%, #2c5e2e 100%);
+        color: #ffffff !important;
+        border: none;
+        font-weight: 600;
+        box-shadow: 0 4px 14px rgba(16, 185, 129, 0.25);
+        transition: all 0.2s ease;
+    }
+
+    .btn-brand-primary:hover {
+        opacity: 0.95;
+        transform: translateY(-1px);
+        box-shadow: 0 6px 18px rgba(16, 185, 129, 0.35);
+    }
+
+    .card-actions-bar {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px -3px rgba(15, 23, 42, 0.05);
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="container-fluid py-4 fade-in-up">
-    <!-- Encabezado con botón de volver -->
-    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-        <div>
-            <h3 class="fw-bold text-slate-800 mb-1">
-                <i class="fas fa-truck text-primary me-2"></i>Editar Proveedor
-            </h3>
-            <p class="text-muted small mb-0">Modificar la información de contacto, saldo pendiente y estado del proveedor</p>
-        </div>
-        <div>
-            <a href="{{ url_for('admin.admin_proveedores') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
-                <i class="fas fa-arrow-left me-1"></i> Volver a Proveedores
-            </a>
+    
+    <!-- Hero Header -->
+    <div class="form-hero-header">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div class="d-flex align-items-center gap-3">
+                <div class="proveedor-avatar-sm">
+                    {{ (proveedor.Nombre[:2] if proveedor.Nombre else 'PR')|upper }}
+                </div>
+                <div>
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                        <h4 class="fw-bold mb-0 text-white">{{ proveedor.Nombre }}</h4>
+                        <span class="badge bg-white bg-opacity-20 text-white font-monospace border border-white border-opacity-20 px-2.5 py-1 rounded-pill small">
+                            ID #{{ proveedor.ID_Proveedor }}
+                        </span>
+                        {% if proveedor.Estado == 'ACTIVO' %}
+                        <span class="badge bg-success bg-opacity-25 text-white border border-success border-opacity-40 rounded-pill px-2.5 py-1 fw-bold small" style="backdrop-filter: blur(4px);">
+                            <i class="bi bi-shield-check me-1"></i>ACTIVO
+                        </span>
+                        {% else %}
+                        <span class="badge bg-danger bg-opacity-25 text-white border border-danger border-opacity-40 rounded-pill px-2.5 py-1 fw-bold small" style="backdrop-filter: blur(4px);">
+                            <i class="bi bi-slash-circle me-1"></i>{{ proveedor.Estado }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    <!-- Metadatos de alta legibilidad -->
+                    <div class="d-flex flex-wrap align-items-center gap-2 pt-1">
+                        <span class="hero-meta-item">
+                            <i class="bi bi-card-heading text-info"></i>
+                            <span>RUC/Cédula: <strong>{{ proveedor.RUC_CEDULA or 'No registrado' }}</strong></span>
+                        </span>
+                        {% if proveedor.Telefono %}
+                        <span class="hero-meta-item">
+                            <i class="bi bi-telephone-fill text-success"></i>
+                            <span>Tel: <strong>{{ proveedor.Telefono }}</strong></span>
+                        </span>
+                        {% endif %}
+                        <span class="hero-meta-item">
+                            <i class="bi bi-wallet2 text-warning"></i>
+                            <span>Saldo Adeudado: <strong>C$ {{ "{:,.2f}".format(proveedor.Saldo_Pendiente|float) }}</strong></span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="d-flex flex-wrap gap-2">
+                <a href="{{ url_for('admin.admin_detalle_proveedor', id=proveedor.ID_Proveedor) }}" class="btn btn-light btn-sm px-3 py-2 rounded-3 fw-bold text-slate-800 shadow-sm d-inline-flex align-items-center gap-1.5" title="Ver Expediente del Proveedor">
+                    <i class="bi bi-eye text-primary"></i> <span>Ver Expediente</span>
+                </a>
+                <a href="{{ url_for('admin.admin_proveedores') }}" class="btn btn-outline-light btn-sm px-3 py-2 rounded-3 fw-semibold d-inline-flex align-items-center gap-1.5" title="Regresar a Proveedores">
+                    <i class="bi bi-arrow-left"></i> <span>Volver a Proveedores</span>
+                </a>
+            </div>
         </div>
     </div>
 
-    <div class="row justify-content-center">
-        <div class="col-lg-8">
-            <!-- Tarjeta principal de edición -->
-            <div class="card-premium-section mb-4">
-                <div class="card-body p-4">
-                    {% with messages = get_flashed_messages(with_categories=true) %}
-                        {% if messages %}
-                            {% for category, message in messages %}
-                                <div class="alert alert-{{ 'danger' if category == 'danger' else 'success' }} bg-opacity-10 text-{{ 'danger' if category == 'danger' else 'success' }} border-{{ 'danger' if category == 'danger' else 'success' }} border-opacity-20 alert-dismissible fade show rounded-3 p-3 mb-4" role="alert">
-                                    {{ message }}
-                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                                </div>
-                            {% endfor %}
-                        {% endif %}
-                    {% endwith %}
-
-                    <!-- Información del Proveedor -->
-                    <div class="card-premium-section p-3 border-start border-3 border-primary mb-4">
-                        <div class="row">
-                            <div class="col-sm-6 mb-2 mb-sm-0">
-                                <small class="text-muted d-block">ID Proveedor:</small>
-                                <span class="badge bg-light text-dark border fw-bold font-monospace mt-1">#{{ proveedor.ID_Proveedor }}</span>
+    <!-- Formulario Principal de Edición -->
+    <form method="POST" action="{{ url_for('admin.admin_editar_proveedor', id=proveedor.ID_Proveedor) }}" 
+          id="editarProveedorForm" novalidate>
+        
+        <div class="row g-4">
+            <!-- COLUMNA IZQUIERDA: Identificación y Contacto -->
+            <div class="col-lg-7">
+                
+                <!-- SECCIÓN 1: DATOS GENERALES -->
+                <div class="form-section-card">
+                    <div class="form-section-header">
+                        <div class="d-flex align-items-center">
+                            <div class="form-section-icon bg-primary bg-opacity-10 text-primary">
+                                <i class="bi bi-building"></i>
                             </div>
-                            <div class="col-sm-6">
-                                <small class="text-muted d-block">Fecha de Creación:</small>
-                                <span class="fw-bold text-slate-800 small mt-1 d-inline-block">{{ proveedor.Fecha_Creacion.strftime('%d/%m/%Y %H:%M') if proveedor.Fecha_Creacion else 'N/A' }}</span>
+                            <div>
+                                <h6 class="fw-bold text-slate-900 mb-0">Identificación y Contacto</h6>
+                                <small class="text-slate-500">Información comercial y datos de comunicación</small>
                             </div>
                         </div>
                     </div>
-
-                    <form method="POST" action="{{ url_for('admin.admin_editar_proveedor', id=proveedor.ID_Proveedor) }}" novalidate>
-                        <!-- Nombre del Proveedor -->
-                        <div class="mb-3">
-                            <label for="nombre" class="form-label-premium fw-bold mb-1">Nombre del Proveedor *</label>
-                            <input type="text" class="form-control form-control-premium" id="nombre" name="nombre" 
-                                   value="{{ proveedor.Nombre }}" required maxlength="255">
-                            <div class="form-text small text-muted">El nombre es obligatorio (máximo 255 caracteres).</div>
-                        </div>
-
-                        <!-- Teléfono -->
-                        <div class="mb-3">
-                            <label for="telefono" class="form-label-premium fw-bold mb-1">Teléfono</label>
-                            <input type="tel" class="form-control form-control-premium" id="telefono" name="telefono" 
-                                   value="{{ proveedor.Telefono or '' }}" maxlength="20">
-                            <div class="form-text small text-muted">Formato admisible: números, espacios, +, -, ().</div>
-                        </div>
-
-                        <!-- Dirección -->
-                        <div class="mb-3">
-                            <label for="direccion" class="form-label-premium fw-bold mb-1">Dirección</label>
-                            <textarea class="form-control form-control-premium" id="direccion" name="direccion" rows="3" 
-                                      maxlength="500">{{ proveedor.Direccion or '' }}</textarea>
-                            <div class="form-text small text-muted">Máximo 500 caracteres.</div>
-                        </div>
-
-                        <!-- RUC/Cédula -->
-                        <div class="mb-3">
-                            <label for="ruc_cedula" class="form-label-premium fw-bold mb-1">RUC/Cédula</label>
-                            <input type="text" class="form-control form-control-premium" id="ruc_cedula" name="ruc_cedula" 
-                                   value="{{ proveedor.RUC_CEDULA or '' }}" maxlength="20"
-                                   placeholder="Ej: 401-160503-1006T o 203140785000U">
-                            <div class="form-text small text-muted">Opcional. Si se proporciona, debe ser único y contener al menos una letra.</div>
-                        </div>
-
-                        <!-- Saldo Pendiente -->
-                        <div class="mb-4">
-                            <label for="saldo_pendiente" class="form-label-premium fw-bold mb-1">Saldo Pendiente</label>
-                            <div class="input-group">
-                                <span class="input-group-text bg-light border-end-0">C$</span>
-                                <input type="number" class="form-control form-control-premium" id="saldo_pendiente" name="saldo_pendiente" 
-                                       step="0.01" min="0" value="{{ '%.2f'|format(proveedor.Saldo_Pendiente|float) }}"
-                                       placeholder="0.00">
+                    <div class="form-section-body">
+                        <div class="row g-3">
+                            <!-- Nombre o Razón Social -->
+                            <div class="col-md-12">
+                                <label for="nombre" class="form-label-premium">Nombre o Razón Social <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-building text-slate-500"></i></span>
+                                    <input type="text" name="nombre" id="nombre" class="form-control form-control-premium" 
+                                           value="{{ proveedor.Nombre }}" 
+                                           required minlength="2" maxlength="255"
+                                           placeholder="Ingrese el nombre comercial o razón social">
+                                </div>
+                                <div class="invalid-feedback">El nombre es obligatorio (mínimo 2 caracteres).</div>
                             </div>
-                            <div class="form-text small mt-2">
-                                Monto total que la empresa le debe actualmente a este proveedor.
-                                {% set saldo = proveedor.Saldo_Pendiente|float %}
-                                {% if saldo > 0 %}
-                                    <div class="alert alert-danger bg-danger bg-opacity-10 text-danger border border-danger border-opacity-10 py-2.5 px-3 mt-2 rounded-3 small">
-                                        <i class="fas fa-exclamation-triangle me-1"></i> Deuda pendiente: <strong>C$ {{ "{:,.2f}".format(saldo) }}</strong>
-                                    </div>
-                                {% else %}
-                                    <div class="alert alert-success bg-success bg-opacity-10 text-success border border-success border-opacity-10 py-2.5 px-3 mt-2 rounded-3 small">
-                                        <i class="fas fa-check-circle me-1"></i> Sin deuda pendiente con este proveedor.
-                                    </div>
-                                {% endif %}
+
+                            <!-- RUC / Cédula -->
+                            <div class="col-md-6">
+                                <label for="ruc_cedula" class="form-label-premium">RUC / Cédula</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-card-heading text-slate-500"></i></span>
+                                    <input type="text" name="ruc_cedula" id="ruc_cedula" class="form-control form-control-premium font-monospace" 
+                                           value="{{ proveedor.RUC_CEDULA or '' }}"
+                                           maxlength="20"
+                                           placeholder="Ej: 401-160503-1006T">
+                                </div>
+                                <div class="form-text small text-slate-500">Debe contener al menos una letra si se especifica.</div>
+                            </div>
+
+                            <!-- Teléfono -->
+                            <div class="col-md-6">
+                                <label for="telefono" class="form-label-premium">Teléfono de Contacto</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-telephone text-slate-500"></i></span>
+                                    <input type="tel" name="telefono" id="telefono" class="form-control form-control-premium" 
+                                           value="{{ proveedor.Telefono or '' }}"
+                                           maxlength="20"
+                                           placeholder="Ej: 2255-0000 o 8888-8888"
+                                           oninput="this.value = this.value.replace(/[^0-9+\-()\s]/g, '')">
+                                </div>
+                                <div class="form-text small text-slate-500">Número directo de ventas o cobranza</div>
+                            </div>
+
+                            <!-- Dirección -->
+                            <div class="col-12">
+                                <label for="direccion" class="form-label-premium">Dirección Física</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-geo-alt text-slate-500"></i></span>
+                                    <textarea name="direccion" id="direccion" class="form-control form-control-premium" 
+                                              rows="3" maxlength="500"
+                                              placeholder="Dirección completa de bodega o sucursal principal">{{ proveedor.Direccion or '' }}</textarea>
+                                </div>
+                                <div class="form-text small text-slate-500">Máximo 500 caracteres</div>
                             </div>
                         </div>
-
-                        <!-- Estado -->
-                        <div class="mb-4">
-                            <label for="estado" class="form-label-premium fw-bold mb-1">Estado</label>
-                            <select class="form-select form-select-premium" id="estado" name="estado">
-                                <option value="ACTIVO" {% if proveedor.Estado == 'ACTIVO' %}selected{% endif %}>Activo</option>
-                                <option value="INACTIVO" {% if proveedor.Estado == 'INACTIVO' %}selected{% endif %}>Inactivo</option>
-                            </select>
-                            <div class="form-text small mt-2">
-                                {% if proveedor.Estado == 'ACTIVO' %}
-                                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2 py-1"><i class="fas fa-check-circle me-1"></i> Proveedor activo</span>
-                                {% else %}
-                                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2 py-1"><i class="fas fa-exclamation-circle me-1"></i> Proveedor inactivo</span>
-                                {% endif %}
-                            </div>
-                        </div>
-
-                        <!-- Botones de Acción -->
-                        <div class="d-flex justify-content-between align-items-center pt-3 border-top border-light">
-                            <a href="{{ url_for('admin.admin_proveedores') }}" class="btn btn-outline-secondary px-3 py-2 rounded-3">
-                                <i class="fas fa-times-circle me-1"></i> Cancelar
-                            </a>
-                            <button type="submit" class="btn btn-outline-primary px-3 py-2 rounded-3">
-                                <i class="fas fa-check-circle me-1"></i> Guardar Cambios
-                            </button>
-                        </div>
-                    </form>
+                    </div>
                 </div>
+
             </div>
 
-            <!-- Tarjeta de información adicional -->
-            <div class="card-premium-section bg-light">
-                <div class="card-body p-4">
-                    <h6 class="text-slate-800 fw-bold mb-3">
-                        <i class="fas fa-info-circle text-primary me-2"></i>Información Importante
-                    </h6>
-                    <ul class="small text-muted mb-0 ps-3">
-                        <li class="mb-1"><strong>Saldo Pendiente:</strong> Representa la deuda actual consolidada de la empresa con el proveedor.</li>
-                        <li class="mb-1">Este saldo se actualiza automáticamente a partir de compras registradas y abonos a cuentas por pagar.</li>
-                        <li class="mb-1">El saldo no puede ser negativo bajo ningún concepto.</li>
-                        <li class="mb-1">Desactivar el proveedor no afectará sus transacciones históricas registradas ni el saldo contable pendiente.</li>
-                        <li>Los campos marcados con un asterisco (*) son de carácter obligatorio.</li>
-                    </ul>
+            <!-- COLUMNA DERECHA: Saldo, Estado y Parámetros -->
+            <div class="col-lg-5">
+                
+                <!-- SECCIÓN 2: SALDO Y CUENTAS POR PAGAR -->
+                <div class="form-section-card">
+                    <div class="form-section-header">
+                        <div class="d-flex align-items-center">
+                            <div class="form-section-icon bg-warning bg-opacity-10 text-warning">
+                                <i class="bi bi-wallet2"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold text-slate-900 mb-0">Saldo y Deuda Consolidada</h6>
+                                <small class="text-slate-500">Monto total adeudado al proveedor</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-section-body">
+                        <div class="mb-3">
+                            <label for="saldo_pendiente" class="form-label-premium">Saldo Pendiente (C$)</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-warning bg-opacity-10 text-warning fw-bold">C$</span>
+                                <input type="number" class="form-control form-control-premium font-monospace fs-5 fw-bold text-slate-900" 
+                                       id="saldo_pendiente" name="saldo_pendiente" 
+                                       value="{{ '%.2f'|format(proveedor.Saldo_Pendiente|float) }}" step="0.01" min="0"
+                                       placeholder="0.00">
+                            </div>
+                            <div class="form-text small text-slate-500 mt-2">
+                                <i class="bi bi-info-circle text-info me-1"></i> Modifique este valor únicamente si requiere un ajuste contable directo de la deuda.
+                            </div>
+                        </div>
+
+                        <!-- Estado en el Sistema -->
+                        <div class="mb-2 pt-3 border-top">
+                            <label for="estado" class="form-label-premium">Estado del Proveedor <span class="text-danger">*</span></label>
+                            <select name="estado" id="estado" class="form-select form-select-premium" required>
+                                <option value="ACTIVO" {% if proveedor.Estado == 'ACTIVO' %}selected{% endif %}>ACTIVO (Habilitado para compras)</option>
+                                <option value="INACTIVO" {% if proveedor.Estado == 'INACTIVO' %}selected{% endif %}>INACTIVO (Suspendido)</option>
+                            </select>
+                            <div class="form-text small text-slate-500 mt-1">Los proveedores inactivos no aparecerán para nuevas compras.</div>
+                        </div>
+                    </div>
                 </div>
+
+                <!-- SECCIÓN 3: RESUMEN DE REGISTRO -->
+                <div class="form-section-card bg-light bg-opacity-50">
+                    <div class="form-section-body p-3">
+                        <div class="d-flex align-items-center gap-2 mb-2 text-slate-900 fw-bold small">
+                            <i class="bi bi-shield-lock text-primary"></i> Información de Registro
+                        </div>
+                        <div class="small text-slate-600">
+                            <div class="mb-1"><strong>ID Proveedor:</strong> <span class="font-monospace text-slate-800">#{{ proveedor.ID_Proveedor }}</span></div>
+                            <div><strong>Fecha de Alta:</strong> <span class="font-monospace text-slate-800">{{ proveedor.Fecha_Creacion.strftime('%d/%m/%Y %H:%M') if proveedor.Fecha_Creacion else 'N/A' }}</span></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- BOTONES DE ACCIÓN FLOTANTES / PIE -->
+        <div class="card-actions-bar p-3 mt-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-brand-primary px-4 py-2.5 rounded-3 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5">
+                        <i class="bi bi-check-circle"></i> <span>Guardar Cambios</span>
+                    </button>
+                    <a href="{{ url_for('admin.admin_proveedores') }}" class="btn btn-outline-secondary px-3 py-2.5 rounded-3 fw-semibold d-inline-flex align-items-center gap-1.5">
+                        <i class="bi bi-x-lg"></i> <span>Cancelar</span>
+                    </a>
+                </div>
+
+                <div>
+                    {% if proveedor.Estado == 'ACTIVO' %}
+                    <button type="button" class="btn btn-outline-danger btn-sm px-3 py-2 rounded-3 fw-semibold d-inline-flex align-items-center gap-1.5" 
+                            data-bs-toggle="modal" data-bs-target="#eliminarProveedorModal">
+                        <i class="bi bi-trash"></i> <span>Desactivar Proveedor</span>
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Modal de confirmación para desactivar -->
+<div class="modal fade" id="eliminarProveedorModal" tabindex="-1" aria-labelledby="eliminarProveedorModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header bg-danger bg-opacity-10 border-0 p-4 pb-2">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="p-2.5 bg-danger text-white rounded-3">
+                        <i class="bi bi-exclamation-triangle-fill fa-lg"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold text-slate-900 mb-0" id="eliminarProveedorModalLabel">
+                            Confirmar Desactivación
+                        </h5>
+                        <small class="text-slate-500">Cambiar estado del proveedor a Inactivo</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="text-slate-800 mb-3">¿Está seguro que desea desactivar a <strong>{{ proveedor.Nombre }}</strong>?</p>
+                
+                {% set saldo_num = proveedor.Saldo_Pendiente|float %}
+                {% if saldo_num > 0 %}
+                <div class="alert alert-danger bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-3 p-3 mb-3">
+                    <strong class="d-block mb-1"><i class="bi bi-exclamation-circle me-1"></i> ¡Advertencia de Saldo Pendiente!</strong>
+                    La empresa posee una deuda acumulada de <strong>C$ {{ "{:,.2f}".format(saldo_num) }}</strong> con este proveedor.
+                </div>
+                {% endif %}
+                
+                <p class="text-slate-500 small mb-0">
+                    <i class="bi bi-info-circle text-info me-1"></i> El proveedor no aparecerá para el registro de nuevas compras ni operaciones activas.
+                </p>
+            </div>
+            <div class="modal-footer bg-light border-0 py-3 px-4">
+                <button type="button" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3" data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+                <form method="POST" action="{{ url_for('admin.admin_eliminar_proveedor', id=proveedor.ID_Proveedor) }}" class="d-inline">
+                    <button type="submit" class="btn btn-danger btn-sm px-3 py-2 rounded-3 fw-bold">
+                        <i class="bi bi-check-lg me-1"></i> Sí, Desactivar
+                    </button>
+                </form>
             </div>
         </div>
     </div>
@@ -159,116 +475,41 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Validación del formulario
-    const form = document.querySelector('form');
-    const saldoInput = document.getElementById('saldo_pendiente');
+    const editarForm = document.getElementById('editarProveedorForm');
+    const rucCedulaInput = document.getElementById('ruc_cedula');
     
-    // Función para validar saldo (no puede ser negativo)
-    function validateSaldo() {
-        let saldo = parseFloat(saldoInput.value);
-        if (isNaN(saldo)) {
-            saldoInput.value = '0.00';
-            saldo = 0;
+    // Validación de RUC/Cédula
+    function validateRucCedula() {
+        const val = rucCedulaInput.value.trim();
+        if (!val) {
+            rucCedulaInput.setCustomValidity('');
+            rucCedulaInput.classList.remove('is-invalid');
+            return true;
         }
-        if (saldo < 0) {
-            saldoInput.setCustomValidity('El saldo pendiente no puede ser negativo. Representa lo que le debemos al proveedor.');
-            saldoInput.classList.add('is-invalid');
+        
+        if (!/[a-zA-Z]/.test(val)) {
+            rucCedulaInput.setCustomValidity('El RUC/Cédula debe contener al menos una letra');
+            rucCedulaInput.classList.add('is-invalid');
             return false;
         } else {
-            saldoInput.setCustomValidity('');
-            saldoInput.classList.remove('is-invalid');
+            rucCedulaInput.setCustomValidity('');
+            rucCedulaInput.classList.remove('is-invalid');
             return true;
         }
     }
     
-    // Formatear saldo a 2 decimales
-    function formatSaldo() {
-        let saldo = parseFloat(saldoInput.value);
-        if (isNaN(saldo)) {
-            saldoInput.value = '0.00';
-        } else if (saldo < 0) {
-            saldoInput.value = '0.00';
-            alert('El saldo no puede ser negativo. Se ha ajustado a 0.00');
-        } else {
-            saldoInput.value = saldo.toFixed(2);
-        }
-    }
+    if (rucCedulaInput) rucCedulaInput.addEventListener('input', validateRucCedula);
     
-    // Eventos para el saldo
-    if (saldoInput) {
-        saldoInput.addEventListener('input', validateSaldo);
-        saldoInput.addEventListener('blur', formatSaldo);
-    }
-    
-    if (form) {
-        form.addEventListener('submit', function(e) {
-            const nombre = document.getElementById('nombre').value.trim();
-            if (!nombre) {
-                e.preventDefault();
-                alert('El nombre del proveedor es obligatorio');
-                document.getElementById('nombre').focus();
-                return false;
-            }
+    if (editarForm) {
+        editarForm.addEventListener('submit', function(event) {
+            const isRucValid = validateRucCedula();
             
-            if (nombre.length > 255) {
-                e.preventDefault();
-                alert('El nombre no puede tener más de 255 caracteres');
-                document.getElementById('nombre').focus();
-                return false;
+            if (!isRucValid || !editarForm.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
             }
-            
-            // Validación opcional: formato de teléfono
-            const telefono = document.getElementById('telefono').value.trim();
-            if (telefono && !/^[\d\s\-+()]{7,20}$/.test(telefono)) {
-                e.preventDefault();
-                alert('Por favor ingrese un número de teléfono válido (7-20 caracteres, solo números y caracteres especiales comunes)');
-                document.getElementById('telefono').focus();
-                return false;
-            }
-            
-            // Validación de longitud de dirección
-            const direccion = document.getElementById('direccion').value.trim();
-            if (direccion.length > 500) {
-                e.preventDefault();
-                alert('La dirección no puede tener más de 500 caracteres');
-                document.getElementById('direccion').focus();
-                return false;
-            }
-            
-            // Validación de RUC/Cédula (debe contener al menos una letra, opcional)
-            const rucCedula = document.getElementById('ruc_cedula').value.trim();
-            if (rucCedula && !/[a-zA-Z]/.test(rucCedula)) {
-                e.preventDefault();
-                alert('El RUC/Cédula debe contener al menos una letra');
-                document.getElementById('ruc_cedula').focus();
-                return false;
-            }
-            
-            // Validación del saldo
-            const saldo = parseFloat(saldoInput.value);
-            if (isNaN(saldo)) {
-                e.preventDefault();
-                alert('El saldo debe ser un valor numérico válido');
-                saldoInput.focus();
-                return false;
-            }
-            
-            if (saldo < 0) {
-                e.preventDefault();
-                alert('El saldo pendiente no puede ser negativo. Representa la deuda con el proveedor.');
-                saldoInput.focus();
-                return false;
-            }
-            
-            return true;
+            editarForm.classList.add('was-validated');
         });
-    }
-
-    // Auto-focus en el campo nombre
-    const nombreInput = document.getElementById('nombre');
-    if (nombreInput) {
-        nombreInput.focus();
-        nombreInput.select();
     }
 });
 </script>

@@ -872,7 +872,6 @@ def bodega_procesar_entrada():
             return redirect(url_for('auth.login'))
         
         user_id = current_user.id
-        print(f"DEBUG - User ID from current_user: {user_id}")
         
         # Validar datos básicos
         fecha = request.form.get('fecha')
@@ -1317,7 +1316,6 @@ def bodega_procesar_salida():
                             current_user.id,
                             f'FAC-{id_factura_venta:05d}'
                         ))
-                        print(f"💰 Entrada en caja registrada: C${total_venta:,.2f}")
                         
                         # Actualizar última fecha de movimiento y última factura en el cliente
                         cursor.execute("""

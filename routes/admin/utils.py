@@ -97,12 +97,40 @@ def obtener_metricas_kpis():
             AND ib.Existencias <= p.Stock_Minimo
         """)
         productos_bajo_stock = cursor.fetchone()['count'] or 0
+
+        # Saldo en caja actual (del día activo)
+        cursor.execute("""
+            SELECT 
+                COALESCE(SUM(CASE 
+                    WHEN Tipo_Movimiento = 'ENTRADA' THEN Monto 
+                    WHEN Tipo_Movimiento = 'SALIDA' THEN -Monto 
+                    ELSE 0 
+                END), 0) as saldo_caja,
+                CASE 
+                    WHEN EXISTS (
+                        SELECT 1 FROM caja_movimientos 
+                        WHERE Tipo_Movimiento = 'ENTRADA' 
+                        AND Descripcion LIKE '%%Apertura%%'
+                        AND DATE(Fecha) = CURDATE()
+                        AND Estado = 'ACTIVO'
+                    ) THEN 'ABIERTA'
+                    ELSE 'CERRADA'
+                END as estado_caja
+            FROM caja_movimientos
+            WHERE DATE(Fecha) = CURDATE()
+            AND Estado = 'ACTIVO'
+        """)
+        caja_info = cursor.fetchone() or {}
+        saldo_caja = caja_info.get('saldo_caja') or 0
+        estado_caja = caja_info.get('estado_caja') or 'CERRADA'
     
     return {
         'usuarios_count': usuarios_count,
         'empresas_count': empresas_count,
         'ventas_hoy': float(ventas_hoy),
         'cobros_hoy': float(cobros_hoy),
+        'saldo_caja': float(saldo_caja),
+        'estado_caja': estado_caja,
         'saldo_pendiente': float(saldo_pendiente),
         'facturas_vencidas': facturas_vencidas,
         'productos_bajo_stock': productos_bajo_stock

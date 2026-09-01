@@ -181,20 +181,21 @@ def format_status(status):
     return Markup(status_map.get(status, f'<span class="badge bg-secondary">{status}</span>'))
 
 
-def truncate_text(text, length=50):
+def truncate_text(text, length=255, killwords=False, end='...', leeway=None, *args, **kwargs):
     """
-    Trunca un texto a una longitud específica
-    
-    Args:
-        text (str): Texto a truncar
-        length (int): Longitud máxima
-    
-    Returns:
-        str: Texto truncado
+    Trunca un texto a una longitud específica (compatible con Jinja2 truncate)
     """
-    if text and len(text) > length:
-        return text[:length] + "..."
-    return text
+    if not text:
+        return ""
+    
+    try:
+        from jinja2.filters import do_truncate
+        return do_truncate(None, str(text), length=length, killwords=killwords, end=end, leeway=leeway)
+    except Exception:
+        text_str = str(text)
+        if len(text_str) > length:
+            return text_str[:length] + str(end)
+        return text_str
 
 
 def apply_filters(app):
@@ -210,4 +211,6 @@ def apply_filters(app):
     app.jinja_env.filters['hora'] = format_hora        # ← También como alias
     app.jinja_env.filters['datetime'] = format_datetime
     app.jinja_env.filters['status'] = format_status
+    # Se puede omitir sobrescribir 'truncate' para que Jinja2 use el nativo o usar truncate_text compatible
+    # Jinja2 ya provee 'truncate' de fábrica, pero registramos la versión mejorada por compatibilidad
     app.jinja_env.filters['truncate'] = truncate_text

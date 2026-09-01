@@ -68,11 +68,25 @@
                                 <tr>
                                     <th width="40%" class="text-secondary small fw-bold py-2">Tipo de Compra:</th>
                                     <td class="py-2">
-                                        <span class="badge {% if movimiento.Tipo_Compra == 'Crédito' %}bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25{% else %}bg-success bg-opacity-10 text-success border border-success border-opacity-25{% endif %} rounded-pill px-2.5 py-1.5 fw-bold">
+                                        <span class="badge {% if movimiento.Tipo_Compra == 'Crédito' or movimiento.Tipo_Compra == 'CREDITO' %}bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25{% else %}bg-success bg-opacity-10 text-success border border-success border-opacity-25{% endif %} rounded-pill px-2.5 py-1.5 fw-bold">
                                             {{ movimiento.Tipo_Compra_Formateado }}
                                         </span>
                                     </td>
                                 </tr>
+                                {% if movimiento.Tipo_Compra != 'Crédito' and movimiento.Tipo_Compra != 'CREDITO' %}
+                                <tr>
+                                    <th class="text-secondary small fw-bold py-2">Método de Pago:</th>
+                                    <td class="small text-slate-800 py-2">
+                                        <span class="badge bg-light text-slate-800 border">
+                                            <i class="fas {% if movimiento.Metodo_Pago and ('TRANSF' in movimiento.Metodo_Pago|upper or 'DEPOS' in movimiento.Metodo_Pago|upper) %}fa-university text-primary{% else %}fa-money-bill-wave text-success{% endif %} me-1"></i>
+                                            {{ movimiento.Metodo_Pago or 'Efectivo' }}
+                                        </span>
+                                        {% if movimiento.Referencia_Pago %}
+                                        <small class="text-muted d-block mt-1">Ref: <strong>{{ movimiento.Referencia_Pago }}</strong></small>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endif %}
                                 <tr>
                                     <th class="text-secondary small fw-bold py-2">Bodega:</th>
                                     <td class="small text-slate-800 py-2">{{ movimiento.Bodega or 'N/A' }}</td>

@@ -69,15 +69,31 @@
                             <select class="form-select form-select-premium" id="id_metodo_pago" name="id_metodo_pago" required>
                                 <option value="">Seleccione el método de pago...</option>
                                 {% for metodo in metodos_pago %}
-                                <option value="{{ metodo.ID_MetodoPago }}">
+                                <option value="{{ metodo.ID_MetodoPago }}" {% if metodo.ID_MetodoPago == 1 %}selected{% endif %}>
                                     {{ metodo.Nombre }}
                                 </option>
                                 {% endfor %}
                             </select>
                         </div>
 
+                        <!-- Banner dinámico sobre el flujo de dinero / caja -->
+                        <div class="mb-3" id="info_flujo_caja_container">
+                            <div class="alert alert-success d-flex align-items-center mb-0 py-2 px-3 rounded-3" id="banner_caja_efectivo">
+                                <i class="fas fa-cash-register fa-lg me-2 text-success"></i>
+                                <div class="small">
+                                    <strong>Pago en EFECTIVO:</strong> Este abono generará una <strong>SALIDA de dinero</strong> en la caja física diaria.
+                                </div>
+                            </div>
+                            <div class="alert alert-info d-flex align-items-center mb-0 py-2 px-3 rounded-3" id="banner_caja_transferencia" style="display: none;">
+                                <i class="fas fa-university fa-lg me-2 text-primary"></i>
+                                <div class="small">
+                                    <strong>Pago por TRANSFERENCIA / DEPÓSITO:</strong> Este abono <strong>NO afectará</strong> el efectivo de la caja física diaria.
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Detalles del Método de Pago -->
-                        <div class="mb-3">
+                        <div class="mb-3" id="detalles_metodo_group">
                             <label for="detalles_metodo" class="form-label-premium fw-bold mb-1">Detalles de Transferencia / Referencia</label>
                             <input type="text" class="form-control form-control-premium" id="detalles_metodo" name="detalles_metodo" 
                                    placeholder="N° de transferencia, cheque, banco, etc. (Opcional)">
@@ -133,6 +149,27 @@
         const saldoProveedorText = document.getElementById("saldoProveedorText");
         const inputMonto = document.getElementById("monto_abono");
         const form = document.getElementById("formAbono");
+
+        const selectMetodo = document.getElementById("id_metodo_pago");
+        const bannerEfectivo = document.getElementById("banner_caja_efectivo");
+        const bannerTransferencia = document.getElementById("banner_caja_transferencia");
+
+        function actualizarBannerCaja() {
+            const opt = selectMetodo.options[selectMetodo.selectedIndex];
+            const texto = (opt?.text || '').toUpperCase();
+            const esEfectivo = (selectMetodo.value === '1' || texto.includes('EFECTIVO') || texto.includes('CASH'));
+
+            if (esEfectivo) {
+                bannerEfectivo.style.display = 'flex';
+                bannerTransferencia.style.display = 'none';
+            } else {
+                bannerEfectivo.style.display = 'none';
+                bannerTransferencia.style.display = 'flex';
+            }
+        }
+
+        selectMetodo.addEventListener("change", actualizarBannerCaja);
+        actualizarBannerCaja();
 
         // Cambiar saldo dinámicamente al seleccionar proveedor
         selectProveedor.addEventListener("change", function() {

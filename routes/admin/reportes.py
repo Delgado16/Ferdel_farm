@@ -2028,7 +2028,7 @@ def reporte_categoria_ventas():
 @admin_required
 @report_handler('reporte_diario')
 def reporte_diario():
-    """Reporte Diario Consolidado del Sistema"""
+    """Reporte Diario Consolidado del Sistema (Finiquito Global)"""
     from flask import session
     fecha_str = request.args.get('fecha', datetime.now().strftime('%Y-%m-%d'))
     try:
@@ -2040,97 +2040,201 @@ def reporte_diario():
     id_empresa = session.get('id_empresa', 1)
     
     with get_db_cursor() as cursor:
-        # --- 1. RESUMEN DE VENTAS ---
+        # =========================================================
+        # 1. VENTAS DEL DÍA (OFICINA Y RUTAS)
+        # =========================================================
+        # Ventas Central / Oficina
         cursor.execute("""
             SELECT 
-                Tipo_Venta,
-                Origen,
-                COUNT(*) as Cantidad,
-                COALESCE(SUM(Total_Venta), 0) as Total
-            FROM (
-                SELECT 
-                    CASE WHEN fac.Credito_Contado = 0 THEN 'CONTADO' ELSE 'CREDITO' END AS Tipo_Venta,
-                    'NORMAL' AS Origen,
-                    COALESCE(df.Total, 0) AS Total_Venta
-                FROM facturacion fac
-                INNER JOIN detalle_facturacion df ON fac.ID_Factura = df.ID_Factura
-                WHERE DATE(fac.Fecha_Creacion) = %s AND fac.Estado = 'Activa'
-                
-                UNION ALL
-                
-                SELECT 
-                    CASE WHEN fr.Credito_Contado = 1 THEN 'CONTADO' ELSE 'CREDITO' END AS Tipo_Venta,
-                    'RUTA' AS Origen,
-                    COALESCE(dfr.Total, 0) AS Total_Venta
-                FROM facturacion_ruta fr
-                INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
-                WHERE DATE(fr.Fecha_Creacion) = %s AND fr.Estado = 'Activa'
-            ) AS ventas_resumen
-            GROUP BY Tipo_Venta, Origen
-        """, [fecha_str, fecha_str])
-        ventas_resumen_db = cursor.fetchall()
-        
-        # Procesar ventas
+                fac.ID_Factura,
+                fac.IDCliente AS ID_Cliente,
+                fac.Fecha_Creacion AS Fecha,
+                'OFICINA' AS Origen,
+                cl.Nombre AS Cliente,
+                cl.RUC_CEDULA AS Identificacion_Cliente,
+                u.NombreUsuario AS Vendedor,
+                CASE WHEN fac.Credito_Contado = 0 THEN 'CONTADO' ELSE 'CREDITO' END AS Tipo_Venta,
+                COALESCE(SUM(df.Total), 0) AS Total_Venta
+            FROM facturacion fac
+            INNER JOIN detalle_facturacion df ON fac.ID_Factura = df.ID_Factura
+            LEFT JOIN clientes cl ON fac.IDCliente = cl.ID_Cliente
+            LEFT JOIN usuarios u ON fac.ID_Usuario_Creacion = u.ID_Usuario
+            WHERE DATE(fac.Fecha_Creacion) = %s AND fac.Estado = 'Activa'
+            GROUP BY fac.ID_Factura, fac.IDCliente, fac.Fecha_Creacion, cl.Nombre, cl.RUC_CEDULA, u.NombreUsuario, fac.Credito_Contado
+            ORDER BY fac.Fecha_Creacion ASC
+        """, [fecha_str])
+        ventas_oficina_db = cursor.fetchall()
+
+        # Ventas en Ruta
+        cursor.execute("""
+            SELECT 
+                fr.ID_FacturaRuta AS ID_Factura,
+                fr.ID_Cliente AS ID_Cliente,
+                fr.Fecha_Creacion AS Fecha,
+                'RUTA' AS Origen,
+                cl.Nombre AS Cliente,
+                cl.RUC_CEDULA AS Identificacion_Cliente,
+                u.NombreUsuario AS Vendedor,
+                CASE WHEN fr.Credito_Contado = 1 THEN 'CONTADO' ELSE 'CREDITO' END AS Tipo_Venta,
+                COALESCE(SUM(dfr.Total), 0) AS Total_Venta
+            FROM facturacion_ruta fr
+            INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+            LEFT JOIN clientes cl ON fr.ID_Cliente = cl.ID_Cliente
+            LEFT JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
+            LEFT JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+            WHERE DATE(fr.Fecha_Creacion) = %s AND fr.Estado = 'Activa'
+            GROUP BY fr.ID_FacturaRuta, fr.ID_Cliente, fr.Fecha_Creacion, cl.Nombre, cl.RUC_CEDULA, u.NombreUsuario, fr.Credito_Contado
+            ORDER BY fr.Fecha_Creacion ASC
+        """, [fecha_str])
+        ventas_ruta_db = cursor.fetchall()
+
+        # Consolidar lista completa de ventas
+        ventas_detalle_list = []
         ventas_total = 0.0
         ventas_contado = 0.0
         ventas_credito = 0.0
         ventas_normal = 0.0
         ventas_ruta = 0.0
-        for v in ventas_resumen_db:
-            total_val = float(v['Total'])
-            ventas_total += total_val
-            if v['Tipo_Venta'] == 'CONTADO':
-                ventas_contado += total_val
-            else:
-                ventas_credito += total_val
-                
-            if v['Origen'] == 'NORMAL':
-                ventas_normal += total_val
-            else:
-                ventas_ruta += total_val
 
-        # --- 2. COBROS Y RECAUDACIONES DEL DÍA ---
+        for v in ventas_oficina_db:
+            monto = float(v['Total_Venta'] or 0)
+            ventas_total += monto
+            ventas_normal += monto
+            if v['Tipo_Venta'] == 'CONTADO':
+                ventas_contado += monto
+            else:
+                ventas_credito += monto
+            ventas_detalle_list.append({
+                'id_factura': f"FAC-{v['ID_Factura']:05d}",
+                'fecha': v['Fecha'],
+                'origen': 'Oficina / Central',
+                'cliente': v['Cliente'] or 'Consumidor Final',
+                'vendedor': v['Vendedor'] or 'Administración',
+                'tipo_venta': v['Tipo_Venta'],
+                'total': monto
+            })
+
+        for v in ventas_ruta_db:
+            monto = float(v['Total_Venta'] or 0)
+            ventas_total += monto
+            ventas_ruta += monto
+            if v['Tipo_Venta'] == 'CONTADO':
+                ventas_contado += monto
+            else:
+                ventas_credito += monto
+            ventas_detalle_list.append({
+                'id_factura': f"RUT-{v['ID_Factura']:05d}",
+                'fecha': v['Fecha'],
+                'origen': 'Venta en Ruta',
+                'cliente': v['Cliente'] or 'Cliente de Ruta',
+                'vendedor': v['Vendedor'] or 'Vendedor',
+                'tipo_venta': v['Tipo_Venta'],
+                'total': monto
+            })
+
+        # Ordenar todas las ventas por fecha
+        ventas_detalle_list.sort(key=lambda x: str(x['fecha']))
+
+        # =========================================================
+        # 2. COBROS Y ABONOS DEL DÍA (RECAUDACIÓN UNIFICADA)
+        # =========================================================
         cursor.execute("""
             SELECT 
-                Metodo_Pago,
-                SUM(Monto_Cobrado) as Total
-            FROM (
-                SELECT COALESCE(mp.Nombre, 'Efectivo') AS Metodo_Pago, ad.Monto_Aplicado AS Monto_Cobrado
-                FROM abonos_detalle ad
-                LEFT JOIN metodos_pago mp ON ad.ID_MetodoPago = mp.ID_MetodoPago
-                WHERE DATE(ad.Fecha) = %s
-                
-                UNION ALL
-                
-                SELECT COALESCE(mp.Nombre, 'Efectivo') AS Metodo_Pago, ag.Monto_Aplicado AS Monto_Cobrado
-                FROM abonos_general ag
-                LEFT JOIN metodos_pago mp ON ag.ID_MetodoPago = mp.ID_MetodoPago
-                WHERE DATE(ag.Fecha) = %s
-                
-                UNION ALL
-                
-                SELECT COALESCE(mp.Nombre, 'Efectivo') AS Metodo_Pago, pc.Monto AS Monto_Cobrado
-                FROM pagos_cuentascobrar pc
-                INNER JOIN cuentas_por_cobrar cxc ON pc.ID_Movimiento = cxc.ID_Movimiento
-                LEFT JOIN metodos_pago mp ON pc.ID_MetodoPago = mp.ID_MetodoPago
-                WHERE DATE(pc.Fecha) = %s AND cxc.Estado != 'Anulada'
-            ) AS cobros_resumen
-            GROUP BY Metodo_Pago
+                'ABONO_RUTA' AS Origen,
+                ad.ID_Detalle AS ID,
+                ad.Fecha,
+                ad.ID_Cliente,
+                c.Nombre AS Cliente,
+                u.NombreUsuario AS Cobrador,
+                ad.Monto_Aplicado AS Monto,
+                COALESCE(mp.Nombre, 'Efectivo') AS Metodo_Pago,
+                ad.ID_MetodoPago,
+                cxc.Num_Documento AS Factura_Referencia
+            FROM abonos_detalle ad
+            INNER JOIN clientes c ON ad.ID_Cliente = c.ID_Cliente
+            LEFT JOIN usuarios u ON ad.ID_Usuario = u.ID_Usuario
+            LEFT JOIN metodos_pago mp ON ad.ID_MetodoPago = mp.ID_MetodoPago
+            LEFT JOIN cuentas_por_cobrar cxc ON ad.ID_CuentaCobrar = cxc.ID_Movimiento
+            WHERE DATE(ad.Fecha) = %s
+
+            UNION ALL
+
+            SELECT 
+                'ABONO_GENERAL' AS Origen,
+                ag.ID_Detalle AS ID,
+                ag.Fecha,
+                ag.ID_Cliente,
+                c.Nombre AS Cliente,
+                u.NombreUsuario AS Cobrador,
+                ag.Monto_Aplicado AS Monto,
+                COALESCE(mp.Nombre, 'Efectivo') AS Metodo_Pago,
+                ag.ID_MetodoPago,
+                cxc.Num_Documento AS Factura_Referencia
+            FROM abonos_general ag
+            INNER JOIN clientes c ON ag.ID_Cliente = c.ID_Cliente
+            LEFT JOIN usuarios u ON ag.ID_Usuario = u.ID_Usuario
+            LEFT JOIN metodos_pago mp ON ag.ID_MetodoPago = mp.ID_MetodoPago
+            LEFT JOIN cuentas_por_cobrar cxc ON ag.ID_CuentaCobrar = cxc.ID_Movimiento
+            WHERE DATE(ag.Fecha) = %s
+
+            UNION ALL
+
+            SELECT 
+                'PAGO_CXC' AS Origen,
+                pc.ID_Pago AS ID,
+                pc.Fecha,
+                cxc.ID_Cliente,
+                c.Nombre AS Cliente,
+                u.NombreUsuario AS Cobrador,
+                pc.Monto,
+                COALESCE(mp.Nombre, 'Efectivo') AS Metodo_Pago,
+                pc.ID_MetodoPago,
+                cxc.Num_Documento AS Factura_Referencia
+            FROM pagos_cuentascobrar pc
+            INNER JOIN cuentas_por_cobrar cxc ON pc.ID_Movimiento = cxc.ID_Movimiento
+            INNER JOIN clientes c ON cxc.ID_Cliente = c.ID_Cliente
+            LEFT JOIN usuarios u ON pc.ID_Usuario_Creacion = u.ID_Usuario
+            LEFT JOIN metodos_pago mp ON pc.ID_MetodoPago = mp.ID_MetodoPago
+            WHERE DATE(pc.Fecha) = %s AND cxc.Estado != 'Anulada'
+            ORDER BY Fecha ASC
         """, [fecha_str, fecha_str, fecha_str])
-        cobros_resumen_db = cursor.fetchall()
-        
+        abonos_db = cursor.fetchall()
+
         cobros_total = 0.0
         cobros_efectivo = 0.0
         cobros_bancos = 0.0
-        for c in cobros_resumen_db:
-            total_val = float(c['Total'])
-            cobros_total += total_val
-            if 'EFECTIVO' in c['Metodo_Pago'].upper():
-                cobros_efectivo += total_val
-            else:
-                cobros_bancos += total_val
+        cobros_list = []
+        cobros_por_cliente_map = {}
 
-        # --- 3. GASTOS DEL DÍA (Solo gastos directos, excluye compras) ---
+        for ab in abonos_db:
+            monto_val = float(ab['Monto'] or 0)
+            cobros_total += monto_val
+            metodo = ab['Metodo_Pago'] or 'Efectivo'
+            es_efectivo = (ab['ID_MetodoPago'] == 1 or 'EFECTIVO' in metodo.upper())
+            
+            if es_efectivo:
+                cobros_efectivo += monto_val
+            else:
+                cobros_bancos += monto_val
+
+            # Agrupar abonos por cliente para cálculo de variaciones
+            cid = ab['ID_Cliente']
+            cobros_por_cliente_map[cid] = cobros_por_cliente_map.get(cid, 0.0) + monto_val
+
+            cobros_list.append({
+                'origen': ab['Origen'],
+                'fecha': ab['Fecha'],
+                'cliente': ab['Cliente'],
+                'cobrador': ab['Cobrador'] or 'Administración',
+                'metodo': metodo,
+                'es_efectivo': es_efectivo,
+                'factura': ab['Factura_Referencia'] or 'N/A',
+                'monto': monto_val
+            })
+
+        # =========================================================
+        # 3. GASTOS DEL DÍA (OPERATIVOS)
+        # =========================================================
         cursor.execute("""
             SELECT 
                 'GASTO_DIRECTO' AS origen,
@@ -2164,7 +2268,9 @@ def reporte_diario():
                 'vehiculo': g['vehiculo'] or 'N/A'
             })
 
-        # --- 4. COMPRAS DEL DÍA ---
+        # =========================================================
+        # 4. COMPRAS DEL DÍA
+        # =========================================================
         cursor.execute("""
             SELECT 
                 mi.ID_Movimiento,
@@ -2197,7 +2303,6 @@ def reporte_diario():
             total_val = float(c['Total_Compra'] or 0)
             compras_total += total_val
             
-            # Split Contado/Credito
             if c['Tipo_Compra'] and c['Tipo_Compra'].upper() == 'CREDITO':
                 compras_credito += total_val
             else:
@@ -2211,7 +2316,23 @@ def reporte_diario():
                 'total': total_val
             })
 
-        # --- 5. MOVIMIENTOS Y SALDO DE CAJA CHICA ---
+        # =========================================================
+        # 5. FLUJO DE CAJA CHICA Y CONCILIACIÓN DE EFECTIVO
+        # =========================================================
+        # Obtener apertura de caja registrada
+        cursor.execute("""
+            SELECT Monto, Descripcion, Fecha
+            FROM caja_movimientos
+            WHERE DATE(Fecha) = %s 
+              AND Estado = 'ACTIVO' 
+              AND UPPER(Descripcion) LIKE '%%APERTURA%%'
+            ORDER BY Fecha ASC
+            LIMIT 1
+        """, [fecha_str])
+        apertura_row = cursor.fetchone()
+        caja_apertura = float(apertura_row['Monto']) if apertura_row else 0.0
+
+        # Movimientos independientes manuales en caja (que no sean facturación, abonos ni aperturas)
         cursor.execute("""
             SELECT 
                 ID_Movimiento,
@@ -2221,89 +2342,254 @@ def reporte_diario():
                 Referencia_Documento,
                 Fecha
             FROM caja_movimientos
-            WHERE DATE(Fecha) = %s AND Estado = 'ACTIVO'
+            WHERE DATE(Fecha) = %s 
+              AND Estado = 'ACTIVO'
+              AND ID_Factura IS NULL
+              AND ID_Pagos_cxc IS NULL
+              AND UPPER(Descripcion) NOT LIKE '%%APERTURA%%'
+              AND UPPER(Descripcion) NOT LIKE '%%VENTA%%'
+              AND UPPER(Descripcion) NOT LIKE '%%ABONO%%'
+              AND UPPER(Descripcion) NOT LIKE '%%FACTURA%%'
+              AND UPPER(Descripcion) NOT LIKE '%%RUTA%%'
             ORDER BY Fecha ASC
         """, [fecha_str])
-        caja_movimientos_db = cursor.fetchall()
-        
-        caja_apertura = 0.0
-        caja_entradas = 0.0
-        caja_salidas = 0.0
-        caja_movs = []
-        for m in caja_movimientos_db:
+        caja_movimientos_manuales = cursor.fetchall()
+
+        caja_otras_entradas = 0.0
+        caja_otras_salidas = 0.0
+        caja_timeline = []
+
+        if caja_apertura > 0:
+            caja_timeline.append({
+                'tipo': 'APERTURA',
+                'descripcion': 'Apertura de Caja Chica del Día',
+                'monto': caja_apertura,
+                'referencia': 'INICIAL',
+                'fecha': apertura_row['Fecha'] if apertura_row else fecha_str
+            })
+
+        # Sumar ingresos de ventas al contado (Oficina y Ruta)
+        ventas_contado_oficina_monto = sum(v['total'] for v in ventas_detalle_list if v['origen'] == 'Oficina / Central' and v['tipo_venta'] == 'CONTADO')
+        ventas_contado_ruta_monto = sum(v['total'] for v in ventas_detalle_list if v['origen'] == 'Venta en Ruta' and v['tipo_venta'] == 'CONTADO')
+
+        if ventas_contado_oficina_monto > 0:
+            caja_timeline.append({
+                'tipo': 'ENTRADA',
+                'descripcion': 'Ventas de Oficina al Contado (Efectivo)',
+                'monto': ventas_contado_oficina_monto,
+                'referencia': 'VENTAS-OFICINA',
+                'fecha': f"{fecha_str} 12:00:00"
+            })
+
+        if ventas_contado_ruta_monto > 0:
+            caja_timeline.append({
+                'tipo': 'ENTRADA',
+                'descripcion': 'Liquidación de Ventas de Ruta al Contado (Efectivo)',
+                'monto': ventas_contado_ruta_monto,
+                'referencia': 'VENTAS-RUTA',
+                'fecha': f"{fecha_str} 17:00:00"
+            })
+
+        # Sumar abonos recibidos en efectivo
+        if cobros_efectivo > 0:
+            caja_timeline.append({
+                'tipo': 'ENTRADA',
+                'descripcion': 'Abonos y Cobranza a Clientes en Efectivo',
+                'monto': cobros_efectivo,
+                'referencia': 'ABONOS-EFECTIVO',
+                'fecha': f"{fecha_str} 17:30:00"
+            })
+
+        # Otros movimientos manuales
+        for m in caja_movimientos_manuales:
             monto_val = float(m['Monto'] or 0)
-            if 'APERTURA' in m['Descripcion'].upper():
-                caja_apertura = monto_val
-            elif m['Tipo_Movimiento'] == 'ENTRADA':
-                caja_entradas += monto_val
+            if m['Tipo_Movimiento'] == 'ENTRADA':
+                caja_otras_entradas += monto_val
             elif m['Tipo_Movimiento'] == 'SALIDA':
-                caja_salidas += monto_val
-                
-            caja_movs.append({
+                caja_otras_salidas += monto_val
+            caja_timeline.append({
                 'tipo': m['Tipo_Movimiento'],
                 'descripcion': m['Descripcion'],
                 'monto': monto_val,
                 'referencia': m['Referencia_Documento'] or 'N/A',
                 'fecha': m['Fecha']
             })
-            
-        # Obtener ventas de ruta en efectivo para agregarlas virtualmente (efectivo)
+
+        # Restar egresos operativos pagados en efectivo
+        if gastos_total > 0:
+            caja_timeline.append({
+                'tipo': 'SALIDA',
+                'descripcion': 'Gastos Operativos del Día',
+                'monto': gastos_total,
+                'referencia': 'GASTOS-OP',
+                'fecha': f"{fecha_str} 18:00:00"
+            })
+
+        if compras_contado > 0:
+            caja_timeline.append({
+                'tipo': 'SALIDA',
+                'descripcion': 'Compras a Proveedores de Contado',
+                'monto': compras_contado,
+                'referencia': 'COMPRAS-CONT',
+                'fecha': f"{fecha_str} 18:15:00"
+            })
+
+        # Total entradas y salidas de caja consolidadas
+        caja_total_entradas_efectivo = ventas_contado + cobros_efectivo + caja_otras_entradas
+        caja_total_salidas_efectivo = gastos_total + compras_contado + caja_otras_salidas
+        caja_saldo_efectivo_esperado = (caja_apertura + caja_total_entradas_efectivo) - caja_total_salidas_efectivo
+
+        # =========================================================
+        # 6. CARTERA DE CLIENTES: SALDOS Y VARIACIÓN DEL DÍA
+        # =========================================================
+        # Créditos otorgados hoy por cliente
+        creditos_por_cliente_map = {}
+        for v in ventas_oficina_db:
+            if v['Tipo_Venta'] == 'CREDITO':
+                cid = v.get('ID_Cliente') or 0
+                creditos_por_cliente_map[cid] = creditos_por_cliente_map.get(cid, 0.0) + float(v['Total_Venta'] or 0)
+        for v in ventas_ruta_db:
+            if v['Tipo_Venta'] == 'CREDITO':
+                cid = v.get('ID_Cliente') or 0
+                creditos_por_cliente_map[cid] = creditos_por_cliente_map.get(cid, 0.0) + float(v['Total_Venta'] or 0)
+
+        # Consultar clientes con saldo actual o que tuvieron actividad hoy
         cursor.execute("""
             SELECT 
-                fr.ID_FacturaRuta,
-                fr.Fecha_Creacion AS Fecha,
-                u.NombreUsuario AS Vendedor,
-                SUM(COALESCE(dfr.Total, 0)) AS Monto
-            FROM facturacion_ruta fr
-            INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
-            INNER JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
-            INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
-            WHERE DATE(fr.Fecha_Creacion) = %s AND fr.Estado = 'Activa' AND fr.Credito_Contado = 1
-            GROUP BY fr.ID_FacturaRuta, fr.Fecha_Creacion, u.NombreUsuario
-            ORDER BY fr.Fecha_Creacion ASC
-        """, [fecha_str])
-        ventas_ruta_contado = cursor.fetchall()
-        
-        for vr in ventas_ruta_contado:
-            monto_val = float(vr['Monto'] or 0)
-            caja_entradas += monto_val
-            caja_movs.append({
-                'tipo': 'ENTRADA',
-                'descripcion': f"Venta de Ruta al contado - Vendedor: {vr['Vendedor']}",
-                'monto': monto_val,
-                'referencia': f"RUT-{vr['ID_FacturaRuta']:05d}",
-                'fecha': vr['Fecha']
-            })
-            
-        # Ordenar lista de movimientos por fecha
-        caja_movs.sort(key=lambda x: x['fecha'])
-        caja_saldo_neto = (caja_apertura + caja_entradas) - caja_salidas
+                c.ID_Cliente,
+                c.Nombre,
+                c.RUC_CEDULA,
+                c.Telefono,
+                COALESCE(SUM(cxc.Saldo_Pendiente), 0) AS Saldo_Actual,
+                SUM(CASE WHEN cxc.Fecha_Vencimiento < CURDATE() AND cxc.Saldo_Pendiente > 0 THEN 1 ELSE 0 END) AS Facturas_Vencidas,
+                SUM(CASE WHEN cxc.Estado IN ('Pendiente', 'Vencida') AND cxc.Saldo_Pendiente > 0 THEN 1 ELSE 0 END) AS Facturas_Pendientes
+            FROM clientes c
+            LEFT JOIN cuentas_por_cobrar cxc ON c.ID_Cliente = cxc.ID_Cliente AND cxc.Estado IN ('Pendiente', 'Vencida') AND cxc.Saldo_Pendiente > 0
+            WHERE c.Estado = 'ACTIVO' OR c.Estado = 'Activo'
+            GROUP BY c.ID_Cliente, c.Nombre, c.RUC_CEDULA, c.Telefono
+            HAVING Saldo_Actual > 0 OR c.ID_Cliente IN (
+                SELECT IDCliente FROM facturacion WHERE DATE(Fecha_Creacion) = %s AND Estado = 'Activa' AND Credito_Contado = 1
+                UNION
+                SELECT ID_Cliente FROM facturacion_ruta WHERE DATE(Fecha_Creacion) = %s AND Estado = 'Activa' AND Credito_Contado = 2
+                UNION
+                SELECT ID_Cliente FROM abonos_detalle WHERE DATE(Fecha) = %s
+                UNION
+                SELECT ID_Cliente FROM abonos_general WHERE DATE(Fecha) = %s
+            )
+            ORDER BY Saldo_Actual DESC, c.Nombre ASC
+        """, [fecha_str, fecha_str, fecha_str, fecha_str])
+        clientes_cartera_db = cursor.fetchall()
 
-        # --- 6. VENDEDORES Y RENDIMIENTO DE RUTA ---
+        clientes_cartera = []
+        cxc_total_nuevos_creditos_hoy = 0.0
+        cxc_total_abonos_hoy = 0.0
+        cxc_clientes_con_saldo_count = 0
+        cxc_clientes_vencidos_count = 0
+
+        for cl in clientes_cartera_db:
+            cid = cl['ID_Cliente']
+            saldo_actual = float(cl['Saldo_Actual'] or 0)
+            credito_hoy = creditos_por_cliente_map.get(cid, 0.0)
+            abono_hoy = cobros_por_cliente_map.get(cid, 0.0)
+            saldo_inicial = saldo_actual - credito_hoy + abono_hoy
+            variacion_neta = credito_hoy - abono_hoy
+            vencidas = int(cl['Facturas_Vencidas'] or 0)
+
+            cxc_total_nuevos_creditos_hoy += credito_hoy
+            cxc_total_abonos_hoy += abono_hoy
+            if saldo_actual > 0:
+                cxc_clientes_con_saldo_count += 1
+            if vencidas > 0:
+                cxc_clientes_vencidos_count += 1
+
+            # Determinar estado y comportamiento de saldo
+            if saldo_actual <= 0:
+                estado_deuda = 'Al Día (Saldado)'
+                estado_badge = 'bg-success'
+            elif vencidas > 0:
+                estado_deuda = f'Vencido ({vencidas} facturas)'
+                estado_badge = 'bg-danger'
+            else:
+                estado_deuda = 'Al Corriente'
+                estado_badge = 'bg-warning text-dark'
+
+            if variacion_neta > 0.01:
+                tipo_variacion = 'AUMENTÓ'
+                variacion_class = 'text-danger fw-bold'
+                variacion_icon = 'bi-arrow-up-right'
+            elif variacion_neta < -0.01:
+                tipo_variacion = 'DISMINUYÓ'
+                variacion_class = 'text-success fw-bold'
+                variacion_icon = 'bi-arrow-down-left'
+            else:
+                tipo_variacion = 'SIN CAMBIO'
+                variacion_class = 'text-muted'
+                variacion_icon = 'bi-dash'
+
+            clientes_cartera.append({
+                'id_cliente': cid,
+                'codigo': f"CLI-{cid:04d}",
+                'identificacion': cl['RUC_CEDULA'] or 'N/A',
+                'nombre': cl['Nombre'],
+                'telefono': cl['Telefono'] or 'N/A',
+                'saldo_inicial': max(0.0, saldo_inicial),
+                'credito_hoy': credito_hoy,
+                'abono_hoy': abono_hoy,
+                'saldo_actual': saldo_actual,
+                'variacion_neta': variacion_neta,
+                'tipo_variacion': tipo_variacion,
+                'variacion_class': variacion_class,
+                'variacion_icon': variacion_icon,
+                'estado_deuda': estado_deuda,
+                'estado_badge': estado_badge,
+                'facturas_vencidas': vencidas
+            })
+
+        # --- Cuentas por Cobrar y Pagar Globales ---
+        cursor.execute("SELECT COALESCE(SUM(Saldo_Pendiente), 0) as Saldo_Total FROM cuentas_por_cobrar WHERE Estado IN ('Pendiente', 'Vencida') AND Saldo_Pendiente > 0")
+        cxc_res = cursor.fetchone()
+        cxc_saldo_total = float(cxc_res['Saldo_Total']) if cxc_res else 0.0
+
+        cursor.execute("SELECT COALESCE(SUM(Saldo_Pendiente), 0) as Saldo_Total FROM cuentas_por_pagar WHERE Estado IN ('Pendiente', 'Vencida') AND Saldo_Pendiente > 0")
+        cxp_res = cursor.fetchone()
+        cxp_saldo_total = float(cxp_res['Saldo_Total']) if cxp_res else 0.0
+
+        # =========================================================
+        # 7. VENDEDORES Y RENDIMIENTO DE RUTA
+        # =========================================================
         cursor.execute("""
             SELECT 
                 u.NombreUsuario AS Vendedor,
                 COUNT(DISTINCT fr.ID_FacturaRuta) AS Facturas,
+                COALESCE(SUM(CASE WHEN fr.Credito_Contado = 1 THEN dfr.Total ELSE 0 END), 0) AS Ventas_Contado,
+                COALESCE(SUM(CASE WHEN fr.Credito_Contado = 2 THEN dfr.Total ELSE 0 END), 0) AS Ventas_Credito,
                 COALESCE(SUM(dfr.Total), 0) AS Total_Vendido
             FROM facturacion_ruta fr
             INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
             INNER JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
             INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
             WHERE DATE(fr.Fecha_Creacion) = %s AND fr.Estado = 'Activa'
-            GROUP BY u.ID_Usuario
+            GROUP BY u.ID_Usuario, u.NombreUsuario
             ORDER BY Total_Vendido DESC
         """, [fecha_str])
         vendedores_resumen_db = cursor.fetchall()
         
         vendedores_list = []
         for v in vendedores_resumen_db:
+            v_contado = float(v['Ventas_Contado'])
+            v_credito = float(v['Ventas_Credito'])
+            v_total = float(v['Total_Vendido'])
             vendedores_list.append({
                 'vendedor': v['Vendedor'],
                 'facturas': v['Facturas'],
-                'total_vendido': float(v['Total_Vendido'])
+                'ventas_contado': v_contado,
+                'ventas_credito': v_credito,
+                'total_vendido': v_total
             })
 
-        # --- 7. PRODUCTOS VENDIDOS HOY ---
+        # =========================================================
+        # 8. PRODUCTOS VENDIDOS HOY Y STOCK CRÍTICO
+        # =========================================================
         cursor.execute("""
             SELECT 
                 p.COD_Producto AS Codigo,
@@ -2339,7 +2625,6 @@ def reporte_diario():
                 'total': float(p['Monto_Total'])
             })
 
-        # --- 8. PRODUCTOS BAJO STOCK CRÍTICO Y RESUMEN INVENTARIO ---
         cursor.execute("""
             SELECT 
                 p.Descripcion AS Producto,
@@ -2364,67 +2649,72 @@ def reporte_diario():
                 'stock_minimo': b['Stock_Minimo']
             })
             
-        # Total Productos Activos y Con Stock
         cursor.execute("SELECT COUNT(ID_Producto) as Total_Cat FROM productos WHERE Estado = 'activo'")
         inv_cat = cursor.fetchone()
         inventario_total_productos = inv_cat['Total_Cat'] if inv_cat else 0
-        
-        # --- 9. CUENTAS POR COBRAR (Global) ---
-        cursor.execute("SELECT COALESCE(SUM(Saldo_Pendiente), 0) as Saldo_Total FROM cuentas_por_cobrar WHERE Estado IN ('Pendiente', 'Vencida') AND Saldo_Pendiente > 0")
-        cxc_res = cursor.fetchone()
-        cxc_saldo_total = float(cxc_res['Saldo_Total']) if cxc_res else 0.0
-        
-        # --- 10. CUENTAS POR PAGAR (Global) ---
-        cursor.execute("SELECT COALESCE(SUM(Saldo_Pendiente), 0) as Saldo_Total FROM cuentas_por_pagar WHERE Estado IN ('Pendiente', 'Vencida') AND Saldo_Pendiente > 0")
-        cxp_res = cursor.fetchone()
-        cxp_saldo_total = float(cxp_res['Saldo_Total']) if cxp_res else 0.0
 
         fecha_formatted = fecha_dt.strftime('%d/%m/%Y')
         
         context = {
             'fecha': fecha_str,
             'fecha_formatted': fecha_formatted,
+            # Ventas
             'ventas_total': ventas_total,
             'ventas_contado': ventas_contado,
             'ventas_credito': ventas_credito,
             'ventas_normal': ventas_normal,
             'ventas_ruta': ventas_ruta,
+            'ventas_detalle': ventas_detalle_list,
+            # Cobranza y Abonos
             'cobros_total': cobros_total,
             'cobros_efectivo': cobros_efectivo,
             'cobros_bancos': cobros_bancos,
-            'cobros_resumen': [dict(c) for c in cobros_resumen_db],
+            'cobros_list': cobros_list,
+            # Egresos
             'gastos_total': gastos_total,
             'gastos': gastos_list,
             'compras_total': compras_total,
             'compras_contado': compras_contado,
             'compras_credito': compras_credito,
             'compras': compras_list,
+            # Cartera y Clientes
+            'clientes_cartera': clientes_cartera,
             'cxc_saldo_total': cxc_saldo_total,
             'cxp_saldo_total': cxp_saldo_total,
-            'inventario_total_productos': inventario_total_productos,
+            'cxc_nuevos_creditos_hoy': cxc_total_nuevos_creditos_hoy,
+            'cxc_abonos_recuperados_hoy': cxc_total_abonos_hoy,
+            'cxc_clientes_con_saldo_count': cxc_clientes_con_saldo_count,
+            'cxc_clientes_vencidos_count': cxc_clientes_vencidos_count,
+            # Flujo de Caja y Efectivo
             'caja_apertura': caja_apertura,
-            'caja_entradas': caja_entradas,
-            'caja_salidas': caja_salidas,
-            'caja_saldo_neto': caja_saldo_neto,
-            'caja_movimientos': caja_movs,
+            'caja_total_entradas': caja_total_entradas_efectivo,
+            'caja_total_salidas': caja_total_salidas_efectivo,
+            'caja_saldo_neto': caja_saldo_efectivo_esperado,
+            'caja_movimientos': caja_timeline,
+            # Vendedores, Productos, Inventario
             'vendedores': vendedores_list,
             'productos_vendidos': productos_vendidos,
-            'bajo_stock': bajo_stock
+            'bajo_stock': bajo_stock,
+            'inventario_total_productos': inventario_total_productos
         }
         
         datos_exportar = [
             {'Metrica': 'VENTAS TOTALES', 'Valor': ventas_total},
-            {'Metrica': ' - Ventas Contado', 'Valor': ventas_contado},
+            {'Metrica': ' - Ventas Contado (Efectivo)', 'Valor': ventas_contado},
             {'Metrica': ' - Ventas Crédito', 'Valor': ventas_credito},
+            {'Metrica': ' - Ventas Oficina / Central', 'Valor': ventas_normal},
+            {'Metrica': ' - Ventas en Rutas', 'Valor': ventas_ruta},
+            {'Metrica': 'COBRANZA TOTAL HOY', 'Valor': cobros_total},
+            {'Metrica': ' - Cobranza Efectivo', 'Valor': cobros_efectivo},
+            {'Metrica': ' - Cobranza Bancos / Otros', 'Valor': cobros_bancos},
+            {'Metrica': 'CUENTAS POR COBRAR (Saldo Total Global)', 'Valor': cxc_saldo_total},
+            {'Metrica': ' - Nuevos Créditos Otorgados Hoy', 'Valor': cxc_total_nuevos_creditos_hoy},
+            {'Metrica': ' - Abonos Recuperados Hoy', 'Valor': cxc_total_abonos_hoy},
             {'Metrica': 'COMPRAS TOTALES', 'Valor': compras_total},
             {'Metrica': ' - Compras Contado', 'Valor': compras_contado},
             {'Metrica': ' - Compras Crédito', 'Valor': compras_credito},
-            {'Metrica': 'CUENTAS POR COBRAR (Saldo)', 'Valor': cxc_saldo_total},
-            {'Metrica': 'COBROS RECIBIDOS HOY', 'Valor': cobros_total},
-            {'Metrica': 'CUENTAS POR PAGAR (Saldo)', 'Valor': cxp_saldo_total},
-            {'Metrica': 'INVENTARIO (Total Prod. Activos)', 'Valor': inventario_total_productos},
             {'Metrica': 'GASTOS OPERATIVOS HOY', 'Valor': gastos_total},
-            {'Metrica': 'SALDO NETO CAJA CHICA', 'Valor': caja_saldo_neto}
+            {'Metrica': 'SALDO ESPERADO EN CAJA (EFECTIVO)', 'Valor': caja_saldo_efectivo_esperado}
         ]
         
         return datos_exportar, 'admin/reportes/reporte_diario.html', context

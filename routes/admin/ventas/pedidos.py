@@ -281,8 +281,6 @@ def crear_pedido():
             redirect_url = url_for('admin.ver_pedido', id_pedido=pedido_id)
             
             # Log para debugging
-            print(f"✅ Pedido #{pedido_id} creado exitosamente con perfil {perfil_cliente}")
-            print(f"   Redirigiendo a: {redirect_url}")
             
             return jsonify({
                 'success': True, 
@@ -855,8 +853,6 @@ def admin_pedidos_venta():
             # Usar el ID correcto - normalmente es 'id' o 'get_id()'
             user_id = current_user.get_id() if hasattr(current_user, 'get_id') else current_user.id
             
-            print(f"🔍 Debug - User ID: {user_id}")
-            print(f"🔍 Debug - Current User atributos: {dir(current_user)}")
             
             cursor.execute("""
                 SELECT r.Nombre_Rol 
@@ -875,9 +871,6 @@ def admin_pedidos_venta():
             es_rol_bodega = (rol_result['Nombre_Rol'] == 'Bodega')
             
             # DEBUG
-            print(f"🔍 Usuario ID: {user_id}")
-            print(f"🔍 Rol obtenido: {rol_result['Nombre_Rol']}")
-            print(f"🔍 ¿Es rol bodega? {es_rol_bodega}")
             
             # CONSULTA PRINCIPAL
             sql = """
@@ -952,7 +945,6 @@ def admin_pedidos_venta():
             if es_rol_bodega:
                 # Mostrar pedidos de los últimos 7 días para Bodega
                 sql += " AND DATE(p.Fecha) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)"
-                print("⚠️ Aplicando filtro: Mostrando pedidos de los últimos 7 días para Bodega")
             
             # Group by y Order by
             sql += """
@@ -971,10 +963,9 @@ def admin_pedidos_venta():
             pedidos = cursor.fetchall()
             
             # DEBUG
-            print(f"📊 Total pedidos encontrados: {len(pedidos)}")
             if pedidos:
                 for idx, pedido in enumerate(pedidos[:3]):
-                    print(f"   Pedido {idx+1}: ID={pedido.get('ID_Pedido')}, Fecha={pedido.get('Fecha')}")
+                    pass
             
             # Obtener opciones de filtro
             estados = ['Pendiente', 'Aprobado', 'Entregado', 'Cancelado']
@@ -1730,9 +1721,6 @@ def admin_procesar_venta_pedido(id_pedido):
             total_cajillas_huevos = 0
             ID_CATEGORIA_HUEVOS = 1  # AJUSTAR según tu sistema
             
-            print(f"\n📦 INICIANDO VERIFICACIÓN DE STOCK")
-            print(f"📦 Bodega: {bodega_principal['Nombre']} (ID: {id_bodega_principal})")
-            print("="*60)
             
             for detalle in detalles_pedido:
                 id_producto = detalle['ID_Producto']
@@ -1754,12 +1742,9 @@ def admin_procesar_venta_pedido(id_pedido):
                 
                 stock_info = cursor.fetchone()
                 
-                print(f"\n🔍 Producto: {nombre_producto} (ID:{id_producto})")
-                print(f"   Cantidad solicitada: {cantidad}")
                 
                 if not stock_info or stock_info['ExisteRegistro'] == 0:
                     # No existe registro en inventario_bodega
-                    print(f"    ERROR CRÍTICO: No hay registro de inventario para este producto")
                     productos_sin_registro.append({
                         'producto': nombre_producto,
                         'id_producto': id_producto,
@@ -1775,11 +1760,9 @@ def admin_procesar_venta_pedido(id_pedido):
                 else:
                     stock_actual = float(stock_info['Stock'])
                     
-                    print(f"   Stock actual en sistema: {stock_actual}")
                     
                     # Comparación con tolerancia para decimales
                     if (stock_actual + 0.001) < cantidad:
-                        print(f"    STOCK INSUFICIENTE!")
                         productos_sin_stock.append({
                             'producto': nombre_producto,
                             'stock_actual': stock_actual,
@@ -1787,7 +1770,7 @@ def admin_procesar_venta_pedido(id_pedido):
                             'motivo': f'Stock insuficiente (disponible: {stock_actual}, necesita: {cantidad})'
                         })
                     else:
-                        print(f"   ✅ Stock suficiente")
+                        pass
                 
                 # Calcular total del pedido
                 total_pedido += cantidad * precio
@@ -1803,12 +1786,9 @@ def admin_procesar_venta_pedido(id_pedido):
                 if producto_data and producto_data['ID_Categoria'] == ID_CATEGORIA_HUEVOS:
                     total_cajillas_huevos += cantidad
             
-            print("\n" + "="*60)
             
             # Si hay productos sin stock, mostrar error detallado
             if productos_sin_stock:
-                print(f" VERIFICACIÓN DE STOCK FALLIDA")
-                print(f"   Total de productos con problemas: {len(productos_sin_stock)}")
                 
                 # Crear mensaje de error detallado
                 error_detalles = []
@@ -1835,12 +1815,8 @@ def admin_procesar_venta_pedido(id_pedido):
                     flash(error_msg, 'error')
                     return redirect(url_for('admin.admin_procesar_venta_pedido', id_pedido=id_pedido))
             
-            print(f"✅ VERIFICACIÓN DE STOCK EXITOSA")
-            print(f"   Total productos: {len(detalles_pedido)}")
-            print(f"   Total pedido: C${total_pedido:,.2f}")
             if total_cajillas_huevos > 0:
-                print(f"   Cajillas de huevos: {total_cajillas_huevos}")
-            print("="*60)
+                pass
         
         # Si es GET, mostrar formulario de procesamiento
         if request.method == 'GET':
@@ -1857,15 +1833,12 @@ def admin_procesar_venta_pedido(id_pedido):
         
         # Si es POST, procesar la venta
         if request.method == 'POST':
-            print(f"\n📨 PROCESANDO VENTA DESDE PEDIDO #{id_pedido}...")
-            print("="*60)
             
             tipo_venta = request.form.get('tipo_venta', 'contado')
             observacion_adicional = request.form.get('observacion_adicional', '')
             
             with get_db_cursor(True) as cursor:
                 # VALIDACIÓN DE VISIBILIDAD DE PRODUCTOS
-                print("🔍 Validando visibilidad de productos para el cliente...")
                 
                 # Obtener tipo de cliente y saldo actual
                 cursor.execute("""
@@ -1882,7 +1855,6 @@ def admin_procesar_venta_pedido(id_pedido):
                 tipo_cliente = cliente_data['tipo_cliente']
                 perfil_cliente = cliente_data['perfil_cliente']
                 saldo_actual_cliente = float(cliente_data['Saldo_Pendiente_Total'] or 0)
-                print(f"👤 Tipo de cliente: {tipo_cliente} | Perfil: {perfil_cliente} | Saldo actual: {saldo_actual_cliente}")
                 
                 # Validar cada producto contra la visibilidad del cliente
                 productos_invalidos = []
@@ -1915,14 +1887,11 @@ def admin_procesar_venta_pedido(id_pedido):
                 if productos_invalidos:
                     productos_error = ", ".join([f"{p['nombre']} ({p['categoria']})" for p in productos_invalidos])
                     error_msg = f"Los siguientes productos no están disponibles para este cliente ({tipo_cliente}): {productos_error}"
-                    print(f" {error_msg}")
                     flash(error_msg, 'error')
                     return redirect(url_for('admin.admin_procesar_venta_pedido', id_pedido=id_pedido))
                 
-                print("✅ Validación de visibilidad completada")
                 
                 # VOLVER A VERIFICAR STOCK ANTES DE PROCESAR (por si acaso)
-                print("🔍 Verificando stock nuevamente antes de procesar...")
                 for detalle in detalles_pedido:
                     id_producto = detalle['ID_Producto']
                     cantidad = float(detalle['Cantidad'])
@@ -1938,7 +1907,6 @@ def admin_procesar_venta_pedido(id_pedido):
                         flash(f'Stock insuficiente para {detalle["Descripcion"]}. Por favor, verifique el inventario.', 'error')
                         return redirect(url_for('admin.admin_procesar_venta_pedido', id_pedido=id_pedido))
                 
-                print("✅ Verificación de stock final exitosa")
                 
                 # 1. Crear factura
                 observacion_completa = f"Pedido #{id_pedido} - {pedido['Observacion'] or 'Sin observación'}"
@@ -1963,7 +1931,6 @@ def admin_procesar_venta_pedido(id_pedido):
                 # Obtener el ID de la factura
                 cursor.execute("SELECT LAST_INSERT_ID() as id_factura")
                 id_factura = cursor.fetchone()['id_factura']
-                print(f"🧾 Factura creada: #{id_factura}")
                 
                 # CONSTANTES
                 ID_SEPARADOR = 11          # ID_Producto del separador
@@ -1972,7 +1939,6 @@ def admin_procesar_venta_pedido(id_pedido):
                 total_venta = 0
                 
                 # 2. Procesar productos y crear detalles de facturación
-                print("\n📝 Procesando productos...")
                 for detalle in detalles_pedido:
                     id_producto = detalle['ID_Producto']
                     cantidad = float(detalle['Cantidad'])
@@ -1999,9 +1965,7 @@ def admin_procesar_venta_pedido(id_pedido):
                     if cursor.rowcount == 0:
                         raise Exception(f"No se pudo actualizar el inventario para el producto {detalle['Descripcion']} (ID: {id_producto})")
                     
-                    print(f"  ✅ {detalle['Descripcion']}: {cantidad} x C${precio:,.2f} = C${total_linea:,.2f}")
                 
-                print(f"\n📊 Total venta: C${total_venta:,.2f}")
                 
                 # 3. CALCULAR SEPARADORES NECESARIOS
                 separadores_totales = 0
@@ -2011,13 +1975,9 @@ def admin_procesar_venta_pedido(id_pedido):
                     separadores_base_extra = (total_cajillas_huevos // 10) * 2
                     separadores_totales = separadores_entre_cajillas + separadores_base_extra
                     
-                    print(f"\n🔢 CÁLCULO DE SEPARADORES:")
-                    print(f"  Cajillas de huevos: {total_cajillas_huevos}")
-                    print(f"  Separadores necesarios: {separadores_totales}")
                 
                 # 4. DESCONTAR SEPARADORES SI HAY PRODUCTOS DE HUEVOS
                 if separadores_totales > 0:
-                    print(f"\n🔧 Procesando separadores...")
                     
                     # Verificar stock de separadores
                     cursor.execute("""
@@ -2045,10 +2005,8 @@ def admin_procesar_venta_pedido(id_pedido):
                             VALUES (%s, %s, %s, 0, 0)
                         """, (id_factura, ID_SEPARADOR, separadores_totales))
                         
-                        print(f"  ✅ Separadores descontados: {separadores_totales}")
                     else:
                         warning_msg = f'Stock insuficiente de separadores. Necesarios: {separadores_totales}, Disponibles: {stock_actual_separadores}'
-                        print(f"  ⚠️ {warning_msg}")
                         observacion_completa += f" | [ADVERTENCIA: {warning_msg}]"
                 
                 # 5. Actualizar observación de factura si hubo advertencia
@@ -2140,7 +2098,6 @@ def admin_procesar_venta_pedido(id_pedido):
                         id_factura,
                         id_usuario
                     ))
-                    print(f"💰 Cuenta por cobrar creada: FAC-{id_factura:05d}")
                     
                     # Actualizar saldo pendiente consolidado del cliente
                     cursor.execute("""
@@ -2150,7 +2107,6 @@ def admin_procesar_venta_pedido(id_pedido):
                             ID_Ultima_Factura = %s
                         WHERE ID_Cliente = %s
                     """, (total_venta, id_factura, pedido['ID_Cliente']))
-                    print(f"💰 Saldo consolidado del cliente actualizado con el crédito de la venta.")
                 
                 # 10. Si es CONTADO, registrar entrada en caja
                 if tipo_venta == 'contado':
@@ -2167,7 +2123,6 @@ def admin_procesar_venta_pedido(id_pedido):
                         id_usuario,
                         f'FAC-{id_factura:05d}'
                     ))
-                    print(f"💰 Movimiento de caja registrado: C${total_venta:,.2f}")
                     
                     # Actualizar última fecha de movimiento y última factura en el cliente
                     cursor.execute("""
@@ -2176,7 +2131,6 @@ def admin_procesar_venta_pedido(id_pedido):
                             ID_Ultima_Factura = %s
                         WHERE ID_Cliente = %s
                     """, (id_factura, pedido['ID_Cliente']))
-                    print(f"💰 Registro de última factura y fecha actualizado en el cliente.")
                 
                 if tipo_venta == 'reparto':
                     cursor.execute("""
@@ -2185,7 +2139,6 @@ def admin_procesar_venta_pedido(id_pedido):
                             ID_Ultima_Factura = %s
                         WHERE ID_Cliente = %s
                     """, (id_factura, pedido['ID_Cliente']))
-                    print(f"📦 Registro de última factura y fecha de reparto actualizado en el cliente.")
                 
                 # 11. Actualizar el estado del pedido a "Entregado"
                 cursor.execute("""
@@ -2194,7 +2147,6 @@ def admin_procesar_venta_pedido(id_pedido):
                     WHERE ID_Pedido = %s
                 """, (id_pedido,))
                 
-                print(f"\n✅ Pedido #{id_pedido} actualizado a estado: Entregado")
                 
                 # 12. Guardar datos de la venta en la sesión para mostrarlos en el ticket
                 session['venta_procesada'] = {
@@ -2206,11 +2158,6 @@ def admin_procesar_venta_pedido(id_pedido):
                     'fecha': datetime.now().strftime('%d/%m/%Y %H:%M:%S')
                 }
                 
-                print("="*60)
-                print(f"🎯 Venta procesada exitosamente!")
-                print(f"   Factura: #{id_factura}")
-                print(f"   Total: C${total_venta:,.2f}")
-                print("="*60)
                 
                 # 13. Redirigir directamente al ticket
                 return redirect(url_for('admin.admin_generar_ticket', id_factura=id_factura))

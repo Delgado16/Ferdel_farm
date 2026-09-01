@@ -1,555 +1,1138 @@
 {% extends "layout.html" %}
 
-{% block title %}Admin Dashboard - FerDel{% endblock %}
+{% block title %}Panel de Administración - FerDel{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* =============================================================
+       ADMIN DASHBOARD - DISEÑO PREMIUM COHESIVO CON LAYOUT.HTML
+       ============================================================= */
+    :root {
+        --dash-primary: #2c5e2e;
+        --dash-secondary: #10b981;
+        --dash-emerald: #10b981;
+        --dash-indigo: #6366f1;
+        --dash-cyan: #06b6d4;
+        --dash-amber: #f59e0b;
+        --dash-rose: #f43f5e;
+        --dash-slate-900: #0f172a;
+        --dash-slate-800: #1e293b;
+        --dash-slate-700: #334155;
+        --dash-slate-100: #f1f5f9;
+        --dash-slate-50: #f8fafc;
+        --dash-radius: 16px;
+        --dash-radius-sm: 12px;
+    }
+
+    .dashboard-wrapper {
+        animation: fadeInDash 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes fadeInDash {
+        from {
+            opacity: 0;
+            transform: translateY(12px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Header Ejecutivo */
+    .dash-header {
+        background: #ffffff;
+        border-radius: var(--dash-radius);
+        padding: 1.25rem 1.5rem;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.03);
+        margin-bottom: 1.5rem;
+    }
+
+    .dash-title {
+        font-weight: 800;
+        font-size: 1.5rem;
+        color: var(--dash-slate-900);
+        letter-spacing: -0.02em;
+        margin-bottom: 0.2rem;
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+    }
+
+    .dash-subtitle {
+        color: #64748b;
+        font-size: 0.875rem;
+        margin-bottom: 0;
+    }
+
+    /* KPI Cards */
+    .kpi-card-premium {
+        background: #ffffff;
+        border-radius: var(--dash-radius);
+        padding: 1.25rem 1.4rem;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.03), 0 2px 6px -2px rgba(0, 0, 0, 0.02);
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+    .kpi-card-premium:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 28px -6px rgba(15, 23, 42, 0.08);
+        border-color: rgba(203, 213, 225, 1);
+    }
+
+    .kpi-card-premium::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        transition: height 0.2s ease;
+    }
+
+    .kpi-card-premium:hover::before {
+        height: 6px;
+    }
+
+    .kpi-emerald::before {
+        background: linear-gradient(90deg, #10b981, #059669);
+    }
+
+    .kpi-indigo::before {
+        background: linear-gradient(90deg, #6366f1, #4f46e5);
+    }
+
+    .kpi-cyan::before {
+        background: linear-gradient(90deg, #06b6d4, #0891b2);
+    }
+
+    .kpi-amber::before {
+        background: linear-gradient(90deg, #f59e0b, #d97706);
+    }
+
+    .kpi-rose::before {
+        background: linear-gradient(90deg, #f43f5e, #e11d48);
+    }
+
+    .kpi-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        font-weight: 700;
+        color: #64748b;
+        margin-bottom: 0.35rem;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    .kpi-value {
+        font-size: clamp(1.4rem, 2.2vw, 1.85rem);
+        font-weight: 800;
+        color: var(--dash-slate-900);
+        line-height: 1.2;
+        letter-spacing: -0.02em;
+        margin-bottom: 0.25rem;
+    }
+
+    .kpi-subtext {
+        font-size: 0.8rem;
+        color: #64748b;
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+
+    .kpi-icon-wrapper {
+        width: 46px;
+        height: 46px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.35rem;
+        flex-shrink: 0;
+        transition: transform 0.3s ease;
+    }
+
+    .kpi-card-premium:hover .kpi-icon-wrapper {
+        transform: scale(1.1) rotate(5deg);
+    }
+
+    .kpi-icon-emerald {
+        background: rgba(16, 185, 129, 0.12);
+        color: #059669;
+    }
+
+    .kpi-icon-indigo {
+        background: rgba(99, 102, 241, 0.12);
+        color: #4f46e5;
+    }
+
+    .kpi-icon-cyan {
+        background: rgba(6, 182, 212, 0.12);
+        color: #0891b2;
+    }
+
+    .kpi-icon-amber {
+        background: rgba(245, 158, 11, 0.12);
+        color: #d97706;
+    }
+
+    .kpi-icon-rose {
+        background: rgba(244, 63, 94, 0.12);
+        color: #e11d48;
+    }
+
+    /* Tarjetas de Contenido General */
+    .content-card-premium {
+        background: #ffffff;
+        border-radius: var(--dash-radius);
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.03);
+        overflow: hidden;
+        transition: all 0.25s ease;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .content-card-premium:hover {
+        box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.06);
+        border-color: rgba(203, 213, 225, 1);
+    }
+
+    .content-card-header {
+        padding: 1.15rem 1.4rem;
+        border-bottom: 1px solid #f1f5f9;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #ffffff;
+    }
+
+    .content-card-header h6 {
+        font-weight: 800;
+        font-size: 1rem;
+        color: var(--dash-slate-900);
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .content-card-body {
+        padding: 1.25rem 1.4rem;
+        flex-grow: 1;
+    }
+
+    /* Tablas Premium */
+    .table-custom-premium {
+        width: 100%;
+        margin-bottom: 0;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    .table-custom-premium thead th {
+        background: #f8fafc;
+        color: #475569;
+        font-weight: 700;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 0.85rem 1.15rem;
+        border-bottom: 1px solid #e2e8f0;
+        white-space: nowrap;
+    }
+
+    .table-custom-premium tbody tr {
+        transition: background-color 0.15s ease;
+    }
+
+    .table-custom-premium tbody tr:hover {
+        background-color: #f8fafc;
+    }
+
+    .table-custom-premium tbody td {
+        padding: 0.95rem 1.15rem;
+        vertical-align: middle;
+        border-bottom: 1px solid #f1f5f9;
+        color: #334155;
+        font-size: 0.875rem;
+    }
+
+    .table-custom-premium tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    /* Badges y Pastillas */
+    .badge-pill-custom {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: 9999px;
+        font-weight: 700;
+        font-size: 0.75rem;
+        letter-spacing: 0.02em;
+    }
+
+    .badge-emerald {
+        background: rgba(16, 185, 129, 0.12);
+        color: #059669;
+        border: 1px solid rgba(16, 185, 129, 0.25);
+    }
+
+    .badge-indigo {
+        background: rgba(99, 102, 241, 0.12);
+        color: #4f46e5;
+        border: 1px solid rgba(99, 102, 241, 0.25);
+    }
+
+    .badge-slate {
+        background: rgba(100, 116, 139, 0.12);
+        color: #475569;
+        border: 1px solid rgba(100, 116, 139, 0.25);
+    }
+
+    .badge-amber {
+        background: rgba(245, 158, 11, 0.12);
+        color: #d97706;
+        border: 1px solid rgba(245, 158, 11, 0.25);
+    }
+
+    .badge-rose {
+        background: rgba(244, 63, 94, 0.12);
+        color: #e11d48;
+        border: 1px solid rgba(244, 63, 94, 0.25);
+    }
+
+    .badge-cyan {
+        background: rgba(6, 182, 212, 0.12);
+        color: #0891b2;
+        border: 1px solid rgba(6, 182, 212, 0.25);
+    }
+
+    /* Avatares estilizados */
+    .avatar-circle {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 0.85rem;
+        flex-shrink: 0;
+    }
+
+    .avatar-emerald {
+        background: rgba(16, 185, 129, 0.15);
+        color: #059669;
+    }
+
+    .avatar-indigo {
+        background: rgba(99, 102, 241, 0.15);
+        color: #4f46e5;
+    }
+
+    .avatar-amber {
+        background: rgba(245, 158, 11, 0.15);
+        color: #d97706;
+    }
+
+    .avatar-rose {
+        background: rgba(244, 63, 94, 0.15);
+        color: #e11d48;
+    }
+
+    /* Alertas del Sistema */
+    .alert-card-premium {
+        background: #ffffff;
+        border-radius: var(--dash-radius-sm);
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        padding: 1rem 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+    }
+
+    .alert-card-premium:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+    }
+
+    .alert-card-danger {
+        border-left: 4px solid #f43f5e;
+        background: linear-gradient(90deg, rgba(244, 63, 94, 0.04) 0%, #ffffff 100%);
+    }
+
+    .alert-card-warning {
+        border-left: 4px solid #f59e0b;
+        background: linear-gradient(90deg, rgba(245, 158, 11, 0.04) 0%, #ffffff 100%);
+    }
+
+    .alert-card-info {
+        border-left: 4px solid #06b6d4;
+        background: linear-gradient(90deg, rgba(6, 182, 212, 0.04) 0%, #ffffff 100%);
+    }
+
+    /* Cajas de Movimiento de Caja */
+    .caja-metric-box {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 1.1rem;
+        text-align: center;
+        transition: all 0.2s ease;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+    .caja-metric-box:hover {
+        background: #ffffff;
+        border-color: #cbd5e1;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.04);
+    }
+
+    /* Cards de Acceso Rápido */
+    .quick-card-premium {
+        background: #ffffff;
+        border-radius: var(--dash-radius);
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        padding: 1.5rem;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        text-decoration: none;
+        display: block;
+        color: inherit;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .quick-card-premium:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 28px -6px rgba(15, 23, 42, 0.08);
+        border-color: var(--dash-secondary);
+        color: inherit;
+    }
+
+    .quick-card-link {
+        color: var(--dash-primary);
+        font-weight: 700;
+        font-size: 0.875rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        transition: gap 0.2s ease;
+    }
+
+    .quick-card-premium:hover .quick-card-link {
+        color: var(--dash-secondary);
+        gap: 0.6rem;
+    }
+
+    /* Gráficos */
+    .chart-container-premium {
+        position: relative;
+        height: 340px;
+        width: 100%;
+    }
+
+    .chart-container-doughnut {
+        position: relative;
+        height: 310px;
+        width: 100%;
+    }
+
+    /* Botones */
+    .btn-refresh-pulse {
+        transition: all 0.2s ease;
+    }
+
+    .btn-refresh-pulse:hover i {
+        animation: spin 0.6s ease-in-out;
+    }
+
+    @keyframes spin {
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-4 border-bottom">
-    <h1 class="h3 fw-semibold mb-0">
-        <i class="bi bi-speedometer2 me-2 text-primary"></i> Panel de Administración
-    </h1>
-    <div class="btn-toolbar mb-2 mb-md-0">
-        <div class="btn-group me-2">
-            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.location.reload()">
-                <i class="bi bi-arrow-repeat me-1"></i> Actualizar
+<div class="container-fluid py-3 dashboard-wrapper">
+
+    <!-- ===== ENCABEZADO EJECUTIVO ===== -->
+    <div class="dash-header d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+            <h1 class="dash-title">
+                <i class="bi bi-speedometer2 text-success"></i> Panel de Administración
+            </h1>
+            <p class="dash-subtitle">
+                Monitoreo comercial, financiero y logístico en tiempo real &bull;
+                <span class="badge badge-pill-custom badge-slate">
+                    <i class="bi bi-calendar3"></i> {{ now.strftime('%d/%m/%Y') }}
+                </span>
+            </p>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+            <button type="button" class="btn btn-light border text-slate-700 btn-refresh-pulse fw-semibold px-3 py-2"
+                onclick="window.location.reload()" title="Recargar métricas">
+                <i class="bi bi-arrow-repeat me-1 text-success"></i> Actualizar
             </button>
+            <a href="{{ url_for('admin.reportes') }}"
+                class="btn btn-success fw-bold px-3 py-2 d-inline-flex align-items-center gap-1.5 shadow-sm"
+                style="background: linear-gradient(135deg, var(--dash-primary), var(--dash-secondary)); border: none;">
+                <i class="bi bi-file-earmark-bar-graph"></i> Reportes Ejecutivos
+            </a>
         </div>
     </div>
-</div>
 
-<!-- ============================================ -->
-<!-- ALERTAS Y NOTIFICACIONES DEL SISTEMA -->
-<!-- ============================================ -->
-{% if alertas %}
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="card border-0 shadow-sm" style="border-radius: 16px;">
-            <div class="card-header bg-white border-0 pt-3 pb-0 px-4 d-flex align-items-center gap-2">
-                <i class="bi bi-bell text-danger fs-5"></i>
-                <strong class="text-dark">Notificaciones del Sistema</strong>
+    <!-- ===== NOTIFICACIONES Y ALERTAS DEL SISTEMA ===== -->
+    {% if alertas %}
+    <div class="row g-3 mb-4">
+        <div class="col-12">
+            <div class="content-card-premium">
+                <div class="content-card-header">
+                    <h6>
+                        <i class="bi bi-bell-fill text-danger"></i> Alertas y Notificaciones Activas
+                    </h6>
+                    <span class="badge badge-pill-custom badge-rose">{{ alertas|length }} Pendientes</span>
+                </div>
+                <div class="content-card-body p-3">
+                    <div class="row g-3">
+                        {% for alerta in alertas %}
+                        <div class="col-12 col-md-6">
+                            <div class="alert-card-premium alert-card-{{ alerta.tipo }}">
+                                <div
+                                    class="kpi-icon-wrapper {% if alerta.tipo == 'danger' %}kpi-icon-rose{% elif alerta.tipo == 'warning' %}kpi-icon-amber{% else %}kpi-icon-cyan{% endif %}">
+                                    <i class="bi {{ alerta.icono }}"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <strong class="d-block text-slate-900 fs-6 mb-0.5">{{ alerta.titulo }}</strong>
+                                    <span class="small text-muted d-block">{{ alerta.mensaje }}</span>
+                                </div>
+                                {% if alerta.enlace %}
+                                <a href="{{ alerta.enlace }}"
+                                    class="btn btn-sm btn-light border text-slate-700 fw-bold px-3 py-1.5 text-nowrap">
+                                    Ver <i class="bi bi-chevron-right small ms-1"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
             </div>
-            <div class="card-body px-4 py-3">
-                <div class="row g-3">
-                    {% for alerta in alertas %}
-                    <div class="col-md-6">
-                        <div class="alert alert-{{ alerta.tipo }} border-0 shadow-sm d-flex align-items-center gap-3 mb-0 p-3"
-                            role="alert"
-                            style="border-radius: 12px; background-color: rgba(var(--bs-{{ alerta.tipo }}-rgb), 0.05);">
-                            <div class="rounded-circle p-2 d-flex align-items-center justify-content-center bg-{{ alerta.tipo }} bg-opacity-10 text-{{ alerta.tipo }}"
-                                style="width: 42px; height: 42px;">
-                                <i class="bi {{ alerta.icono }} fs-5"></i>
-                            </div>
-                            <div class="flex-grow-1">
-                                <span class="d-block fw-semibold text-dark mb-0">{{ alerta.titulo }}</span>
-                                <span class="small text-muted" style="font-size: 0.85rem;">{{ alerta.mensaje }}</span>
-                            </div>
-                            {% if alerta.enlace %}
-                            <a href="{{ alerta.enlace }}"
-                                class="btn btn-sm btn-{{ alerta.tipo }} bg-opacity-10 text-{{ alerta.tipo }} border-0 rounded-pill px-3 py-1 fw-semibold"
-                                style="font-size: 0.8rem;">
-                                Ver <i class="bi bi-chevron-right small"></i>
-                            </a>
-                            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ===== KPI METRICS - MÉTRICAS PRINCIPALES ===== -->
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-xl-5 g-3 mb-4">
+
+        <!-- 1. Efectivo en Caja -->
+        <div class="col">
+            <div class="kpi-card-premium kpi-cyan">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <div class="kpi-label">
+                            <i class="bi bi-wallet2 text-info"></i> Saldo en Caja
+                        </div>
+                        <div class="kpi-value text-info">C${{ "{:,.0f}".format(saldo_caja) }}</div>
+                    </div>
+                    <div class="kpi-icon-wrapper kpi-icon-cyan">
+                        <i class="bi bi-cash-stack"></i>
+                    </div>
+                </div>
+                <div class="kpi-subtext d-flex justify-content-between align-items-center">
+                    <a href="{{ url_for('admin.admin_caja') }}"
+                        class="text-decoration-none text-slate-700 fw-semibold small">
+                        <i class="bi bi-safe me-1 text-info"></i>Ver Caja
+                    </a>
+                    <span
+                        class="badge-pill-custom {% if estado_caja == 'ABIERTA' %}badge-emerald{% else %}badge-slate{% endif %} py-0 px-2"
+                        style="font-size: 0.68rem;">
+                        <i class="bi bi-{% if estado_caja == 'ABIERTA' %}unlock{% else %}lock{% endif %} me-0.5"></i>{{
+                        estado_caja }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Ventas Hoy -->
+        <div class="col">
+            <div class="kpi-card-premium kpi-emerald">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <div class="kpi-label">
+                            <i class="bi bi-cart-check-fill text-success"></i> Ventas Hoy
+                        </div>
+                        <div class="kpi-value text-success">C${{ "{:,.0f}".format(ventas_hoy) }}</div>
+                    </div>
+                    <div class="kpi-icon-wrapper kpi-icon-emerald">
+                        <i class="bi bi-cart-check"></i>
+                    </div>
+                </div>
+                <div class="kpi-subtext">
+                    <i class="bi bi-receipt text-success"></i> Facturado en la jornada
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Cobros Hoy -->
+        <div class="col">
+            <div class="kpi-card-premium kpi-indigo">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <div class="kpi-label">
+                            <i class="bi bi-piggy-bank-fill text-indigo"></i> Cobros Hoy
+                        </div>
+                        <div class="kpi-value" style="color: var(--dash-indigo);">C${{ "{:,.0f}".format(cobros_hoy) }}
                         </div>
                     </div>
-                    {% endfor %}
+                    <div class="kpi-icon-wrapper kpi-icon-indigo">
+                        <i class="bi bi-credit-card"></i>
+                    </div>
+                </div>
+                <div class="kpi-subtext">
+                    <i class="bi bi-arrow-down-left text-indigo"></i> Abonos y pagos hoy
                 </div>
             </div>
         </div>
-    </div>
-</div>
-{% endif %}
 
-<!-- ============================================ -->
-<!-- KPI CARDS - MÉTRICAS PRINCIPALES -->
-<!-- ============================================ -->
-<div class="row g-4 mb-4">
-    <div class="col-sm-6 col-lg-3">
-        <div class="card border-0 shadow-sm h-100 kpi-card kpi-card-sales">
-            <div class="card-body p-3 p-md-4">
-                <div class="d-flex justify-content-between align-items-start">
+        <!-- 4. Cartera Total Pendiente -->
+        <div class="col">
+            <div class="kpi-card-premium kpi-amber">
+                <div class="d-flex justify-content-between align-items-start mb-2">
                     <div>
-                        <p class="text-muted text-uppercase small fw-semibold mb-2">
-                            <i class="bi bi-cart3 me-1"></i> Ventas Hoy
-                        </p>
-                        <h2 class="display-6 fw-bold mb-0 kpi-value">C${{ "{:,.0f}".format(ventas_hoy) }}</h2>
-                        <small class="text-muted">Total facturado</small>
-                    </div>
-                    <div class="kpi-icon-container bg-primary bg-opacity-10 rounded-3 p-3">
-                        <i class="bi bi-cart3 fs-3 text-primary"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-sm-6 col-lg-3">
-        <div class="card border-0 shadow-sm h-100 kpi-card kpi-card-collections">
-            <div class="card-body p-3 p-md-4">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <p class="text-muted text-uppercase small fw-semibold mb-2">
-                            <i class="bi bi-cash-stack me-1"></i> Cobros Hoy
-                        </p>
-                        <h2 class="display-6 fw-bold mb-0 kpi-value">C${{ "{:,.0f}".format(cobros_hoy) }}</h2>
-                        <small class="text-muted">Abonos recibidos</small>
-                    </div>
-                    <div class="kpi-icon-container bg-success bg-opacity-10 rounded-3 p-3">
-                        <i class="bi bi-cash-stack fs-3 text-success"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-sm-6 col-lg-3">
-        <div class="card border-0 shadow-sm h-100 kpi-card kpi-card-portfolio">
-            <div class="card-body p-3 p-md-4">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <p class="text-muted text-uppercase small fw-semibold mb-2">
-                            <i class="bi bi-credit-card-2-back me-1"></i> Cartera Total
-                        </p>
-                        <h2 class="display-6 fw-bold mb-0 kpi-value">C${{ "{:,.0f}".format(saldo_pendiente) }}</h2>
-                        <small class="text-danger">
-                            <i class="bi bi-flag-fill me-1"></i> {{ facturas_vencidas }} vencidas
-                        </small>
-                    </div>
-                    <div class="kpi-icon-container bg-warning bg-opacity-10 rounded-3 p-3">
-                        <i class="bi bi-credit-card-2-back fs-3 text-warning"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-sm-6 col-lg-3">
-        <div class="card border-0 shadow-sm h-100 kpi-card kpi-card-stock">
-            <div class="card-body p-3 p-md-4">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <p class="text-muted text-uppercase small fw-semibold mb-2">
-                            <i class="bi bi-exclamation-triangle me-1"></i> Stock Crítico
-                        </p>
-                        <h2 class="display-6 fw-bold mb-0 kpi-value">{{ productos_bajo_stock }}</h2>
-                        <small class="text-muted">Productos por reabastecer</small>
-                    </div>
-                    <div class="kpi-icon-container bg-danger bg-opacity-10 rounded-3 p-3">
-                        <i class="bi bi-box-seam fs-3 text-danger"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- ============================================ -->
-<!-- GRÁFICOS PRINCIPALES - TAMAÑO MEJORADO -->
-<!-- ============================================ -->
-<div class="row g-4 mb-4">
-    <!-- Gráfico de Ventas del Mes -->
-    <div class="col-12 col-lg-7">
-        <div class="card border-0 shadow-sm h-100 content-card">
-            <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <i class="bi bi-graph-up text-primary me-2"></i>
-                        <strong class="fs-6 text-dark">Ventas del Mes Actual</strong>
-                    </div>
-                    <small class="text-muted">{{ now.year }}-{{ now.month }}</small>
-                </div>
-            </div>
-            <div class="card-body p-3 p-md-4">
-                <div class="chart-container">
-                    <canvas id="ventasMesChart"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Top Clientes Deudores -->
-    <div class="col-12 col-lg-5">
-        <div class="card border-0 shadow-sm h-100 content-card">
-            <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
-                <i class="bi bi-trophy text-warning me-2"></i>
-                <strong class="fs-6 text-dark">Top Clientes Deudores</strong>
-                <span class="badge bg-secondary bg-opacity-10 text-secondary ms-2">{{ top_clientes|length }}</span>
-            </div>
-            <div class="card-body p-0">
-                <div class="list-group list-group-flush list-group-custom">
-                    {% for cliente in top_clientes %}
-                    <div class="list-group-item border-0 px-4 py-3">
-                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                            <div>
-                                <strong class="fs-6 text-dark">{{ cliente.Cliente }}</strong><br>
-                                <small class="text-muted">
-                                    <i class="bi bi-telephone me-1"></i> {{ cliente.Telefono or 'Sin teléfono' }}
-                                </small>
-                            </div>
-                            <span class="badge bg-danger bg-opacity-10 text-danger px-3 py-2 rounded-pill fw-semibold">
-                                C${{ "{:,.0f}".format(cliente.Deuda_Total) }}
-                            </span>
+                        <div class="kpi-label">
+                            <i class="bi bi-credit-card-2-back text-warning"></i> Cartera Total
                         </div>
+                        <div class="kpi-value text-warning">C${{ "{:,.0f}".format(saldo_pendiente) }}</div>
                     </div>
+                    <div class="kpi-icon-wrapper kpi-icon-amber">
+                        <i class="bi bi-credit-card-2-back"></i>
+                    </div>
+                </div>
+                <div class="kpi-subtext">
+                    {% if facturas_vencidas > 0 %}
+                    <span class="badge-pill-custom badge-rose">
+                        <i class="bi bi-flag-fill"></i> {{ facturas_vencidas }} vencidas
+                    </span>
                     {% else %}
-                    <div class="list-group-item border-0 text-center text-muted py-5">
-                        <i class="bi bi-check-circle fs-4 d-block mb-2 text-success"></i>
-                        No hay clientes con deuda pendiente
+                    <span class="text-success"><i class="bi bi-check-circle"></i> Al día</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. Stock Crítico -->
+        <div class="col">
+            <div class="kpi-card-premium kpi-rose">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <div class="kpi-label">
+                            <i class="bi bi-exclamation-triangle-fill text-danger"></i> Stock Crítico
+                        </div>
+                        <div class="kpi-value text-danger">{{ productos_bajo_stock }}</div>
                     </div>
-                    {% endfor %}
+                    <div class="kpi-icon-wrapper kpi-icon-rose">
+                        <i class="bi bi-box-seam"></i>
+                    </div>
                 </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- ============================================ -->
-<!-- TABLAS DE CONTROL - CORREGIDAS -->
-<!-- ============================================ -->
-<div class="row g-4 mb-4">
-    <!-- Productos con Stock Bajo -->
-    <div class="col-12 col-md-6">
-        <div class="card border-0 shadow-sm h-100 content-card">
-            <div class="card-header bg-transparent border-0 pt-4 px-4">
-                <i class="bi bi-box-seam text-danger me-2"></i>
-                <strong class="fs-6 text-dark">Productos con Stock Bajo</strong>
-                <span class="badge bg-danger ms-2">{{ productos_stock|length }}</span>
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0 align-middle">
-                        <thead class="table-light">
-                            <tr>
-                                <th class="ps-4" style="width: 40%">Producto</th>
-                                <th style="width: 20%">Código</th>
-                                <th style="width: 13%" class="text-center">Stock</th>
-                                <th style="width: 13%" class="text-center">Mínimo</th>
-                                <th style="width: 14%" class="text-center">Faltante</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for producto in productos_stock %}
-                            <tr>
-                                <td class="ps-4 fw-medium">
-                                    <div class="text-truncate" style="max-width: 200px;"
-                                        title="{{ producto.Producto }}">
-                                        {{ producto.Producto[:40] }}{% if producto.Producto|length > 40 %}...{% endif %}
-                                    </div>
-                                </td>
-                                <td><code class="small">{{ producto.COD_Producto or 'N/A' }}</code></td>
-                                <td class="text-danger fw-bold text-center">{{ "%.0f"|format(producto.Stock_Actual) }}
-                                </td>
-                                <td class="text-center">{{ "%.0f"|format(producto.Stock_Minimo) }}</td>
-                                <td class="text-warning fw-semibold text-center">{{ "%.0f"|format(producto.Faltante) }}
-                                </td>
-                            </tr>
-                            {% else %}
-                            <tr>
-                                <td colspan="5" class="text-center text-muted py-4">
-                                    <i class="bi bi-check-circle fs-4 d-block mb-2 text-success"></i>
-                                    Todos los productos tienen stock suficiente
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                <div class="kpi-subtext">
+                    <i class="bi bi-arrow-repeat text-danger"></i> Por reabastecer
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Ventas por Vendedor -->
-    <div class="col-12 col-md-6">
-        <div class="card border-0 shadow-sm h-100 content-card">
-            <div class="card-header bg-transparent border-0 pt-4 px-4">
-                <i class="bi bi-people text-success me-2"></i>
-                <strong class="fs-6 text-dark">Ventas del Día por Vendedor</strong>
+    <!-- ===== SECCIÓN DE GRÁFICOS ===== -->
+    <div class="row g-3 mb-4">
+        <!-- Gráfico Ventas del Mes -->
+        <div class="col-12 col-lg-7">
+            <div class="content-card-premium">
+                <div class="content-card-header">
+                    <h6>
+                        <i class="bi bi-graph-up-arrow text-success"></i> Ventas del Mes Actual
+                    </h6>
+                    <span class="badge badge-pill-custom badge-emerald">{{ now.strftime('%B %Y')|capitalize }}</span>
+                </div>
+                <div class="content-card-body">
+                    <div class="chart-container-premium">
+                        <canvas id="ventasMesChart"></canvas>
+                    </div>
+                </div>
             </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0 align-middle">
-                        <thead class="table-light">
-                            <tr>
-                                <th class="ps-4" style="width: 40%"><i class="bi bi-person me-1"></i> Vendedor</th>
-                                <th style="width: 30%" class="text-center"><i class="bi bi-receipt me-1"></i> Facturas
-                                </th>
-                                <th style="width: 30%" class="text-end pe-4"><i class="bi bi-cash me-1"></i> Total
-                                    Vendido</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for vendedor in ventas_vendedores %}
-                            <tr>
-                                <td class="ps-4 fw-medium text-dark">{{ vendedor.Vendedor }}</td>
-                                <td class="text-center text-muted">{{ vendedor.Facturas }}</td>
-                                <td class="text-success fw-bold text-end pe-4">C${{
-                                    "{:,.0f}".format(vendedor.Total_Vendido) }}</td>
-                            </tr>
-                            {% else %}
-                            <tr>
-                                <td colspan="3" class="text-center text-muted py-4">
-                                    <i class="bi bi-info-circle fs-4 d-block mb-2"></i>
-                                    No hay ventas registradas hoy
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+        </div>
+
+        <!-- Top Clientes con Mayor Deuda -->
+        <div class="col-12 col-lg-5">
+            <div class="content-card-premium">
+                <div class="content-card-header">
+                    <h6>
+                        <i class="bi bi-trophy-fill text-warning"></i> Top Clientes Deudores
+                    </h6>
+                    <span class="badge badge-pill-custom badge-slate">{{ top_clientes|length }} Registros</span>
+                </div>
+                <div class="content-card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table-custom-premium">
+                            <thead>
+                                <tr>
+                                    <th>Cliente</th>
+                                    <th class="text-end">Deuda Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for cliente in top_clientes %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="avatar-circle avatar-amber">
+                                                {{ cliente.Cliente[:2]|upper }}
+                                            </div>
+                                            <div>
+                                                <strong class="text-slate-900 d-block">{{ cliente.Cliente }}</strong>
+                                                <small class="text-muted"><i class="bi bi-telephone me-1"></i>{{
+                                                    cliente.Telefono or 'Sin teléfono' }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="text-end">
+                                        <span class="badge-pill-custom badge-rose">
+                                            C${{ "{:,.0f}".format(cliente.Deuda_Total) }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="2" class="text-center text-muted py-4">
+                                        <i class="bi bi-check-circle fs-4 d-block mb-1 text-success"></i>
+                                        No hay deudas pendientes registradas
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-<div class="row g-4 mb-4">
-    <!-- Gastos del Mes (Gráfico) -->
-    <div class="col-12 col-lg-5">
-        <div class="card border-0 shadow-sm h-100 content-card">
-            <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
-                <i class="bi bi-pie-chart text-info me-2"></i>
-                <strong class="fs-6 text-dark">Gastos por Categoría</strong>
-                <small class="text-muted float-end">Mes actual</small>
+    <!-- ===== TABLAS DE CONTROL OPERATIVO ===== -->
+    <div class="row g-3 mb-4">
+        <!-- 1. Productos con Stock Bajo -->
+        <div class="col-12 col-md-6">
+            <div class="content-card-premium">
+                <div class="content-card-header">
+                    <h6>
+                        <i class="bi bi-box-seam-fill text-danger"></i> Productos con Stock Bajo
+                    </h6>
+                    <span class="badge badge-pill-custom badge-rose">{{ productos_stock|length }} Críticos</span>
+                </div>
+                <div class="content-card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table-custom-premium">
+                            <thead>
+                                <tr>
+                                    <th>Producto</th>
+                                    <th class="text-center">Actual</th>
+                                    <th class="text-center">Mínimo</th>
+                                    <th class="text-center">Faltante</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for producto in productos_stock %}
+                                <tr>
+                                    <td>
+                                        <strong class="text-slate-900 d-block" title="{{ producto.Producto }}">
+                                            {{ producto.Producto|truncate(35) }}
+                                        </strong>
+                                        <code class="small text-muted">{{ producto.COD_Producto or 'N/A' }}</code>
+                                    </td>
+                                    <td class="text-center">
+                                        <span
+                                            class="badge bg-danger bg-opacity-10 text-danger fw-bold px-2 py-1 rounded">
+                                            {{ "%.0f"|format(producto.Stock_Actual) }}
+                                        </span>
+                                    </td>
+                                    <td class="text-center text-muted font-monospace">{{
+                                        "%.0f"|format(producto.Stock_Minimo) }}</td>
+                                    <td class="text-center">
+                                        <span
+                                            class="badge bg-warning bg-opacity-15 text-dark fw-bold px-2 py-1 rounded">
+                                            -{{ "%.0f"|format(producto.Faltante) }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted py-4">
+                                        <i class="bi bi-check-circle fs-4 d-block mb-1 text-success"></i>
+                                        Todos los productos cuentan con existencias óptimas
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
-            <div class="card-body p-3 p-md-4">
-                <div class="chart-container-doughnut">
-                    <canvas id="gastosMesChart"></canvas>
+        </div>
+
+        <!-- 2. Ventas del Día por Vendedor -->
+        <div class="col-12 col-md-6">
+            <div class="content-card-premium">
+                <div class="content-card-header">
+                    <h6>
+                        <i class="bi bi-person-lines-fill text-success"></i> Ventas del Día por Vendedor
+                    </h6>
+                    <span class="badge badge-pill-custom badge-emerald">{{ ventas_vendedores|length }} Activos</span>
+                </div>
+                <div class="content-card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table-custom-premium">
+                            <thead>
+                                <tr>
+                                    <th>Vendedor</th>
+                                    <th class="text-center">Facturas</th>
+                                    <th class="text-end">Total Vendido</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for vendedor in ventas_vendedores %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="avatar-circle avatar-emerald">
+                                                {{ vendedor.Vendedor[:2]|upper }}
+                                            </div>
+                                            <strong class="text-slate-900">{{ vendedor.Vendedor }}</strong>
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-light text-slate-700 border font-monospace px-2 py-1">
+                                            {{ vendedor.Facturas }} fact.
+                                        </span>
+                                    </td>
+                                    <td class="text-end">
+                                        <strong class="text-success font-monospace">
+                                            C${{ "{:,.0f}".format(vendedor.Total_Vendido) }}
+                                        </strong>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="3" class="text-center text-muted py-4">
+                                        <i class="bi bi-inbox fs-4 d-block mb-1 text-muted"></i>
+                                        Aún no se han registrado ventas hoy
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Próximos Vencimientos -->
-    <div class="col-12 col-lg-7">
-        <div class="card border-0 shadow-sm h-100 content-card">
-            <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
-                <i class="bi bi-calendar-exclamation text-warning me-2"></i>
-                <strong class="fs-6 text-dark">Próximos Vencimientos</strong>
-                <small class="text-muted float-end">Próximos 7 días</small>
+    <!-- ===== GASTOS Y PRÓXIMOS VENCIMIENTOS ===== -->
+    <div class="row g-3 mb-4">
+        <!-- Gráfico de Gastos por Categoría -->
+        <div class="col-12 col-lg-5">
+            <div class="content-card-premium">
+                <div class="content-card-header">
+                    <h6>
+                        <i class="bi bi-pie-chart-fill text-info"></i> Gastos por Categoría
+                    </h6>
+                    <span class="badge badge-pill-custom badge-cyan">Mes en curso</span>
+                </div>
+                <div class="content-card-body">
+                    <div class="chart-container-doughnut">
+                        <canvas id="gastosMesChart"></canvas>
+                    </div>
+                </div>
             </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0 align-middle">
-                        <thead class="table-light">
-                            <tr>
-                                <th class="ps-4" style="width: 35%">Cliente</th>
-                                <th style="width: 25%">Documento</th>
-                                <th style="width: 25%">Fecha Vencimiento</th>
-                                <th style="width: 15%" class="text-end pe-4">Saldo Pendiente</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for vencimiento in proximos_vencimientos %}
-                            <tr>
-                                <td class="ps-4 fw-medium text-dark">{{ vencimiento.Cliente }}</td>
-                                <td class="text-muted">{{ vencimiento.Num_Documento }}</td>
-                                <td>{{ vencimiento.Fecha_Vencimiento.strftime('%d/%m/%Y') }}</td>
-                                <td class="text-danger fw-bold text-end pe-4">C${{
-                                    "{:,.0f}".format(vencimiento.Saldo_Pendiente) }}</td>
-                            </tr>
-                            {% else %}
-                            <tr>
-                                <td colspan="4" class="text-center text-muted py-4">
-                                    <i class="bi bi-check-circle fs-4 d-block mb-2 text-success"></i>
-                                    No hay vencimientos próximos
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+        </div>
+
+        <!-- Próximos Vencimientos de Cobro -->
+        <div class="col-12 col-lg-7">
+            <div class="content-card-premium">
+                <div class="content-card-header">
+                    <h6>
+                        <i class="bi bi-calendar-event-fill text-warning"></i> Próximos Vencimientos (7 Días)
+                    </h6>
+                    <span class="badge badge-pill-custom badge-amber">{{ proximos_vencimientos|length }}
+                        Documentos</span>
+                </div>
+                <div class="content-card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table-custom-premium">
+                            <thead>
+                                <tr>
+                                    <th>Cliente</th>
+                                    <th>Documento</th>
+                                    <th>Vencimiento</th>
+                                    <th class="text-end">Saldo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for vencimiento in proximos_vencimientos %}
+                                <tr>
+                                    <td><strong class="text-slate-900">{{ vencimiento.Cliente }}</strong></td>
+                                    <td><code class="small">{{ vencimiento.Num_Documento }}</code></td>
+                                    <td>
+                                        <span class="text-muted font-monospace small">
+                                            <i class="bi bi-clock me-1"></i>{{
+                                            vencimiento.Fecha_Vencimiento.strftime('%d/%m/%Y') }}
+                                        </span>
+                                    </td>
+                                    <td class="text-end">
+                                        <strong class="text-danger font-monospace">
+                                            C${{ "{:,.0f}".format(vencimiento.Saldo_Pendiente) }}
+                                        </strong>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted py-4">
+                                        <i class="bi bi-shield-check fs-4 d-block mb-1 text-success"></i>
+                                        No hay documentos pendientes de vencimiento próximo
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-<div class="row g-4 mb-4">
-    <!-- Rutas Activas -->
-    <div class="col-12 col-md-6">
-        <div class="card border-0 shadow-sm h-100 content-card">
-            <div class="card-header bg-transparent border-0 pt-4 px-4">
-                <i class="bi bi-truck text-primary me-2"></i>
-                <strong class="fs-6 text-dark">Rutas Activas Hoy</strong>
+    <!-- ===== RUTAS ACTIVAS Y CAJA ===== -->
+    <div class="row g-3 mb-4">
+        <!-- Rutas Activas Hoy -->
+        <div class="col-12 col-md-6">
+            <div class="content-card-premium">
+                <div class="content-card-header">
+                    <h6>
+                        <i class="bi bi-truck text-success"></i> Rutas en Operación Hoy
+                    </h6>
+                    <span class="badge badge-pill-custom badge-emerald">{{ rutas_activas|length }} Activas</span>
+                </div>
+                <div class="content-card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table-custom-premium">
+                            <thead>
+                                <tr>
+                                    <th>Ruta</th>
+                                    <th>Vendedor / Vehículo</th>
+                                    <th class="text-center">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for ruta in rutas_activas %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="avatar-circle avatar-emerald">
+                                                <i class="bi bi-geo-alt-fill"></i>
+                                            </div>
+                                            <strong class="text-slate-900">{{ ruta.Ruta }}</strong>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="small text-slate-800 fw-semibold"><i
+                                                class="bi bi-person me-1"></i>{{ ruta.Vendedor }}</div>
+                                        <small class="text-muted"><i class="bi bi-truck me-1"></i>{{ ruta.Vehiculo or
+                                            'Sin vehículo asignado' }}</small>
+                                    </td>
+                                    <td class="text-center">
+                                        {% if 'activa' in ruta.Estado.lower() or 'proceso' in ruta.Estado.lower() or
+                                        'entregado' in ruta.Estado.lower() %}
+                                        <span class="badge-pill-custom badge-emerald">
+                                            <i class="bi bi-circle-fill" style="font-size: 6px;"></i> {{ ruta.Estado }}
+                                        </span>
+                                        {% elif 'pendiente' in ruta.Estado.lower() or 'espera' in ruta.Estado.lower() %}
+                                        <span class="badge-pill-custom badge-amber">
+                                            <i class="bi bi-hourglass-split"></i> {{ ruta.Estado }}
+                                        </span>
+                                        {% else %}
+                                        <span class="badge-pill-custom badge-slate">
+                                            {{ ruta.Estado }}
+                                        </span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="3" class="text-center text-muted py-4">
+                                        <i class="bi bi-truck fs-4 d-block mb-1 text-muted"></i>
+                                        No hay rutas activas en este momento
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
-            <div class="card-body p-0">
-                <div class="list-group list-group-flush list-group-custom">
-                    {% for ruta in rutas_activas %}
-                    <div class="list-group-item border-0 px-4 py-3">
-                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                            <div>
-                                <strong class="fs-6 text-dark"><i class="bi bi-geo-alt-fill text-primary me-1"></i> {{
-                                    ruta.Ruta }}</strong><br>
-                                <small class="text-muted">
-                                    <i class="bi bi-person me-1"></i> {{ ruta.Vendedor }}<br>
-                                    <i class="bi bi-truck me-1"></i> {{ ruta.Vehiculo or 'Sin vehículo' }}
-                                </small>
+        </div>
+
+        <!-- Resumen de Caja (Hoy) -->
+        <div class="col-12 col-md-6">
+            <div class="content-card-premium">
+                <div class="content-card-header">
+                    <h6>
+                        <i class="bi bi-calculator-fill text-indigo"></i> Resumen de Caja del Día
+                    </h6>
+                    <span class="badge badge-pill-custom badge-indigo">Caja General</span>
+                </div>
+                <div class="content-card-body">
+                    <div class="row g-3">
+                        {% for movimiento in movimientos_caja %}
+                        <div class="col-6">
+                            <div class="caja-metric-box">
+                                <span class="small text-muted text-uppercase fw-bold">{{ movimiento.Tipo }}</span>
+                                <h4 class="fw-bold my-2 text-slate-900">{{ movimiento.Cantidad }} <span
+                                        class="fs-6 text-muted fw-normal">movs</span></h4>
+                                {% if 'egreso' in movimiento.Tipo.lower() or 'salida' in movimiento.Tipo.lower() or
+                                'gasto' in movimiento.Tipo.lower() or 'pago' in movimiento.Tipo.lower() %}
+                                <span class="badge-pill-custom badge-rose justify-content-center">
+                                    - C${{ "{:,.0f}".format(movimiento.Total) }}
+                                </span>
+                                {% else %}
+                                <span class="badge-pill-custom badge-emerald justify-content-center">
+                                    + C${{ "{:,.0f}".format(movimiento.Total) }}
+                                </span>
+                                {% endif %}
                             </div>
-                            {% if 'activa' in ruta.Estado.lower() or 'proceso' in ruta.Estado.lower() or 'entregado' in
-                            ruta.Estado.lower() %}
-                            <span class="badge bg-success bg-opacity-10 text-success px-3 py-2 rounded-pill">
-                                <i class="bi bi-check-circle-fill me-1"></i> {{ ruta.Estado }}
-                            </span>
-                            {% elif 'pendiente' in ruta.Estado.lower() or 'espera' in ruta.Estado.lower() %}
-                            <span class="badge bg-warning bg-opacity-10 text-warning px-3 py-2 rounded-pill">
-                                <i class="bi bi-hourglass-split me-1"></i> {{ ruta.Estado }}
-                            </span>
-                            {% else %}
-                            <span class="badge bg-secondary bg-opacity-10 text-secondary px-3 py-2 rounded-pill">
-                                <i class="bi bi-info-circle-fill me-1"></i> {{ ruta.Estado }}
-                            </span>
-                            {% endif %}
                         </div>
-                    </div>
-                    {% else %}
-                    <div class="list-group-item border-0 text-center text-muted py-4">
-                        <i class="bi bi-info-circle fs-4 d-block mb-2"></i>
-                        No hay rutas activas actualmente
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Resumen de Caja -->
-    <div class="col-12 col-md-6">
-        <div class="card border-0 shadow-sm h-100 content-card">
-            <div class="card-header bg-transparent border-0 pt-4 px-4">
-                <i class="bi bi-calculator text-success me-2"></i>
-                <strong class="fs-6 text-dark">Resumen de Caja (Hoy)</strong>
-            </div>
-            <div class="card-body p-4">
-                <div class="row g-3">
-                    {% for movimiento in movimientos_caja %}
-                    <div class="col-6 col-sm-6">
-                        <div class="caja-box">
-                            <small class="text-muted text-uppercase fw-semibold">{{ movimiento.Tipo }}</small>
-                            <h4 class="mb-0 mt-1 fw-bold text-dark fs-5">{{ movimiento.Cantidad }}</h4>
-                            {% if 'egreso' in movimiento.Tipo.lower() or 'salida' in movimiento.Tipo.lower() or 'gasto'
-                            in movimiento.Tipo.lower() or 'pago' in movimiento.Tipo.lower() %}
-                            <span
-                                class="badge bg-danger bg-opacity-10 text-danger mt-2 px-2 py-1.5 rounded-pill fw-semibold text-truncate d-block w-100">
-                                C${{ "{:,.0f}".format(movimiento.Total) }}
-                            </span>
-                            {% else %}
-                            <span
-                                class="badge bg-success bg-opacity-10 text-success mt-2 px-2 py-1.5 rounded-pill fw-semibold text-truncate d-block w-100">
-                                C${{ "{:,.0f}".format(movimiento.Total) }}
-                            </span>
-                            {% endif %}
+                        {% else %}
+                        <div class="col-12 text-center text-muted py-4">
+                            <i class="bi bi-safe fs-4 d-block mb-1 text-muted"></i>
+                            No hay movimientos de caja registrados hoy
                         </div>
-                    </div>
-                    {% else %}
-                    <div class="col-12 text-center text-muted py-4">
-                        <i class="bi bi-info-circle fs-4 d-block mb-2"></i>
-                        No hay movimientos de caja registrados hoy
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- ============================================ -->
-<!-- CARDS DE ACCESO RÁPIDO -->
-<!-- ============================================ -->
-<div class="row g-4 mt-2">
-    <div class="col-12 col-sm-6 col-lg-4">
-        <div class="card border-0 shadow-sm h-100 quick-access-card">
-            <div class="card-body p-4">
-                <div class="d-flex align-items-center">
-                    <div class="flex-grow-1">
-                        <p class="text-muted text-uppercase small fw-semibold mb-2">
-                            <i class="bi bi-people me-1"></i> Usuarios
-                        </p>
-                        <h2 class="display-6 fw-bold mb-2 kpi-value">{{ usuarios_count }}</h2>
-                        <p class="text-muted mb-0 small">Activos en el sistema</p>
-                    </div>
-                    <div class="kpi-icon-container bg-primary bg-opacity-10 rounded-3 p-3">
-                        <i class="bi bi-people fs-2 text-primary"></i>
+                        {% endfor %}
                     </div>
                 </div>
-            </div>
-            <div class="card-footer bg-transparent border-top-0 pb-4">
-                <a href="{{ url_for('admin.admin_usuarios') }}" class="text-decoration-none fw-semibold">
-                    Gestionar usuarios <i class="bi bi-arrow-right ms-1"></i>
-                </a>
             </div>
         </div>
     </div>
 
-    <div class="col-12 col-sm-6 col-lg-4">
-        <div class="card border-0 shadow-sm h-100 quick-access-card">
-            <div class="card-body p-4">
-                <div class="d-flex align-items-center">
-                    <div class="flex-grow-1">
-                        <p class="text-muted text-uppercase small fw-semibold mb-2">
-                            <i class="bi bi-building me-1"></i> Empresas
-                        </p>
-                        <h2 class="display-6 fw-bold mb-2 kpi-value">{{ empresas_count }}</h2>
-                        <p class="text-muted mb-0 small">Empresas registradas</p>
-                    </div>
-                    <div class="kpi-icon-container bg-success bg-opacity-10 rounded-3 p-3">
-                        <i class="bi bi-building fs-2 text-success"></i>
+    <!-- ===== ACCESOS RÁPIDOS A MÓDULOS ===== -->
+    <div class="row g-3">
+        <!-- Usuarios -->
+        <div class="col-12 col-md-4">
+            <a href="{{ url_for('admin.admin_usuarios') }}" class="quick-card-premium">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="kpi-label mb-0"><i class="bi bi-people-fill text-indigo"></i> Gestión de
+                        Usuarios</span>
+                    <div class="kpi-icon-wrapper kpi-icon-indigo">
+                        <i class="bi bi-people"></i>
                     </div>
                 </div>
-            </div>
-            <div class="card-footer bg-transparent border-top-0 pb-4">
-                <a href="{{ url_for('admin.admin_empresas') }}" class="text-decoration-none fw-semibold">
-                    Gestionar empresas <i class="bi bi-arrow-right ms-1"></i>
-                </a>
-            </div>
+                <h3 class="kpi-value mb-1">{{ usuarios_count }}</h3>
+                <p class="text-muted small mb-3">Usuarios y permisos del sistema</p>
+                <div class="quick-card-link">
+                    Administrar usuarios <i class="bi bi-arrow-right"></i>
+                </div>
+            </a>
+        </div>
+
+        <!-- Empresas -->
+        <div class="col-12 col-md-4">
+            <a href="{{ url_for('admin.admin_empresas') }}" class="quick-card-premium">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="kpi-label mb-0"><i class="bi bi-building text-success"></i> Sociedades y
+                        Empresas</span>
+                    <div class="kpi-icon-wrapper kpi-icon-emerald">
+                        <i class="bi bi-building"></i>
+                    </div>
+                </div>
+                <h3 class="kpi-value mb-1">{{ empresas_count }}</h3>
+                <p class="text-muted small mb-3">Empresas comerciales activas</p>
+                <div class="quick-card-link">
+                    Administrar empresas <i class="bi bi-arrow-right"></i>
+                </div>
+            </a>
+        </div>
+
+        <!-- Reportes -->
+        <div class="col-12 col-md-4">
+            <a href="{{ url_for('admin.reportes') }}" class="quick-card-premium">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="kpi-label mb-0"><i class="bi bi-file-earmark-bar-graph-fill text-cyan"></i> Centro de
+                        Reportes</span>
+                    <div class="kpi-icon-wrapper kpi-icon-cyan">
+                        <i class="bi bi-file-earmark-text"></i>
+                    </div>
+                </div>
+                <h3 class="kpi-value mb-1">Exportación</h3>
+                <p class="text-muted small mb-3">PDF, Excel e informes consolidados</p>
+                <div class="quick-card-link">
+                    Generar reportes <i class="bi bi-arrow-right"></i>
+                </div>
+            </a>
         </div>
     </div>
 
-    <div class="col-12 col-sm-6 col-lg-4 mx-auto mx-lg-0">
-        <div class="card border-0 shadow-sm h-100 quick-access-card">
-            <div class="card-body p-4">
-                <div class="d-flex align-items-center">
-                    <div class="flex-grow-1">
-                        <p class="text-muted text-uppercase small fw-semibold mb-2">
-                            <i class="bi bi-file-earmark-bar-graph me-1"></i> Reportes
-                        </p>
-                        <h2 class="fs-4 fw-bold mb-2 text-dark">Reportes Ejecutivos</h2>
-                        <p class="text-muted mb-0 small">Exportar a PDF/Excel</p>
-                    </div>
-                    <div class="kpi-icon-container bg-info bg-opacity-10 rounded-3 p-3">
-                        <i class="bi bi-file-earmark-bar-graph fs-2 text-info"></i>
-                    </div>
-                </div>
-            </div>
-            <div class="card-footer bg-transparent border-top-0 pb-4">
-                <a href="{{ url_for('admin.reportes') }}" class="text-decoration-none fw-semibold">
-                    Ver reportes <i class="bi bi-arrow-right ms-1"></i>
-                </a>
-            </div>
-        </div>
-    </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    // ============================================
-    // GRÁFICO DE VENTAS DEL MES
-    // ============================================
-    const ventasMesData = {{ ventas_mes_json | safe }};
+    document.addEventListener('DOMContentLoaded', function () {
+        // ============================================
+        // GRÁFICO DE VENTAS DEL MES ACTUAL
+        // ============================================
+        const ventasMesData = {{ ventas_mes_json | safe
+    }};
     if (ventasMesData.dias && ventasMesData.dias.length > 0) {
         const ctxVentas = document.getElementById('ventasMesChart').getContext('2d');
+
+        // Crear gradiente elegante esmeralda
+        const gradientVentas = ctxVentas.createLinearGradient(0, 0, 0, 300);
+        gradientVentas.addColorStop(0, 'rgba(16, 185, 129, 0.28)');
+        gradientVentas.addColorStop(1, 'rgba(16, 185, 129, 0.00)');
+
         new Chart(ctxVentas, {
             type: 'line',
             data: {
                 labels: ventasMesData.dias,
                 datasets: [{
-                    label: 'Ventas del Mes (C$)',
+                    label: 'Ventas (C$)',
                     data: ventasMesData.totales,
-                    borderColor: '#0d6efd',
-                    backgroundColor: 'rgba(13, 110, 253, 0.05)',
+                    borderColor: '#10b981',
+                    backgroundColor: gradientVentas,
                     borderWidth: 2.5,
-                    tension: 0.4,
+                    tension: 0.35,
                     fill: true,
-                    pointBackgroundColor: '#0d6efd',
-                    pointBorderColor: '#fff',
+                    pointBackgroundColor: '#10b981',
+                    pointBorderColor: '#ffffff',
                     pointBorderWidth: 2,
                     pointRadius: 4,
                     pointHoverRadius: 6
@@ -557,20 +1140,20 @@
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: true,
+                maintainAspectRatio: false,
                 plugins: {
                     legend: {
-                        position: 'top',
-                        labels: {
-                            usePointStyle: true,
-                            boxWidth: 10,
-                            font: { size: 12 }
-                        }
+                        display: false
                     },
                     tooltip: {
+                        backgroundColor: '#0f172a',
+                        titleFont: { family: "'Outfit', sans-serif", size: 13 },
+                        bodyFont: { family: "'Inter', sans-serif", size: 12 },
+                        padding: 12,
+                        cornerRadius: 8,
                         callbacks: {
                             label: function (context) {
-                                return 'Ventas: C$' + context.raw.toLocaleString('es-CO');
+                                return ' Ventas: C$' + Number(context.raw).toLocaleString('es-NI', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
                             }
                         }
                     }
@@ -579,13 +1162,13 @@
                     y: {
                         beginAtZero: true,
                         grid: {
-                            color: 'rgba(0, 0, 0, 0.05)'
+                            color: 'rgba(226, 232, 240, 0.6)'
                         },
                         ticks: {
+                            font: { family: "'Inter', sans-serif", size: 11 },
                             callback: function (value) {
-                                return 'C$' + value.toLocaleString('es-CO');
-                            },
-                            font: { size: 11 }
+                                return 'C$' + value.toLocaleString('es-NI');
+                            }
                         }
                     },
                     x: {
@@ -593,7 +1176,7 @@
                             display: false
                         },
                         ticks: {
-                            font: { size: 11 },
+                            font: { family: "'Inter', sans-serif", size: 11 },
                             maxRotation: 45,
                             minRotation: 45
                         }
@@ -604,7 +1187,7 @@
     } else {
         const chartContainer = document.getElementById('ventasMesChart');
         if (chartContainer) {
-            chartContainer.parentElement.innerHTML = '<div class="alert alert-info text-center m-0 py-5">No hay datos de ventas para el mes actual</div>';
+            chartContainer.parentElement.innerHTML = '<div class="alert alert-info text-center m-0 py-5">No hay datos de ventas registrados para el mes actual</div>';
         }
     }
 
@@ -621,39 +1204,43 @@
                 datasets: [{
                     data: gastosMesData.montos,
                     backgroundColor: [
-                        '#dc3545',
-                        '#0d6efd',
-                        '#ffc107',
-                        '#198754',
-                        '#6f42c1',
-                        '#fd7e14'
+                        '#10b981',
+                        '#6366f1',
+                        '#f59e0b',
+                        '#f43f5e',
+                        '#06b6d4',
+                        '#8b5cf6'
                     ],
-                    borderWidth: 0,
-                    hoverOffset: 8
+                    borderWidth: 2,
+                    borderColor: '#ffffff',
+                    hoverOffset: 6
                 }]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: true,
-                cutout: '60%',
+                maintainAspectRatio: false,
+                cutout: '68%',
                 plugins: {
                     legend: {
                         position: 'bottom',
                         labels: {
                             usePointStyle: true,
-                            boxWidth: 10,
-                            font: { size: 11 },
-                            padding: 15
+                            boxWidth: 8,
+                            font: { family: "'Inter', sans-serif", size: 11 },
+                            padding: 12
                         }
                     },
                     tooltip: {
+                        backgroundColor: '#0f172a',
+                        padding: 12,
+                        cornerRadius: 8,
                         callbacks: {
                             label: function (context) {
                                 const label = context.label || '';
                                 const value = context.raw || 0;
                                 const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                const percentage = ((value / total) * 100).toFixed(1);
-                                return `${label}: C$${value.toLocaleString('es-CO')} (${percentage}%)`;
+                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                return ` ${label}: C$${Number(value).toLocaleString('es-NI')} (${percentage}%)`;
                             }
                         }
                     }
@@ -663,323 +1250,9 @@
     } else {
         const chartContainer = document.getElementById('gastosMesChart');
         if (chartContainer) {
-            chartContainer.parentElement.innerHTML = '<div class="alert alert-info text-center m-0 py-5">No hay datos de gastos para el mes actual</div>';
+            chartContainer.parentElement.innerHTML = '<div class="alert alert-info text-center m-0 py-5">No hay datos de gastos registrados para el mes actual</div>';
         }
     }
+    });
 </script>
-
-<style>
-    /* -------------------------------------------------------------
-       ADMIN DASHBOARD - ESTILOS PREMIUM, DINÁMICOS Y RESPONSIVOS
-       ------------------------------------------------------------- */
-
-    /* Contenedor general y tarjetas principales */
-    .content-card {
-        border-radius: 16px;
-        border: 1px solid rgba(226, 232, 240, 0.8) !important;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        overflow: hidden;
-    }
-
-    .content-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08) !important;
-        border-color: rgba(203, 213, 225, 1) !important;
-    }
-
-    /* KPI Cards - Efecto Gradiente Superior */
-    .kpi-card {
-        border-radius: 16px;
-        border: 1px solid rgba(226, 232, 240, 0.8) !important;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        position: relative;
-        overflow: hidden;
-    }
-
-    .kpi-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 4px;
-        background: transparent;
-        transition: height 0.25s ease;
-    }
-
-    .kpi-card-sales::before {
-        background: linear-gradient(90deg, var(--primary-color, #2c5e2e), var(--secondary-color, #10b981));
-    }
-
-    .kpi-card-collections::before {
-        background: linear-gradient(90deg, #10b981, #34d399);
-    }
-
-    .kpi-card-portfolio::before {
-        background: linear-gradient(90deg, #f59e0b, #fbbf24);
-    }
-
-    .kpi-card-stock::before {
-        background: linear-gradient(90deg, #ef4444, #f87171);
-    }
-
-    .kpi-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08) !important;
-        border-color: rgba(203, 213, 225, 1) !important;
-    }
-
-    .kpi-card:hover::before {
-        height: 6px;
-    }
-
-    /* Iconos del KPI - Microanimación */
-    .kpi-icon-container {
-        transition: transform 0.3s ease;
-    }
-
-    .kpi-card:hover .kpi-icon-container {
-        transform: scale(1.1) rotate(5deg);
-    }
-
-    /* Tipografía fluida para KPIs */
-    .kpi-value {
-        font-size: clamp(1.5rem, 2.5vw, 2rem);
-        letter-spacing: -0.02em;
-        color: #0f172a;
-    }
-
-    /* Listas y Grupos */
-    .list-group-custom .list-group-item {
-        border-bottom: 1px solid #f1f5f9 !important;
-        transition: all 0.25s ease;
-    }
-
-    .list-group-custom .list-group-item:last-child {
-        border-bottom: 0 !important;
-    }
-
-    .list-group-custom .list-group-item:hover {
-        background-color: #f8fafc !important;
-        transform: translateX(4px);
-    }
-
-    /* Tablas Premium */
-    .table {
-        margin-bottom: 0;
-        width: 100%;
-    }
-
-    .table thead th {
-        background-color: #f8fafc;
-        border-top: none;
-        border-bottom: 2px solid #e2e8f0 !important;
-        font-weight: 600;
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        color: #64748b;
-        padding: 12px 16px;
-    }
-
-    .table tbody td {
-        padding: 14px 16px;
-        border-bottom: 1px solid #f1f5f9;
-        font-size: 0.875rem;
-        color: #334155;
-    }
-
-    .table-hover tbody tr:hover {
-        background-color: rgba(16, 185, 129, 0.02) !important;
-    }
-
-    /* Contenedor de scroll responsivo para tablas */
-    .table-responsive {
-        width: 100%;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-
-    .table-responsive::-webkit-scrollbar {
-        height: 6px;
-    }
-
-    .table-responsive::-webkit-scrollbar-track {
-        background: transparent;
-    }
-
-    .table-responsive::-webkit-scrollbar-thumb {
-        background: #e2e8f0;
-        border-radius: 4px;
-    }
-
-    .table-responsive::-webkit-scrollbar-thumb:hover {
-        background: #cbd5e1;
-    }
-
-    /* Resumen de Caja - Cajas de Movimiento */
-    .caja-box {
-        border: 1px solid rgba(226, 232, 240, 0.8) !important;
-        background-color: #f8fafc !important;
-        border-radius: 12px;
-        padding: 16px;
-        text-align: center;
-        transition: all 0.25s ease;
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-    }
-
-    .caja-box:hover {
-        background-color: #ffffff !important;
-        border-color: rgba(203, 213, 225, 1) !important;
-        transform: translateY(-2px);
-        box-shadow: 0 6px 15px rgba(15, 23, 42, 0.04);
-    }
-
-    /* Cards de Acceso Rápido */
-    .quick-access-card {
-        border: 1px solid rgba(226, 232, 240, 0.8) !important;
-        border-radius: 16px;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .quick-access-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08) !important;
-        border-color: var(--secondary-color, #10b981) !important;
-    }
-
-    .quick-access-card .card-footer {
-        transition: background-color 0.25s ease;
-    }
-
-    .quick-access-card .card-footer a {
-        color: var(--primary-color, #2c5e2e) !important;
-        transition: color 0.2s ease;
-    }
-
-    .quick-access-card:hover .card-footer a {
-        color: var(--secondary-color, #10b981) !important;
-    }
-
-    .quick-access-card:hover .bi-arrow-right {
-        transform: translateX(4px);
-    }
-
-    .bi-arrow-right {
-        display: inline-block;
-        transition: transform 0.2s ease;
-    }
-
-    /* Contenedores de gráficos responsivos */
-    .chart-container {
-        position: relative;
-        height: 380px;
-        width: 100%;
-    }
-
-    .chart-container-doughnut {
-        position: relative;
-        height: 340px;
-        width: 100%;
-    }
-
-    canvas {
-        width: 100% !important;
-        height: 100% !important;
-    }
-
-    /* Text truncate para productos largos */
-    .text-truncate {
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    /* Impresión limpia */
-    @media print {
-
-        .btn-toolbar,
-        .card-footer,
-        .quick-access-card .card-footer {
-            display: none !important;
-        }
-
-        .card,
-        .content-card,
-        .kpi-card,
-        .quick-access-card {
-            box-shadow: none !important;
-            border: 1px solid #dee2e6 !important;
-            break-inside: avoid;
-        }
-
-        .table-responsive {
-            overflow: visible !important;
-        }
-    }
-
-    /* Espaciados y Grid Responsivo */
-    @media (max-width: 992px) {
-
-        .col-lg-7,
-        .col-lg-5 {
-            margin-bottom: 0;
-        }
-
-        .chart-container {
-            height: 320px;
-        }
-
-        .chart-container-doughnut {
-            height: 280px;
-        }
-    }
-
-    @media (max-width: 768px) {
-        .card-body {
-            padding: 1.25rem !important;
-        }
-
-        .g-4 {
-            --bs-gutter-y: 1rem;
-            --bs-gutter-x: 1rem;
-        }
-
-        .chart-container {
-            height: 280px;
-        }
-
-        .chart-container-doughnut {
-            height: 240px;
-        }
-
-        .table th,
-        .table td {
-            font-size: 0.75rem;
-            padding: 10px 8px;
-        }
-
-        .caja-box {
-            padding: 12px;
-        }
-    }
-
-    @media (max-width: 576px) {
-        .chart-container {
-            height: 240px;
-        }
-
-        .chart-container-doughnut {
-            height: 220px;
-        }
-
-        .btn-sm {
-            padding: 0.4rem 0.75rem !important;
-            font-size: 0.75rem !important;
-        }
-    }
-</style>
 {% endblock %}

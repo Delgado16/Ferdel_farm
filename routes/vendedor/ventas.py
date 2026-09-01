@@ -371,11 +371,6 @@ def vendedor_venta_crear():
                 # Fecha actual para el template
                 fecha_actual = datetime.now().strftime('%d/%m/%Y')
                 
-                print(f"📊 Estado de caja - ID_Asignacion: {asignacion['ID_Asignacion']}")
-                print(f"  - Tiene caja hoy: {tiene_caja_hoy}")
-                print(f"  - Tiene caja activa sin cierre: {tiene_caja_activa}")
-                print(f"  - Último movimiento hoy: {ultimo_movimiento_hoy}")
-                print(f"  - Caja abierta: {caja_abierta}")
                 
             return render_template('vendedor/ventas/venta_crear.html',
                                  asignacion=asignacion,
@@ -433,7 +428,6 @@ def vendedor_venta_crear():
                 # Parsear productos
                 try:
                     productos = json.loads(productos_json)
-                    print(f"Productos recibidos: {productos}")
                 except Exception as e:
                     print(f"Error al parsear JSON: {e}")
                     productos = []
@@ -495,11 +489,9 @@ def vendedor_venta_crear():
                         # Si el último movimiento de hoy es un CIERRE, la caja está cerrada
                         if ultimo_hoy and ultimo_hoy['Tipo'] == 'CIERRE':
                             caja = None
-                            print("⚠️ La caja fue cerrada hoy, no se pueden realizar ventas de contado")
                     
                     # Si no hay caja válida, intentar crear una apertura automática
                     if not caja:
-                        print("⚠️ No se encontró caja abierta, intentando crear apertura automática...")
                         
                         cursor.execute("""
                             SELECT ID_Movimiento
@@ -519,7 +511,6 @@ def vendedor_venta_crear():
                                 WHERE ID_Movimiento = %s
                             """, (apertura_existente['ID_Movimiento'],))
                             caja = apertura_existente
-                            print(f"✅ Apertura existente reactivada: {caja['ID_Movimiento']}")
                         else:
                             # Crear nueva apertura
                             try:
@@ -538,7 +529,6 @@ def vendedor_venta_crear():
                                 
                                 cursor.execute("SELECT LAST_INSERT_ID() as ID_Movimiento")
                                 caja = cursor.fetchone()
-                                print(f"✅ Apertura automática creada con ID: {caja['ID_Movimiento']}")
                                 
                             except Exception as e:
                                 print(f"❌ Error al crear apertura: {e}")
@@ -549,7 +539,6 @@ def vendedor_venta_crear():
                         flash('No se pudo verificar/crear la apertura de caja', 'error')
                         return redirect(url_for('vendedor.vendedor_dashboard'))
                     
-                    print(f"✅ Caja verificada - ID Movimiento: {caja['ID_Movimiento']}")
                 
                 # ===== OBTENER SALDO ANTERIOR DEL CLIENTE (ANTES DE LA VENTA) =====
                 cursor.execute("""
@@ -560,7 +549,6 @@ def vendedor_venta_crear():
                 
                 saldo_anterior_cliente = cursor.fetchone()
                 saldo_anterior = float(saldo_anterior_cliente['Saldo_Anterior'] if saldo_anterior_cliente else 0)
-                print(f"💰 Saldo anterior del cliente {id_cliente}: {saldo_anterior}")
                 
                 # ===== VERIFICAR DISCREPANCIA EN CUENTAS POR COBRAR (SALDO INICIAL) =====
                 if saldo_anterior > 0:
@@ -576,7 +564,6 @@ def vendedor_venta_crear():
                     
                     diferencia = saldo_anterior - suma_cxc
                     if diferencia > 0.01:
-                        print(f"⚠️ Discrepancia detectada: saldo anterior {saldo_anterior} vs sum cxc {suma_cxc}. Creando SALDO-INICIAL de {diferencia}")
                         fecha_vencimiento = (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d')
                         cursor.execute("""
                             INSERT INTO cuentas_por_cobrar
@@ -634,7 +621,6 @@ def vendedor_venta_crear():
                       observacion, saldo_anterior, asignacion['ID_Empresa'], id_vendedor))
                 
                 id_factura = cursor.lastrowid
-                print(f"✅ Factura de ruta creada con ID: {id_factura} (Saldo anterior guardado: {saldo_anterior})")
                 
                 ID_TIPO_MOVIMIENTO_VENTA = 2  
                 
@@ -659,7 +645,6 @@ def vendedor_venta_crear():
                 ))
                 
                 id_movimiento_cabecera = cursor.lastrowid
-                print(f"✅ Movimiento registrado en cabecera con ID: {id_movimiento_cabecera}")
                 
                 # ===== 3. INSERTAR DETALLES EN movimientos_ruta_detalle Y ACTUALIZAR INVENTARIO =====
                 for prod in productos:
@@ -686,7 +671,6 @@ def vendedor_venta_crear():
                         total_linea               # Subtotal
                     ))
                     
-                    print(f"  - Detalle producto {prod['id']}: {prod['cantidad']} x {prod['precio']} = {total_linea}")
                     
                     # Actualizar inventario de ruta
                     cursor.execute("""
@@ -695,7 +679,6 @@ def vendedor_venta_crear():
                         WHERE ID_Asignacion = %s AND ID_Producto = %s
                     """, (prod['cantidad'], asignacion['ID_Asignacion'], prod['id']))
                 
-                print(f"✅ {len(productos)} productos registrados en detalle de movimientos")
                 
                 # ===== 4. REGISTRO EN CAJA (SOLO PARA VENTAS DE CONTADO) =====
                 if tipo_venta == '1':  # CONTADO
@@ -732,7 +715,6 @@ def vendedor_venta_crear():
                         nuevo_saldo
                     ))
                     
-                    print(f"✅ Movimiento en caja registrado: +{total_venta}")
                     
                     # Actualizar el monto efectivo en la cabecera del movimiento
                     cursor.execute("""
@@ -742,7 +724,7 @@ def vendedor_venta_crear():
                     """, (total_venta, id_movimiento_cabecera))
                     
                 else:  # CREDITO - NO SE REGISTRA NADA EN CAJA
-                    print(f"✅ Venta a crédito #{id_factura} registrada SIN movimiento de caja (como debe ser)")
+                    pass
                 
                 # ===== 5. CREAR CUENTA POR COBRAR (si es crédito) =====
                 if tipo_venta == '2':  # Crédito
@@ -771,7 +753,6 @@ def vendedor_venta_crear():
                         ))
                         
                         id_cuenta = cursor.lastrowid
-                        print(f"✅ Cuenta por cobrar creada con ID: {id_cuenta}")
                         
                         # Actualizar saldo del cliente
                         cursor.execute("""
@@ -782,7 +763,6 @@ def vendedor_venta_crear():
                             WHERE ID_Cliente = %s AND ID_Empresa = %s
                         """, (total_venta, id_factura, int(id_cliente), asignacion['ID_Empresa']))
                         
-                        print(f"✅ Saldo del cliente actualizado: +{total_venta}")
                         
                     except Exception as e:
                         print(f"❌ Error al crear cuenta por cobrar: {str(e)}")
@@ -793,7 +773,6 @@ def vendedor_venta_crear():
                 # ===== 6. PROCESAR ABONO (DESPUÉS DE LA FACTURA) =====
                 if procesar_abono and abono_monto > 0:
                     try:
-                        print(f"💰 Procesando abono de {abono_monto} para cliente {id_cliente}")
                         
                         # 6.1 Obtener facturas pendientes del cliente
                         cursor.execute("""
@@ -901,17 +880,12 @@ def vendedor_venta_crear():
                             WHERE ID_Cliente = %s AND ID_Empresa = %s
                         """, (abono_monto, int(id_cliente), asignacion['ID_Empresa']))
                         
-                        print(f"✅ Abono de {abono_monto} procesado exitosamente")
-                        print(f"   - Monto aplicado a facturas: {monto_aplicado}")
-                        print(f"   - Remanente: {monto_restante}")
                             
                     except Exception as e:
                         print(f"❌ Error al procesar abono: {str(e)}")
                         traceback.print_exc()
                         raise
                 
-                print(f"✅ Venta {id_factura} procesada exitosamente")
-                print(f"✅ Movimiento cabecera {id_movimiento_cabecera} registrado con {len(productos)} detalles")
                 
             # Fuera del context manager, los cambios ya están commiteados
             flash('Venta registrada exitosamente', 'success')
@@ -1039,7 +1013,6 @@ def vendedor_generar_ticket_ruta(id_venta):
             
             # ===== USAR EL SALDO ANTERIOR GUARDADO EN LA FACTURA =====
             saldo_anterior_total = float(factura['Saldo_Anterior_Cliente'] or 0)
-            print(f"📊 Usando saldo anterior guardado en factura: {saldo_anterior_total}")
             
             # Obtener TODAS las cuentas por cobrar pendientes del cliente (para mostrar en el ticket)
             cursor.execute("""
@@ -1783,7 +1756,6 @@ def api_registrar_venta_offline():
                 
                 diferencia = saldo_anterior - suma_cxc
                 if diferencia > 0.01:
-                    print(f"⚠️ Discrepancia detectada (offline): saldo anterior {saldo_anterior} vs sum cxc {suma_cxc}. Creando SALDO-INICIAL de {diferencia}")
                     fecha_vencimiento = (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d')
                     cursor.execute("""
                         INSERT INTO cuentas_por_cobrar

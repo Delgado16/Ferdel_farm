@@ -299,7 +299,6 @@ def admin_registrar_pago(id_movimiento):
                 # Obtener el ID del pago recién insertado
                 cursor.execute("SELECT LAST_INSERT_ID() as id_pago")
                 id_pago = cursor.fetchone()['id_pago']
-                print(f"💰 Pago registrado: #{id_pago}")
                 
                 # Calcular nuevo saldo
                 nuevo_saldo = saldo_actual - monto_pago
@@ -355,14 +354,12 @@ def admin_registrar_pago(id_movimiento):
                         WHERE ID_Cliente = %s
                     """, (float(nuevo_saldo_cliente), id_cliente))
                     
-                    print(f"💰 Saldo del cliente #{id_cliente} actualizado: {float(saldo_cliente_actual):,.2f} → {float(nuevo_saldo_cliente):,.2f}")
                     
                     # Verificar si el cliente quedó con saldo cero
                     if nuevo_saldo_cliente == Decimal('0'):
-                        print(f"✅ Cliente #{id_cliente} ha cancelado todas sus deudas")
                         flash(f"🎉 ¡Excelente! El cliente {resultado['NombreCliente']} ha cancelado TODAS sus deudas pendientes.")
                 else:
-                    print(f"⚠️ Cliente #{id_cliente} no encontrado al actualizar saldo pendiente total")
+                    pass
                 
                 # Verificar si el método de pago es EFECTIVO y registrar en caja
                 if metodo_normalizado in ['EFECTIVO', 'CASH', 'CONTADO', 'EFECTIVO/CONTADO']:
@@ -382,7 +379,6 @@ def admin_registrar_pago(id_movimiento):
                         current_user.id,
                         f'PAGO-CXC-{id_pago:05d}'
                     ))
-                    print(f"💰 Entrada en caja registrada por pago en efectivo: C${float(monto_pago):,.2f}")
                 
                 # Guardar detalles del método de pago en comentarios adicionales si existe
                 if detalles_metodo.strip():
@@ -605,16 +601,6 @@ def admin_detalle_cuentacobrar(id_movimiento):
             cuenta['FechaFactura_ISO'] = formatear_fecha_iso(cuenta['Fecha_Factura'])
             
             # DEBUG: Verificar datos
-            print("=" * 60)
-            print("DEBUG - INFORMACIÓN DE FECHAS:")
-            print(f"ID Movimiento: {cuenta['ID_Movimiento']}")
-            print(f"Fecha Original (DB): {cuenta['Fecha']} - Tipo: {type(cuenta['Fecha'])}")
-            print(f"Fecha Formateada: {cuenta['Fecha_Formateada']}")
-            print(f"Fecha Vencimiento Original: {cuenta['Fecha_Vencimiento']}")
-            print(f"Fecha Vencimiento Formateada: {cuenta['Fecha_Vencimiento_Formateada']}")
-            print(f"Fecha Factura Original: {cuenta['Fecha_Factura']}")
-            print(f"Fecha Factura Formateada: {cuenta['FechaFactura_Formateada']}")
-            print("=" * 60)
             
             # ==================================================
             # HISTORIAL UNIFICADO (PAGOS + ABONOS)

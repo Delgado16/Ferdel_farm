@@ -14,7 +14,6 @@ def api_procesar_abono():
     """Procesa un abono con información completa de ruta, usuario y método de pago"""
     try:
         data = request.get_json()
-        print(f"📥 Datos recibidos: {data}")
         
         if not data:
             return jsonify({'success': False, 'error': 'Datos no válidos'}), 400
@@ -24,7 +23,6 @@ def api_procesar_abono():
         id_metodo_pago = data.get('id_metodo_pago')
         id_vendedor = int(current_user.id)
         
-        print(f"🔍 Validando: id_cliente={id_cliente}, monto={monto_abono}, metodo={id_metodo_pago}")
         
         if not id_cliente:
             return jsonify({'success': False, 'error': 'ID de cliente no proporcionado'}), 400
@@ -47,7 +45,6 @@ def api_procesar_abono():
             """, (id_metodo_pago,))
             metodo = cursor.fetchone()
             
-            print(f"💳 Método de pago encontrado: {metodo}")
             
             if not metodo:
                 return jsonify({'success': False, 'error': 'Método de pago no válido'}), 400
@@ -65,7 +62,6 @@ def api_procesar_abono():
             if not asignacion:
                 return jsonify({'success': False, 'error': 'Sin ruta activa asignada'}), 400
             
-            print(f"📍 Asignación encontrada: {asignacion}")
             
             # 3. Obtener facturas pendientes del cliente
             cursor.execute("""
@@ -83,7 +79,6 @@ def api_procesar_abono():
             """, (int(id_cliente),))
             
             facturas = cursor.fetchall()
-            print(f"📄 Facturas encontradas: {len(facturas)}")
             
             # Obtener saldo total del cliente para verificar saldo inicial manual
             cursor.execute("""
@@ -141,14 +136,13 @@ def api_procesar_abono():
                     ))
                     
                     id_movimiento_caja = cursor.lastrowid
-                    print(f"✅ Movimiento de caja registrado (EFECTIVO): ID={id_movimiento_caja}")
                     
                 except Exception as e:
                     print(f"❌ Error al insertar en movimientos_caja_ruta: {e}")
                     raise Exception(f"Error al registrar movimiento de caja: {str(e)}")
             else:
                 # No es efectivo - NO se registra en caja
-                print(f"⚠️ Método '{nombre_metodo_pago}' (ID={id_metodo_pago}) - NO se registra en caja")
+                pass
             
             # 4. Distribuir el abono entre las facturas o saldo manual
             monto_restante = monto_abono
@@ -204,7 +198,6 @@ def api_procesar_abono():
                         ))
                         
                         ultimo_id_abono = cursor.lastrowid
-                        print(f"✅ Detalle de abono insertado para factura {factura['Num_Documento']} (ID_MetodoPago={id_metodo_pago})")
                         
                     except Exception as e:
                         print(f"❌ Error al insertar en abonos_detalle: {e}")
@@ -247,13 +240,11 @@ def api_procesar_abono():
                 WHERE ID_Cliente = %s
             """, (monto_aplicado, int(id_cliente)))
             
-            print(f"✅ Abono procesado: Monto={monto_aplicado}, Cliente={id_cliente}")
             
             # Si se cancelaron facturas, mostrar mensaje
             if facturas_canceladas:
-                print(f"🎉 Facturas canceladas completamente: {len(facturas_canceladas)}")
                 for factura_cancelada in facturas_canceladas:
-                    print(f"   - Factura {factura_cancelada['num_documento']}: C${factura_cancelada['monto_pagado']:,.2f}")
+                    pass
             
             # ID para el recibo
             id_abono_para_recibo = ultimo_id_abono if ultimo_id_abono else (id_movimiento_caja if id_movimiento_caja else 0)
@@ -803,7 +794,6 @@ def vendedor_recibo_abono(id_abono):
         id_vendedor = int(current_user.id)
         auto_print = request.args.get('autoPrint', 0)
         
-        print(f"🔍 Buscando abono ID: {id_abono} para vendedor ID: {id_vendedor}")
         
         with get_db_cursor() as cursor:
             # Buscar en abonos_detalle con JOIN a metodos_pago
@@ -836,11 +826,9 @@ def vendedor_recibo_abono(id_abono):
             """, (id_abono, id_vendedor))
             
             abono = cursor.fetchone()
-            print(f"📊 Resultado búsqueda en abonos_detalle: {abono is not None}")
             
             # Si no encuentra, buscar como backup en movimientos_caja_ruta (para abonos antiguos)
             if not abono:
-                print(f"🔍 Buscando en movimientos_caja_ruta como backup...")
                 cursor.execute("""
                     SELECT 
                         mc.ID_Movimiento as id_abono,
@@ -871,10 +859,8 @@ def vendedor_recibo_abono(id_abono):
                 """, (id_abono, id_vendedor))
                 
                 abono = cursor.fetchone()
-                print(f"📊 Resultado búsqueda backup: {abono is not None}")
             
             if not abono:
-                print(f"❌ Abono {id_abono} no encontrado para vendedor {id_vendedor}")
                 flash('Abono no encontrado', 'error')
                 return redirect(url_for('vendedor.vendedor_clientes'))
             
@@ -901,7 +887,6 @@ def vendedor_recibo_abono(id_abono):
                 total_result = cursor.fetchone()
                 if total_result and total_result['total_abonado']:
                     monto_total = float(total_result['total_abonado'])
-                    print(f"💰 Total abonado para movimiento {id_mov_caja}: {monto_total}")
             else:
                 # Si no tiene movimiento de caja, buscar por fecha y cliente (mismo abono)
                 cursor.execute("""
@@ -915,7 +900,6 @@ def vendedor_recibo_abono(id_abono):
                 total_result = cursor.fetchone()
                 if total_result and total_result['total_abonado']:
                     monto_total = float(total_result['total_abonado'])
-                    print(f"💰 Total abonado por fecha: {monto_total}")
             
             # Obtener método de pago
             metodo_pago = abono.get('metodo_pago_nombre')
@@ -930,9 +914,6 @@ def vendedor_recibo_abono(id_abono):
             if not metodo_pago:
                 metodo_pago = 'NO ESPECIFICADO'
             
-            print(f"✅ Método de pago: {metodo_pago}")
-            print(f"💰 Monto individual del registro: {float(abono['Monto_Aplicado'])}")
-            print(f"💰 Monto total abonado (suma): {monto_total}")
             
             # Calcular datos
             saldo_actual = float(abono['saldo_actual_cliente'])
@@ -976,7 +957,6 @@ def vendedor_recibo_abono(id_abono):
                 'auto_print': auto_print
             }
             
-            print(f"✅ Recibo generado exitosamente para abono {id_abono}")
             return render_template('vendedor/clientes/recibo_abono.html', ticket=ticket_data)
                              
     except Exception as e:
@@ -1006,30 +986,19 @@ def vendedor_abonos():
             fecha_desde = today_str
             fecha_hasta = today_str
             
-        print("=== DEBUG INFO ===")
-        print(f"ID Vendedor: {id_vendedor}")
-        print(f"Fecha Desde: {fecha_desde}")
-        print(f"Fecha Hasta: {fecha_hasta}")
-        print(f"Metodo Pago: {metodo_pago}")
-        print(f"Cliente: {cliente}")
-        print(f"Ver Todo: {ver_todo}")
         
         with get_db_cursor() as cursor:
             # PRIMERO: Verificar conexión y tabla
             cursor.execute("SELECT COUNT(*) as total FROM abonos_detalle WHERE ID_Usuario = %s", (id_vendedor,))
             count_result = cursor.fetchone()
-            print(f"Total abonos en tabla: {count_result}")
             
             # Consulta MUY SIMPLE para probar
             query_simple = """
                 SELECT * FROM abonos_detalle WHERE ID_Usuario = %s
             """
-            print(f"Query simple: {query_simple}")
-            print(f"Params simple: {(id_vendedor,)}")
             
             cursor.execute(query_simple, (id_vendedor,))
             resultados_simple = cursor.fetchall()
-            print(f"Resultados consulta simple: {len(resultados_simple)}")
             
             # Consulta completa
             query = """
@@ -1056,39 +1025,30 @@ def vendedor_abonos():
             """
             
             params = [id_vendedor]
-            print(f"\nParams iniciales: {params}")
             
             if fecha_desde and fecha_desde.strip():
                 query += " AND DATE(ad.Fecha) >= %s"
                 params.append(fecha_desde)
-                print(f"Agregado filtro fecha_desde, params: {params}")
             
             if fecha_hasta and fecha_hasta.strip():
                 query += " AND DATE(ad.Fecha) <= %s"
                 params.append(fecha_hasta)
-                print(f"Agregado filtro fecha_hasta, params: {params}")
             
             if metodo_pago and metodo_pago.strip():
                 query += " AND ad.ID_MetodoPago = %s"
                 params.append(int(metodo_pago))
-                print(f"Agregado filtro metodo_pago, params: {params}")
             
             if cliente and cliente.strip():
                 query += " AND c.Nombre LIKE %s"
                 params.append(f'%{cliente}%')
-                print(f"Agregado filtro cliente, params: {params}")
             
             query += " ORDER BY ad.Fecha DESC, ad.ID_Detalle DESC"
             
-            print(f"\nQuery final: {query}")
-            print(f"Params finales: {params}")
-            print(f"Número de params: {len(params)}")
             
             # Ejecutar consulta
             cursor.execute(query, tuple(params))
             abonos_raw = cursor.fetchall()
             
-            print(f"Registros de abono crudos encontrados: {len(abonos_raw)}")
             
             # Agrupar abonos en Python por cliente + fecha + metodo_pago
             from collections import OrderedDict
@@ -1123,7 +1083,6 @@ def vendedor_abonos():
                 })
                 
             abonos_agrupados = list(grouped_dict.values())
-            print(f"Abonos agrupados: {len(abonos_agrupados)}")
             
             # Obtener métodos de pago
             cursor.execute("SELECT ID_MetodoPago, Nombre FROM metodos_pago ORDER BY Nombre")

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vendedor-cache-v9'; // Incrementamos la versión para forzar actualización a v9 y limpiar el caché anterior
+const CACHE_NAME = 'vendedor-cache-v11'; // Incrementamos a v11 para forzar actualización de hojas de estilo de compras
 
 // Recursos estáticos públicos que no requieren autenticación y garantizan status 200
 const urlsToCache = [

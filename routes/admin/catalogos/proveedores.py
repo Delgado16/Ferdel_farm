@@ -258,6 +258,8 @@ def admin_eliminar_proveedor(id):
     return redirect(url_for("admin.admin_proveedores"))
 
 
+import json
+
 @admin_bp.route('/admin/catalog/detalle-proveedor/<int:id>', methods=['GET'])
 @admin_required
 @bitacora_decorator("DETALLE_PROVEEDOR")
@@ -269,13 +271,13 @@ def admin_detalle_proveedor(id):
             # 1. Datos básicos del proveedor
             cursor.execute("""
                 SELECT p.*, 
-                       COUNT(DISTINCT cp.ID_Cuenta) as total_facturas_pendientes
+                       (SELECT COUNT(*) FROM cuentas_por_pagar cp 
+                        WHERE cp.ID_Proveedor = p.ID_Proveedor 
+                          AND cp.ID_Empresa = %s 
+                          AND cp.Estado IN ('Pendiente', 'Vencida', 'Parcial')) as total_facturas_pendientes
                 FROM proveedores p
-                LEFT JOIN cuentas_por_pagar cp ON p.ID_Proveedor = cp.ID_Proveedor 
-                    AND cp.Estado IN ('Pendiente', 'Vencida', 'Parcial')
                 WHERE p.ID_Proveedor = %s AND p.ID_Empresa = %s
-                GROUP BY p.ID_Proveedor
-            """, (id, id_empresa))
+            """, (id_empresa, id, id_empresa))
             
             proveedor = cursor.fetchone()
             
@@ -303,32 +305,97 @@ def admin_detalle_proveedor(id):
                         ELSE 'secondary'
                     END as Color_Estado
                 FROM cuentas_por_pagar cp
-                WHERE cp.ID_Proveedor = %s 
+                WHERE cp.ID_Proveedor = %s AND cp.ID_Empresa = %s
                     AND cp.Estado IN ('Pendiente', 'Vencida', 'Parcial')
                 ORDER BY cp.Fecha_Vencimiento ASC
-            """, (id,))
+            """, (id, id_empresa))
             
             facturas_pendientes = cursor.fetchall()
             
             for factura in facturas_pendientes:
                 if factura.get('Dias_Vencido') is None:
                     factura['Dias_Vencido'] = 0
+
+            # 3. Facturas/Cuentas ya saldadas históricas
+            cursor.execute("""
+                SELECT 
+                    cp.ID_Cuenta,
+                    cp.Num_Documento,
+                    cp.Fecha,
+                    cp.Fecha_Vencimiento,
+                    cp.Monto_Movimiento,
+                    cp.Saldo_Pendiente,
+                    cp.Estado,
+                    cp.Observacion
+                FROM cuentas_por_pagar cp
+                WHERE cp.ID_Proveedor = %s AND cp.ID_Empresa = %s
+                    AND cp.Estado IN ('Pagada', 'Cancelada', 'Saldada')
+                ORDER BY cp.Fecha DESC
+                LIMIT 50
+            """, (id, id_empresa))
+            cuentas_saldadas = cursor.fetchall()
             
-            # 3. Últimas compras (solo Activas, excluyendo Anuladas y Canceladas)
+            # 4. Historial de Pagos y Abonos realizados
+            cursor.execute("""
+                SELECT 
+                    'Pago Directo' as Origen,
+                    pcp.ID_Pago as ID_Registro,
+                    pcp.Fecha,
+                    pcp.Monto as Monto_Aplicado,
+                    pcp.Comentarios as Observacion,
+                    COALESCE(mp.Nombre, 'Efectivo') as Metodo_Pago,
+                    u.NombreUsuario as Usuario,
+                    cpp.Num_Documento as Documento
+                FROM pagos_cuentaspagar pcp
+                INNER JOIN cuentas_por_pagar cpp ON pcp.ID_Cuenta = cpp.ID_Cuenta
+                INNER JOIN usuarios u ON pcp.ID_Usuario_Creacion = u.ID_Usuario
+                LEFT JOIN metodos_pago mp ON pcp.ID_MetodoPago = mp.ID_MetodoPago
+                WHERE cpp.ID_Proveedor = %s AND cpp.ID_Empresa = %s
+                
+                UNION ALL
+                
+                SELECT 
+                    'Abono CXP' as Origen,
+                    apd.ID_Detalle as ID_Registro,
+                    apd.Fecha,
+                    apd.Monto_Aplicado,
+                    CASE 
+                        WHEN cpp2.Num_Documento = 'ABONO-GLOBAL' THEN 'Abono directo / Excedente a cuenta'
+                        ELSE CONCAT('Abono a Doc: ', cpp2.Num_Documento)
+                    END as Observacion,
+                    COALESCE(mp2.Nombre, 'Efectivo') as Metodo_Pago,
+                    u2.NombreUsuario as Usuario,
+                    COALESCE(cpp2.Num_Documento, 'ABONO-GLOBAL') as Documento
+                FROM abonos_proveedores_detalle apd
+                INNER JOIN proveedores prov2 ON apd.ID_Proveedor = prov2.ID_Proveedor
+                INNER JOIN usuarios u2 ON apd.ID_Usuario = u2.ID_Usuario
+                LEFT JOIN metodos_pago mp2 ON apd.ID_MetodoPago = mp2.ID_MetodoPago
+                LEFT JOIN cuentas_por_pagar cpp2 ON apd.ID_CuentaPagar = cpp2.ID_Cuenta
+                WHERE apd.ID_Proveedor = %s AND prov2.ID_Empresa = %s
+                
+                ORDER BY Fecha DESC
+            """, (id, id_empresa, id, id_empresa))
+            historial_abonos = cursor.fetchall()
+            
+            ultimo_abono = historial_abonos[0] if historial_abonos else None
+            
+            # 5. Últimas compras (solo Activas, excluyendo Anuladas y Canceladas)
             cursor.execute("""
                 SELECT 
                     mi.ID_Movimiento,
                     mi.Fecha,
                     mi.N_Factura_Externa,
                     mi.Tipo_Compra,
-                    mi.Observacion
+                    mi.Observacion,
+                    u.NombreUsuario as Usuario_Registro
                 FROM movimientos_inventario mi
-                WHERE mi.ID_Proveedor = %s 
+                LEFT JOIN usuarios u ON mi.ID_Usuario_Creacion = u.ID_Usuario
+                WHERE mi.ID_Proveedor = %s AND mi.ID_Empresa = %s
                     AND mi.Estado = 'Activa'
                     AND mi.Estado NOT IN ('Anulada', 'Cancelada')
                 ORDER BY mi.Fecha DESC
-                LIMIT 10
-            """, (id,))
+                LIMIT 50
+            """, (id, id_empresa))
             
             ultimas_compras = cursor.fetchall()
             
@@ -342,34 +409,10 @@ def admin_detalle_proveedor(id):
                     WHERE ID_Movimiento = %s
                 """, (compra['ID_Movimiento'],))
                 resultado = cursor.fetchone()
-                compra['total_compra'] = resultado['total_compra'] if resultado['total_compra'] else 0
-                compra['cantidad_productos'] = resultado['cantidad_productos'] if resultado['cantidad_productos'] else 0
+                compra['total_compra'] = float(resultado['total_compra']) if resultado and resultado['total_compra'] else 0.0
+                compra['cantidad_productos'] = resultado['cantidad_productos'] if resultado and resultado['cantidad_productos'] else 0
             
-            # 4. Detalle de productos comprados
-            if ultimas_compras:
-                ids_movimientos = [compra['ID_Movimiento'] for compra in ultimas_compras]
-                placeholders = ','.join(['%s'] * len(ids_movimientos))
-                
-                cursor.execute(f"""
-                    SELECT 
-                        dmi.ID_Movimiento,
-                        p.ID_Producto,
-                        p.Descripcion as Producto,
-                        p.COD_Producto,
-                        dmi.Cantidad,
-                        dmi.Costo_Unitario,
-                        dmi.Subtotal
-                    FROM detalle_movimientos_inventario dmi
-                    JOIN productos p ON dmi.ID_Producto = p.ID_Producto
-                    WHERE dmi.ID_Movimiento IN ({placeholders})
-                    ORDER BY dmi.ID_Movimiento DESC, dmi.ID_Detalle_Movimiento ASC
-                """, tuple(ids_movimientos))
-                
-                detalle_compras = cursor.fetchall()
-            else:
-                detalle_compras = []
-            
-            # 5. Antigüedad de saldos (Aging)
+            # 6. Antigüedad de saldos (Aging)
             cursor.execute("""
                 SELECT 
                     COALESCE(SUM(CASE 
@@ -388,15 +431,15 @@ def admin_detalle_proveedor(id):
                         WHEN cp.Fecha_Vencimiento > DATE_ADD(CURDATE(), INTERVAL 90 DAY) 
                         THEN cp.Saldo_Pendiente ELSE 0 END), 0) as Mas_90
                 FROM cuentas_por_pagar cp
-                WHERE cp.ID_Proveedor = %s 
+                WHERE cp.ID_Proveedor = %s AND cp.ID_Empresa = %s
                     AND cp.Estado IN ('Pendiente', 'Vencida', 'Parcial')
-            """, (id,))
+            """, (id, id_empresa))
             
             aging = cursor.fetchone()
             if not aging:
                 aging = {'Rango_0_30': 0, 'Rango_31_60': 0, 'Rango_61_90': 0, 'Vencido': 0, 'Mas_90': 0}
             
-            # 6. RESUMEN DE COMPRAS POR MES - EXCLUYENDO ANULADAS
+            # 7. RESUMEN DE COMPRAS POR MES - EXCLUYENDO ANULADAS (Últimos 12 meses)
             cursor.execute("""
                 SELECT 
                     YEAR(mi.Fecha) as Anio,
@@ -412,16 +455,24 @@ def admin_detalle_proveedor(id):
                     MAX(mi.Fecha) as Ultima_Compra_Mes
                 FROM movimientos_inventario mi
                 INNER JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
-                WHERE mi.ID_Proveedor = %s 
+                WHERE mi.ID_Proveedor = %s AND mi.ID_Empresa = %s
                     AND mi.Estado = 'Activa'
                     AND mi.Estado NOT IN ('Anulada', 'Cancelada')
                 GROUP BY YEAR(mi.Fecha), MONTH(mi.Fecha)
-                ORDER BY Anio DESC, Numero_Mes DESC
-            """, (id,))
+                ORDER BY YEAR(mi.Fecha) DESC, MONTH(mi.Fecha) DESC
+                LIMIT 12
+            """, (id, id_empresa))
             
             compras_por_mes = cursor.fetchall()
             
-            # 7. Top productos comprados - EXCLUYENDO ANULADAS
+            nombres_meses = {
+                1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril', 5: 'Mayo', 6: 'Junio',
+                7: 'Julio', 8: 'Agosto', 9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
+            }
+            for mes in compras_por_mes:
+                mes['Nombre_Mes'] = nombres_meses.get(mes['Numero_Mes'], f"Mes {mes['Numero_Mes']}")
+            
+            # 8. Top productos comprados - EXCLUYENDO ANULADAS
             cursor.execute("""
                 SELECT 
                     p.ID_Producto,
@@ -433,22 +484,42 @@ def admin_detalle_proveedor(id):
                 FROM detalle_movimientos_inventario dmi
                 INNER JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
                 INNER JOIN productos p ON dmi.ID_Producto = p.ID_Producto
-                WHERE mi.ID_Proveedor = %s 
+                WHERE mi.ID_Proveedor = %s AND mi.ID_Empresa = %s
                     AND mi.Estado = 'Activa'
                     AND mi.Estado NOT IN ('Anulada', 'Cancelada')
                 GROUP BY p.ID_Producto, p.Descripcion, p.COD_Producto
                 ORDER BY Total_Invertido DESC
                 LIMIT 10
-            """, (id,))
+            """, (id, id_empresa))
             
             top_productos = cursor.fetchall()
             
-            # 8. Estadísticas completas - EXCLUYENDO ANULADAS
+            # 9. Estadísticas completas y semáforo
+            monto_vencido = float(aging.get('Vencido', 0) or 0)
+            saldo_total = float(proveedor.get('Saldo_Pendiente') or 0)
+            
+            if monto_vencido > 0:
+                estado_crediticio = "Con Deuda Vencida"
+                color_crediticio = "danger"
+            elif saldo_total > 0:
+                estado_crediticio = "Con Saldo al Día"
+                color_crediticio = "warning"
+            else:
+                estado_crediticio = "Al Día / Solvente"
+                color_crediticio = "success"
+                
+            total_abonos_monto = sum(float(a['Monto_Aplicado'] or 0) for a in historial_abonos)
+            
             stats = {
                 'total_facturas': len(facturas_pendientes),
                 'facturas_vencidas': sum(1 for f in facturas_pendientes if f['Estado'] == 'Vencida'),
-                'saldo_total': float(proveedor.get('Saldo_Pendiente') or 0),
-                'monto_vencido': float(aging.get('Vencido', 0) or 0),
+                'saldo_total': saldo_total,
+                'monto_vencido': monto_vencido,
+                'estado_crediticio': estado_crediticio,
+                'color_crediticio': color_crediticio,
+                'total_abonos_count': len(historial_abonos),
+                'total_abonos_monto': total_abonos_monto,
+                'total_saldadas_count': len(cuentas_saldadas)
             }
             
             # Totales generales de compras (solo Activas)
@@ -460,34 +531,58 @@ def admin_detalle_proveedor(id):
                     COALESCE(SUM(CASE WHEN mi.Tipo_Compra = 'CREDITO' THEN dmi.Subtotal ELSE 0 END), 0) as total_credito
                 FROM movimientos_inventario mi
                 INNER JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
-                WHERE mi.ID_Proveedor = %s 
+                WHERE mi.ID_Proveedor = %s AND mi.ID_Empresa = %s
                     AND mi.Estado = 'Activa'
                     AND mi.Estado NOT IN ('Anulada', 'Cancelada')
-            """, (id,))
+            """, (id, id_empresa))
             totales = cursor.fetchone()
             stats.update(totales)
+            
+            total_inv = float(stats.get('total_invertido') or 0)
+            total_comp = int(stats.get('total_compras') or 0)
+            stats['ticket_promedio'] = (total_inv / total_comp) if total_comp > 0 else 0.0
             
             # Compras último año (solo Activas)
             cursor.execute("""
                 SELECT COALESCE(SUM(dmi.Subtotal), 0) as total
                 FROM movimientos_inventario mi
                 INNER JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
-                WHERE mi.ID_Proveedor = %s 
+                WHERE mi.ID_Proveedor = %s AND mi.ID_Empresa = %s
                     AND mi.Estado = 'Activa'
                     AND mi.Estado NOT IN ('Anulada', 'Cancelada')
                     AND mi.Fecha >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
-            """, (id,))
+            """, (id, id_empresa))
             stats['total_ultimo_anio'] = float(cursor.fetchone()['total'] or 0)
+            
+            # 10. Datos JSON para gráficos en frontend
+            meses_ordenados = list(reversed(compras_por_mes))
+            chart_labels = [f"{m['Nombre_Mes'][:3]} {m['Anio']}" for m in meses_ordenados]
+            chart_contado = [float(m['Total_Contado'] or 0) for m in meses_ordenados]
+            chart_credito = [float(m['Total_Credito'] or 0) for m in meses_ordenados]
+            
+            top_prod_labels = [p['Producto'][:20] + ('...' if len(p['Producto']) > 20 else '') for p in top_productos[:5]]
+            top_prod_values = [float(p['Total_Invertido'] or 0) for p in top_productos[:5]]
+            
+            chart_data = {
+                'labels': chart_labels,
+                'contado': chart_contado,
+                'credito': chart_credito,
+                'top_prod_labels': top_prod_labels,
+                'top_prod_values': top_prod_values
+            }
             
             return render_template('admin/catalog/proveedor/detalle_proveedor.html', 
                                  proveedor=proveedor,
                                  facturas_pendientes=facturas_pendientes,
+                                 cuentas_saldadas=cuentas_saldadas,
+                                 historial_abonos=historial_abonos,
+                                 ultimo_abono=ultimo_abono,
                                  ultimas_compras=ultimas_compras,
-                                 detalle_compras=detalle_compras,
                                  aging=aging,
                                  compras_por_mes=compras_por_mes,
                                  top_productos=top_productos,
                                  stats=stats,
+                                 chart_json=json.dumps(chart_data),
                                  today=datetime.now().date())
     
     except Exception as e:
@@ -495,5 +590,82 @@ def admin_detalle_proveedor(id):
         logging.error(traceback.format_exc())
         flash(f"Error al cargar el detalle del proveedor: {str(e)}", "danger")
         return redirect(url_for("admin.admin_proveedores"))
+
+
+@admin_bp.route('/catalog/proveedor/compra-detalle/<int:id_movimiento>', methods=['GET'])
+@admin_bp.route('/admin/catalog/proveedor/compra-detalle/<int:id_movimiento>', methods=['GET'])
+@admin_required
+def admin_proveedor_compra_detalle(id_movimiento):
+    """Endpoint AJAX para consultar el desglose de productos de una factura de compra"""
+    try:
+        id_empresa = session.get('id_empresa', 1)
+        
+        with get_db_cursor() as cursor:
+            # 1. Cabecera del movimiento de inventario / compra
+            cursor.execute("""
+                SELECT 
+                    mi.ID_Movimiento,
+                    mi.Fecha,
+                    mi.N_Factura_Externa,
+                    mi.Tipo_Compra,
+                    mi.Observacion,
+                    mi.Estado,
+                    p.Nombre as Proveedor,
+                    p.RUC_CEDULA,
+                    u.NombreUsuario as Usuario_Registro
+                FROM movimientos_inventario mi
+                INNER JOIN proveedores p ON mi.ID_Proveedor = p.ID_Proveedor
+                LEFT JOIN usuarios u ON mi.ID_Usuario_Creacion = u.ID_Usuario
+                WHERE mi.ID_Movimiento = %s AND mi.ID_Empresa = %s
+            """, (id_movimiento, id_empresa))
+            
+            compra = cursor.fetchone()
+            if not compra:
+                return jsonify({'success': False, 'error': 'Compra o factura no encontrada'}), 404
+            
+            # Formatear fecha de forma segura
+            if compra.get('Fecha'):
+                try:
+                    compra['Fecha_Str'] = compra['Fecha'].strftime('%d/%m/%Y')
+                except Exception:
+                    compra['Fecha_Str'] = str(compra['Fecha'])
+            else:
+                compra['Fecha_Str'] = 'N/A'
+                
+            # 2. Detalle de productos comprados
+            cursor.execute("""
+                SELECT 
+                    dmi.ID_Detalle_Movimiento,
+                    p.ID_Producto,
+                    p.Descripcion as Producto,
+                    p.COD_Producto,
+                    dmi.Cantidad,
+                    dmi.Costo_Unitario,
+                    dmi.Subtotal
+                FROM detalle_movimientos_inventario dmi
+                INNER JOIN productos p ON dmi.ID_Producto = p.ID_Producto
+                WHERE dmi.ID_Movimiento = %s
+                ORDER BY dmi.ID_Detalle_Movimiento ASC
+            """, (id_movimiento,))
+            
+            detalles = cursor.fetchall()
+            
+            total_calculado = sum(float(item['Subtotal'] or 0) for item in detalles)
+            for item in detalles:
+                item['Cantidad'] = float(item['Cantidad'] or 0)
+                item['Costo_Unitario'] = float(item['Costo_Unitario'] or 0)
+                item['Subtotal'] = float(item['Subtotal'] or 0)
+                
+            return jsonify({
+                'success': True,
+                'compra': compra,
+                'detalles': detalles,
+                'total_calculado': total_calculado
+            })
+            
+    except Exception as e:
+        logging.error(f"Error al obtener detalle de compra {id_movimiento}: {str(e)}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 

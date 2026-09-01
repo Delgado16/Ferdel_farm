@@ -285,7 +285,6 @@ def admin_crear_producto():
         estado = request.form.get('Estado', 'activo')
         usuario_creador = current_user.id if (current_user and current_user.is_authenticated) else session.get('id_usuario', 1)
 
-        print(f"DEBUG: Datos recibidos - Descripcion: {descripcion}, Bodega: {id_bodega}, Empresa: {id_empresa}")
 
         # Validaciones básicas
         if not all([descripcion, id_unidad_medida, id_categoria]):
@@ -347,7 +346,6 @@ def admin_crear_producto():
             return redirect(url_for('admin.admin_productos'))
 
         with get_db_cursor(commit=True) as cursor:
-            print(f"DEBUG: Verificando bodega ID: {id_bodega}")
             
             # Verificar que la bodega existe y está activa
             cursor.execute("""
@@ -356,7 +354,6 @@ def admin_crear_producto():
             """, (id_bodega,))
             
             bodega_data = cursor.fetchone()
-            print(f"DEBUG: Datos bodega obtenidos: {bodega_data}")
             
             if not bodega_data:
                 flash('La bodega seleccionada no es válida', 'error')
@@ -370,7 +367,6 @@ def admin_crear_producto():
                 bodega_id = bodega_data[0]
                 bodega_empresa_id = bodega_data[1]
             
-            print(f"DEBUG: Bodega ID: {bodega_id}, Empresa Bodega: {bodega_empresa_id}, Empresa Form: {id_empresa}")
             
             # Verificar que la bodega pertenece a la empresa del producto
             if bodega_empresa_id != id_empresa:
@@ -398,10 +394,8 @@ def admin_crear_producto():
                     max_cod = result[0] if result else 0
                     
                 cod_producto = str(max_cod) if max_cod else "1"
-                print(f"DEBUG: Código generado: {cod_producto}")
 
             # Insertar nuevo producto - Actualizado con los nuevos campos de precio
-            print(f"DEBUG: Insertando producto...")
             cursor.execute("""
                 INSERT INTO Productos (
                     COD_Producto, Descripcion, Unidad_Medida, Estado,
@@ -415,7 +409,6 @@ def admin_crear_producto():
             ))
 
             producto_id = cursor.lastrowid
-            print(f"DEBUG: Producto creado con ID: {producto_id}")
 
             # Insertar en inventario_bodega con la cantidad inicial
             cursor.execute("""
@@ -638,8 +631,6 @@ def admin_editar_producto(id_producto):
                         'Existencias_Totales': producto[18] or 0
                     }
                 
-                print(f"DEBUG - Estado del producto: {producto_data.get('Estado')}")
-                print(f"DEBUG - Precios: Mercado={producto_data.get('Precio_Mercado')}, Mayorista={producto_data.get('Precio_Mayorista')}, Ruta={producto_data.get('Precio_Ruta')}")
                 
                 # Obtener datos para los dropdowns
                 cursor.execute("SELECT ID_Categoria, Descripcion FROM categorias_producto")

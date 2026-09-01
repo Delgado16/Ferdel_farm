@@ -23,7 +23,6 @@ def login():
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
         
-        print(f"\n🔐 Intento de login - Usuario: '{username}'")
         
         if not username:
             flash("El nombre de usuario es requerido", "danger")
@@ -58,15 +57,12 @@ def login():
                         login_user(user)
                         session['id_empresa'] = user_data['ID_Empresa']
                         registrar_login_exitoso(username, user_data['ID_Usuario'])
-                        print(f"✅ Usuario {username} ha iniciado sesión - Rol: {user_data['Nombre_Rol']}")
                         flash(f"¡Bienvenido {user.username}!", "success")
                         return redirect(url_for('main.dashboard'))
                     else:
-                        print("❌ Contraseña incorrecta")
                         registrar_login_fallido(username, "contraseña incorrecta")
                         flash("Credenciales incorrectas. Por favor verifique sus datos.", "danger")
                 else:
-                    print("❌ Usuario no encontrado o inactivo")
                     registrar_login_fallido(username, "usuario no encontrado o inactivo")
                     flash("Credenciales incorrectas o usuario inactivo.", "danger")
                 

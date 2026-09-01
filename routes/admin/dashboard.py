@@ -112,6 +112,8 @@ def admin_dashboard():
                              empresas_count=kpis['empresas_count'],
                              ventas_hoy=kpis['ventas_hoy'],
                              cobros_hoy=kpis['cobros_hoy'],
+                             saldo_caja=kpis['saldo_caja'],
+                             estado_caja=kpis['estado_caja'],
                              saldo_pendiente=kpis['saldo_pendiente'],
                              facturas_vencidas=kpis['facturas_vencidas'],
                              productos_bajo_stock=kpis['productos_bajo_stock'],

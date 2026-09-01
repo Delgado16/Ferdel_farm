@@ -245,88 +245,102 @@
 
 <!-- Modal para crear cliente -->
 <div class="modal fade" id="crearClienteModal" tabindex="-1" aria-labelledby="crearClienteModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content border-0 shadow-lg rounded-3">
-            <div class="modal-header border-bottom-0 pb-0">
-                <h5 class="modal-title fw-bold text-slate-800" id="crearClienteModalLabel">
-                    <i class="fas fa-plus-circle text-primary me-2"></i>Agregar Nuevo Cliente
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header text-white border-0 py-3 px-4" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, var(--primary-color) 100%);">
+                <div class="d-flex align-items-center gap-2.5">
+                    <div class="p-2 bg-success bg-opacity-25 text-white rounded-3">
+                        <i class="bi bi-person-plus-fill fa-lg"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold text-white mb-0" id="crearClienteModalLabel">
+                            Agregar Nuevo Cliente
+                        </h5>
+                        <small class="text-slate-300">Complete los datos del expediente comercial</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
+            
             <form method="POST" action="{{ url_for('admin.admin_crear_cliente') }}" id="crearClienteForm" novalidate>
-                <div class="modal-body">
-                    <!-- Información Básica -->
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="nombre" class="form-label-premium fw-bold mb-1">Nombre del Cliente *</label>
-                                <input type="text" class="form-control form-control-premium" id="nombre" name="nombre" 
-                                       required minlength="2" maxlength="255"
-                                       placeholder="Ingrese el nombre del cliente">
-                                <div class="form-text small text-muted">Mínimo 2 caracteres, máximo 255</div>
-                            </div>
+                <div class="modal-body p-4">
+                    
+                    <!-- Bloque 1: Identificación y Contacto -->
+                    <div class="mb-4">
+                        <div class="d-flex align-items-center mb-3 pb-2 border-bottom">
+                            <i class="bi bi-person-lines-fill text-primary me-2"></i>
+                            <h6 class="fw-bold text-slate-800 mb-0">Identificación y Contacto</h6>
                         </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="ruc_cedula" class="form-label-premium fw-bold mb-1">RUC/Cédula</label>
-                                <input type="text" class="form-control form-control-premium" id="ruc_cedula" name="ruc_cedula" 
-                                       maxlength="20"
-                                       placeholder="Ej: 401-160503-1006T o 203140785000U">
-                                <div class="form-text small text-muted">Opcional. Debe contener al menos una letra</div>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="nombre" class="form-label-premium fw-bold mb-1 small text-uppercase">Nombre Completo <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-person text-muted"></i></span>
+                                    <input type="text" class="form-control form-control-premium" id="nombre" name="nombre" 
+                                           required minlength="2" maxlength="255"
+                                           placeholder="Nombre o Razón Social">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="ruc_cedula" class="form-label-premium fw-bold mb-1 small text-uppercase">RUC / Cédula</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-card-heading text-muted"></i></span>
+                                    <input type="text" class="form-control form-control-premium font-monospace" id="ruc_cedula" name="ruc_cedula" 
+                                           maxlength="20"
+                                           placeholder="Ej: 401-160503-1006T">
+                                </div>
+                                <div class="form-text small text-muted">Opcional. Debe incluir al menos una letra.</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="telefono" class="form-label-premium fw-bold mb-1 small text-uppercase">Teléfono de Contacto <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-telephone text-muted"></i></span>
+                                    <input type="tel" name="telefono" id="telefono" class="form-control form-control-premium" 
+                                           required maxlength="20"
+                                           placeholder="Ej: 8888-8888"
+                                           oninput="this.value = this.value.replace(/[^0-9+\-()\s]/g, '')">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="id_ruta" class="form-label-premium fw-bold mb-1 small text-uppercase">Ruta de Entrega</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-geo-alt text-muted"></i></span>
+                                    <select class="form-select form-select-premium" id="id_ruta" name="id_ruta">
+                                        <option value="">Sin ruta asignada</option>
+                                        {% for ruta in rutas %}
+                                        <option value="{{ ruta.ID_Ruta }}">{{ ruta.Nombre_Ruta }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <label for="direccion" class="form-label-premium fw-bold mb-1 small text-uppercase">Dirección</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-geo-alt text-muted"></i></span>
+                                    <textarea class="form-control form-control-premium" id="direccion" name="direccion" rows="2" 
+                                              maxlength="500"
+                                              placeholder="Dirección completa del cliente"></textarea>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="telefono" class="form-label-premium fw-bold mb-1">Teléfono *</label>
-                                <input type="tel" class="form-control form-control-premium" id="telefono" name="telefono" 
-                                       required maxlength="20"
-                                       placeholder="Ej: 0991234567">
-                                <div class="form-text small text-muted">Número de contacto principal</div>
-                            </div>
+                    <!-- Bloque 2: Clasificación y Saldo Inicial -->
+                    <div class="mb-4">
+                        <div class="d-flex align-items-center mb-3 pb-2 border-bottom">
+                            <i class="bi bi-briefcase text-info me-2"></i>
+                            <h6 class="fw-bold text-slate-800 mb-0">Clasificación y Finanzas</h6>
                         </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="id_ruta" class="form-label-premium fw-bold mb-1">Ruta *</label>
-                                <select class="form-select form-select-premium" id="id_ruta" name="id_ruta" required>
-                                    <option value="">Seleccione una ruta</option>
-                                    {% for ruta in rutas %}
-                                    <option value="{{ ruta.ID_Ruta }}">{{ ruta.Nombre_Ruta }}</option>
-                                    {% endfor %}
-                                </select>
-                                <div class="form-text small text-muted">Asigne el cliente a una ruta</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-12">
-                            <div class="mb-3">
-                                <label for="direccion" class="form-label-premium fw-bold mb-1">Dirección</label>
-                                <textarea class="form-control form-control-premium" id="direccion" name="direccion" rows="2" 
-                                          maxlength="500"
-                                          placeholder="Ingrese la dirección completa del cliente"></textarea>
-                                <div class="form-text small text-muted">Máximo 500 caracteres</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Tipo y Perfil de Cliente -->
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="tipo_cliente" class="form-label-premium fw-bold mb-1">Tipo de Cliente *</label>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label for="tipo_cliente" class="form-label-premium fw-bold mb-1 small text-uppercase">Tipo de Cliente <span class="text-danger">*</span></label>
                                 <select class="form-select form-select-premium" id="tipo_cliente" name="tipo_cliente" required>
                                     <option value="Comun">Cliente Común</option>
                                     <option value="Especial">Cliente Especial</option>
                                 </select>
                             </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="perfil_cliente" class="form-label-premium fw-bold mb-1">Perfil de Cliente *</label>
+                            <div class="col-md-4">
+                                <label for="perfil_cliente" class="form-label-premium fw-bold mb-1 small text-uppercase">Perfil Comercial <span class="text-danger">*</span></label>
                                 <select class="form-select form-select-premium" id="perfil_cliente" name="perfil_cliente" required>
                                     <option value="Mercado">Mercado</option>
                                     <option value="Ruta">Ruta</option>
@@ -334,77 +348,60 @@
                                     <option value="Especial">Especial</option>
                                 </select>
                             </div>
-                        </div>
-                    </div>
-
-                    <!-- Información de Anticipos -->
-                    <div class="card-premium-section mb-3">
-                        <div class="card-premium-header py-2.5">
-                            <h6 class="mb-0 fw-bold text-slate-800">
-                                <i class="fas fa-money-bill-wave text-primary me-2"></i>Configuración de Anticipos
-                            </h6>
-                        </div>
-                        <div class="card-body p-3">
-                            <div class="form-check mb-3">
-                                <input class="form-check-input" type="checkbox" id="anticipo_activo" name="anticipo_activo" value="1">
-                                <label class="form-check-label fw-bold text-slate-800" for="anticipo_activo">
-                                    Activar anticipo para este cliente
-                                </label>
-                            </div>
-
-                            <div id="anticipo-config" style="display: none;">
-                                <div class="row">
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="limite_anticipo_cajas" class="form-label-premium fw-bold mb-1">Límite de Cajas</label>
-                                            <input type="number" class="form-control form-control-premium" id="limite_anticipo_cajas" 
-                                                   name="limite_anticipo_cajas" min="1" max="100" value="1">
-                                            <div class="form-text small text-muted">Cajas máximas en anticipo</div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="saldo_anticipos" class="form-label-premium fw-bold mb-1">Saldo de Anticipos (C$)</label>
-                                            <input type="number" class="form-control form-control-premium" id="saldo_anticipos" 
-                                                   name="saldo_anticipos" min="0" step="0.01" value="0.00">
-                                            <div class="form-text small text-muted">Saldo inicial de anticipo</div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label for="producto_anticipado" class="form-label-premium fw-bold mb-1">Producto Anticipado</label>
-                                            <select class="form-select form-select-premium" id="producto_anticipado" name="producto_anticipado">
-                                                <option value="">Seleccione un producto</option>
-                                                {% for producto in productos %}
-                                                <option value="{{ producto.ID_Producto }}">{{ producto.Nombre }}</option>
-                                                {% endfor %}
-                                            </select>
-                                            <div class="form-text small text-muted">Producto del anticipo</div>
-                                        </div>
-                                    </div>
+                            <div class="col-md-4">
+                                <label for="saldo_pendiente" class="form-label-premium fw-bold mb-1 small text-uppercase">Saldo Inicial (C$)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0">C$</span>
+                                    <input type="number" class="form-control form-control-premium font-monospace" id="saldo_pendiente" name="saldo_pendiente" 
+                                           step="0.01" min="0" value="0.00"
+                                           placeholder="0.00">
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Saldo Inicial -->
-                    <div class="mb-3">
-                        <label for="saldo_pendiente" class="form-label-premium fw-bold mb-1">Saldo Pendiente Inicial</label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-light border-end-0">C$</span>
-                            <input type="number" class="form-control form-control-premium" id="saldo_pendiente" name="saldo_pendiente" 
-                                   step="0.01" min="0" value="0.00"
-                                   placeholder="0.00">
+                    <!-- Bloque 3: Configuración de Anticipos -->
+                    <div class="card-premium-section p-3 border rounded-3 bg-light bg-opacity-50">
+                        <div class="form-check form-switch d-flex align-items-center justify-content-between p-0 m-0">
+                            <label class="form-check-label fw-bold text-slate-800 mb-0" for="anticipo_activo" style="cursor: pointer;">
+                                <i class="bi bi-gift text-warning me-1.5"></i> Habilitar Anticipos de Producto
+                            </label>
+                            <input class="form-check-input ms-auto" type="checkbox" id="anticipo_activo" name="anticipo_activo" value="1"
+                                   style="width: 2.75em; height: 1.35em; cursor: pointer;">
                         </div>
-                        <div class="form-text small text-muted">Saldo inicial del cliente (opcional, por defecto 0.00)</div>
+
+                        <div id="anticipo-config" style="display: none;" class="mt-3 pt-3 border-top">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label for="limite_anticipo_cajas" class="form-label-premium fw-bold mb-1 small text-uppercase">Límite de Cajas</label>
+                                    <input type="number" class="form-control form-control-premium font-monospace" id="limite_anticipo_cajas" 
+                                           name="limite_anticipo_cajas" min="1" max="1000" value="1">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="saldo_anticipos" class="form-label-premium fw-bold mb-1 small text-uppercase">Saldo Inicial Anticipo (C$)</label>
+                                    <input type="number" class="form-control form-control-premium font-monospace" id="saldo_anticipos" 
+                                           name="saldo_anticipos" min="0" step="0.01" value="0.00">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="producto_anticipado" class="form-label-premium fw-bold mb-1 small text-uppercase">Producto Anticipado</label>
+                                    <select class="form-select form-select-premium" id="producto_anticipado" name="producto_anticipado">
+                                        <option value="">Seleccione producto</option>
+                                        {% for producto in productos %}
+                                        <option value="{{ producto.ID_Producto }}">{{ producto.Nombre }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
                     </div>
+
                 </div>
-                <div class="modal-footer border-top-0 pt-0">
-                    <button type="button" class="btn btn-outline-secondary px-3 py-1.5 rounded-3" data-bs-dismiss="modal">
-                        <i class="fas fa-times me-1"></i> Cancelar
+                <div class="modal-footer bg-light border-0 py-3 px-4">
+                    <button type="button" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3" data-bs-dismiss="modal">
+                        Cancelar
                     </button>
-                    <button type="submit" class="btn btn-outline-primary px-3 py-1.5 rounded-3">
-                        <i class="fas fa-check me-1"></i> Guardar Cliente
+                    <button type="submit" class="btn btn-primary btn-sm px-4 py-2 rounded-3 fw-bold shadow-sm" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); border: none;">
+                        <i class="bi bi-check-circle-fill me-1"></i> Guardar Cliente
                     </button>
                 </div>
             </form>

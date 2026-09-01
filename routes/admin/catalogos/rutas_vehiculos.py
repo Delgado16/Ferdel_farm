@@ -55,7 +55,6 @@ def crear_ruta():
         descripcion = request.form.get('descripcion', '').strip()
         id_empresa = request.form.get('id_empresa')
         
-        print(f"DEBUG: Creando ruta - Nombre: '{nombre_ruta}', Empresa: '{id_empresa}'")
         
         # Validaciones básicas
         if not nombre_ruta:
@@ -86,7 +85,6 @@ def crear_ruta():
             """, (nombre_ruta, descripcion or None, id_empresa))
             
             nuevo_id = cursor.lastrowid
-            print(f"DEBUG: Ruta creada con ID: {nuevo_id}")
         
         flash("✅ Ruta creada exitosamente", "success")
         return redirect(url_for('admin.admin_rutas'))
@@ -131,8 +129,6 @@ def admin_editar_ruta(id_ruta):
                     flash("❌ La ruta no existe", "danger")
                     return redirect(url_for('admin.admin_rutas'))
                 
-                print(f"DEBUG: Mostrando formulario para editar ruta ID: {id_ruta}")
-                print(f"DEBUG: Datos de la ruta: {dict(ruta)}")
                 
                 return render_template('admin/catalog/rutas/editar_ruta.html', 
                                      ruta=ruta, 
@@ -145,8 +141,6 @@ def admin_editar_ruta(id_ruta):
                 descripcion = request.form.get('descripcion', '').strip()
                 id_empresa = request.form.get('id_empresa')
                 
-                print(f"DEBUG: Procesando edición de ruta {id_ruta}")
-                print(f"DEBUG: Datos recibidos - Nombre: '{nombre_ruta}', Empresa: '{id_empresa}'")
                 
                 # Validaciones
                 errores = []
@@ -292,13 +286,10 @@ def admin_editar_ruta(id_ruta):
                     WHERE ID_Ruta = %s
                 """, (nombre_ruta, descripcion or None, id_empresa, id_ruta))
                 
-                print(f"DEBUG: Ruta {id_ruta} actualizada exitosamente")
-                print(f"DEBUG: Cambios realizados: {cambios_detalle}")
                 
                 # Registrar en bitácora
                 if cambios_detalle:
                     cambios_texto = " | ".join(cambios_detalle)
-                    print(f"BITACORA: Ruta {id_ruta} modificada - {cambios_texto}")
                 
                 flash("✅ Ruta actualizada exitosamente", "success")
                 return redirect(url_for('admin.admin_rutas'))
@@ -365,7 +356,6 @@ def cambiar_estado_ruta(id_ruta):
                 WHERE ID_Ruta = %s
             """, (nuevo_estado, id_ruta))
             
-            print(f"DEBUG: Ruta {id_ruta} '{nombre_ruta}' cambiada de '{estado_actual}' a '{nuevo_estado}'")
         
         estado_texto = "desactivada" if nuevo_estado == 'Inactiva' else "activada"
         flash(f"✅ Ruta '{nombre_ruta}' {estado_texto} exitosamente", "success")
@@ -407,7 +397,6 @@ def eliminar_ruta():
             # Eliminar ruta
             cursor.execute("DELETE FROM rutas WHERE ID_Ruta = %s", (id_ruta,))
             
-            print(f"DEBUG: Ruta {id_ruta} '{nombre_ruta}' eliminada")
         
         flash(f"✅ Ruta '{nombre_ruta}' eliminada exitosamente", "success")
         return redirect(url_for('admin.admin_rutas'))

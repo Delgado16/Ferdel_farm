@@ -1030,9 +1030,6 @@ def vendedor_movimiento_detalle(id_movimiento):
     Muestra el detalle de un movimiento específico
     """
     try:
-        print(f"\n=== DEPURACIÓN DETALLE MOVIMIENTO ===")
-        print(f"ID Movimiento solicitado: {id_movimiento}")
-        print(f"Usuario actual ID: {current_user.id if hasattr(current_user, 'id') else 'No ID'}")
         
         # Validar que el usuario tenga ID válido
         if not hasattr(current_user, 'id') or not current_user.id:
@@ -1056,7 +1053,6 @@ def vendedor_movimiento_detalle(id_movimiento):
             asignacion_activa = cursor.fetchone()
             id_asignacion_activa = asignacion_activa['ID_Asignacion'] if asignacion_activa else None
             
-            print(f"Asignación activa encontrada: {id_asignacion_activa}")
             
             # CONSULTA PRINCIPAL CORREGIDA
             # Primero verificamos permisos sin LEFT JOIN problemáticos
@@ -1085,10 +1081,8 @@ def vendedor_movimiento_detalle(id_movimiento):
             
             if movimiento_base['ID_Asignacion'] == id_asignacion_activa:
                 tiene_permiso = True
-                print("Permiso concedido: Movimiento pertenece a asignación activa")
             elif movimiento_base['ID_Usuario_Registra'] == current_user.id:
                 tiene_permiso = True
-                print("Permiso concedido: Vendedor registró el movimiento")
             else:
                 # Verificar si el movimiento pertenece a alguna asignación anterior del vendedor
                 cursor.execute("""
@@ -1101,7 +1095,6 @@ def vendedor_movimiento_detalle(id_movimiento):
                 asignacion_anterior = cursor.fetchone()
                 if asignacion_anterior and asignacion_anterior['total'] > 0:
                     tiene_permiso = True
-                    print("Permiso concedido: Movimiento pertenece a asignación anterior del vendedor")
             
             if not tiene_permiso:
                 flash('No tienes permiso para ver este movimiento', 'error')
@@ -1180,7 +1173,6 @@ def vendedor_movimiento_detalle(id_movimiento):
                 detalle['Precio_Unitario'] = float(detalle['Precio_Unitario'] or 0)
                 detalle['Subtotal'] = float(detalle['Subtotal'] or 0)
             
-            print(f"Detalles encontrados: {len(detalles)}")
             
             # Obtener información del cliente
             cliente_info = None

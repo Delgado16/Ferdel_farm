@@ -183,138 +183,194 @@ def exportar_pdf(datos, nombre_archivo):
     return response
 
 def exportar_pdf_diario(context, nombre_archivo):
-    """Exportar el Reporte Diario detallado a PDF usando ReportLab"""
-    from reportlab.lib.pagesizes import letter
+    """Exportar el Finiquito y Reporte Diario detallado a PDF usando ReportLab"""
+    from reportlab.lib.pagesizes import letter, landscape
     from reportlab.lib import colors
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, KeepTogether
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.graphics.shapes import Drawing
-    from reportlab.graphics.charts.piecharts import Pie
     
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer, 
         pagesize=letter,
-        rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36
+        rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30
     )
     
     story = []
     styles = getSampleStyleSheet()
     
-    titulo_style = ParagraphStyle('Titulo', parent=styles['Heading1'], fontName='Helvetica-Bold', fontSize=16, textColor=colors.HexColor('#2c5e2e'), spaceAfter=10)
-    subtitulo_style = ParagraphStyle('Sub', parent=styles['Heading2'], fontName='Helvetica-Bold', fontSize=12, textColor=colors.HexColor('#1e293b'), spaceAfter=10, spaceBefore=15)
-    fecha_style = ParagraphStyle('Fecha', parent=styles['Normal'], fontName='Helvetica-Oblique', fontSize=10, textColor=colors.HexColor('#64748b'), spaceAfter=20)
-    body_style = ParagraphStyle('Body', parent=styles['Normal'], fontName='Helvetica', fontSize=8)
+    titulo_style = ParagraphStyle('Titulo', parent=styles['Heading1'], fontName='Helvetica-Bold', fontSize=15, textColor=colors.HexColor('#2c5e2e'), spaceAfter=4)
+    subtitulo_style = ParagraphStyle('Sub', parent=styles['Heading2'], fontName='Helvetica-Bold', fontSize=11, textColor=colors.HexColor('#1e293b'), spaceAfter=6, spaceBefore=12)
+    meta_style = ParagraphStyle('Meta', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=9, textColor=colors.HexColor('#475569'), spaceAfter=12)
+    body_style = ParagraphStyle('Body', parent=styles['Normal'], fontName='Helvetica', fontSize=7.5, leading=9)
+    body_bold = ParagraphStyle('BodyBold', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7.5, leading=9)
+    body_right = ParagraphStyle('BodyRight', parent=styles['Normal'], fontName='Helvetica', fontSize=7.5, leading=9, alignment=2)
+    body_right_bold = ParagraphStyle('BodyRightBold', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7.5, leading=9, alignment=2)
     
-    story.append(Paragraph(f"Reporte Diario Consolidado", titulo_style))
-    story.append(Paragraph(f"Fecha del reporte: {context.get('fecha_formatted', '')}", fecha_style))
+    def format_money(val):
+        try:
+            return f"C${float(val):,.2f}"
+        except (ValueError, TypeError):
+            return "C$0.00"
+
+    story.append(Paragraph("FERDEL - FINIQUITO Y REPORTE DIARIO CONSOLIDADO", titulo_style))
+    story.append(Paragraph(f"Fecha de Operación: {context.get('fecha_formatted', '')}  |  Generado: {datetime.now().strftime('%d/%m/%Y %I:%M %p')}", meta_style))
+    story.append(Spacer(1, 4))
     
-    def crear_tabla(datos, headers, col_widths=None):
-        if not datos:
-            return Paragraph("No hay registros.", body_style)
+    def crear_tabla(headers, data_rows, col_widths=None, header_bg='#2c5e2e'):
+        if not data_rows:
+            return Paragraph("No hay registros en esta sección.", body_style)
         
-        table_data = [headers]
-        for row in datos:
-            row_cells = [Paragraph(str(val), body_style) for val in row]
+        table_data = []
+        header_cells = [Paragraph(f"<b>{h}</b>", ParagraphStyle('H', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7.5, textColor=colors.whitesmoke, alignment=1 if 'Monto' in h or 'Total' in h or 'Saldo' in h else 0)) for h in headers]
+        table_data.append(header_cells)
+        
+        for row in data_rows:
+            row_cells = []
+            for idx, val in enumerate(row):
+                if isinstance(val, Paragraph):
+                    row_cells.append(val)
+                else:
+                    val_str = str(val if val is not None else '')
+                    if val_str.startswith('C$') or any(k in headers[idx] for k in ['Monto', 'Total', 'Saldo', 'Crédito', 'Abono', 'Inicial', 'Final']):
+                        row_cells.append(Paragraph(val_str, body_right_bold if 'TOTAL' in str(row[0]) else body_right))
+                    else:
+                        row_cells.append(Paragraph(val_str, body_style))
             table_data.append(row_cells)
             
         t = Table(table_data, colWidths=col_widths)
         t.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#2c5e2e')),
-            ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor(header_bg)),
             ('ALIGN', (0,0), (-1,-1), 'LEFT'),
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('BOTTOMPADDING', (0,0), (-1,0), 6),
-            ('TOPPADDING', (0,0), (-1,0), 6),
-            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e2e8f0')),
+            ('BOTTOMPADDING', (0,0), (-1,0), 4),
+            ('TOPPADDING', (0,0), (-1,0), 4),
+            ('BOTTOMPADDING', (0,1), (-1,-1), 3),
+            ('TOPPADDING', (0,1), (-1,-1), 3),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#cbd5e1')),
             ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#f8fafc')]),
         ]))
         return t
 
-    def format_money(val):
-        return f"C${float(val):,.2f}"
-
-    # 1. Módulos Principales (Resumen)
-    story.append(Paragraph("Módulos Principales del Negocio", subtitulo_style))
+    # 1. RESUMEN EJECUTIVO (MÓDULOS PRINCIPALES)
+    story.append(Paragraph("1. Resumen Ejecutivo de Operaciones del Día", subtitulo_style))
     resumen_datos = [
-        ["Ventas Totales", format_money(context.get('ventas_total', 0)), f"Contado: {format_money(context.get('ventas_contado', 0))} | Crédito: {format_money(context.get('ventas_credito', 0))}"],
-        ["Compras Totales", format_money(context.get('compras_total', 0)), f"Contado: {format_money(context.get('compras_contado', 0))} | Crédito: {format_money(context.get('compras_credito', 0))}"],
-        ["Cuentas x Cobrar", format_money(context.get('cxc_saldo_total', 0)), f"Cobrado Hoy: {format_money(context.get('cobros_total', 0))}"],
-        ["Cuentas x Pagar", format_money(context.get('cxp_saldo_total', 0)), "Saldo Global Pendiente"],
-        ["Inventario", str(context.get('inventario_total_productos', 0)), f"Bajo Stock: {len(context.get('bajo_stock', []))}"]
+        ["Ventas Totales", format_money(context.get('ventas_total', 0)), f"Contado: {format_money(context.get('ventas_contado', 0))} | Crédito: {format_money(context.get('ventas_credito', 0))} (Oficina: {format_money(context.get('ventas_normal', 0))} / Ruta: {format_money(context.get('ventas_ruta', 0))})"],
+        ["Cobranza y Abonos", format_money(context.get('cobros_total', 0)), f"Efectivo: {format_money(context.get('cobros_efectivo', 0))} | Bancos/Transferencias: {format_money(context.get('cobros_bancos', 0))}"],
+        ["Cierre de Caja (Efectivo)", format_money(context.get('caja_saldo_neto', 0)), f"Apertura: {format_money(context.get('caja_apertura', 0))} | Entradas: {format_money(context.get('caja_total_entradas', 0))} | Salidas: {format_money(context.get('caja_total_salidas', 0))}"],
+        ["Cartera Global (CxC)", format_money(context.get('cxc_saldo_total', 0)), f"Nuevos Créditos Hoy: {format_money(context.get('cxc_nuevos_creditos_hoy', 0))} | Abonos Recuperados: {format_money(context.get('cxc_abonos_recuperados_hoy', 0))}"],
+        ["Compras a Proveedores", format_money(context.get('compras_total', 0)), f"Contado: {format_money(context.get('compras_contado', 0))} | Crédito: {format_money(context.get('compras_credito', 0))}"],
+        ["Gastos Operativos", format_money(context.get('gastos_total', 0)), f"Total de gastos operativos directos del día"],
+        ["Inventario Bodega", f"{context.get('inventario_total_productos', 0)} Items", f"Items con Stock Crítico: {len(context.get('bajo_stock', []))}"]
     ]
-    story.append(crear_tabla(resumen_datos, ["Módulo", "Valor/Saldo", "Detalle"], [120, 100, 300]))
-    
-    # Agregar gráficos de pastel
-    def crear_grafico_pastel(data, labels, title):
-        d = Drawing(200, 120)
-        pc = Pie()
-        pc.x = 50
-        pc.y = 10
-        pc.width = 80
-        pc.height = 80
-        
-        # Filtramos datos cero para que el gráfico no falle
-        valid_data = []
-        valid_labels = []
-        for val, lab in zip(data, labels):
-            if val > 0:
-                valid_data.append(val)
-                valid_labels.append(lab)
-                
-        if not valid_data:
-            pc.data = [1]
-            pc.labels = ["Sin datos"]
-            pc.slices[0].fillColor = colors.lightgrey
-        else:
-            pc.data = valid_data
-            pc.labels = valid_labels
-            pc.slices.strokeWidth = 0.5
-            pc.slices[0].fillColor = colors.HexColor('#2c5e2e')  # Verde Ferdel
-            if len(pc.slices) > 1:
-                pc.slices[1].fillColor = colors.HexColor('#f59e0b')  # Amarillo/Naranja
-                
-        d.add(pc)
-        
-        title_p = Paragraph(title, ParagraphStyle('CT', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=9, alignment=1))
-        
-        # Usamos una tablita simple para poner el título arriba del dibujo
-        t = Table([[title_p], [d]], colWidths=[200])
-        t.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE')]))
-        return t
+    story.append(crear_tabla(["Módulo / Concepto", "Monto / Valor", "Desglose Operativo"], resumen_datos, [130, 110, 310]))
+    story.append(Spacer(1, 8))
 
-    # Insertamos los dos gráficos lado a lado en una tabla layout
-    v_data = [float(context.get('ventas_contado', 0)), float(context.get('ventas_credito', 0))]
-    c_data = [float(context.get('compras_contado', 0)), float(context.get('compras_credito', 0))]
-    
-    chart_ventas = crear_grafico_pastel(v_data, ['Contado', 'Crédito'], "Distribución de Ventas")
-    chart_compras = crear_grafico_pastel(c_data, ['Contado', 'Crédito'], "Distribución de Compras")
-    
-    story.append(Spacer(1, 10))
-    charts_table = Table([[chart_ventas, chart_compras]], colWidths=[260, 260])
-    charts_table.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER')]))
-    story.append(charts_table)
-    story.append(Spacer(1, 15))
-    
-    # 2. Caja Chica
-    story.append(Paragraph(f"Caja Chica (Saldo Neto: {format_money(context.get('caja_saldo_neto', 0))})", subtitulo_style))
-    caja_datos = [[m.get('tipo', ''), m.get('descripcion', ''), m.get('referencia', ''), format_money(m.get('monto', 0))] for m in context.get('caja_movimientos', [])]
-    story.append(crear_tabla(caja_datos, ["Tipo", "Descripción", "Referencia", "Monto"], [60, 260, 100, 100]))
-    
-    # 3. Gastos
-    story.append(Paragraph(f"Gastos Operativos (Total: {format_money(context.get('gastos_total', 0))})", subtitulo_style))
-    gastos_datos = [[g.get('tipo_gasto', ''), g.get('proveedor', ''), g.get('factura', ''), format_money(g.get('monto', 0))] for g in context.get('gastos', [])]
-    story.append(crear_tabla(gastos_datos, ["Tipo", "Proveedor/Destino", "Ref", "Monto"], [120, 200, 100, 100]))
-    
-    # 4. Compras
-    story.append(Paragraph(f"Compras a Proveedores (Total: {format_money(context.get('compras_total', 0))})", subtitulo_style))
-    compras_datos = [[c.get('factura', ''), c.get('proveedor', ''), c.get('tipo_compra', ''), format_money(c.get('total', 0))] for c in context.get('compras', [])]
-    story.append(crear_tabla(compras_datos, ["Factura", "Proveedor", "Condición", "Total"], [80, 240, 100, 100]))
-    
-    # 5. Productos Vendidos
-    story.append(Paragraph("Top Productos Vendidos Hoy", subtitulo_style))
-    prod_datos = [[p.get('codigo', ''), p.get('producto', ''), str(p.get('cantidad', 0)), format_money(p.get('total', 0))] for p in context.get('productos_vendidos', [])]
-    story.append(crear_tabla(prod_datos, ["Código", "Producto", "Cantidad", "Total"], [80, 240, 100, 100]))
+    # 2. CONCILIACIÓN Y FLUJO DE EFECTIVO EN CAJA
+    story.append(Paragraph(f"2. Arqueo y Conciliación de Efectivo (Saldo Esperado: {format_money(context.get('caja_saldo_neto', 0))})", subtitulo_style))
+    conciliacion_datos = [
+        ["Apertura de Caja", "INICIAL", format_money(context.get('caja_apertura', 0))],
+        ["(+) Ventas de Contado (Efectivo Oficina + Rutas)", "VENTAS-CONT", format_money(context.get('ventas_contado', 0))],
+        ["(+) Abonos de Clientes Cobrados en Efectivo", "ABONOS-EFECT", format_money(context.get('cobros_efectivo', 0))],
+        ["(-) Gastos Operativos Pagados en Efectivo", "GASTOS-OP", f"- {format_money(context.get('gastos_total', 0))}"],
+        ["(-) Compras a Proveedores de Contado", "COMPRAS-CONT", f"- {format_money(context.get('compras_contado', 0))}"]
+    ]
+    story.append(crear_tabla(["Concepto de Flujo", "Referencia", "Monto"], conciliacion_datos, [260, 140, 150], header_bg='#059669'))
+    story.append(Spacer(1, 8))
+
+    # 3. CARTERA DE CLIENTES: SALDOS Y VARIACIÓN DEL DÍA
+    story.append(Paragraph(f"3. Cartera de Clientes: Saldos y Variación del Día ({len(context.get('clientes_cartera', []))} clientes)", subtitulo_style))
+    clientes_datos = []
+    for c in context.get('clientes_cartera', [])[:30]:  # Top 30 clientes con movimiento o saldo
+        cred_txt = format_money(c.get('credito_hoy', 0)) if c.get('credito_hoy', 0) > 0 else "-"
+        abono_txt = format_money(c.get('abono_hoy', 0)) if c.get('abono_hoy', 0) > 0 else "-"
+        clientes_datos.append([
+            c.get('nombre', '')[:25],
+            format_money(c.get('saldo_inicial', 0)),
+            cred_txt,
+            abono_txt,
+            format_money(c.get('saldo_actual', 0)),
+            c.get('tipo_variacion', 'SIN CAMBIO'),
+            c.get('estado_deuda', '')
+        ])
+    story.append(crear_tabla(["Cliente", "Saldo Inicial", "(+) Crédito", "(-) Abono", "Saldo Final", "Variación", "Estado"], clientes_datos, [140, 70, 65, 65, 70, 70, 70], header_bg='#1e293b'))
+    story.append(Spacer(1, 8))
+
+    # 4. FACTURACIÓN Y VENTAS DEL DÍA
+    story.append(Paragraph(f"4. Detalle de Facturas Emitidas Hoy ({len(context.get('ventas_detalle', []))} facturas)", subtitulo_style))
+    ventas_rows = []
+    for v in context.get('ventas_detalle', []):
+        ventas_rows.append([
+            v.get('id_factura', ''),
+            v.get('origen', ''),
+            v.get('cliente', '')[:22],
+            v.get('vendedor', '')[:16],
+            v.get('tipo_venta', ''),
+            format_money(v.get('total', 0))
+        ])
+    story.append(crear_tabla(["Factura", "Origen", "Cliente", "Vendedor", "Condición", "Total"], ventas_rows, [70, 95, 145, 95, 65, 80], header_bg='#4338ca'))
+    story.append(Spacer(1, 8))
+
+    # 5. RECAUDACIÓN Y ABONOS DETALLADOS
+    story.append(Paragraph(f"5. Cobros y Abonos Recibidos ({len(context.get('cobros_list', []))} recibos)", subtitulo_style))
+    cobros_rows = []
+    for ab in context.get('cobros_list', []):
+        cobros_rows.append([
+            ab.get('cliente', '')[:25],
+            ab.get('cobrador', '')[:18],
+            ab.get('factura', '')[:16],
+            ab.get('metodo', ''),
+            format_money(ab.get('monto', 0))
+        ])
+    story.append(crear_tabla(["Cliente", "Cobrador / Vendedor", "Factura Aplicada", "Método de Pago", "Monto"], cobros_rows, [160, 110, 100, 90, 90], header_bg='#d97706'))
+    story.append(Spacer(1, 8))
+
+    # 6. RENDIMIENTO DE VENDEDORES EN RUTA
+    if context.get('vendedores'):
+        story.append(Paragraph("6. Rendimiento por Vendedor / Rutas", subtitulo_style))
+        vend_rows = []
+        for vend in context.get('vendedores', []):
+            vend_rows.append([
+                vend.get('vendedor', ''),
+                str(vend.get('facturas', 0)),
+                format_money(vend.get('ventas_contado', 0)),
+                format_money(vend.get('ventas_credito', 0)),
+                format_money(vend.get('total_vendido', 0))
+            ])
+        story.append(crear_tabla(["Vendedor", "Facturas", "Ventas Contado", "Ventas Crédito", "Total Vendido"], vend_rows, [150, 80, 110, 110, 100], header_bg='#0f172a'))
+        story.append(Spacer(1, 8))
+
+    # 7. EGRESOS: COMPRAS Y GASTOS OPERATIVOS
+    story.append(Paragraph("7. Egresos del Día (Compras a Proveedores y Gastos)", subtitulo_style))
+    egresos_rows = []
+    for c in context.get('compras', []):
+        egresos_rows.append([
+            "COMPRA PROVEEDOR",
+            c.get('proveedor', '')[:25],
+            f"Fact: {c.get('factura', 'N/A')} ({c.get('tipo_compra', 'CONTADO')})",
+            format_money(c.get('total', 0))
+        ])
+    for g in context.get('gastos', []):
+        egresos_rows.append([
+            f"GASTO: {g.get('tipo_gasto', '')[:18]}",
+            g.get('proveedor', 'N/A')[:25],
+            f"Ref: {g.get('factura', 'N/A')} - {g.get('subcategoria', '')[:15]}",
+            format_money(g.get('monto', 0))
+        ])
+    story.append(crear_tabla(["Tipo de Egreso", "Proveedor / Beneficiario", "Referencia / Detalle", "Monto"], egresos_rows, [140, 150, 160, 100], header_bg='#dc2626'))
+    story.append(Spacer(1, 8))
+
+    # 8. TOP PRODUCTOS VENDIDOS E INVENTARIO
+    story.append(Paragraph("8. Top Productos Vendidos Hoy", subtitulo_style))
+    prod_datos = []
+    for p in context.get('productos_vendidos', [])[:15]:
+        prod_datos.append([
+            p.get('codigo', ''),
+            p.get('producto', '')[:35],
+            str(p.get('cantidad', 0)),
+            format_money(p.get('total', 0))
+        ])
+    story.append(crear_tabla(["Código", "Producto", "Cantidad Vendida", "Total"], prod_datos, [80, 260, 110, 100], header_bg='#2c5e2e'))
 
     doc.build(story)
     buffer.seek(0)
@@ -323,3 +379,4 @@ def exportar_pdf_diario(context, nombre_archivo):
     response.headers['Content-Disposition'] = f'attachment; filename={nombre_archivo}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf'
     response.headers['Content-type'] = 'application/pdf'
     return response
+

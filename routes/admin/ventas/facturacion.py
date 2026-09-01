@@ -258,9 +258,6 @@ def admin_ventas_salidas():
             suma_contado_credito = ventas_contado_total + ventas_credito_total
             diferencia = abs(ventas_totales - suma_contado_credito)
             if diferencia > 0.01:
-                print(f"⚠️ ADVERTENCIA: Discrepancia en ventas detectada")
-                print(f"   Total BD: {ventas_totales}, Contado: {ventas_contado_total}, Crédito: {ventas_credito_total}")
-                print(f"   Suma manual: {suma_contado_credito}, Diferencia: {diferencia}")
                 ventas_totales = suma_contado_credito
             
             # ========== ESTADÍSTICAS PARA LAS VENTAS MOSTRADAS (LIMIT 100) ==========
@@ -440,7 +437,6 @@ def admin_crear_venta():
 
         # Si es POST, procesar el formulario
         if request.method == 'POST':
-            print("📨 Iniciando procesamiento de venta...")
             
             # Obtener datos del formulario
             id_cliente = request.form.get('id_cliente','').strip()
@@ -462,14 +458,10 @@ def admin_crear_venta():
             es_bonificacion_list = request.form.getlist('es_bonificacion[]')
             cantidad_sueltos_list = request.form.getlist('cantidad_sueltos[]')
             
-            print(f"Datos recibidos - Cliente: {id_cliente}, Tipo: {tipo_venta}")
-            print(f"Productos recibidos: {len(productos_ids)}")
-            print(f"Métodos de pago: {len(metodos_pago_ids)}")
             
             # Validaciones básicas
             if not id_cliente or not tipo_venta:
                 error_msg = 'Cliente y tipo de venta son obligatorios'
-                print(f"❌ {error_msg}")
                 flash(error_msg, 'error')
                 return render_template('admin/ventas/crear_venta.html',
                                     clientes=clientes,
@@ -482,7 +474,6 @@ def admin_crear_venta():
             
             if not productos_ids or len(productos_ids) == 0:
                 error_msg = 'Debe agregar al menos un producto a la venta'
-                print(f"❌ {error_msg}")
                 flash(error_msg, 'error')
                 return render_template('admin/ventas/crear_venta.html',
                                     clientes=clientes,
@@ -512,9 +503,6 @@ def admin_crear_venta():
                 saldo_actual_cliente = float(cliente_data['Saldo_Pendiente_Total'] or 0)
                 saldo_anticipos_cliente = float(cliente_data['Saldo_Anticipos'] or 0)
                 
-                print(f"👤 Cliente: {nombre_cliente}")
-                print(f"📊 Perfil: {perfil_cliente} | Tipo: {tipo_cliente}")
-                print(f"💰 Saldo actual del cliente (antes de esta venta): C${saldo_actual_cliente:,.2f}")
                 
                 # Verificar facturas pendientes (solo para información)
                 cursor.execute("""
@@ -536,7 +524,6 @@ def admin_crear_venta():
                 total_pendiente = float(estado_cuenta['total_pendiente'] or 0)
                 
                 if facturas_pendientes > 0:
-                    print(f"📋 Cliente tiene {facturas_pendientes} factura(s) pendiente(s) por C${total_pendiente:,.2f}")
                     observacion = f"{observacion} | Cliente tiene {facturas_pendientes} factura(s) pendiente(s) por C${total_pendiente:,.2f}"
                 
                 # Validar visibilidad de productos
@@ -591,7 +578,6 @@ def admin_crear_venta():
                 if productos_invalidos:
                     productos_error = ", ".join([f"{p['nombre']} ({p['categoria']})" for p in productos_invalidos])
                     error_msg = f"Los siguientes productos no están disponibles para este cliente ({tipo_cliente}): {productos_error}"
-                    print(f"❌ {error_msg}")
                     
                     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                         return jsonify({'success': False, 'error': error_msg}), 400
@@ -606,7 +592,6 @@ def admin_crear_venta():
                                             metodos_pago=metodos_pago,
                                             id_tipo_movimiento=id_tipo_movimiento)
                 
-                print("✅ Validación de visibilidad completada")
                 
                 # Calcular total de la venta
                 total_venta = 0
@@ -681,15 +666,10 @@ def admin_crear_venta():
                 if monto_usado_saldo_favor > saldo_anticipos_cliente:
                     raise Exception(f'El monto pagado con Saldo a Favor (C${monto_usado_saldo_favor:,.2f}) excede el saldo disponible del cliente (C${saldo_anticipos_cliente:,.2f})')
                 
-                print(f"📊 Total venta: C${total_venta:,.2f}")
-                print(f"💵 Total pagado: C${total_pagado:,.2f}")
-                print(f"💰 Monto en EFECTIVO: C${monto_efectivo:,.2f}")
-                print(f"💳 Monto usado de Saldo a Favor: C${monto_usado_saldo_favor:,.2f}")
                 
                 exceso_pago = 0
                 if total_pagado > total_venta:
                     exceso_pago = total_pagado - total_venta
-                    print(f"💰 Pago en exceso detectado: C${exceso_pago:,.2f}")
                 
                 # 🔥 LÓGICA PRINCIPAL: Determinar el saldo a crédito
                 if tipo_venta == 'reparto':
@@ -711,7 +691,6 @@ def admin_crear_venta():
                         if not fecha_vencimiento:
                             from datetime import date, timedelta
                             fecha_vencimiento = (date.today() + timedelta(days=30)).isoformat()
-                            print(f"📅 Fecha de vencimiento asignada: {fecha_vencimiento}")
                         
                         # Agregar a la observación
                         observacion = f"{observacion} | PAGO PARCIAL: Pagó C${total_pagado:,.2f}, Saldo pendiente C${saldo_pendiente:,.2f} (Vence: {fecha_vencimiento})"
@@ -721,7 +700,6 @@ def admin_crear_venta():
                         else:
                             observacion = f"{observacion} | PAGO COMPLETO: Canceló el 100% de la factura"
                 
-                print(f"💰 Saldo pendiente a crédito: C${saldo_pendiente:,.2f}")
                 
                 # 1. Crear factura
                 import json
@@ -754,7 +732,6 @@ def admin_crear_venta():
                 # Obtener el ID de la factura
                 cursor.execute("SELECT LAST_INSERT_ID() as id_factura")
                 id_factura = cursor.fetchone()['id_factura']
-                print(f"🧾 Factura #{id_factura} creada (Credito_Contado={es_credito})")
                 
                 total_cajillas_huevos = 0
                 
@@ -795,7 +772,6 @@ def admin_crear_venta():
                         WHERE ID_Bodega = %s AND ID_Producto = %s
                     """, (item['cantidad'], id_bodega_principal, item['id_producto']))
                     
-                    print(f"  {item['cantidad']} x C${item['precio']} = C${item['total_linea']}")
                     
                     # Detectar productos de huevos
                     cursor.execute("SELECT ID_Categoria FROM productos WHERE ID_Producto = %s", (item['id_producto'],))
@@ -803,7 +779,6 @@ def admin_crear_venta():
                     if producto_cat and producto_cat['ID_Categoria'] == ID_CATEGORIA_HUEVOS:
                         total_cajillas_huevos += item['cantidad']
                 
-                print(f"🥚 Total cajillas de huevos: {total_cajillas_huevos}")
                 
                 # 3. Procesar separadores
                 separadores_totales = 0
@@ -813,7 +788,6 @@ def admin_crear_venta():
                     separadores_base_extra = (total_cajillas_huevos // 10) * 2
                     separadores_totales = separadores_entre_cajillas + separadores_base_extra
                     
-                    print(f"📦 Separadores necesarios: {separadores_totales}")
                     
                     cursor.execute("""
                         SELECT COALESCE(Existencias, 0) as Stock 
@@ -838,10 +812,8 @@ def admin_crear_venta():
                             VALUES (%s, %s, %s, 0, 0)
                         """, (id_factura, ID_SEPARADOR, separadores_totales))
                         
-                        print(f"  ✅ {separadores_totales} separadores descontados")
                     else:
                         warning_msg = f'Stock insuficiente de separadores. Necesarios: {separadores_totales}, Disponibles: {stock_actual_separadores}'
-                        print(f"  ⚠️ {warning_msg}")
                         cursor.execute("""
                             UPDATE facturacion 
                             SET Observacion = CONCAT(COALESCE(Observacion, ''), ' | [ADVERTENCIA: ', %s, ']')
@@ -925,15 +897,13 @@ def admin_crear_venta():
                         id_usuario,
                         f'FAC-{id_factura:05d}'
                     ))
-                    print(f"💰 Pago en EFECTIVO registrado en caja: C${monto_efectivo:,.2f}")
                 else:
-                    print(f"ℹ️ No hay pago en efectivo - No se registra movimiento en caja")
+                    pass
                 
                 # 7. Crear cuenta por cobrar si hay saldo pendiente
                 nuevo_saldo_anticipos = max(0.0, saldo_anticipos_cliente - monto_usado_saldo_favor + exceso_pago)
                 
                 if saldo_pendiente > 0:
-                    print(f"🔴 Creando cuenta por cobrar por saldo pendiente: C${saldo_pendiente:,.2f}")
                     
                     # 🔥 ACTUALIZAR SALDO PENDIENTE CONSOLIDADO DEL CLIENTE
                     nuevo_saldo = saldo_actual_cliente + saldo_pendiente
@@ -947,11 +917,6 @@ def admin_crear_venta():
                         WHERE ID_Cliente = %s
                     """, (nuevo_saldo, nuevo_saldo_anticipos, id_factura, id_cliente))
                     
-                    print(f"💰 Saldo cliente actualizado:")
-                    print(f"   Saldo anterior: C${saldo_actual_cliente:,.2f}")
-                    print(f"   + Nuevo crédito: C${saldo_pendiente:,.2f}")
-                    print(f"   = Nuevo saldo total: C${nuevo_saldo:,.2f}")
-                    print(f"   = Nuevo saldo anticipos: C${nuevo_saldo_anticipos:,.2f}")
                     
                     # Insertar registro en cuentas por cobrar
                     cursor.execute("""
@@ -973,7 +938,6 @@ def admin_crear_venta():
                         id_factura,
                         id_usuario
                     ))
-                    print(f"💳 Cuenta por cobrar creada por C${saldo_pendiente:,.2f} con vencimiento {fecha_vencimiento}")
                 else:
                     # No hay crédito, solo actualizar última factura y saldo a favor
                     cursor.execute("""
@@ -983,7 +947,6 @@ def admin_crear_venta():
                             ID_Ultima_Factura = %s
                         WHERE ID_Cliente = %s
                     """, (nuevo_saldo_anticipos, id_factura, id_cliente))
-                    print(f"ℹ️ No hay saldo pendiente - No se crea cuenta por cobrar. Nuevo saldo anticipos: C${nuevo_saldo_anticipos:,.2f}")
                 
                 # Construir mensaje de éxito
                 if es_credito == 2:
@@ -993,7 +956,6 @@ def admin_crear_venta():
                 else:
                     success_msg = f'✅ Venta {perfil_cliente} completada! Factura #{id_factura} - Total: C${total_venta:,.2f} - Pagado: C${total_pagado:,.2f}'
                 
-                print(f"🎯 {success_msg}")
                 flash(success_msg, 'success')
                 
                 return jsonify({
@@ -1507,7 +1469,6 @@ def admin_detalles_venta(id_factura):
                         ORDER BY pc.Fecha DESC
                     """, (id_factura,))
                     pagos = cursor.fetchall()
-                    print(f"DEBUG - Pagos encontrados para factura {id_factura}: {len(pagos)}")
                 except Exception as e:
                     print(f"Error al obtener pagos: {e}")
                     pagos = []
@@ -1537,14 +1498,6 @@ def admin_detalles_venta(id_factura):
                 movimiento_info = cursor.fetchone()
             
             # DEBUG: Imprimir información para verificar
-            print(f"DEBUG - Factura ID: {factura['ID_Factura']}")
-            print(f"DEBUG - Fecha Formateada: {factura['Fecha_Formateada']}")
-            print(f"DEBUG - Tipo Venta Formateado: {factura['Tipo_Venta_Formateado']}")
-            print(f"DEBUG - Estado Factura: {factura['Estado_Factura']}")
-            print(f"DEBUG - Total Pagado: {total_pagado}")
-            print(f"DEBUG - Saldo Pendiente: {saldo_pendiente}")
-            print(f"DEBUG - Métodos de Pago: {len(metodos_pago)}")
-            print(f"DEBUG - Pagos históricos: {len(pagos)}")
             
             return render_template('admin/ventas/detalle_venta.html',
                                  factura=factura,
@@ -1779,8 +1732,6 @@ def admin_anular_venta(id_factura):
     elif request.method == 'POST':
         # ============ PROCESAR ANULACIÓN ============
         try:
-            print(f"🔄 Iniciando anulación de venta #{id_factura}...")
-            print(f"⚠️  VERIFICACIÓN: No se debe crear ningún INSERT en movimientos_inventario")
             
             # Verificar usuario
             if not id_usuario:
@@ -1839,20 +1790,15 @@ def admin_anular_venta(id_factura):
                     flash(f'Esta venta ya está {venta["Estado"].lower()}', 'warning')
                     return redirect(url_for('admin.admin_ventas_salidas'))
                 
-                print(f"📋 Venta #{id_factura} encontrada - Cliente: {venta['cliente_nombre']}")
-                print(f"📦 Movimiento original: #{venta['id_movimiento_original']}")
-                print(f"💰 Total factura: C${float(venta['total_factura'] or 0):,.2f}")
                 
                 # Forzar reversión de efectivo si hay movimientos de caja activos
                 if venta['movimientos_caja_activos'] > 0:
-                    print(f"💰 Esta factura tiene {venta['movimientos_caja_activos']} movimiento(s) de caja ACTIVO(s)")
                     hay_que_revertir_efectivo = True
                 
                 # Validar cuenta por cobrar si es crédito
                 if venta['Credito_Contado'] == 1 and venta['id_cuenta_cobrar']:
                     if venta['estado_cuenta'] == 'Pagada':
                         hay_que_revertir_efectivo = True
-                        print("⚠️  Cuenta por cobrar pagada - se requiere reversión de efectivo")
                     elif venta['estado_cuenta'] == 'Anulada':
                         flash('La cuenta por cobrar ya está anulada', 'warning')
                         return redirect(url_for('admin.admin_ventas_salidas'))
@@ -1880,7 +1826,6 @@ def admin_anular_venta(id_factura):
                 
                 # Calcular total de la venta
                 total_venta = sum(float(p['subtotal']) for p in productos_vendidos)
-                print(f"📦 Productos a revertir: {len(productos_vendidos)}")
                 
                 # 3. DETERMINAR BODEGA
                 id_bodega = None
@@ -1890,7 +1835,6 @@ def admin_anular_venta(id_factura):
                     cursor.execute("SELECT Nombre FROM bodegas WHERE ID_Bodega = %s", (id_bodega,))
                     bodega = cursor.fetchone()
                     nombre_bodega = bodega['Nombre'] if bodega else "Desconocida"
-                    print(f"🏪 Bodega original: {nombre_bodega} (#{id_bodega})")
                 else:
                     cursor.execute("""
                         SELECT ID_Bodega, Nombre FROM bodegas WHERE Estado = 1 LIMIT 1
@@ -1907,7 +1851,6 @@ def admin_anular_venta(id_factura):
                 movimientos_caja_anulados = 0
                 monto_total_revertido = 0
                 
-                print(f"💰 Anulando movimientos de caja para factura #{id_factura}...")
                 
                 cursor.execute("""
                     SELECT ID_Movimiento, Monto, Tipo_Movimiento, Estado, Descripcion, Es_Ajuste
@@ -1937,7 +1880,6 @@ def admin_anular_venta(id_factura):
                             movimientos_caja_anulados += 1
                             monto_total_revertido += float(movimiento['Monto'] or 0)
                 
-                print(f"✅ Movimientos de caja anulados: {movimientos_caja_anulados}, Total monto: C${monto_total_revertido:,.2f}")
                 
                 # 4. MODIFICAR EL MOVIMIENTO DE INVENTARIO ORIGINAL (NO CREAR NUEVO)
                 if not venta['id_movimiento_original']:
@@ -1945,7 +1887,6 @@ def admin_anular_venta(id_factura):
                     return redirect(url_for('admin.admin_ventas_salidas'))
                 
                 id_movimiento_original = venta['id_movimiento_original']
-                print(f"🔄 Modificando movimiento original #{id_movimiento_original} en lugar de crear uno nuevo")
                 
                 # Preparar observación
                 observacion_anulacion = f'ANULADA - Venta #{id_factura} - Cliente: {venta["cliente_nombre"]} - Motivo: {motivo_anulacion}'
@@ -1963,7 +1904,6 @@ def admin_anular_venta(id_factura):
                     WHERE ID_Movimiento = %s
                 """, (observacion_anulacion, id_usuario, id_movimiento_original))
                 
-                print(f"✅ Movimiento #{id_movimiento_original} actualizado a tipo ANULACIÓN")
                 
                 # ELIMINAR detalles anteriores
                 cursor.execute("""
@@ -1971,7 +1911,6 @@ def admin_anular_venta(id_factura):
                     WHERE ID_Movimiento = %s
                 """, (id_movimiento_original,))
                 
-                print(f"🗑️  Detalles anteriores eliminados")
                 
                 # INSERTAR nuevos detalles en el MISMO movimiento
                 total_devolucion = 0
@@ -2023,8 +1962,6 @@ def admin_anular_venta(id_factura):
                         'total': subtotal
                     })
                 
-                print(f"✅ {len(productos_devueltos)} productos devueltos al inventario")
-                print(f"💰 Total devolución: C${total_devolucion:,.2f}")
                 
                 # 5. ANULAR LA FACTURA
                 nueva_observacion = f"{venta['Observacion'] or ''} | ANULADA: {motivo_anulacion}"
@@ -2037,7 +1974,6 @@ def admin_anular_venta(id_factura):
                     WHERE ID_Factura = %s
                 """, (nueva_observacion, id_factura))
                 
-                print(f"📝 Factura #{id_factura} ANULADA")
                 
                 # 6. ANULAR CUENTA POR COBRAR SI ES CRÉDITO
                 if venta['Credito_Contado'] == 1 and venta['id_cuenta_cobrar']:
@@ -2053,7 +1989,7 @@ def admin_anular_venta(id_factura):
                     """, (motivo_anulacion, venta['id_cuenta_cobrar']))
                     
                     if cursor.rowcount > 0:
-                        print(f"✅ Cuenta por cobrar #{venta['id_cuenta_cobrar']} anulada")
+                        pass
                 
                 # 7. VERIFICACIÓN FINAL - CONFIRMAR QUE NO HAY REGISTROS DUPLICADOS
                 cursor.execute("""
@@ -2066,14 +2002,9 @@ def admin_anular_venta(id_factura):
                 """, (id_factura,))
                 
                 verificacion = cursor.fetchone()
-                print(f"🔍 Verificación final - Movimientos para factura #{id_factura}:")
-                print(f"   Total registros: {verificacion['total']} (debe ser 1)")
-                print(f"   IDs: {verificacion['ids']}")
-                print(f"   Estados: {verificacion['estados']}")
-                print(f"   Tipos: {verificacion['tipos']}")
                 
                 if verificacion['total'] > 1:
-                    print(f"⚠️  ALERTA: Hay {verificacion['total']} registros, debería haber solo 1")
+                    pass
                 
                 # Mensaje de éxito
                 mensaje = f'✅ VENTA #{id_factura} ANULADA EXITOSAMENTE\n'
@@ -3659,7 +3590,6 @@ def obtener_productos_por_categoria_venta(id_categoria):
             bodega_result = cursor.fetchone()
             id_bodega = bodega_result['ID_Bodega'] if bodega_result else 1
         
-        print(f"🔍 [VENTAS] Filtrando productos - Categoría: {id_categoria}, Bodega: {id_bodega}")
         
         with get_db_cursor(True) as cursor:
             if id_categoria == 0:  # Todas las categorías
@@ -3705,7 +3635,6 @@ def obtener_productos_por_categoria_venta(id_categoria):
                 """, (id_bodega, id_categoria, id_empresa))
             
             productos = cursor.fetchall()
-            print(f"✅ [VENTAS] Productos encontrados: {len(productos)} para categoría {id_categoria}")
             
             productos_list = []
             for producto in productos:
@@ -3745,7 +3674,6 @@ def obtener_todos_productos_venta():
             bodega_result = cursor.fetchone()
             id_bodega = bodega_result['ID_Bodega'] if bodega_result else 1
         
-        print(f"🔍 [VENTAS] Cargando TODOS los productos con los 3 precios - Bodega: {id_bodega}")
         
         with get_db_cursor(True) as cursor:
             cursor.execute("""
@@ -3769,7 +3697,6 @@ def obtener_todos_productos_venta():
             """, (id_bodega, id_empresa))
             
             productos = cursor.fetchall()
-            print(f"✅ [VENTAS] Total productos encontrados: {len(productos)}")
             
             productos_list = []
             for producto in productos:
@@ -3843,7 +3770,6 @@ def verificar_stock_producto(id_producto):
             bodega_result = cursor.fetchone()
             id_bodega = bodega_result['ID_Bodega'] if bodega_result else 1
         
-        print(f"🔍 [STOCK] Verificando stock - Producto: {id_producto}, Bodega: {id_bodega}")
         
         with get_db_cursor(True) as cursor:
             cursor.execute("""
@@ -3868,7 +3794,6 @@ def verificar_stock_producto(id_producto):
             
             if producto:
                 stock = float(producto['Existencias'])
-                print(f"✅ [STOCK] Producto {id_producto}: {stock} unidades en {producto['Bodega']}")
                 
                 return jsonify({
                     'success': True,
@@ -3884,7 +3809,6 @@ def verificar_stock_producto(id_producto):
                     }
                 })
             else:
-                print(f" [STOCK] Producto {id_producto} no encontrado en bodega {id_bodega}")
                 return jsonify({'success': False, 'error': 'Producto no encontrado'}), 404
                 
     except Exception as e:

@@ -3,109 +3,357 @@
 {% block title %}Gestión de Ventas - FerDel{% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-    /* Estilos específicos para ventas */
+    /* ========================================================
+       SISTEMA DE DISEÑO PREMIUM - GESTIÓN DE VENTAS
+       ======================================================== */
+    :root {
+        --slate-50: #f8fafc;
+        --slate-100: #f1f5f9;
+        --slate-200: #e2e8f0;
+        --slate-300: #cbd5e1;
+        --slate-400: #94a3b8;
+        --slate-500: #64748b;
+        --slate-600: #475569;
+        --slate-700: #334155;
+        --slate-800: #1e293b;
+        --slate-900: #0f172a;
+
+        --primary-brand: #2c5e2e;
+        --primary-brand-dark: #1e4620;
+        --secondary-brand: #10b981;
+
+        --card-radius: 16px;
+        --card-shadow: 0 4px 15px -3px rgba(15, 23, 42, 0.06), 0 2px 6px -2px rgba(15, 23, 42, 0.04);
+        --card-shadow-hover: 0 12px 28px -4px rgba(15, 23, 42, 0.12), 0 4px 10px -2px rgba(15, 23, 42, 0.06);
+    }
+
+    /* Tipografía y Textos de Alto Contraste */
+    .text-slate-800 {
+        color: var(--slate-800) !important;
+    }
+
+    .text-slate-700 {
+        color: var(--slate-700) !important;
+    }
+
+    .text-slate-600 {
+        color: var(--slate-600) !important;
+    }
+
+    .text-slate-500 {
+        color: var(--slate-500) !important;
+    }
+
+    /* Encabezado General */
+    .historial-header {
+        background: #ffffff;
+        border-radius: var(--card-radius);
+        padding: 1.5rem 1.75rem;
+        border: 1px solid var(--slate-200);
+        box-shadow: var(--card-shadow);
+    }
+
+    .historial-header h3 {
+        color: var(--slate-900);
+        font-weight: 800;
+        letter-spacing: -0.02em;
+    }
+
+    /* ========================================================
+       TARJETAS KPI / ESTADÍSTICAS (MÁXIMA LEGIBILIDAD)
+       ======================================================== */
     .stat-card {
-        transition: transform 0.2s, box-shadow 0.2s;
-        cursor: pointer;
-        border-radius: 16px !important;
+        border-radius: var(--card-radius) !important;
+        border: none !important;
+        transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+        box-shadow: var(--card-shadow);
     }
 
     .stat-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 0.5rem 1.5rem rgba(15, 23, 42, 0.15) !important;
+        transform: translateY(-4px);
+        box-shadow: var(--card-shadow-hover);
     }
 
-    /* Gradientes temáticos alineados */
+    /* Gradientes con alto contraste */
     .bg-facturado-gradient {
-        background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%) !important;
+        background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%) !important;
     }
 
     .bg-contado-gradient {
-        background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
+        background: linear-gradient(135deg, #065f46 0%, #059669 100%) !important;
     }
 
     .bg-credito-gradient {
-        background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%) !important;
+        background: linear-gradient(135deg, #b45309 0%, #d97706 100%) !important;
     }
 
     .bg-cobrar-gradient {
-        background: linear-gradient(135deg, #991b1b 0%, #ef4444 100%) !important;
+        background: linear-gradient(135deg, #991b1b 0%, #dc2626 100%) !important;
     }
 
-    .table-inactive {
-        opacity: 0.6;
+    .stat-card .card-title-sub {
+        color: rgba(255, 255, 255, 0.95) !important;
+        font-weight: 700;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .stat-card .stat-amount {
+        color: #ffffff !important;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        line-height: 1.15;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .stat-card .stat-note {
+        color: rgba(255, 255, 255, 0.88) !important;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+
+    .stat-card .stat-icon-wrapper {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.22);
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        backdrop-filter: blur(4px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.35rem;
+        color: #ffffff;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+    }
+
+    .stat-card .stat-footer {
+        border-top: 1px solid rgba(255, 255, 255, 0.25);
+        padding-top: 0.75rem;
+        color: rgba(255, 255, 255, 0.95);
+        font-size: 0.82rem;
+    }
+
+    .stat-card .stat-footer strong {
+        color: #ffffff;
+        font-weight: 700;
+    }
+
+    /* ========================================================
+       SECCIÓN PRINCIPAL / TABLA / FILTROS
+       ======================================================== */
+    .card-premium-section {
+        background: #ffffff;
+        border-radius: var(--card-radius);
+        border: 1px solid var(--slate-200);
+        box-shadow: var(--card-shadow);
+        overflow: hidden;
+    }
+
+    .card-premium-header {
+        background: #ffffff;
+        border-bottom: 1px solid var(--slate-200);
+        padding: 1.25rem 1.5rem;
+    }
+
+    .form-control-premium,
+    .form-select-premium {
+        background-color: var(--slate-50);
+        border: 1px solid var(--slate-300);
+        border-radius: 10px;
+        padding: 0.55rem 0.85rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--slate-800);
+        transition: all 0.2s ease;
+    }
+
+    .form-control-premium:focus,
+    .form-select-premium:focus {
+        background-color: #ffffff;
+        border-color: var(--secondary-brand, #10b981);
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
+        color: var(--slate-900);
+    }
+
+    .filter-label-text {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--slate-500);
+        margin-bottom: 0.35rem;
+    }
+
+    /* Tabla Moderna */
+    .table-modern {
+        border-collapse: separate;
+        border-spacing: 0;
+        width: 100%;
+    }
+
+    .table-modern thead th {
+        background-color: #f8fafc;
+        color: #334155;
+        font-weight: 700;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 0.95rem 1rem;
+        border-bottom: 2px solid var(--slate-200);
+        white-space: nowrap;
+    }
+
+    .table-modern tbody td {
+        padding: 0.9rem 1rem;
+        vertical-align: middle;
+        color: #1e293b;
+        font-size: 0.875rem;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .table-modern tbody tr {
+        transition: background-color 0.15s ease;
+    }
+
+    .table-modern tbody tr:hover {
         background-color: #f8fafc;
     }
 
-    .badge-filter {
-        cursor: pointer;
+    .table-inactive {
+        opacity: 0.65;
+        background-color: #f8fafc !important;
+    }
+
+    .table-modern tfoot td {
+        padding: 0.85rem 1rem;
+        background-color: #f8fafc;
+        border-top: 2px solid var(--slate-200);
+        color: var(--slate-800);
+    }
+
+    /* Badges estilizados de alto contraste */
+    .badge-modern {
+        padding: 0.4rem 0.75rem;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 0.75rem;
+        letter-spacing: 0.02em;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+
+    .badge-contado {
+        background-color: #dcfce7;
+        color: #15803d;
+        border: 1px solid #bbf7d0;
+    }
+
+    .badge-credito {
+        background-color: #fef3c7;
+        color: #92400e;
+        border: 1px solid #fde68a;
+    }
+
+    .badge-reparto {
+        background-color: #e0f2fe;
+        color: #0369a1;
+        border: 1px solid #bae6fd;
+    }
+
+    .badge-activa {
+        background-color: #ecfdf5;
+        color: #047857;
+        border: 1px solid #a7f3d0;
+    }
+
+    .badge-anulada {
+        background-color: #fee2e2;
+        color: #b91c1c;
+        border: 1px solid #fca5a5;
+    }
+
+    .badge-id {
+        background-color: var(--slate-100);
+        color: var(--slate-700);
+        border: 1px solid var(--slate-300);
+        font-family: monospace;
+        font-weight: 700;
+    }
+
+    /* Botones de acción */
+    .btn-action {
+        border-radius: 8px;
+        padding: 0.35rem 0.65rem;
+        font-size: 0.8rem;
+        font-weight: 600;
         transition: all 0.2s;
     }
 
-    .badge-filter:hover {
-        transform: scale(1.05);
+    .btn-action:hover {
+        transform: translateY(-1px);
     }
 
-    .filter-active {
-        filter: drop-shadow(0 0 2px currentColor);
+    /* ========================================================
+       MODAL DE ANULACIÓN
+       ======================================================== */
+    .modal-content {
+        border-radius: 18px;
+        border: none;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+        overflow: hidden;
     }
 
-    /* Mejoras para la tabla responsiva */
-    @media (max-width: 768px) {
-        .btn-group-sm .btn {
-            padding: 0.25rem 0.5rem;
-        }
-
-        .btn-group-sm .btn span {
-            display: none;
-        }
-
-        .btn-group-sm .btn i {
-            margin: 0;
-        }
+    .modal-header {
+        padding: 1.25rem 1.75rem;
     }
 
-    /* Animaciones */
-    @keyframes slideDown {
-        from {
-            opacity: 0;
-            transform: translateY(-10px);
-        }
-
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
+    .modal-body {
+        padding: 1.5rem 1.75rem;
+        background-color: #f8fafc;
     }
 
-    .alert-slide {
-        animation: slideDown 0.3s ease-out;
+    .modal-card-info {
+        background: #ffffff;
+        border-radius: 12px;
+        border: 1px solid var(--slate-200);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
     }
 
-    /* Estilos para el modal de anulación */
-    .modal-body .card {
-        border-radius: 10px;
+    .modal-card-info .card-header {
+        background: #f1f5f9;
+        border-bottom: 1px solid var(--slate-200);
+        font-weight: 700;
+        color: var(--slate-800);
+        padding: 0.75rem 1rem;
     }
 
-    #anularVentaContent {
-        transition: opacity 0.3s ease;
+    .modal-footer {
+        padding: 1rem 1.75rem;
+        background: #ffffff;
+        border-top: 1px solid var(--slate-200);
     }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid py-4">
-    <!-- Encabezado mejorado con breadcrumb -->
-    <nav aria-label="breadcrumb" class="mb-4">
-        <ol class="breadcrumb">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb mb-0">
             <li class="breadcrumb-item">
-                <a href="{{ url_for('admin.admin_dashboard') }}" class="text-decoration-none">
-                    <i class="bi bi-house me-1"></i>Dashboard
+                <a href="{{ url_for('admin.admin_dashboard') }}" class="text-decoration-none text-slate-600">
+                    <i class="fas fa-home me-1"></i>Dashboard
                 </a>
             </li>
-            <li class="breadcrumb-item active" aria-current="page">
-                <i class="bi bi-graph-up me-1"></i>Gestión de Ventas
+            <li class="breadcrumb-item active fw-bold text-slate-800" aria-current="page">
+                <i class="fas fa-chart-line text-primary me-1"></i>Gestión de Ventas
             </li>
         </ol>
     </nav>
@@ -113,49 +361,55 @@
     <!-- Encabezado con acciones -->
     <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <div>
-            <h3 class="fw-bold text-slate-800 mb-1">
-                <i class="fas fa-chart-line text-primary me-2"></i>Gestión de Ventas
-                <span class="badge bg-light text-dark border font-monospace ms-2" id="totalVentasCount">{{ ventas|length }}</span>
+            <h3 class="mb-1 d-flex align-items-center gap-2">
+                <i class="fas fa-chart-line text-primary"></i>
+                <span>Gestión de Ventas</span>
+                <span class="badge bg-light text-dark border font-monospace ms-2" id="totalVentasCount"
+                    style="font-size: 0.95rem;">{{ ventas|length }}</span>
             </h3>
-            <p class="text-muted small mb-0">Listado general de ventas facturadas al contado y a crédito</p>
+            <p class="text-slate-500 small mb-0">Listado general y control financiero de ventas al contado y a crédito
+            </p>
         </div>
         <div class="d-flex gap-2 flex-wrap">
             <a href="{{ url_for('admin.admin_dashboard') }}"
-                class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
-                <i class="fas fa-arrow-left me-1"></i> Volver
+                class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3 fw-bold">
+                <i class="fas fa-arrow-left me-1"></i> Volver al Dashboard
             </a>
-            <a href="{{ url_for('admin.admin_crear_venta') }}" class="btn btn-primary btn-sm px-3 py-2 rounded-3 fw-bold">
+            <a href="{{ url_for('admin.admin_crear_venta') }}"
+                class="btn btn-primary btn-sm px-3 py-2 rounded-3 fw-bold shadow-sm"
+                style="background-color: var(--primary-brand); border-color: var(--primary-brand);">
                 <i class="fas fa-plus-circle me-1"></i> Nueva Venta
             </a>
         </div>
     </div>
 
-    <!-- Tarjetas de estadísticas unificadas y consolidadas (Colores Intensos) -->
+    <!-- ========================================================
+         TARJETAS DE ESTADÍSTICAS (KPIs CON ALTO CONTRASTE)
+         ======================================================== -->
     <div class="row mb-4 g-3">
         <!-- Tarjeta 1: Total Facturado -->
         <div class="col-12 col-sm-6 col-xl-3">
-            <div class="card stat-card border-0 shadow-sm h-100 text-white bg-facturado-gradient">
+            <div class="card stat-card h-100 text-white bg-facturado-gradient">
                 <div class="card-body p-4 d-flex flex-column justify-content-between">
                     <div class="d-flex justify-content-between align-items-start mb-3">
                         <div>
-                            <span class="text-white-50 text-uppercase fw-bold small" style="letter-spacing: 0.5px;">
-                                <i class="bi bi-wallet2 me-1"></i> Total Facturado
+                            <span class="card-title-sub">
+                                <i class="fas fa-wallet me-1"></i> Total Facturado
                             </span>
-                            <h3 class="fw-bold mb-1 mt-2 money-value" data-value="{{ ventas_totales or 0 }}"
-                                style="font-size: 1.6rem;">
+                            <h3 class="stat-amount mb-1 mt-2 money-value" data-value="{{ ventas_totales or 0 }}"
+                                style="font-size: 1.65rem;">
                                 C$ {{ "{:,.2f}".format(ventas_totales or 0) }}
                             </h3>
-                            <small class="text-white-50">Monto total de ventas activas</small>
+                            <small class="stat-note">Monto total de ventas activas</small>
                         </div>
-                        <div class="rounded-circle bg-white bg-opacity-20 p-3 text-white">
-                            <i class="bi bi-graph-up fa-lg"></i>
+                        <div class="stat-icon-wrapper">
+                            <i class="fas fa-chart-line"></i>
                         </div>
                     </div>
-                    <div
-                        class="border-top border-white border-opacity-20 pt-3 mt-2 d-flex justify-content-between align-items-center small">
-                        <span class="text-white-50">Total: <strong class="text-white">{{ total_ventas }}</strong></span>
-                        <span class="text-white fw-bold"><i class="bi bi-check-circle me-1"></i>{{ ventas_activas }} Act.</span>
-                        <span class="text-white-50 fw-bold"><i class="bi bi-slash-circle me-1"></i>{{ ventas_anuladas }} Anul.</span>
+                    <div class="stat-footer d-flex justify-content-between align-items-center">
+                        <span>Total: <strong>{{ total_ventas }}</strong></span>
+                        <span class="fw-bold"><i class="fas fa-check-circle me-1"></i>{{ ventas_activas }} Act.</span>
+                        <span class="fw-bold"><i class="fas fa-ban me-1"></i>{{ ventas_anuladas }} Anul.</span>
                     </div>
                 </div>
             </div>
@@ -163,27 +417,26 @@
 
         <!-- Tarjeta 2: Ventas al Contado -->
         <div class="col-12 col-sm-6 col-xl-3">
-            <div class="card stat-card border-0 shadow-sm h-100 text-white bg-contado-gradient">
+            <div class="card stat-card h-100 text-white bg-contado-gradient">
                 <div class="card-body p-4 d-flex flex-column justify-content-between">
                     <div class="d-flex justify-content-between align-items-start mb-3">
                         <div>
-                            <span class="text-white-50 text-uppercase fw-bold small" style="letter-spacing: 0.5px;">
-                                <i class="bi bi-cash-stack me-1"></i> Ventas Contado
+                            <span class="card-title-sub">
+                                <i class="fas fa-money-bill-wave me-1"></i> Ventas Contado
                             </span>
-                            <h3 class="fw-bold mb-1 mt-2 money-value" data-value="{{ ventas_contado_total or 0 }}"
-                                style="font-size: 1.6rem;">
+                            <h3 class="stat-amount mb-1 mt-2 money-value" data-value="{{ ventas_contado_total or 0 }}"
+                                style="font-size: 1.65rem;">
                                 C$ {{ "{:,.2f}".format(ventas_contado_total or 0) }}
                             </h3>
-                            <small class="text-white-50">Recibido al momento</small>
+                            <small class="stat-note">Recibido al momento</small>
                         </div>
-                        <div class="rounded-circle bg-white bg-opacity-20 p-3 text-white">
-                            <i class="bi bi-coin fa-lg"></i>
+                        <div class="stat-icon-wrapper">
+                            <i class="fas fa-coins"></i>
                         </div>
                     </div>
-                    <div
-                        class="border-top border-white border-opacity-20 pt-3 mt-2 d-flex justify-content-between align-items-center small">
-                        <span class="text-white-50">Transacciones: <strong class="text-white">{{ ventas_contado }}</strong></span>
-                        <span class="badge bg-white bg-opacity-25 text-white fw-bold">
+                    <div class="stat-footer d-flex justify-content-between align-items-center">
+                        <span>Transacciones: <strong>{{ ventas_contado }}</strong></span>
+                        <span class="badge bg-white bg-opacity-25 text-white fw-bold px-2 py-1">
                             {{ ((ventas_contado_total / ventas_totales * 100) if ventas_totales > 0 else 0)|round(1) }}%
                         </span>
                     </div>
@@ -193,27 +446,26 @@
 
         <!-- Tarjeta 3: Ventas a Crédito -->
         <div class="col-12 col-sm-6 col-xl-3">
-            <div class="card stat-card border-0 shadow-sm h-100 text-white bg-credito-gradient">
+            <div class="card stat-card h-100 text-white bg-credito-gradient">
                 <div class="card-body p-4 d-flex flex-column justify-content-between">
                     <div class="d-flex justify-content-between align-items-start mb-3">
                         <div>
-                            <span class="text-white-50 text-uppercase fw-bold small" style="letter-spacing: 0.5px;">
-                                <i class="bi bi-credit-card me-1"></i> Ventas Crédito
+                            <span class="card-title-sub">
+                                <i class="fas fa-credit-card me-1"></i> Ventas Crédito
                             </span>
-                            <h3 class="fw-bold mb-1 mt-2 money-value" data-value="{{ ventas_credito_total or 0 }}"
-                                style="font-size: 1.6rem;">
+                            <h3 class="stat-amount mb-1 mt-2 money-value" data-value="{{ ventas_credito_total or 0 }}"
+                                style="font-size: 1.65rem;">
                                 C$ {{ "{:,.2f}".format(ventas_credito_total or 0) }}
                             </h3>
-                            <small class="text-white-50">Facturado a crédito</small>
+                            <small class="stat-note">Facturado a crédito</small>
                         </div>
-                        <div class="rounded-circle bg-white bg-opacity-20 p-3 text-white">
-                            <i class="bi bi-credit-card fa-lg"></i>
+                        <div class="stat-icon-wrapper">
+                            <i class="fas fa-file-invoice-dollar"></i>
                         </div>
                     </div>
-                    <div
-                        class="border-top border-white border-opacity-20 pt-3 mt-2 d-flex justify-content-between align-items-center small">
-                        <span class="text-white-50">Transacciones: <strong class="text-white">{{ ventas_credito }}</strong></span>
-                        <span class="badge bg-white bg-opacity-25 text-white fw-bold">
+                    <div class="stat-footer d-flex justify-content-between align-items-center">
+                        <span>Transacciones: <strong>{{ ventas_credito }}</strong></span>
+                        <span class="badge bg-white bg-opacity-25 text-white fw-bold px-2 py-1">
                             {{ ((ventas_credito_total / ventas_totales * 100) if ventas_totales > 0 else 0)|round(1) }}%
                         </span>
                     </div>
@@ -223,34 +475,35 @@
 
         <!-- Tarjeta 4: Cartera & Cobros -->
         <div class="col-12 col-sm-6 col-xl-3">
-            <div class="card stat-card border-0 shadow-sm h-100 text-white bg-cobrar-gradient">
+            <div class="card stat-card h-100 text-white bg-cobrar-gradient">
                 <div class="card-body p-4 d-flex flex-column justify-content-between">
                     <div class="d-flex justify-content-between align-items-start mb-2">
                         <div>
-                            <span class="text-white-50 text-uppercase fw-bold small" style="letter-spacing: 0.5px;">
-                                <i class="bi bi-clock me-1"></i> Saldo por Cobrar
+                            <span class="card-title-sub">
+                                <i class="fas fa-clock me-1"></i> Saldo por Cobrar
                             </span>
-                            <h3 class="fw-bold mb-1 mt-2 money-value" data-value="{{ creditos_pendientes or 0 }}"
-                                style="font-size: 1.6rem;">
+                            <h3 class="stat-amount mb-1 mt-2 money-value" data-value="{{ creditos_pendientes or 0 }}"
+                                style="font-size: 1.65rem;">
                                 C$ {{ "{:,.2f}".format(creditos_pendientes or 0) }}
                             </h3>
-                            <small class="text-white-50">Pendiente de recuperación</small>
+                            <small class="stat-note">Pendiente de recuperación</small>
                         </div>
-                        <div class="rounded-circle bg-white bg-opacity-20 p-3 text-white">
-                            <i class="bi bi-clock fa-lg"></i>
+                        <div class="stat-icon-wrapper">
+                            <i class="fas fa-hourglass-half"></i>
                         </div>
                     </div>
 
-                    <div class="border-top border-white border-opacity-20 pt-2 mt-2">
-                        <div class="d-flex justify-content-between align-items-center mb-1 small text-white-50">
-                            <span>Cobrado: <strong class="text-white">{{ ((creditos_cobrados / ventas_credito_total *
-                                    100) if ventas_credito_total > 0 else 0)|round(1) }}%</strong></span>
+                    <div class="stat-footer pt-2 mt-2">
+                        <div class="d-flex justify-content-between align-items-center mb-1 small text-white">
+                            <span>Cobrado: <strong>{{ ((creditos_cobrados / ventas_credito_total * 100) if
+                                    ventas_credito_total > 0 else 0)|round(1) }}%</strong></span>
                             <span class="money-value text-white fw-bold font-monospace"
-                                data-value="{{ creditos_cobrados or 0 }}">C$ {{ "{:,.2f}".format(creditos_cobrados or 0)
-                                }}</span>
+                                data-value="{{ creditos_cobrados or 0 }}">
+                                C$ {{ "{:,.2f}".format(creditos_cobrados or 0) }}
+                            </span>
                         </div>
                         <div class="progress"
-                            style="height: 6px; border-radius: 3px; background-color: rgba(255, 255, 255, 0.25);">
+                            style="height: 6px; border-radius: 3px; background-color: rgba(255, 255, 255, 0.3);">
                             {% set total_credito = ventas_credito_total|default(0) %}
                             {% if total_credito > 0 %}
                             {% set porcentaje_cobrado = (creditos_cobrados|default(0) / total_credito * 100)|round(1) %}
@@ -267,270 +520,268 @@
         </div>
     </div>
 
-    <!-- Card Principal -->
+    <!-- ========================================================
+         TABLA PRINCIPAL Y FILTROS
+         ======================================================== -->
     <div class="card-premium-section">
-        <div class="card-premium-header py-3">
-            <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-3 w-100">
+        <div class="card-premium-header">
+            <div
+                class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-3 w-100">
                 <div>
                     <h5 class="fw-bold mb-0 text-slate-800">
-                        <i class="fas fa-list text-primary me-2"></i>Registro de Ventas
+                        <i class="fas fa-list text-primary me-2"></i>Registro de Ventas Facturadas
                     </h5>
+                    <p class="text-slate-500 small mb-0 mt-1">Consulte, filtre y exporte los registros de ventas del
+                        sistema</p>
                 </div>
 
                 <div class="d-flex flex-wrap gap-2 w-100 w-lg-auto">
-                    <!-- Búsqueda mejorada -->
-                    <div class="position-relative flex-grow-1 flex-lg-grow-0" style="min-width: 250px;">
+                    <!-- Búsqueda -->
+                    <div class="position-relative flex-grow-1 flex-lg-grow-0" style="min-width: 280px;">
                         <input type="text" class="form-control form-control-premium ps-5" id="searchInput"
-                            placeholder="Buscar por cliente, ID, vendedor..." autocomplete="off" value="{{ search_filtro }}">
-                        <i class="fas fa-search position-absolute start-0 top-50 translate-middle-y ms-3 text-muted"></i>
-                        <button class="btn btn-light border-0 btn-sm position-absolute end-0 top-50 translate-middle-y me-2" type="button" id="clearSearchBtn"
+                            placeholder="Buscar cliente, ID, RUC, bodega..." autocomplete="off"
+                            value="{{ search_filtro }}">
+                        <i
+                            class="fas fa-search position-absolute start-0 top-50 translate-middle-y ms-3 text-slate-400"></i>
+                        <button
+                            class="btn btn-link text-slate-400 p-0 border-0 position-absolute end-0 top-50 translate-middle-y me-3 text-decoration-none"
+                            type="button" id="clearSearchBtn"
                             style="{% if search_filtro %}display: block;{% else %}display: none;{% endif %}">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
 
-                    <!-- Exportación mejorada -->
-                    <div class="dropdown">
-                        <button class="btn btn-outline-secondary btn-sm rounded-3 py-2 dropdown-toggle" type="button"
-                            data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="fas fa-download me-1"></i> Exportar
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-end shadow">
-                            <li><a class="dropdown-item" href="#" id="exportExcel">
-                                    <i class="fas fa-file-excel text-success me-2"></i> Excel
-                                    <small class="text-muted ms-2">.xls</small>
-                                </a></li>
-                            <li><a class="dropdown-item" href="#" id="exportCSV">
-                                    <i class="fas fa-file-csv text-primary me-2"></i> CSV
-                                    <small class="text-muted ms-2">.csv</small>
-                                </a></li>
-                            <li><a class="dropdown-item" href="#" id="printTableBtn">
-                                    <i class="fas fa-print text-info me-2"></i> Imprimir
-                                    <small class="text-muted ms-2">Ctrl+P</small>
-                                </a></li>
-                            <li>
-                                <hr class="dropdown-divider">
-                            </li>
-                            <li><a class="dropdown-item" href="#" id="copyTableBtn">
-                                    <i class="fas fa-copy text-secondary me-2"></i> Copiar al portapapeles
-                                </a></li>
-                        </ul>
-                    </div>
+
                 </div>
             </div>
 
-            <!-- Filtros rápidos mejorados -->
-            <div class="row g-2 mt-3">
+            <!-- Filtros rápidos -->
+            <div class="row g-2 mt-3 pt-3 border-top border-slate-200">
                 <div class="col-12 col-sm-6 col-md-3">
+                    <label class="filter-label-text"><i class="fas fa-toggle-on me-1"></i> Estado</label>
                     <select class="form-select form-select-premium" id="estadoFilter">
                         <option value="">📊 Todos los estados</option>
-                        <option value="ACTIVA" {% if estado_filtro == 'ACTIVA' %}selected{% endif %}>✅ Activas</option>
-                        <option value="ANULADA" {% if estado_filtro == 'ANULADA' %}selected{% endif %}>❌ Anuladas</option>
+                        <option value="ACTIVA" {% if estado_filtro=='ACTIVA' %}selected{% endif %}>✅ Activas</option>
+                        <option value="ANULADA" {% if estado_filtro=='ANULADA' %}selected{% endif %}>❌ Anuladas</option>
                     </select>
                 </div>
                 <div class="col-12 col-sm-6 col-md-3">
+                    <label class="filter-label-text"><i class="fas fa-money-check-alt me-1"></i> Tipo de Venta</label>
                     <select class="form-select form-select-premium" id="tipoVentaFilter">
                         <option value="">💵 Todos los tipos</option>
-                        <option value="CONTADO" {% if tipo_filtro == 'CONTADO' %}selected{% endif %}>💰 Contado</option>
-                        <option value="CREDITO" {% if tipo_filtro == 'CREDITO' %}selected{% endif %}>💳 Crédito</option>
+                        <option value="CONTADO" {% if tipo_filtro=='CONTADO' %}selected{% endif %}>💰 Contado</option>
+                        <option value="CREDITO" {% if tipo_filtro=='CREDITO' %}selected{% endif %}>💳 Crédito</option>
+                        <option value="REPARTO" {% if tipo_filtro=='REPARTO' %}selected{% endif %}>🚚 En Reparto
+                        </option>
                     </select>
                 </div>
                 <div class="col-12 col-sm-6 col-md-3">
+                    <label class="filter-label-text"><i class="fas fa-calendar-alt me-1"></i> Periodo</label>
                     <select class="form-select form-select-premium" id="fechaFilter">
                         <option value="">📅 Todas las fechas</option>
-                        <option value="today" {% if fecha_filtro == 'today' %}selected{% endif %}>Hoy</option>
-                        <option value="yesterday" {% if fecha_filtro == 'yesterday' %}selected{% endif %}>Ayer</option>
-                        <option value="week" {% if fecha_filtro == 'week' %}selected{% endif %}>Esta semana</option>
-                        <option value="month" {% if fecha_filtro == 'month' %}selected{% endif %}>Este mes</option>
+                        <option value="today" {% if fecha_filtro=='today' %}selected{% endif %}>Hoy</option>
+                        <option value="yesterday" {% if fecha_filtro=='yesterday' %}selected{% endif %}>Ayer</option>
+                        <option value="week" {% if fecha_filtro=='week' %}selected{% endif %}>Esta semana</option>
+                        <option value="month" {% if fecha_filtro=='month' %}selected{% endif %}>Este mes</option>
                     </select>
                 </div>
-                <div class="col-12 col-sm-6 col-md-3">
-                    <button class="btn btn-outline-secondary w-100 rounded-3 py-2" id="clearFiltersBtn">
-                        <i class="fas fa-eraser me-1"></i> Limpiar filtros
+                <div class="col-12 col-sm-6 col-md-3 d-flex align-items-end">
+                    <button class="btn btn-outline-secondary w-100 rounded-3 py-2 fw-semibold" id="clearFiltersBtn">
+                        <i class="fas fa-eraser me-1"></i> Limpiar Filtros
                         <span id="activeFiltersCount" class="badge bg-primary ms-1" style="display: none;">0</span>
                     </button>
                 </div>
-            </div>
-                        <i class="fas fa-eraser me-1"></i> Limpiar filtros
-                        <span id="activeFiltersCount" class="badge bg-primary ms-1" style="display: none;">0</span>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Indicador de filtros activos -->
-            <div id="activeFiltersBadges" class="mt-2 d-flex flex-wrap gap-1" style="display: none;">
-                <small class="text-muted me-2">Filtros activos:</small>
             </div>
         </div>
 
+        <!-- Tabla -->
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-hover table-modern align-middle mb-0" id="dataTable">
-                <thead>
-                    <tr>
-                        <th style="width: 60px;">ID</th>
-                        <th style="width: 100px;">Fecha</th>
-                        <th>Cliente</th>
-                        <th style="width: 100px;">Identificación</th>
-                        <th style="width: 100px;" class="text-center">Tipo</th>
-                        <th>Bodega</th>
-                        <th style="width: 80px;" class="text-center">Productos</th>
-                        <th style="width: 130px;" class="text-end">Total</th>
-                        <th>Vendedor</th>
-                        <th style="width: 100px;" class="text-center">Estado</th>
-                        <th style="width: 140px;" class="text-center">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody id="tableBody">
-                    {% for venta in ventas %}
-                    <tr class="{% if venta.Estado_Formateado == 'ANULADA' %}table-inactive{% endif %}"
-                        data-id="{{ venta.ID_Factura }}"
-                        data-fecha="{{ venta.Fecha.strftime('%Y-%m-%d') if venta.Fecha else '' }}"
-                        data-estado="{{ venta.Estado_Formateado }}"
-                        data-tipo="{% if venta.Credito_Contado == 0 %}CONTADO{% elif venta.Credito_Contado == 2 %}REPARTO{% else %}CREDITO{% endif %}">
-                        <td class="fw-bold">
-                            <span class="badge bg-secondary">#{{ venta.ID_Factura }}</span>
-                        </td>
-                        <td>
-                            <div>
-                                <i class="bi bi-calendar3 text-muted small"></i>
-                                {{ venta.Fecha.strftime('%d/%m/%Y') if venta.Fecha else 'N/A' }}
-                            </div>
-                            <small class="text-muted">
-                                <i class="bi bi-clock"></i> {{ venta.Fecha.strftime('%H:%M') if venta.Fecha else ''
-                                }}
-                            </small>
-                        </td>
-                        <td>
-                            <div class="fw-bold">{{ venta.Cliente or 'Consumidor Final' }}</div>
-                            {% if venta.Cliente and venta.RUC_Cliente %}
-                            <small class="text-muted">{{ venta.RUC_Cliente }}</small>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {{ venta.RUC_Cliente or 'N/A' }}
-                        </td>
-                        <td class="text-center">
-                            {% if venta.Credito_Contado == 0 %}
-                            <span class="badge bg-success">
-                                <i class="bi bi-cash-stack me-1"></i> CONTADO
-                            </span>
-                            {% elif venta.Credito_Contado == 2 %}
-                            <span class="badge bg-info text-white">
-                                <i class="bi bi-truck me-1"></i> EN REPARTO
-                            </span>
-                            {% else %}
-                            <span class="badge bg-warning text-dark">
-                                <i class="bi bi-credit-card me-1"></i> CRÉDITO
-                            </span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <span class="badge bg-secondary">
-                                <i class="bi bi-building me-1"></i>
-                                {{ venta.Bodega or 'N/A' }}
-                            </span>
-                        </td>
-                        <td class="text-center">
-                            <span class="badge bg-info">
-                                <i class="bi bi-box-seam me-1"></i>
-                                {{ venta.Total_Productos or 0 }}
-                            </span>
-                        </td>
-                        <td class="text-end fw-bold text-success money-value" data-value="{{ venta.Total_Venta or 0 }}">
-                            C$ {{ "{:,.2f}".format(venta.Total_Venta or 0) }}
-                        </td>
-                        <td>
-                            <i class="bi bi-person-circle text-secondary me-1"></i>
-                            {{ venta.Usuario_Creacion or 'Sistema' }}
-                        </td>
-                        <td class="text-center">
-                            {% if venta.Estado_Formateado == 'ACTIVA' %}
-                            <span class="badge bg-success">
-                                <i class="bi bi-check-circle me-1"></i> ACTIVA
-                            </span>
-                            {% else %}
-                            <span class="badge bg-danger">
-                                <i class="bi bi-slash-circle me-1"></i> ANULADA
-                            </span>
-                            {% endif %}
-                        </td>
-                        <td class="text-center">
-                            <div class="btn-group btn-group-sm" role="group">
-                                {% if venta.Credito_Contado == 2 and venta.Estado_Formateado == 'ACTIVA' %}
-                                <a href="{{ url_for('admin.admin_confirmar_entrega', id_factura=venta.ID_Factura) }}"
-                                    class="btn btn-warning text-dark" title="Confirmar entrega / Liquidar">
-                                    <i class="bi bi-truck"></i>
-                                    <span class="d-none d-md-inline ms-1">Liquidar</span>
-                                </a>
+                    <thead>
+                        <tr>
+                            <th style="width: 70px;">ID</th>
+                            <th style="width: 110px;">Fecha</th>
+                            <th>Cliente</th>
+                            <th style="width: 120px;">Identificación</th>
+                            <th style="width: 110px;" class="text-center">Tipo</th>
+                            <th>Bodega</th>
+                            <th style="width: 85px;" class="text-center">Productos</th>
+                            <th style="width: 135px;" class="text-end">Total</th>
+                            <th>Vendedor</th>
+                            <th style="width: 100px;" class="text-center">Estado</th>
+                            <th style="width: 140px;" class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        {% for venta in ventas %}
+                        <tr class="{% if venta.Estado_Formateado == 'ANULADA' %}table-inactive{% endif %}"
+                            data-id="{{ venta.ID_Factura }}"
+                            data-fecha="{{ venta.Fecha.strftime('%Y-%m-%d') if venta.Fecha else '' }}"
+                            data-estado="{{ venta.Estado_Formateado }}"
+                            data-tipo="{% if venta.Credito_Contado == 0 %}CONTADO{% elif venta.Credito_Contado == 2 %}REPARTO{% else %}CREDITO{% endif %}">
+                            <td class="fw-bold">
+                                <span class="badge badge-id">#{{ venta.ID_Factura }}</span>
+                            </td>
+                            <td>
+                                <div class="fw-semibold text-slate-800">
+                                    <i class="far fa-calendar-alt text-slate-400 me-1"></i>{{
+                                    venta.Fecha.strftime('%d/%m/%Y') if venta.Fecha else 'N/A' }}
+                                </div>
+                                <small class="text-slate-500">
+                                    <i class="far fa-clock text-slate-400"></i> {{ venta.Fecha.strftime('%H:%M') if
+                                    venta.Fecha else '' }}
+                                </small>
+                            </td>
+                            <td>
+                                <div class="fw-bold text-slate-800">{{ venta.Cliente or 'Consumidor Final' }}</div>
+                                {% if venta.Cliente and venta.RUC_Cliente %}
+                                <small class="text-slate-500"><i class="fas fa-id-card text-slate-400 me-1"></i>{{
+                                    venta.RUC_Cliente }}</small>
                                 {% endif %}
-                                <a href="{{ url_for('admin.admin_generar_ticket', id_factura=venta.ID_Factura) }}"
-                                    class="btn btn-outline-info" title="Ver ticket">
-                                    <i class="bi bi-receipt"></i>
-                                    <span class="d-none d-md-inline ms-1">Ticket</span>
-                                </a>
-                                <a href="{{ url_for('admin.admin_detalles_venta', id_factura=venta.ID_Factura) }}"
-                                    class="btn btn-outline-primary" title="Ver detalles">
-                                    <i class="bi bi-eye"></i>
-                                    <span class="d-none d-md-inline ms-1">Ver</span>
-                                </a>
-                            </div>
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="11" class="text-center py-5">
-                            <div class="text-center">
-                                <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
-                                <h5 class="text-muted mb-2">No hay ventas registradas</h5>
-                                <p class="text-muted small mb-4">Comience creando su primera venta</p>
-                                <a href="{{ url_for('admin.admin_crear_venta') }}" class="btn btn-primary">
-                                    <i class="fas fa-plus me-2"></i> Crear Venta
-                                </a>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-                <tfoot class="table-light">
-                    <tr>
-                        <td colspan="6" class="text-end fw-bold">
-                            <small>Resumen de las <span id="visibleCount">0</span> ventas mostradas:</small>
-                        </td>
-                        <td class="text-center fw-bold text-primary">
-                            <small><span id="totalProductosVisible">0</span></small>
-                        </td>
-                        <td class="text-end fw-bold text-success">
-                            <small><span id="totalMontoVisible">C$ 0.00</span></small>
-                        </td>
-                        <td colspan="3" class="text-end">
-                            <small class="text-muted">
-                                <span id="contadoCount">0</span> contado / <span id="creditoCount">0</span> crédito / <span id="repartoCount">0</span> en reparto
-                            </small>
-                        </td>
-                    </tr>
-                </tfoot>
-            </table>
-        </div></div>
-        <!-- Información adicional mejorada -->
+                            </td>
+                            <td>
+                                <span class="text-slate-700 font-monospace small">{{ venta.RUC_Cliente or 'N/A'
+                                    }}</span>
+                            </td>
+                            <td class="text-center">
+                                {% if venta.Credito_Contado == 0 %}
+                                <span class="badge-modern badge-contado">
+                                    <i class="fas fa-money-bill-wave"></i> CONTADO
+                                </span>
+                                {% elif venta.Credito_Contado == 2 %}
+                                <span class="badge-modern badge-reparto">
+                                    <i class="fas fa-truck"></i> REPARTO
+                                </span>
+                                {% else %}
+                                <span class="badge-modern badge-credito">
+                                    <i class="fas fa-credit-card"></i> CRÉDITO
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-slate-700 border border-slate-200 fw-semibold">
+                                    <i class="fas fa-warehouse text-slate-400 me-1"></i>{{ venta.Bodega or 'N/A' }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <span
+                                    class="badge bg-slate-100 text-slate-800 border border-slate-300 fw-bold px-2 py-1">
+                                    <i class="fas fa-boxes text-slate-500 me-1"></i>{{ venta.Total_Productos or 0 }}
+                                </span>
+                            </td>
+                            <td class="text-end fw-bold text-success money-value font-monospace"
+                                style="font-size: 0.95rem;" data-value="{{ venta.Total_Venta or 0 }}">
+                                C$ {{ "{:,.2f}".format(venta.Total_Venta or 0) }}
+                            </td>
+                            <td>
+                                <span class="text-slate-700 small">
+                                    <i class="fas fa-user-circle text-slate-400 me-1"></i>{{ venta.Usuario_Creacion or
+                                    'Sistema' }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                {% if venta.Estado_Formateado == 'ACTIVA' %}
+                                <span class="badge-modern badge-activa">
+                                    <i class="fas fa-check-circle"></i> ACTIVA
+                                </span>
+                                {% else %}
+                                <span class="badge-modern badge-anulada">
+                                    <i class="fas fa-ban"></i> ANULADA
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    {% if venta.Credito_Contado == 2 and venta.Estado_Formateado == 'ACTIVA' %}
+                                    <a href="{{ url_for('admin.admin_confirmar_entrega', id_factura=venta.ID_Factura) }}"
+                                        class="btn btn-warning text-dark btn-action"
+                                        title="Confirmar entrega / Liquidar">
+                                        <i class="fas fa-truck"></i>
+                                        <span class="d-none d-md-inline ms-1">Liquidar</span>
+                                    </a>
+                                    {% endif %}
+                                    <a href="{{ url_for('admin.admin_generar_ticket', id_factura=venta.ID_Factura) }}"
+                                        class="btn btn-outline-secondary btn-action" title="Ver ticket">
+                                        <i class="fas fa-receipt text-info"></i>
+                                        <span class="d-none d-md-inline ms-1">Ticket</span>
+                                    </a>
+                                    <a href="{{ url_for('admin.admin_detalles_venta', id_factura=venta.ID_Factura) }}"
+                                        class="btn btn-outline-primary btn-action" title="Ver detalles completos">
+                                        <i class="fas fa-eye"></i>
+                                        <span class="d-none d-md-inline ms-1">Ver</span>
+                                    </a>
+                                    {% if venta.Estado_Formateado == 'ACTIVA' %}
+                                    <button type="button" class="btn btn-outline-danger btn-action"
+                                        data-bs-toggle="modal" data-bs-target="#anularVentaModal"
+                                        data-id="{{ venta.ID_Factura }}" title="Anular venta">
+                                        <i class="fas fa-ban"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="11" class="text-center py-5">
+                                <div class="py-4">
+                                    <i class="fas fa-inbox fa-4x text-slate-300 mb-3"></i>
+                                    <h5 class="text-slate-700 fw-bold mb-2">No hay ventas registradas</h5>
+                                    <p class="text-slate-500 small mb-4">Comience registrando su primera venta en el
+                                        sistema</p>
+                                    <a href="{{ url_for('admin.admin_crear_venta') }}"
+                                        class="btn btn-primary px-4 py-2 rounded-3 fw-bold"
+                                        style="background-color: var(--primary-brand); border-color: var(--primary-brand);">
+                                        <i class="fas fa-plus me-2"></i> Crear Venta
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-light">
+                        <tr>
+                            <td colspan="6" class="text-end fw-bold text-slate-700">
+                                <small>Resumen de las <span id="visibleCount">0</span> ventas visibles:</small>
+                            </td>
+                            <td class="text-center fw-bold text-primary">
+                                <span id="totalProductosVisible">0</span>
+                            </td>
+                            <td class="text-end fw-bold text-success font-monospace">
+                                <span id="totalMontoVisible">C$ 0.00</span>
+                            </td>
+                            <td colspan="3" class="text-end">
+                                <small class="text-slate-600 fw-semibold">
+                                    <span id="contadoCount" class="text-success fw-bold">0</span> contado /
+                                    <span id="creditoCount" class="text-warning fw-bold">0</span> crédito /
+                                    <span id="repartoCount" class="text-info fw-bold">0</span> reparto
+                                </small>
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <!-- Pie con resumen adicional -->
         {% if ventas and ventas|length > 0 %}
-        <div class="card-footer bg-white border-top py-3 px-4">
+        <div class="card-footer bg-white border-top border-slate-200 py-3 px-4">
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
-                <div class="text-muted small">
-                    <i class="fas fa-chart-line me-1"></i>
-                    Mostrando <span id="footerVisibleCount">{{ ventas|length }}</span> de {{ ventas|length }}
-                    venta(s)
+                <div class="text-slate-600 small fw-semibold">
+                    <i class="fas fa-chart-line text-primary me-1"></i>
+                    Mostrando <span id="footerVisibleCount" class="fw-bold text-slate-800">{{ ventas|length }}</span> de
+                    {{ ventas|length }} venta(s)
                 </div>
-                <div class="text-muted small">
-                    <i class="fas fa-chart-pie me-1"></i>
+                <div class="text-slate-600 small">
+                    <i class="fas fa-chart-pie text-info me-1"></i>
                     Distribución:
-                    <span class="text-success">{{ ventas_contado|default(0) }} contado</span> |
-                    <span class="text-warning">{{ ventas_credito|default(0) }} crédito</span>
+                    <span class="text-success fw-bold">{{ ventas_contado|default(0) }} contado</span> |
+                    <span class="text-warning fw-bold">{{ ventas_credito|default(0) }} crédito</span>
                 </div>
-                <div class="text-muted small">
-                    <i class="fas fa-percent me-1"></i>
-                    % Crédito: <span id="porcentajeCredito">{{ ((ventas_credito / total_ventas * 100) if
-                        total_ventas > 0 else 0)|round(1) }}</span>%
+                <div class="text-slate-600 small">
+                    <i class="fas fa-percent text-secondary me-1"></i>
+                    % Crédito: <strong class="text-slate-800" id="porcentajeCredito">{{ ((ventas_credito / total_ventas
+                        * 100) if total_ventas > 0 else 0)|round(1) }}</strong>%
                 </div>
             </div>
         </div>
@@ -538,16 +789,16 @@
     </div>
 </div>
 
-<!-- ============================================ -->
-<!-- MODAL DE ANULACIÓN DE VENTA (COMPLETO)       -->
-<!-- ============================================ -->
+<!-- ========================================================
+     MODAL DE ANULACIÓN DE VENTA
+     ======================================================== -->
 <div class="modal fade" id="anularVentaModal" tabindex="-1" aria-labelledby="anularVentaModalLabel" aria-hidden="true"
     data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
             <!-- Cabecera del Modal -->
             <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title" id="anularVentaModalLabel">
+                <h5 class="modal-title fw-bold" id="anularVentaModalLabel">
                     <i class="fas fa-exclamation-triangle me-2"></i>
                     Confirmar Anulación de Venta
                 </h5>
@@ -559,54 +810,51 @@
             <div class="modal-body">
                 <!-- Spinner de carga -->
                 <div id="anularLoadingSpinner" class="text-center py-5">
-                    <div class="spinner-border text-primary mb-3" role="status">
+                    <div class="spinner-border text-danger mb-3" role="status">
                         <span class="visually-hidden">Cargando...</span>
                     </div>
-                    <p class="text-muted">Cargando información de la venta...</p>
-                    <small class="text-muted">Esto puede tomar unos segundos</small>
+                    <p class="text-slate-700 fw-semibold mb-1">Cargando información de la venta...</p>
+                    <small class="text-slate-500">Por favor espere un momento</small>
                 </div>
 
-                <!-- Contenido dinámico (inicialmente oculto) -->
+                <!-- Contenido dinámico -->
                 <div id="anularVentaContent" style="display: none;">
                     <div class="row g-3">
-                        <!-- Columna Izquierda: Alerta, Datos y Formulario de Confirmación -->
+                        <!-- Columna Izquierda: Datos y Formulario -->
                         <div class="col-12 col-lg-6">
                             <!-- Alerta de advertencia -->
-                            <div class="alert alert-warning border-start border-4 border-warning d-flex align-items-start gap-3 p-3 mb-3"
-                                style="border-radius: 8px;">
-                                <div class="text-warning">
+                            <div
+                                class="alert alert-warning border-start border-4 border-warning d-flex align-items-start gap-3 p-3 mb-3 rounded-3">
+                                <div class="text-warning mt-1">
                                     <i class="fas fa-exclamation-triangle fa-2x"></i>
                                 </div>
                                 <div>
-                                    <h6 class="alert-heading mb-1 fw-bold">¡Atención! Acción irreversible</h6>
-                                    <p class="mb-0 small">Está a punto de anular una venta. Se revertirá el inventario,
-                                        movimientos de caja y cuentas por cobrar si aplica.</p>
+                                    <h6 class="alert-heading mb-1 fw-bold text-dark">¡Atención! Acción irreversible</h6>
+                                    <p class="mb-0 small text-slate-700">Al anular la venta se revertirá el inventario a
+                                        la bodega, los movimientos de caja asociados y las cuentas por cobrar.</p>
                                 </div>
                             </div>
 
                             <!-- Tarjeta con información de la venta -->
-                            <div class="card mb-3 border shadow-sm" style="border-radius: 10px;">
-                                <div class="card-header bg-light d-flex justify-content-between align-items-center py-2"
-                                    style="border-radius: 10px 10px 0 0;">
-                                    <h6 class="mb-0 fw-bold small text-dark">
-                                        <i class="fas fa-file-invoice me-2 text-primary"></i>
-                                        Datos de la Venta a Anular
-                                    </h6>
-                                    <span class="badge bg-primary" id="modalVentaId">#-</span>
+                            <div class="modal-card-info mb-3">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <span class="small fw-bold text-slate-800">
+                                        <i class="fas fa-file-invoice me-2 text-primary"></i>Datos de la Venta
+                                    </span>
+                                    <span class="badge bg-primary font-monospace" id="modalVentaId">#-</span>
                                 </div>
                                 <div class="card-body p-3" id="ventaInfoContent">
                                     <!-- Se llena dinámicamente con JavaScript -->
                                 </div>
                             </div>
 
-                            <!-- Información de caja y créditos -->
-                            <div class="card mb-3 border shadow-sm" id="infoFinancieraCard"
-                                style="display: none; border-radius: 10px;">
-                                <div class="card-header bg-light py-2" style="border-radius: 10px 10px 0 0;">
-                                    <h6 class="mb-0 fw-bold small text-dark">
-                                        <i class="fas fa-money-bill-wave me-2 text-success"></i>
-                                        Información Financiera Relacionada
-                                    </h6>
+                            <!-- Información financiera -->
+                            <div class="modal-card-info mb-3" id="infoFinancieraCard" style="display: none;">
+                                <div class="card-header">
+                                    <span class="small fw-bold text-slate-800">
+                                        <i class="fas fa-money-bill-wave me-2 text-success"></i>Información Financiera
+                                        Relacionada
+                                    </span>
                                 </div>
                                 <div class="card-body p-3" id="infoFinancieraContent">
                                     <!-- Se llena dinámicamente -->
@@ -614,13 +862,11 @@
                             </div>
 
                             <!-- Formulario de anulación -->
-                            <form id="formAnularVenta" method="POST" novalidate class="card mb-0 border shadow-sm"
-                                style="border-radius: 10px;">
-                                <div class="card-header bg-light py-2" style="border-radius: 10px 10px 0 0;">
-                                    <h6 class="mb-0 text-danger fw-bold small">
-                                        <i class="fas fa-ban me-2"></i>
-                                        Confirmación de Anulación
-                                    </h6>
+                            <form id="formAnularVenta" method="POST" novalidate class="modal-card-info mb-0">
+                                <div class="card-header">
+                                    <span class="small fw-bold text-danger">
+                                        <i class="fas fa-ban me-2"></i>Confirmación de Anulación
+                                    </span>
                                 </div>
                                 <div class="card-body p-3">
                                     <input type="hidden" name="motivo_anulacion" id="hiddenMotivoAnulacion">
@@ -628,57 +874,37 @@
                                     <input type="hidden" name="revertir_efectivo" id="hiddenRevertirEfectivo" value="1">
                                     <input type="hidden" name="comentario_reversion" id="hiddenComentario" value="">
 
-                                    <!-- Campo de motivo de anulación -->
+                                    <!-- Campo de motivo -->
                                     <div class="mb-3">
                                         <label for="motivoAnulacion"
-                                            class="form-label fw-bold text-secondary small mb-2">
+                                            class="form-label fw-bold text-slate-700 small mb-1">
                                             <i class="fas fa-comment-alt me-1 text-danger"></i>
                                             Motivo de la Anulación <span class="text-danger">*</span>
                                         </label>
-                                        <textarea class="form-control" id="motivoAnulacion" name="motivo_anulacion"
-                                            rows="3" maxlength="500"
-                                            placeholder="Describa detalladamente el motivo por el cual anula esta venta (mínimo 10 caracteres)..."
-                                            required minlength="10"
-                                            style="resize: none; border-radius: 6px;"></textarea>
+                                        <textarea class="form-control form-control-premium" id="motivoAnulacion"
+                                            name="motivo_anulacion" rows="3" maxlength="500"
+                                            placeholder="Describa claramente por qué anula esta venta (mínimo 10 caracteres)..."
+                                            required minlength="10" style="resize: none;"></textarea>
                                         <div class="d-flex justify-content-between align-items-center mt-2 px-1">
-                                            <small class="text-muted">
-                                                <span id="motivoMinLength" class="text-danger">Mínimo 10
-                                                    caracteres</span>
-                                            </small>
-                                            <small class="text-muted">
-                                                <span id="charCount" class="fw-bold">0</span> / 500 caracteres
-                                            </small>
-                                        </div>
-                                        <div class="invalid-feedback mt-2">
-                                            El motivo debe tener entre 10 y 500 caracteres.
+                                            <small id="motivoMinLength" class="text-danger fw-semibold">Mínimo 10
+                                                caracteres</small>
+                                            <small class="text-slate-500"><span id="charCount"
+                                                    class="fw-bold text-slate-800">0</span> / 500 caracteres</small>
                                         </div>
                                     </div>
 
-                                    <!-- Checkbox de confirmación y términos -->
-                                    <div class="alert alert-danger bg-danger bg-opacity-10 border-danger border-opacity-25 mb-0 p-3"
-                                        style="border-radius: 8px;">
+                                    <!-- Checkbox de confirmación -->
+                                    <div
+                                        class="alert alert-danger bg-danger bg-opacity-10 border-danger border-opacity-25 mb-0 p-3 rounded-3">
                                         <div class="form-check d-flex align-items-center gap-2">
                                             <input class="form-check-input border-danger" type="checkbox"
                                                 id="confirmarAnulacion" required
-                                                style="width: 1.25em; height: 1.25em; cursor: pointer; margin-top: 0;">
-                                            <label class="form-check-label fw-bold text-danger cursor-pointer ms-1"
-                                                for="confirmarAnulacion" style="cursor: pointer; user-select: none;">
+                                                style="width: 1.2em; height: 1.2em; cursor: pointer;">
+                                            <label
+                                                class="form-check-label fw-bold text-danger small mb-0 cursor-pointer"
+                                                for="confirmarAnulacion" style="cursor: pointer;">
                                                 CONFIRMO que deseo anular esta venta
                                             </label>
-                                        </div>
-                                        <div class="mt-2 ms-4 border-top border-danger border-opacity-10 pt-2">
-                                            <small class="text-muted d-block fw-semibold mb-1">
-                                                Entiendo y acepto que al proceder:
-                                            </small>
-                                            <ul class="text-muted small ps-3 mb-0" style="line-height: 1.5;">
-                                                <li>Todos los productos serán devueltos al inventario de la bodega
-                                                    correspondiente.</li>
-                                                <li>Los movimientos de caja asociados serán revertidos/anulados.</li>
-                                                <li>Las cuentas por cobrar relacionadas serán canceladas (si aplica).
-                                                </li>
-                                                <li><strong class="text-danger">Esta acción es irreversible y quedará
-                                                        registrada en la bitácora.</strong></li>
-                                            </ul>
                                         </div>
                                     </div>
                                 </div>
@@ -687,35 +913,33 @@
 
                         <!-- Columna Derecha: Detalle de Productos -->
                         <div class="col-12 col-lg-6">
-                            <!-- Tabla de productos (se llena dinámicamente) -->
-                            <div class="card mb-0 border shadow-sm" id="productosCard"
-                                style="display: none; border-radius: 10px; overflow: hidden;">
-                                <div class="card-header bg-light py-2">
-                                    <h6 class="mb-0 fw-bold text-dark small">
-                                        <i class="fas fa-boxes me-2 text-info"></i>
-                                        Productos a devolver al inventario
-                                    </h6>
+                            <div class="modal-card-info mb-0" id="productosCard" style="display: none;">
+                                <div class="card-header">
+                                    <span class="small fw-bold text-slate-800">
+                                        <i class="fas fa-boxes me-2 text-info"></i>Productos a devolver al inventario
+                                    </span>
                                 </div>
                                 <div class="card-body p-0">
                                     <div class="table-responsive" style="max-height: 480px; overflow-y: auto;">
-                                        <table class="table table-sm table-striped mb-0 align-middle">
-                                            <thead class="table-secondary sticky-top">
+                                        <table class="table table-sm table-hover mb-0 align-middle">
+                                            <thead class="table-light sticky-top">
                                                 <tr>
-                                                    <th>Código</th>
+                                                    <th class="ps-3">Código</th>
                                                     <th>Descripción</th>
                                                     <th class="text-center">Cant.</th>
                                                     <th class="text-end">Precio</th>
-                                                    <th class="text-end">Subtotal</th>
+                                                    <th class="text-end pe-3">Subtotal</th>
                                                 </tr>
                                             </thead>
                                             <tbody id="productosTableBody">
                                                 <!-- Se llena dinámicamente -->
                                             </tbody>
-                                            <tfoot class="table-light sticky-bottom">
+                                            <tfoot class="table-light sticky-bottom border-top">
                                                 <tr>
-                                                    <td colspan="4" class="text-end fw-bold">Total:</td>
-                                                    <td class="text-end fw-bold text-danger" id="productosTotal">C$ 0.00
-                                                    </td>
+                                                    <td colspan="4" class="text-end fw-bold text-slate-800">Total
+                                                        Productos:</td>
+                                                    <td class="text-end fw-bold text-danger pe-3 font-monospace"
+                                                        id="productosTotal">C$ 0.00</td>
                                                 </tr>
                                             </tfoot>
                                         </table>
@@ -728,11 +952,13 @@
             </div>
 
             <!-- Pie del Modal -->
-            <div class="modal-footer bg-light">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary px-3 py-2 rounded-3 fw-semibold"
+                    data-bs-dismiss="modal">
                     <i class="fas fa-times me-1"></i> Cancelar
                 </button>
-                <button type="button" class="btn btn-danger" id="btnConfirmarAnulacion" disabled>
+                <button type="button" class="btn btn-danger px-4 py-2 rounded-3 fw-bold shadow-sm"
+                    id="btnConfirmarAnulacion" disabled>
                     <i class="fas fa-ban me-1"></i>
                     <span id="btnAnularText">Confirmar Anulación</span>
                     <span id="btnAnularSpinner" class="spinner-border spinner-border-sm ms-1" style="display: none;"
@@ -744,7 +970,6 @@
 </div>
 
 {% endblock %}
-
 
 {% block extra_js %}
 <script>
@@ -775,10 +1000,6 @@
         });
     }
 
-    /**
-     * Construye la URL correcta para anulación
-     * IMPORTANTE: NO duplica /admin
-     */
     function construirUrlAnulacion(ventaId) {
         return `/admin/ventas/anular/${ventaId}`;
     }
@@ -800,7 +1021,6 @@
         const fechaValue = document.getElementById('fechaFilter').value;
         const searchValue = document.getElementById('searchInput').value.trim();
 
-        // Construir URL con parámetros GET para que el backend aplique los filtros
         const params = new URLSearchParams();
         if (estadoValue) params.append('estado', estadoValue);
         if (tipoValue) params.append('tipo', tipoValue);
@@ -810,7 +1030,7 @@
         window.location.href = window.location.pathname + '?' + params.toString();
     }
 
-    function aplicarFiltros() {
+    function aplicarFiltrosLocales() {
         const rows = document.querySelectorAll('#tableBody tr');
         let visibleCount = 0;
         let totalProductosVisible = 0;
@@ -820,12 +1040,12 @@
         let repartoCount = 0;
 
         rows.forEach(row => {
-            let show = true;
-
             if (row.querySelector('td[colspan]')) {
                 row.style.display = '';
                 return;
             }
+
+            let show = true;
 
             if (activeFilters.estado) {
                 const estado = row.getAttribute('data-estado');
@@ -852,9 +1072,9 @@
             if (show) {
                 visibleCount++;
 
-                const productosCell = row.querySelector('td:nth-child(7) .badge');
-                if (productosCell) {
-                    const productos = parseInt(productosCell.textContent) || 0;
+                const productosBadge = row.querySelector('td:nth-child(7) .badge');
+                if (productosBadge) {
+                    const productos = parseInt(productosBadge.textContent) || 0;
                     totalProductosVisible += productos;
                 }
 
@@ -864,23 +1084,33 @@
                     totalMontoVisible += monto;
                 }
 
-                const tipoBadge = row.querySelector('td:nth-child(5) .badge');
-                if (tipoBadge) {
-                    const tipoTexto = tipoBadge.textContent;
-                    if (tipoTexto.includes('CONTADO')) contadoCount++;
-                    else if (tipoTexto.includes('CRÉDITO')) creditoCount++;
-                    else if (tipoTexto.includes('REPARTO')) repartoCount++;
-                }
+                const tipoAttr = row.getAttribute('data-tipo');
+                if (tipoAttr === 'CONTADO') contadoCount++;
+                else if (tipoAttr === 'CREDITO') creditoCount++;
+                else if (tipoAttr === 'REPARTO') repartoCount++;
             }
         });
 
-        document.getElementById('visibleCount').textContent = visibleCount;
-        document.getElementById('footerVisibleCount').textContent = visibleCount;
-        document.getElementById('totalProductosVisible').textContent = totalProductosVisible;
-        document.getElementById('totalMontoVisible').innerHTML = formatearMoneda(totalMontoVisible);
-        document.getElementById('contadoCount').textContent = contadoCount;
-        document.getElementById('creditoCount').textContent = creditoCount;
-        document.getElementById('repartoCount').textContent = repartoCount;
+        const vCountEl = document.getElementById('visibleCount');
+        if (vCountEl) vCountEl.textContent = visibleCount;
+
+        const fCountEl = document.getElementById('footerVisibleCount');
+        if (fCountEl) fCountEl.textContent = visibleCount;
+
+        const tProdEl = document.getElementById('totalProductosVisible');
+        if (tProdEl) tProdEl.textContent = totalProductosVisible;
+
+        const tMontoEl = document.getElementById('totalMontoVisible');
+        if (tMontoEl) tMontoEl.textContent = formatearMoneda(totalMontoVisible);
+
+        const contEl = document.getElementById('contadoCount');
+        if (contEl) contEl.textContent = contadoCount;
+
+        const credEl = document.getElementById('creditoCount');
+        if (credEl) credEl.textContent = creditoCount;
+
+        const repEl = document.getElementById('repartoCount');
+        if (repEl) repEl.textContent = repartoCount;
 
         const totalVentasSpan = document.getElementById('totalVentasCount');
         if (totalVentasSpan) totalVentasSpan.textContent = visibleCount;
@@ -915,72 +1145,6 @@
             default:
                 return true;
         }
-    }
-
-    function actualizarBadgesFiltros() {
-        const badgesContainer = document.getElementById('activeFiltersBadges');
-        const activeCount = Object.values(activeFilters).filter(v => v && v !== '').length;
-        const activeCountSpan = document.getElementById('activeFiltersCount');
-
-        if (activeCount > 0) {
-            badgesContainer.style.display = 'flex';
-            if (activeCountSpan) {
-                activeCountSpan.style.display = 'inline-block';
-                activeCountSpan.textContent = activeCount;
-            }
-
-            badgesContainer.innerHTML = '<small class="text-muted me-2">Filtros activos:</small>';
-
-            if (activeFilters.estado) {
-                const badge = crearBadge('Estado: ' + activeFilters.estado, 'estado');
-                badgesContainer.appendChild(badge);
-            }
-            if (activeFilters.tipo) {
-                const badge = crearBadge('Tipo: ' + activeFilters.tipo, 'tipo');
-                badgesContainer.appendChild(badge);
-            }
-            if (activeFilters.fecha) {
-                const textoFecha = {
-                    'today': 'Hoy',
-                    'yesterday': 'Ayer',
-                    'week': 'Esta semana',
-                    'month': 'Este mes'
-                }[activeFilters.fecha] || activeFilters.fecha;
-                const badge = crearBadge('Fecha: ' + textoFecha, 'fecha');
-                badgesContainer.appendChild(badge);
-            }
-            if (activeFilters.search) {
-                const badge = crearBadge('Búsqueda: ' + activeFilters.search, 'search');
-                badgesContainer.appendChild(badge);
-            }
-        } else {
-            badgesContainer.style.display = 'none';
-            if (activeCountSpan) activeCountSpan.style.display = 'none';
-        }
-    }
-
-    function crearBadge(texto, filtroKey) {
-        const span = document.createElement('span');
-        span.className = 'badge bg-secondary d-inline-flex align-items-center gap-1 p-2';
-        span.style.cursor = 'pointer';
-        span.innerHTML = `
-        ${texto}
-        <i class="fas fa-times-circle ms-1" style="font-size: 0.8rem;"></i>
-    `;
-        span.addEventListener('click', () => {
-            if (filtroKey === 'search') {
-                document.getElementById('searchInput').value = '';
-                activeFilters.search = '';
-            } else {
-                const selectId = filtroKey === 'estado' ? 'estadoFilter' :
-                    (filtroKey === 'tipo' ? 'tipoVentaFilter' : 'fechaFilter');
-                const select = document.getElementById(selectId);
-                if (select) select.value = '';
-                activeFilters[filtroKey] = '';
-            }
-            actualizarFiltros();
-        });
-        return span;
     }
 
     function limpiarFiltros() {
@@ -1086,14 +1250,9 @@
     // MANEJO DEL MODAL DE ANULACIÓN
     // ============================================
 
-    /**
-     * Carga los datos de la venta desde el servidor
-     */
     async function cargarDatosVenta(ventaId) {
         try {
             const url = construirUrlAnulacion(ventaId);
-            console.log('🔍 GET - Cargando:', url);
-
             const response = await fetch(url, {
                 method: 'GET',
                 headers: {
@@ -1101,8 +1260,6 @@
                     'X-Requested-With': 'XMLHttpRequest'
                 }
             });
-
-            console.log('📡 GET - Status:', response.status);
 
             if (!response.ok) {
                 let errorMsg = `Error HTTP ${response.status}`;
@@ -1117,8 +1274,6 @@
             }
 
             const data = await response.json();
-            console.log('✅ GET - Datos recibidos');
-
             if (data.success && data.venta) {
                 datosVentaActual = data.venta;
                 mostrarDatosVenta(data.venta);
@@ -1132,71 +1287,58 @@
         }
     }
 
-    /**
-     * Muestra los datos de la venta en el modal
-     */
     function mostrarDatosVenta(venta) {
-        console.log('📋 Mostrando venta #' + venta.id_factura);
-
-        // CORRECCIÓN CRÍTICA: Configurar acción del formulario
         const form = document.getElementById('formAnularVenta');
         if (form) {
-            const actionUrl = construirUrlAnulacion(venta.id_factura);
-            form.setAttribute('action', actionUrl);
-            console.log('📝 Form action:', actionUrl);
+            form.setAttribute('action', construirUrlAnulacion(venta.id_factura));
         }
 
-        // Mostrar ID
         document.getElementById('modalVentaId').textContent = `#${venta.id_factura}`;
 
-        // Información principal
         const contenedor = document.getElementById('ventaInfoContent');
         contenedor.innerHTML = `
-        <div class="row">
-            <div class="col-md-6">
-                <div class="mb-2">
-                    <small class="text-muted d-block">Fecha y Hora</small>
-                    <strong><i class="far fa-calendar-alt me-1"></i> ${venta.fecha || 'N/A'}</strong>
+            <div class="row g-2">
+                <div class="col-6">
+                    <div class="mb-2">
+                        <small class="text-slate-500 d-block fw-semibold">Fecha y Hora</small>
+                        <strong class="text-slate-800"><i class="far fa-calendar-alt text-primary me-1"></i> ${venta.fecha || 'N/A'}</strong>
+                    </div>
+                    <div class="mb-2">
+                        <small class="text-slate-500 d-block fw-semibold">Cliente</small>
+                        <strong class="text-slate-800"><i class="fas fa-user text-primary me-1"></i> ${venta.cliente || 'Consumidor Final'}</strong>
+                        ${venta.cliente_ruc && venta.cliente_ruc !== 'N/A' ? `<br><small class="text-slate-500 font-monospace">RUC: ${venta.cliente_ruc}</small>` : ''}
+                    </div>
+                    <div>
+                        <small class="text-slate-500 d-block fw-semibold">Vendedor</small>
+                        <strong class="text-slate-800"><i class="fas fa-user-circle text-primary me-1"></i> ${venta.vendedor || 'N/A'}</strong>
+                    </div>
                 </div>
-                <div class="mb-2">
-                    <small class="text-muted d-block">Cliente</small>
-                    <strong><i class="fas fa-user me-1"></i> ${venta.cliente || 'Consumidor Final'}</strong>
-                    ${venta.cliente_ruc && venta.cliente_ruc !== 'N/A' ?
-                `<br><small class="text-muted ms-4">RUC: ${venta.cliente_ruc}</small>` : ''}
-                </div>
-                <div class="mb-2">
-                    <small class="text-muted d-block">Vendedor</small>
-                    <strong><i class="fas fa-user-circle me-1"></i> ${venta.vendedor || 'N/A'}</strong>
+                <div class="col-6">
+                    <div class="mb-2">
+                        <small class="text-slate-500 d-block fw-semibold">Tipo de Venta</small>
+                        <span class="badge ${venta.tipo_venta === 'CONTADO' ? 'bg-success' : 'bg-warning text-dark'} fw-bold">
+                            <i class="fas ${venta.tipo_venta === 'CONTADO' ? 'fa-money-bill-wave' : 'fa-credit-card'} me-1"></i>
+                            ${venta.tipo_venta || 'N/A'}
+                        </span>
+                    </div>
+                    <div class="mb-2">
+                        <small class="text-slate-500 d-block fw-semibold">Bodega</small>
+                        <strong class="text-slate-800"><i class="fas fa-warehouse text-primary me-1"></i> ${venta.bodega || 'N/A'}</strong>
+                    </div>
+                    <div>
+                        <small class="text-slate-500 d-block fw-semibold">Total de la Venta</small>
+                        <strong class="text-success fs-5 font-monospace">
+                            ${venta.total_venta_formateado || 'C$ 0.00'}
+                        </strong>
+                    </div>
                 </div>
             </div>
-            <div class="col-md-6">
-                <div class="mb-2">
-                    <small class="text-muted d-block">Tipo de Venta</small>
-                    <span class="badge ${venta.tipo_venta === 'CONTADO' ? 'bg-success' : 'bg-warning text-dark'} fs-6">
-                        <i class="fas ${venta.tipo_venta === 'CONTADO' ? 'fa-money-bill-wave' : 'fa-credit-card'} me-1"></i>
-                        ${venta.tipo_venta || 'N/A'}
-                    </span>
-                </div>
-                <div class="mb-2">
-                    <small class="text-muted d-block">Bodega</small>
-                    <strong><i class="fas fa-warehouse me-1"></i> ${venta.bodega || 'N/A'}</strong>
-                </div>
-                <div class="mb-2">
-                    <small class="text-muted d-block">Total de la Venta</small>
-                    <strong class="text-success fs-5">
-                        ${venta.total_venta_formateado || 'C$ 0.00'}
-                    </strong>
-                </div>
-            </div>
-        </div>
-        ${venta.dias_pasados > 0 ? `
-        <div class="alert alert-warning mt-2 mb-0 py-2">
-            <small><i class="fas fa-clock me-1"></i> <strong>Atención:</strong> 
-            Esta venta se realizó hace <strong>${venta.dias_pasados}</strong> días</small>
-        </div>` : ''}
-    `;
+            ${venta.dias_pasados > 0 ? `
+            <div class="alert alert-warning mt-3 mb-0 py-2 px-3 small rounded-3">
+                <i class="fas fa-clock me-1"></i> <strong>Atención:</strong> Esta venta se realizó hace <strong>${venta.dias_pasados}</strong> días.
+            </div>` : ''}
+        `;
 
-        // Productos
         if (venta.productos && venta.productos.length > 0) {
             const productosCard = document.getElementById('productosCard');
             const tbody = document.getElementById('productosTableBody');
@@ -1212,13 +1354,13 @@
                 total += subtotal;
                 html += `
                 <tr>
-                    <td><code>${p.codigo || 'N/A'}</code></td>
-                    <td>${p.descripcion || 'N/A'}</td>
+                    <td class="ps-3"><code class="text-primary">${p.codigo || 'N/A'}</code></td>
+                    <td class="text-slate-800 fw-semibold">${p.descripcion || 'N/A'}</td>
                     <td class="text-center">
-                        <span class="badge bg-secondary">${p.cantidad} ${p.unidad_medida || ''}</span>
+                        <span class="badge bg-slate-100 text-slate-800 border">${p.cantidad} ${p.unidad_medida || ''}</span>
                     </td>
-                    <td class="text-end">${formatearMoneda(p.precio_unitario)}</td>
-                    <td class="text-end">${formatearMoneda(subtotal)}</td>
+                    <td class="text-end font-monospace">${formatearMoneda(p.precio_unitario)}</td>
+                    <td class="text-end pe-3 font-monospace fw-bold text-slate-800">${formatearMoneda(subtotal)}</td>
                 </tr>`;
             });
 
@@ -1226,23 +1368,21 @@
             if (totalEl) totalEl.textContent = formatearMoneda(total);
         }
 
-        // Información financiera (movimientos de caja, créditos)
         if (venta.tiene_movimientos_caja || venta.tiene_cuenta_cobrar) {
             const infoCard = document.getElementById('infoFinancieraCard');
             const infoContent = document.getElementById('infoFinancieraContent');
 
             if (infoCard && infoContent) {
                 infoCard.style.display = 'block';
-
                 let htmlInfo = '';
 
                 if (venta.tiene_movimientos_caja && venta.movimientos_caja.length > 0) {
                     htmlInfo += `
-                    <h6 class="text-primary">
-                        <i class="fas fa-cash-register me-1"></i> Movimientos de Caja
+                    <h6 class="text-primary fw-bold small mb-2">
+                        <i class="fas fa-cash-register me-1"></i> Movimientos de Caja Asociados
                     </h6>
-                    <div class="table-responsive mb-3">
-                        <table class="table table-sm table-bordered">
+                    <div class="table-responsive mb-2">
+                        <table class="table table-sm table-bordered mb-0">
                             <thead class="table-light">
                                 <tr>
                                     <th>Tipo</th>
@@ -1256,8 +1396,8 @@
                         htmlInfo += `
                         <tr>
                             <td><span class="badge bg-${mov.tipo === 'ENTRADA' ? 'success' : 'danger'}">${mov.tipo}</span></td>
-                            <td>${mov.descripcion || ''}</td>
-                            <td class="text-end">${formatearMoneda(mov.monto)}</td>
+                            <td class="small text-slate-700">${mov.descripcion || ''}</td>
+                            <td class="text-end font-monospace fw-bold">${formatearMoneda(mov.monto)}</td>
                         </tr>`;
                     });
 
@@ -1265,19 +1405,16 @@
                             </tbody>
                         </table>
                     </div>
-                    <small class="text-warning">
-                        <i class="fas fa-info-circle me-1"></i> 
-                        Estos movimientos serán <strong>ANULADOS</strong>
+                    <small class="text-danger fw-semibold d-block mb-2">
+                        <i class="fas fa-info-circle me-1"></i> Estos movimientos serán <strong>ANULADOS</strong>.
                     </small>`;
                 }
 
                 if (venta.tiene_cuenta_cobrar) {
                     htmlInfo += `
-                    <div class="alert alert-info mt-2 mb-0">
+                    <div class="alert alert-info mt-2 mb-0 py-2 px-3 small rounded-3">
                         <i class="fas fa-file-invoice-dollar me-1"></i>
-                        <strong>Cuenta por Cobrar:</strong> Saldo: 
-                        <strong>${formatearMoneda(venta.saldo_pendiente || 0)}</strong>
-                        <br><small>Será anulada junto con la venta</small>
+                        <strong>Cuenta por Cobrar:</strong> Saldo pendiente <strong>${formatearMoneda(venta.saldo_pendiente || 0)}</strong>. Será cancelada junto con la anulación.
                     </div>`;
                 }
 
@@ -1285,24 +1422,18 @@
             }
         }
 
-        // Mostrar contenido, ocultar spinner
         document.getElementById('anularLoadingSpinner').style.display = 'none';
         document.getElementById('anularVentaContent').style.display = 'block';
 
-        // Resetear validación
         resetearValidacionAnulacion();
     }
 
-    /**
-     * Muestra error en el modal
-     */
     function mostrarError(mensaje) {
         document.getElementById('ventaInfoContent').innerHTML = `
-        <div class="alert alert-danger text-center">
-            <i class="fas fa-exclamation-circle fa-3x mb-3 d-block"></i>
-            <h5>Error al cargar datos</h5>
-            <p>${mensaje}</p>
-            <small>Por favor, cierre este modal e intente nuevamente.</small>
+        <div class="alert alert-danger text-center mb-0">
+            <i class="fas fa-exclamation-circle fa-2x mb-2 d-block"></i>
+            <h6 class="fw-bold">Error al cargar datos</h6>
+            <p class="small mb-0">${mensaje}</p>
         </div>`;
 
         document.getElementById('anularLoadingSpinner').style.display = 'none';
@@ -1312,9 +1443,6 @@
         if (btn) btn.disabled = true;
     }
 
-    /**
-     * Resetea el formulario de anulación
-     */
     function resetearValidacionAnulacion() {
         const motivo = document.getElementById('motivoAnulacion');
         const confirmado = document.getElementById('confirmarAnulacion');
@@ -1337,9 +1465,6 @@
         if (minLength) minLength.innerHTML = '<span class="text-danger">Mínimo 10 caracteres</span>';
     }
 
-    /**
-     * Valida el formulario de anulación
-     */
     function validarFormularioAnulacion() {
         const motivo = document.getElementById('motivoAnulacion');
         const confirmado = document.getElementById('confirmarAnulacion');
@@ -1382,25 +1507,16 @@
         return isValid;
     }
 
-    /**
-     * Envía el formulario de anulación
-     */
     async function enviarFormularioAnulacion() {
         if (!validarFormularioAnulacion()) return;
 
-        // Sincronizar motivo
         const motivo = document.getElementById('motivoAnulacion').value.trim();
         document.getElementById('hiddenMotivoAnulacion').value = motivo;
 
         const form = document.getElementById('formAnularVenta');
         const url = form.getAttribute('action') || form.action;
 
-        console.log('🚀 POST - Enviando a:', url);
-        console.log('📦 Venta ID:', ventaIdActual);
-
         const btn = document.getElementById('btnConfirmarAnulacion');
-
-        // Estado de carga
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Anulando...';
 
@@ -1417,45 +1533,34 @@
                 redirect: 'follow'
             });
 
-            console.log('📡 POST - Status:', response.status);
-
-            // Si es exitoso (200, 302, etc.) o redirigido
             if (response.ok || response.redirected) {
-                // Cerrar modal
                 const modalEl = document.getElementById('anularVentaModal');
                 const modal = bootstrap.Modal.getInstance(modalEl);
                 if (modal) modal.hide();
 
-                // ✅ CORRECCIÓN: Recargar la página actual en lugar de redirigir
                 setTimeout(() => {
                     window.location.reload();
                 }, 500);
                 return;
             }
 
-            // Error
             const text = await response.text();
-            console.error('❌ POST - Error:', text.substring(0, 300));
             throw new Error(`Error del servidor (${response.status})`);
 
         } catch (error) {
             console.error('❌ Error:', error);
 
-            // Mostrar error en modal
             const infoCard = document.getElementById('infoFinancieraCard');
             const infoContent = document.getElementById('infoFinancieraContent');
             if (infoCard && infoContent) {
                 infoCard.style.display = 'block';
                 infoContent.innerHTML = `
-                <div class="alert alert-danger">
+                <div class="alert alert-danger mb-0">
                     <i class="fas fa-times-circle me-1"></i>
                     <strong>Error:</strong> ${error.message}
-                    <hr>
-                    <small>URL: ${url}</small>
                 </div>`;
             }
 
-            // Restaurar botón
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-ban me-1"></i> <span id="btnAnularText">Reintentar</span>';
         }
@@ -1466,17 +1571,13 @@
     // ============================================
 
     document.addEventListener('DOMContentLoaded', function () {
-        console.log('🚀 Inicializando Gestión de Ventas...');
-
         // Formatear monedas
         formatearTodosLosValoresMonetarios();
 
-        // Inicializar filtros
-        aplicarFiltros();
+        // Aplicar filtros iniciales
+        aplicarFiltrosLocales();
 
-        // ========================================
-        // EVENT LISTENERS - FILTROS
-        // ========================================
+        // Listeners de filtros
         document.getElementById('estadoFilter')?.addEventListener('change', actualizarFiltros);
         document.getElementById('tipoVentaFilter')?.addEventListener('change', actualizarFiltros);
         document.getElementById('fechaFilter')?.addEventListener('change', actualizarFiltros);
@@ -1500,9 +1601,7 @@
 
         document.getElementById('clearFiltersBtn')?.addEventListener('click', limpiarFiltros);
 
-        // ========================================
-        // EVENT LISTENERS - EXPORTACIÓN
-        // ========================================
+        // Listeners de exportación
         document.getElementById('exportExcel')?.addEventListener('click', function (e) {
             e.preventDefault();
             exportToCSV();
@@ -1523,33 +1622,19 @@
             window.print();
         });
 
-        // ========================================
-        // EVENT LISTENERS - MODAL DE ANULACIÓN
-        // ========================================
+        // Listeners Modal de Anulación
         const anularModal = document.getElementById('anularVentaModal');
-
         if (anularModal) {
-            // Cuando se ABRE el modal
             anularModal.addEventListener('show.bs.modal', function (event) {
                 const button = event.relatedTarget;
+                if (!button) return;
 
-                if (!button) {
-                    console.error('❌ No se encontró el botón');
-                    return;
-                }
-
-                // Obtener ID de la venta
                 ventaIdActual = button.getAttribute('data-id');
-
                 if (!ventaIdActual) {
-                    console.error('❌ No se encontró data-id');
                     mostrarError('No se pudo identificar la venta');
                     return;
                 }
 
-                console.log('🔄 Abriendo modal para venta #' + ventaIdActual);
-
-                // Resetear todo
                 document.getElementById('anularLoadingSpinner').style.display = 'block';
                 document.getElementById('anularVentaContent').style.display = 'none';
                 document.getElementById('productosCard').style.display = 'none';
@@ -1561,40 +1646,30 @@
 
                 resetearValidacionAnulacion();
 
-                // Configurar acción del formulario INMEDIATAMENTE
                 const form = document.getElementById('formAnularVenta');
                 if (form) {
                     form.setAttribute('action', construirUrlAnulacion(ventaIdActual));
-                    console.log('📝 Form action inicial:', form.getAttribute('action'));
                 }
 
-                // Cargar datos
                 cargarDatosVenta(ventaIdActual);
             });
 
-            // Cuando se CIERRA el modal
             anularModal.addEventListener('hidden.bs.modal', function () {
-                console.log('🔒 Modal cerrado');
                 ventaIdActual = null;
                 datosVentaActual = null;
             });
         }
 
-        // ========================================
-        // VALIDACIÓN DEL FORMULARIO
-        // ========================================
+        // Validación de anulación
         document.getElementById('motivoAnulacion')?.addEventListener('input', validarFormularioAnulacion);
         document.getElementById('confirmarAnulacion')?.addEventListener('change', validarFormularioAnulacion);
 
-        // Botón confirmar
         document.getElementById('btnConfirmarAnulacion')?.addEventListener('click', function (e) {
             e.preventDefault();
             enviarFormularioAnulacion();
         });
 
-        // ========================================
-        // ATALLO DE TECLADO
-        // ========================================
+        // Atajo teclado Ctrl+F
         document.addEventListener('keydown', function (e) {
             if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
                 const modalOpen = document.querySelector('.modal.show');
@@ -1604,9 +1679,6 @@
                 }
             }
         });
-
-        console.log('✅ Gestión de Ventas inicializado correctamente');
-        console.log('📍 URL base anulación:', construirUrlAnulacion('ID'));
     });
 </script>
 {% endblock %}

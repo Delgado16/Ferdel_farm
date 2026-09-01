@@ -3,135 +3,406 @@
 {% block title %}Gestión de Compras - FerDel{% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-    /* Estilos específicos para compras */
+    /* ========================================================
+       SISTEMA DE DISEÑO PREMIUM - GESTIÓN DE COMPRAS
+       ======================================================== */
+    :root {
+        --slate-50: #f8fafc;
+        --slate-100: #f1f5f9;
+        --slate-200: #e2e8f0;
+        --slate-300: #cbd5e1;
+        --slate-400: #94a3b8;
+        --slate-500: #64748b;
+        --slate-600: #475569;
+        --slate-700: #334155;
+        --slate-800: #1e293b;
+        --slate-900: #0f172a;
+
+        --primary-brand: #2c5e2e;
+        --primary-brand-dark: #1e4620;
+        --secondary-brand: #10b981;
+
+        --card-radius: 16px;
+        --card-shadow: 0 4px 15px -3px rgba(15, 23, 42, 0.06), 0 2px 6px -2px rgba(15, 23, 42, 0.04);
+        --card-shadow-hover: 0 12px 28px -4px rgba(15, 23, 42, 0.12), 0 4px 10px -2px rgba(15, 23, 42, 0.06);
+    }
+
+    /* Tipografía y Textos de Alto Contraste */
+    .text-slate-800 {
+        color: var(--slate-800) !important;
+    }
+
+    .text-slate-700 {
+        color: var(--slate-700) !important;
+    }
+
+    .text-slate-600 {
+        color: var(--slate-600) !important;
+    }
+
+    .text-slate-500 {
+        color: var(--slate-500) !important;
+    }
+
+    /* Encabezado General */
+    .historial-header {
+        background: #ffffff;
+        border-radius: var(--card-radius);
+        padding: 1.5rem 1.75rem;
+        border: 1px solid var(--slate-200);
+        box-shadow: var(--card-shadow);
+    }
+
+    .historial-header h3 {
+        color: var(--slate-900);
+        font-weight: 800;
+        letter-spacing: -0.02em;
+    }
+
+    /* ========================================================
+       TARJETAS KPI / ESTADÍSTICAS (MÁXIMA LEGIBILIDAD)
+       ======================================================== */
     .stat-card {
-        transition: transform 0.2s, box-shadow 0.2s;
-        cursor: pointer;
+        border-radius: var(--card-radius) !important;
+        border: none !important;
+        transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+        box-shadow: var(--card-shadow);
     }
-    
+
     .stat-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1) !important;
+        transform: translateY(-4px);
+        box-shadow: var(--card-shadow-hover);
     }
-    
+
+    /* Gradientes con alto contraste */
+    .bg-invertido-gradient {
+        background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%) !important;
+    }
+
+    .bg-contado-gradient {
+        background: linear-gradient(135deg, #065f46 0%, #059669 100%) !important;
+    }
+
+    .bg-credito-gradient {
+        background: linear-gradient(135deg, #b45309 0%, #d97706 100%) !important;
+    }
+
+    .bg-proporcion-gradient {
+        background: linear-gradient(135deg, #4c1d95 0%, #7c3aed 100%) !important;
+    }
+
+    .stat-card .card-title-sub {
+        color: rgba(255, 255, 255, 0.95) !important;
+        font-weight: 700;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .stat-card .stat-amount {
+        color: #ffffff !important;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        line-height: 1.15;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .stat-card .stat-note {
+        color: rgba(255, 255, 255, 0.88) !important;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+
+    .stat-card .stat-icon-wrapper {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.22);
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        backdrop-filter: blur(4px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.35rem;
+        color: #ffffff;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+    }
+
+    .stat-card .stat-footer {
+        border-top: 1px solid rgba(255, 255, 255, 0.25);
+        padding-top: 0.75rem;
+        color: rgba(255, 255, 255, 0.95);
+        font-size: 0.82rem;
+    }
+
+    .stat-card .stat-footer strong {
+        color: #ffffff;
+        font-weight: 700;
+    }
+
+    /* ========================================================
+       SECCIÓN PRINCIPAL / TABLA / FILTROS
+       ======================================================== */
+    .card-premium-section {
+        background: #ffffff;
+        border-radius: var(--card-radius);
+        border: 1px solid var(--slate-200);
+        box-shadow: var(--card-shadow);
+        overflow: hidden;
+    }
+
+    .card-premium-header {
+        background: #ffffff;
+        border-bottom: 1px solid var(--slate-200);
+        padding: 1.25rem 1.5rem;
+    }
+
+    .form-control-premium,
+    .form-select-premium {
+        background-color: var(--slate-50);
+        border: 1px solid var(--slate-300);
+        border-radius: 10px;
+        padding: 0.55rem 0.85rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--slate-800);
+        transition: all 0.2s ease;
+    }
+
+    .form-control-premium:focus,
+    .form-select-premium:focus {
+        background-color: #ffffff;
+        border-color: var(--secondary-brand, #10b981);
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
+        color: var(--slate-900);
+    }
+
+    .filter-label-text {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--slate-500);
+        margin-bottom: 0.35rem;
+    }
+
+    /* Tabla Moderna */
+    .table-modern {
+        border-collapse: separate;
+        border-spacing: 0;
+        width: 100%;
+    }
+
+    .table-modern thead th {
+        background-color: #f8fafc;
+        color: #334155;
+        font-weight: 700;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 0.95rem 1rem;
+        border-bottom: 2px solid var(--slate-200);
+        white-space: nowrap;
+    }
+
+    .table-modern tbody td {
+        padding: 0.9rem 1rem;
+        vertical-align: middle;
+        color: #1e293b;
+        font-size: 0.875rem;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .table-modern tbody tr {
+        transition: background-color 0.15s ease;
+    }
+
+    .table-modern tbody tr:hover {
+        background-color: #f8fafc;
+    }
+
     .table-inactive {
-        opacity: 0.6;
-        background-color: #f8f9fa;
+        opacity: 0.65;
+        background-color: #f8fafc !important;
     }
-    
-    .badge-filter {
-        cursor: pointer;
+
+    .table-modern tfoot td {
+        padding: 0.85rem 1rem;
+        background-color: #f8fafc;
+        border-top: 2px solid var(--slate-200);
+        color: var(--slate-800);
+    }
+
+    /* Badges estilizados de alto contraste */
+    .badge-modern {
+        padding: 0.4rem 0.75rem;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 0.75rem;
+        letter-spacing: 0.02em;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+
+    .badge-contado {
+        background-color: #dcfce7;
+        color: #15803d;
+        border: 1px solid #bbf7d0;
+    }
+
+    .badge-credito {
+        background-color: #fef3c7;
+        color: #92400e;
+        border: 1px solid #fde68a;
+    }
+
+    .badge-activa {
+        background-color: #ecfdf5;
+        color: #047857;
+        border: 1px solid #a7f3d0;
+    }
+
+    .badge-anulada {
+        background-color: #fee2e2;
+        color: #b91c1c;
+        border: 1px solid #fca5a5;
+    }
+
+    .badge-id {
+        background-color: var(--slate-100);
+        color: var(--slate-700);
+        border: 1px solid var(--slate-300);
+        font-family: monospace;
+        font-weight: 700;
+    }
+
+    /* Botones de acción */
+    .btn-action {
+        border-radius: 8px;
+        padding: 0.35rem 0.65rem;
+        font-size: 0.8rem;
+        font-weight: 600;
         transition: all 0.2s;
     }
-    
-    .badge-filter:hover {
-        transform: scale(1.05);
+
+    .btn-action:hover {
+        transform: translateY(-1px);
     }
-    
-    .filter-active {
-        filter: drop-shadow(0 0 2px currentColor);
+
+    /* ========================================================
+       MODAL DE ANULACIÓN
+       ======================================================== */
+    .modal-content {
+        border-radius: 18px;
+        border: none;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+        overflow: hidden;
     }
-    
-    /* Mejoras para la tabla responsiva */
-    @media (max-width: 768px) {
-        .btn-group-sm .btn {
-            padding: 0.25rem 0.5rem;
-        }
-        
-        .btn-group-sm .btn span {
-            display: none;
-        }
-        
-        .btn-group-sm .btn i {
-            margin: 0;
-        }
+
+    .modal-header {
+        padding: 1.25rem 1.75rem;
     }
-    
-    /* Animaciones */
-    @keyframes slideDown {
-        from {
-            opacity: 0;
-            transform: translateY(-10px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
+
+    .modal-body {
+        padding: 1.5rem 1.75rem;
+        background-color: #f8fafc;
     }
-    
-    .alert-slide {
-        animation: slideDown 0.3s ease-out;
+
+    .modal-card-info {
+        background: #ffffff;
+        border-radius: 12px;
+        border: 1px solid var(--slate-200);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
     }
-    
-    /* Estilos para el modal de anulación */
-    .modal-body .card {
-        border-radius: 10px;
+
+    .modal-card-info .card-header {
+        background: #f1f5f9;
+        border-bottom: 1px solid var(--slate-200);
+        font-weight: 700;
+        color: var(--slate-800);
+        padding: 0.75rem 1rem;
     }
-    
-    #anularCompraContent {
-        transition: opacity 0.3s ease;
-    }
-    
-    .was-validated .form-control:invalid {
-        border-color: #dc3545;
-    }
-    
-    .was-validated .form-control:valid {
-        border-color: #198754;
-    }
-    
-    /* Estilos para valores monetarios */
-    .money-value {
-        font-variant-numeric: tabular-nums;
+
+    .modal-footer {
+        padding: 1rem 1.75rem;
+        background: #ffffff;
+        border-top: 1px solid var(--slate-200);
     }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid py-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb mb-0">
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('admin.admin_dashboard') }}" class="text-decoration-none text-slate-600">
+                    <i class="fas fa-home me-1"></i>Dashboard
+                </a>
+            </li>
+            <li class="breadcrumb-item active fw-bold text-slate-800" aria-current="page">
+                <i class="fas fa-shopping-cart text-primary me-1"></i>Gestión de Compras
+            </li>
+        </ol>
+    </nav>
+
     <!-- Encabezado con acciones -->
     <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <div>
-            <h3 class="fw-bold text-slate-800 mb-1">
-                <i class="fas fa-shopping-cart text-primary me-2"></i>Gestión de Compras
+            <h3 class="mb-1 d-flex align-items-center gap-2">
+                <i class="fas fa-shopping-cart text-primary"></i>
+                <span>Gestión de Compras</span>
+                <span class="badge bg-light text-dark border font-monospace ms-2" id="totalComprasCount"
+                    style="font-size: 0.95rem;">{{ compras|length }}</span>
             </h3>
-            <p class="text-muted small mb-0">Gestione y controle todos los movimientos de compra y entradas de productos</p>
+            <p class="text-slate-500 small mb-0">Gestione y controle todos los movimientos de compra y entradas de productos</p>
         </div>
         <div class="d-flex gap-2 flex-wrap">
-            <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
-                <i class="fas fa-arrow-left me-1"></i> Volver
+            <a href="{{ url_for('admin.admin_dashboard') }}"
+                class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3 fw-bold">
+                <i class="fas fa-arrow-left me-1"></i> Volver al Dashboard
             </a>
-            <a href="{{ url_for('admin.admin_crear_compra') }}" class="btn btn-outline-primary btn-sm px-3 py-2 rounded-3">
+            <a href="{{ url_for('admin.admin_crear_compra') }}"
+                class="btn btn-primary btn-sm px-3 py-2 rounded-3 fw-bold shadow-sm"
+                style="background-color: var(--primary-brand); border-color: var(--primary-brand);">
                 <i class="fas fa-plus-circle me-1"></i> Nueva Compra
             </a>
         </div>
     </div>
 
-    <!-- Tarjetas de estadísticas unificadas y consolidadas (Estética Premium Translúcida) -->
+    <!-- ========================================================
+         TARJETAS DE ESTADÍSTICAS (KPIs CON ALTO CONTRASTE)
+         ======================================================== -->
     <div class="row mb-4 g-3">
         <!-- Tarjeta 1: Total Invertido -->
         <div class="col-12 col-sm-6 col-xl-3">
-            <div class="card-premium-section h-100" style="background: rgba(3, 105, 161, 0.04) !important; border: 1px solid rgba(3, 105, 161, 0.15) !important;">
+            <div class="card stat-card h-100 text-white bg-invertido-gradient">
                 <div class="card-body p-4 d-flex flex-column justify-content-between">
                     <div class="d-flex justify-content-between align-items-start mb-3">
                         <div>
-                            <span class="text-uppercase fw-bold small text-muted" style="letter-spacing: 0.5px; color: #0369a1 !important;">
+                            <span class="card-title-sub">
                                 <i class="fas fa-wallet me-1"></i> Total Invertido
                             </span>
-                            <h3 class="fw-bold mb-1 mt-2 money-value text-slate-800" data-value="{{ capital_total or 0 }}" style="font-size: 1.6rem;">
+                            <h3 class="stat-amount mb-1 mt-2 money-value" data-value="{{ capital_total or 0 }}"
+                                style="font-size: 1.65rem;">
                                 C$ {{ "{:,.2f}".format(capital_total or 0) }}
                             </h3>
-                            <small class="text-muted">Contado + Crédito (activas)</small>
+                            <small class="stat-note">Contado + Crédito (activas)</small>
                         </div>
-                        <div class="rounded-circle p-3" style="background: rgba(3, 105, 161, 0.1); color: #0369a1;">
-                            <i class="fas fa-chart-line fa-lg"></i>
+                        <div class="stat-icon-wrapper">
+                            <i class="fas fa-chart-line"></i>
                         </div>
                     </div>
-                    <div class="border-top border-secondary border-opacity-10 pt-3 mt-2 d-flex justify-content-between align-items-center small text-muted">
-                        <span>Total: <strong class="text-dark">{{ total_compras }}</strong></span>
-                        <span class="fw-bold text-success"><i class="fas fa-check-circle me-1"></i>{{ compras_activas }} Act.</span>
-                        <span class="fw-bold text-danger"><i class="fas fa-ban me-1"></i>{{ compras_anuladas }} Anul.</span>
+                    <div class="stat-footer d-flex justify-content-between align-items-center">
+                        <span>Total: <strong>{{ total_compras }}</strong></span>
+                        <span class="fw-bold"><i class="fas fa-check-circle me-1"></i>{{ compras_activas }} Act.</span>
+                        <span class="fw-bold"><i class="fas fa-ban me-1"></i>{{ compras_anuladas }} Anul.</span>
                     </div>
                 </div>
             </div>
@@ -139,25 +410,26 @@
 
         <!-- Tarjeta 2: Compras al Contado -->
         <div class="col-12 col-sm-6 col-xl-3">
-            <div class="card-premium-section h-100" style="background: rgba(22, 163, 74, 0.04) !important; border: 1px solid rgba(22, 163, 74, 0.15) !important;">
+            <div class="card stat-card h-100 text-white bg-contado-gradient">
                 <div class="card-body p-4 d-flex flex-column justify-content-between">
                     <div class="d-flex justify-content-between align-items-start mb-3">
                         <div>
-                            <span class="text-uppercase fw-bold small text-muted" style="letter-spacing: 0.5px; color: #16a34a !important;">
+                            <span class="card-title-sub">
                                 <i class="fas fa-money-bill-wave me-1"></i> Compras Contado
                             </span>
-                            <h3 class="fw-bold mb-1 mt-2 money-value text-slate-800" data-value="{{ capital_contado or 0 }}" style="font-size: 1.6rem;">
+                            <h3 class="stat-amount mb-1 mt-2 money-value" data-value="{{ capital_contado or 0 }}"
+                                style="font-size: 1.65rem;">
                                 C$ {{ "{:,.2f}".format(capital_contado or 0) }}
                             </h3>
-                            <small class="text-muted">Dinero desembolsado</small>
+                            <small class="stat-note">Dinero desembolsado</small>
                         </div>
-                        <div class="rounded-circle p-3" style="background: rgba(22, 163, 74, 0.1); color: #16a34a;">
-                            <i class="fas fa-coins fa-lg"></i>
+                        <div class="stat-icon-wrapper">
+                            <i class="fas fa-coins"></i>
                         </div>
                     </div>
-                    <div class="border-top border-secondary border-opacity-10 pt-3 mt-2 d-flex justify-content-between align-items-center small text-muted">
-                        <span>Transacciones: <strong class="text-dark">{{ compras_contado }}</strong></span>
-                        <span class="badge" style="color: #16a34a !important; background-color: rgba(22, 163, 74, 0.08) !important; border: 1px solid rgba(22, 163, 74, 0.15) !important;">
+                    <div class="stat-footer d-flex justify-content-between align-items-center">
+                        <span>Transacciones: <strong>{{ compras_contado }}</strong></span>
+                        <span class="badge bg-white bg-opacity-25 text-white fw-bold px-2 py-1">
                             {{ ((capital_contado / capital_total * 100) if capital_total > 0 else 0)|round(1) }}%
                         </span>
                     </div>
@@ -167,25 +439,26 @@
 
         <!-- Tarjeta 3: Compras a Crédito -->
         <div class="col-12 col-sm-6 col-xl-3">
-            <div class="card-premium-section h-100" style="background: rgba(234, 88, 12, 0.04) !important; border: 1px solid rgba(234, 88, 12, 0.15) !important;">
+            <div class="card stat-card h-100 text-white bg-credito-gradient">
                 <div class="card-body p-4 d-flex flex-column justify-content-between">
                     <div class="d-flex justify-content-between align-items-start mb-3">
                         <div>
-                            <span class="text-uppercase fw-bold small text-muted" style="letter-spacing: 0.5px; color: #ea580c !important;">
+                            <span class="card-title-sub">
                                 <i class="fas fa-credit-card me-1"></i> Compras Crédito
                             </span>
-                            <h3 class="fw-bold mb-1 mt-2 money-value text-slate-800" data-value="{{ capital_credito or 0 }}" style="font-size: 1.6rem;">
+                            <h3 class="stat-amount mb-1 mt-2 money-value" data-value="{{ capital_credito or 0 }}"
+                                style="font-size: 1.65rem;">
                                 C$ {{ "{:,.2f}".format(capital_credito or 0) }}
                             </h3>
-                            <small class="text-muted">Total facturado a crédito</small>
+                            <small class="stat-note">Total facturado a crédito</small>
                         </div>
-                        <div class="rounded-circle p-3" style="background: rgba(234, 88, 12, 0.1); color: #ea580c;">
-                            <i class="fas fa-credit-card fa-lg"></i>
+                        <div class="stat-icon-wrapper">
+                            <i class="fas fa-file-invoice-dollar"></i>
                         </div>
                     </div>
-                    <div class="border-top border-secondary border-opacity-10 pt-3 mt-2 d-flex justify-content-between align-items-center small text-muted">
-                        <span>Transacciones: <strong class="text-dark">{{ compras_credito }}</strong></span>
-                        <span class="badge" style="color: #ea580c !important; background-color: rgba(234, 88, 12, 0.08) !important; border: 1px solid rgba(234, 88, 12, 0.15) !important;">
+                    <div class="stat-footer d-flex justify-content-between align-items-center">
+                        <span>Transacciones: <strong>{{ compras_credito }}</strong></span>
+                        <span class="badge bg-white bg-opacity-25 text-white fw-bold px-2 py-1">
                             {{ ((capital_credito / capital_total * 100) if capital_total > 0 else 0)|round(1) }}%
                         </span>
                     </div>
@@ -195,36 +468,41 @@
 
         <!-- Tarjeta 4: Proporción de Pago -->
         <div class="col-12 col-sm-6 col-xl-3">
-            <div class="card-premium-section h-100" style="background: rgba(124, 58, 237, 0.04) !important; border: 1px solid rgba(124, 58, 237, 0.15) !important;">
+            <div class="card stat-card h-100 text-white bg-proporcion-gradient">
                 <div class="card-body p-4 d-flex flex-column justify-content-between">
                     <div class="d-flex justify-content-between align-items-start mb-2">
                         <div>
-                            <span class="text-uppercase fw-bold small text-muted" style="letter-spacing: 0.5px; color: #7c3aed !important;">
+                            <span class="card-title-sub">
                                 <i class="fas fa-chart-pie me-1"></i> Proporción de Pago
                             </span>
-                            <h3 class="fw-bold mb-1 mt-2 text-slate-800" style="font-size: 1.6rem;">
+                            <h3 class="stat-amount mb-1 mt-2" style="font-size: 1.65rem;">
                                 {{ ((capital_contado / capital_total * 100) if capital_total > 0 else 0)|round(0) }}% Contado
                             </h3>
-                            <small class="text-muted">Relación de desembolsos</small>
+                            <small class="stat-note">Relación de desembolsos</small>
                         </div>
-                        <div class="rounded-circle p-3" style="background: rgba(124, 58, 237, 0.1); color: #7c3aed;">
-                            <i class="fas fa-percentage fa-lg"></i>
+                        <div class="stat-icon-wrapper">
+                            <i class="fas fa-percentage"></i>
                         </div>
                     </div>
-                    
-                    <div class="border-top border-secondary border-opacity-10 pt-2 mt-2">
-                        <div class="d-flex justify-content-between align-items-center mb-1 small text-muted">
-                            <span>Contado: <strong class="text-dark">{{ ((capital_contado / capital_total * 100) if capital_total > 0 else 0)|round(1) }}%</strong></span>
-                            <span>Crédito: <strong class="text-dark">{{ ((capital_credito / capital_total * 100) if capital_total > 0 else 0)|round(1) }}%</strong></span>
+
+                    <div class="stat-footer pt-2 mt-2">
+                        <div class="d-flex justify-content-between align-items-center mb-1 small text-white">
+                            <span>Contado: <strong>{{ ((capital_contado / capital_total * 100) if capital_total > 0 else 0)|round(1) }}%</strong></span>
+                            <span>Crédito: <strong>{{ ((capital_credito / capital_total * 100) if capital_total > 0 else 0)|round(1) }}%</strong></span>
                         </div>
-                        <div class="progress" style="height: 6px; border-radius: 3px; background-color: rgba(124, 58, 237, 0.15);">
+                        <div class="progress"
+                            style="height: 6px; border-radius: 3px; background-color: rgba(255, 255, 255, 0.3);">
                             {% if capital_total > 0 %}
                             {% set porcentaje_contado = (capital_contado|default(0) / capital_total|default(1) * 100)|round(1) %}
                             {% set porcentaje_credito = (capital_credito|default(0) / capital_total|default(1) * 100)|round(1) %}
-                            <div class="progress-bar bg-success" role="progressbar" style="width: {{ porcentaje_contado }}%" aria-valuenow="{{ porcentaje_contado }}" aria-valuemin="0" aria-valuemax="100"></div>
-                            <div class="progress-bar bg-warning" role="progressbar" style="width: {{ porcentaje_credito }}%" aria-valuenow="{{ porcentaje_credito }}" aria-valuemin="0" aria-valuemax="100"></div>
+                            <div class="progress-bar bg-white" role="progressbar"
+                                style="width: {{ porcentaje_contado }}%" aria-valuenow="{{ porcentaje_contado }}"
+                                aria-valuemin="0" aria-valuemax="100"></div>
+                            <div class="progress-bar bg-warning" role="progressbar"
+                                style="width: {{ porcentaje_credito }}%" aria-valuenow="{{ porcentaje_credito }}"
+                                aria-valuemin="0" aria-valuemax="100"></div>
                             {% else %}
-                            <div class="progress-bar bg-secondary bg-opacity-25 w-100" role="progressbar"></div>
+                            <div class="progress-bar bg-white bg-opacity-25 w-100" role="progressbar"></div>
                             {% endif %}
                         </div>
                     </div>
@@ -232,79 +510,89 @@
             </div>
         </div>
     </div>
-    <!-- Card Principal -->
+
+    <!-- ========================================================
+         TABLA PRINCIPAL Y FILTROS
+         ======================================================== -->
     <div class="card-premium-section">
-        <div class="card-premium-header py-3">
-            <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-3">
+        <div class="card-premium-header">
+            <div
+                class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-3 w-100">
                 <div>
-                    <h5 class="fw-bold mb-1 text-slate-800">
-                        <i class="fas fa-clipboard-list me-2 text-primary"></i>
-                        Registro de Compras
+                    <h5 class="fw-bold mb-0 text-slate-800">
+                        <i class="fas fa-list text-primary me-2"></i>Registro de Compras
                     </h5>
-                    <p class="text-muted small mb-0">Gestión completa de transacciones de entrada</p>
+                    <p class="text-slate-500 small mb-0 mt-1">Consulte, filtre y exporte los registros de entradas de inventario</p>
                 </div>
 
                 <div class="d-flex flex-wrap gap-2 w-100 w-lg-auto">
-                    <!-- Búsqueda mejorada -->
-                    <div class="search-box flex-grow-1 flex-lg-grow-0" style="min-width: 200px;">
-                        <div class="input-group">
-                            <span class="input-group-text bg-light border-0">
-                                <i class="fas fa-search text-muted"></i>
-                            </span>
-                            <input type="text" class="form-control bg-light border-0" id="searchInput"
-                                placeholder="Buscar por proveedor, factura, ID..." autocomplete="off">
-                            <button class="btn btn-light border-0" type="button" id="clearSearchBtn" style="display: none;">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
+                    <!-- Búsqueda -->
+                    <div class="position-relative flex-grow-1 flex-lg-grow-0" style="min-width: 280px;">
+                        <input type="text" class="form-control form-control-premium ps-5" id="searchInput"
+                            placeholder="Buscar proveedor, factura, ID..." autocomplete="off">
+                        <i
+                            class="fas fa-search position-absolute start-0 top-50 translate-middle-y ms-3 text-slate-400"></i>
+                        <button
+                            class="btn btn-link text-slate-400 p-0 border-0 position-absolute end-0 top-50 translate-middle-y me-3 text-decoration-none"
+                            type="button" id="clearSearchBtn" style="display: none;">
+                            <i class="fas fa-times"></i>
+                        </button>
                     </div>
 
-                    <!-- Exportación mejorada -->
+                    <!-- Dropdown de exportación -->
                     <div class="dropdown">
-                        <button class="btn btn-outline-secondary dropdown-toggle" type="button"
-                            data-bs-toggle="dropdown" aria-expanded="false">
+                        <button class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3 fw-semibold dropdown-toggle"
+                            type="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="fas fa-download me-1"></i> Exportar
                         </button>
-                        <ul class="dropdown-menu dropdown-menu-end shadow">
-                            <li><a class="dropdown-item" href="#" id="exportExcel">
-                                    <i class="fas fa-file-excel text-success me-2"></i> Excel
-                                    <small class="text-muted ms-2">.xls</small>
-                                </a></li>
-                            <li><a class="dropdown-item" href="#" id="exportCSV">
-                                    <i class="fas fa-file-csv text-primary me-2"></i> CSV
-                                    <small class="text-muted ms-2">.csv</small>
-                                </a></li>
-                            <li><a class="dropdown-item" href="#" id="printTableBtn">
-                                    <i class="fas fa-print text-info me-2"></i> Imprimir
-                                    <small class="text-muted ms-2">Ctrl+P</small>
-                                </a></li>
+                        <ul class="dropdown-menu dropdown-menu-end shadow border-0" style="border-radius: 12px;">
+                            <li>
+                                <a class="dropdown-item py-2" href="#" id="exportExcel">
+                                    <i class="fas fa-file-excel text-success me-2"></i> Excel <small class="text-muted ms-1">(.xls)</small>
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item py-2" href="#" id="exportCSV">
+                                    <i class="fas fa-file-csv text-primary me-2"></i> CSV <small class="text-muted ms-1">(.csv)</small>
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item py-2" href="#" id="printTableBtn">
+                                    <i class="fas fa-print text-info me-2"></i> Imprimir <small class="text-muted ms-1">(Ctrl+P)</small>
+                                </a>
+                            </li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="#" id="copyTableBtn">
+                            <li>
+                                <a class="dropdown-item py-2" href="#" id="copyTableBtn">
                                     <i class="fas fa-copy text-secondary me-2"></i> Copiar al portapapeles
-                                </a></li>
+                                </a>
+                            </li>
                         </ul>
                     </div>
                 </div>
             </div>
 
-            <!-- Filtros rápidos mejorados -->
-            <div class="row g-2 mt-3">
-                <div class="col-md-3">
-                    <select class="form-select form-select-sm" id="estadoFilter">
+            <!-- Filtros rápidos -->
+            <div class="row g-2 mt-3 pt-3 border-top border-slate-200">
+                <div class="col-12 col-sm-6 col-md-3">
+                    <label class="filter-label-text"><i class="fas fa-toggle-on me-1"></i> Estado</label>
+                    <select class="form-select form-select-premium" id="estadoFilter">
                         <option value="">📊 Todos los estados</option>
                         <option value="ACTIVA">✅ Activas</option>
                         <option value="ANULADA">❌ Anuladas</option>
                     </select>
                 </div>
-                <div class="col-md-3">
-                    <select class="form-select form-select-sm" id="tipoCompraFilter">
+                <div class="col-12 col-sm-6 col-md-3">
+                    <label class="filter-label-text"><i class="fas fa-money-check-alt me-1"></i> Tipo de Compra</label>
+                    <select class="form-select form-select-premium" id="tipoCompraFilter">
                         <option value="">💵 Todos los tipos</option>
                         <option value="CONTADO">💰 Contado</option>
                         <option value="CREDITO">💳 Crédito</option>
                     </select>
                 </div>
-                <div class="col-md-3">
-                    <select class="form-select form-select-sm" id="fechaFilter">
+                <div class="col-12 col-sm-6 col-md-3">
+                    <label class="filter-label-text"><i class="fas fa-calendar-alt me-1"></i> Periodo</label>
+                    <select class="form-select form-select-premium" id="fechaFilter">
                         <option value="">📅 Todas las fechas</option>
                         <option value="today">Hoy</option>
                         <option value="yesterday">Ayer</option>
@@ -312,37 +600,37 @@
                         <option value="month">Este mes</option>
                     </select>
                 </div>
-                <div class="col-md-3">
-                    <button class="btn btn-sm btn-outline-secondary w-100" id="clearFiltersBtn">
-                        <i class="fas fa-eraser me-1"></i> Limpiar filtros
+                <div class="col-12 col-sm-6 col-md-3 d-flex align-items-end">
+                    <button class="btn btn-outline-secondary w-100 rounded-3 py-2 fw-semibold" id="clearFiltersBtn">
+                        <i class="fas fa-eraser me-1"></i> Limpiar Filtros
                         <span id="activeFiltersCount" class="badge bg-primary ms-1" style="display: none;">0</span>
                     </button>
                 </div>
             </div>
-            
+
             <!-- Indicador de filtros activos -->
             <div id="activeFiltersBadges" class="mt-2 d-flex flex-wrap gap-1" style="display: none;">
-                <small class="text-muted me-2">Filtros activos:</small>
+                <small class="text-slate-500 me-2">Filtros activos:</small>
             </div>
         </div>
 
+        <!-- Tabla -->
         <div class="card-body p-0">
-            <!-- Tabla con mejoras -->
             <div class="table-responsive">
-                <table class="table table-striped table-hover align-middle mb-0" id="dataTable">
-                    <thead class="table-light">
+                <table class="table table-hover table-modern align-middle mb-0" id="dataTable">
+                    <thead>
                         <tr>
-                            <th style="width: 60px;">ID</th>
-                            <th style="width: 100px;">Fecha</th>
+                            <th style="width: 70px;">ID</th>
+                            <th style="width: 110px;">Fecha</th>
                             <th>Factura</th>
                             <th>Proveedor</th>
-                            <th style="width: 100px;" class="text-center">Tipo</th>
+                            <th style="width: 110px;" class="text-center">Tipo</th>
                             <th>Bodega</th>
-                            <th style="width: 80px;" class="text-center">Productos</th>
-                            <th style="width: 130px;" class="text-end">Total</th>
+                            <th style="width: 85px;" class="text-center">Productos</th>
+                            <th style="width: 135px;" class="text-end">Total</th>
                             <th>Usuario</th>
                             <th style="width: 100px;" class="text-center">Estado</th>
-                            <th style="width: 200px;" class="text-center">Acciones</th>
+                            <th style="width: 140px;" class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="tableBody">
@@ -353,81 +641,90 @@
                             data-estado="{{ compra.Estado_Formateado }}"
                             data-tipo="{{ compra.Tipo_Compra_Formateado }}">
                             <td class="fw-bold">
-                                <span class="badge bg-secondary">#{{ compra.ID_Movimiento }}</span>
+                                <span class="badge badge-id">#{{ compra.ID_Movimiento }}</span>
                             </td>
                             <td>
-                                <div>
-                                    <i class="fas fa-calendar-alt text-muted small"></i>
-                                    {{ compra.Fecha.strftime('%d/%m/%Y') if compra.Fecha else 'N/A' }}
+                                <div class="fw-semibold text-slate-800">
+                                    <i class="far fa-calendar-alt text-slate-400 me-1"></i>{{
+                                    compra.Fecha.strftime('%d/%m/%Y') if compra.Fecha else 'N/A' }}
                                 </div>
-                                <small class="text-muted">
-                                    <i class="far fa-clock"></i> {{ compra.Fecha.strftime('%H:%M') if compra.Fecha else '' }}
+                                <small class="text-slate-500">
+                                    <i class="far fa-clock text-slate-400"></i> {{ compra.Fecha.strftime('%H:%M') if
+                                    compra.Fecha else '' }}
                                 </small>
                             </td>
                             <td>
                                 {% if compra.N_Factura_Externa %}
-                                <span class="badge bg-light text-dark border">
-                                    <i class="fas fa-file-invoice me-1"></i>
+                                <span class="badge bg-light text-dark border font-monospace">
+                                    <i class="fas fa-file-invoice me-1 text-slate-500"></i>
                                     {{ compra.N_Factura_Externa }}
                                 </span>
                                 {% else %}
-                                <span class="text-muted">Sin factura</span>
+                                <span class="text-slate-400 small italic">Sin factura</span>
                                 {% endif %}
                             </td>
                             <td>
-                                <div class="fw-bold">{{ compra.Proveedor or 'Proveedor General' }}</div>
+                                <div class="fw-bold text-slate-800">{{ compra.Proveedor or 'Proveedor General' }}</div>
                             </td>
                             <td class="text-center">
                                 {% if compra.Tipo_Compra == 'CONTADO' %}
-                                    <span class="badge bg-success">
-                                        <i class="fas fa-money-bill-wave me-1"></i> CONTADO
+                                    {% if compra.Metodo_Pago and ('TRANSF' in compra.Metodo_Pago|upper or 'DEPOS' in compra.Metodo_Pago|upper or 'TARJETA' in compra.Metodo_Pago|upper) %}
+                                    <span class="badge-modern" style="background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;" title="Transferencia/Banco{% if compra.Referencia_Pago %}: {{ compra.Referencia_Pago }}{% endif %}">
+                                        <i class="fas fa-university"></i> {{ compra.Metodo_Pago|upper }}
                                     </span>
+                                    {% else %}
+                                    <span class="badge-modern badge-contado" title="Efectivo (Salida de caja)">
+                                        <i class="fas fa-money-bill-wave"></i> {{ (compra.Metodo_Pago or 'EFECTIVO')|upper }}
+                                    </span>
+                                    {% endif %}
                                 {% else %}
-                                    <span class="badge bg-warning text-dark">
-                                        <i class="fas fa-credit-card me-1"></i> CRÉDITO
-                                    </span>
+                                <span class="badge-modern badge-credito">
+                                    <i class="fas fa-credit-card"></i> CRÉDITO
+                                </span>
                                 {% endif %}
                             </td>
                             <td>
-                                <span class="badge bg-secondary">
-                                    <i class="fas fa-warehouse me-1"></i>
-                                    {{ compra.Bodega or 'N/A' }}
+                                <span class="badge bg-light text-slate-700 border border-slate-200 fw-semibold">
+                                    <i class="fas fa-warehouse text-slate-400 me-1"></i>{{ compra.Bodega or 'N/A' }}
                                 </span>
                             </td>
                             <td class="text-center">
-                                <span class="badge bg-info">
-                                    <i class="fas fa-boxes me-1"></i>
-                                    {{ compra.Total_Productos or 0 }}
+                                <span
+                                    class="badge bg-slate-100 text-slate-800 border border-slate-300 fw-bold px-2 py-1">
+                                    <i class="fas fa-boxes text-slate-500 me-1"></i>{{ compra.Total_Productos or 0 }}
                                 </span>
                             </td>
-                            <td class="text-end fw-bold text-success money-value" data-value="{{ compra.Total_Compra or 0 }}">
+                            <td class="text-end fw-bold text-success money-value font-monospace"
+                                style="font-size: 0.95rem;" data-value="{{ compra.Total_Compra or 0 }}">
                                 C$ {{ "{:,.2f}".format(compra.Total_Compra or 0) }}
                             </td>
                             <td>
-                                <i class="fas fa-user-circle text-secondary me-1"></i>
-                                {{ compra.Usuario_Creacion or 'Sistema' }}
+                                <span class="text-slate-700 small">
+                                    <i class="fas fa-user-circle text-slate-400 me-1"></i>{{ compra.Usuario_Creacion or
+                                    'Sistema' }}
+                                </span>
                             </td>
                             <td class="text-center">
                                 {% if compra.Estado_Formateado == 'ACTIVA' %}
-                                    <span class="badge bg-success">
-                                        <i class="fas fa-check-circle me-1"></i> ACTIVA
-                                    </span>
+                                <span class="badge-modern badge-activa">
+                                    <i class="fas fa-check-circle"></i> ACTIVA
+                                </span>
                                 {% else %}
-                                    <span class="badge bg-danger">
-                                        <i class="fas fa-ban me-1"></i> ANULADA
-                                    </span>
+                                <span class="badge-modern badge-anulada">
+                                    <i class="fas fa-ban"></i> ANULADA
+                                </span>
                                 {% endif %}
                             </td>
                             <td class="text-center">
                                 <div class="btn-group btn-group-sm" role="group">
                                     <a href="{{ url_for('admin.admin_detalle_compra_completo', id_movimiento=compra.ID_Movimiento) }}"
-                                        class="btn btn-outline-info" title="Ver detalles">
+                                        class="btn btn-outline-primary btn-action" title="Ver detalles completos">
                                         <i class="fas fa-eye"></i>
                                         <span class="d-none d-md-inline ms-1">Ver</span>
                                     </a>
                                     {% if compra.Estado_Formateado == 'ACTIVA' %}
                                     <button type="button"
-                                        class="btn btn-outline-danger btn-anular-compra"
+                                        class="btn btn-outline-danger btn-action btn-anular-compra"
                                         data-bs-toggle="modal" data-bs-target="#anularCompraModal"
                                         data-id="{{ compra.ID_Movimiento }}"
                                         title="Anular compra">
@@ -435,7 +732,7 @@
                                         <span class="d-none d-md-inline ms-1">Anular</span>
                                     </button>
                                     {% else %}
-                                    <button class="btn btn-outline-secondary" disabled title="Compra anulada">
+                                    <button class="btn btn-outline-secondary btn-action" disabled title="Compra anulada">
                                         <i class="fas fa-lock"></i>
                                         <span class="d-none d-md-inline ms-1">Bloqueado</span>
                                     </button>
@@ -446,11 +743,13 @@
                         {% else %}
                         <tr>
                             <td colspan="11" class="text-center py-5">
-                                <div class="text-center">
-                                    <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
-                                    <h5 class="text-muted mb-2">No hay compras registradas</h5>
-                                    <p class="text-muted small mb-4">Comience creando su primera compra</p>
-                                    <a href="{{ url_for('admin.admin_crear_compra') }}" class="btn btn-primary">
+                                <div class="py-4">
+                                    <i class="fas fa-inbox fa-4x text-slate-300 mb-3"></i>
+                                    <h5 class="text-slate-700 fw-bold mb-2">No hay compras registradas</h5>
+                                    <p class="text-slate-500 small mb-4">Comience registrando su primera compra en el sistema</p>
+                                    <a href="{{ url_for('admin.admin_crear_compra') }}"
+                                        class="btn btn-primary px-4 py-2 rounded-3 fw-bold"
+                                        style="background-color: var(--primary-brand); border-color: var(--primary-brand);">
                                         <i class="fas fa-plus me-2"></i> Crear Compra
                                     </a>
                                 </div>
@@ -460,218 +759,221 @@
                     </tbody>
                     <tfoot class="table-light">
                         <tr>
-                            <td colspan="6" class="text-end fw-bold">
-                                <small>Resumen de las <span id="visibleCount">0</span> compras mostradas:</small>
+                            <td colspan="6" class="text-end fw-bold text-slate-700">
+                                <small>Resumen de las <span id="visibleCount">0</span> compras visibles:</small>
                             </td>
                             <td class="text-center fw-bold text-primary">
-                                <small><span id="totalProductosVisible">0</span></small>
+                                <span id="totalProductosVisible">0</span>
                             </td>
-                            <td class="text-end fw-bold text-success">
-                                <small><span id="totalMontoVisible">C$ 0.00</span></small>
+                            <td class="text-end fw-bold text-success font-monospace">
+                                <span id="totalMontoVisible">C$ 0.00</span>
                             </td>
                             <td colspan="3" class="text-end">
-                                <small class="text-muted">
-                                    <span id="contadoCount">0</span> contado / <span id="creditoCount">0</span> crédito
+                                <small class="text-slate-600 fw-semibold">
+                                    <span id="contadoCount" class="text-success fw-bold">0</span> contado /
+                                    <span id="creditoCount" class="text-warning fw-bold">0</span> crédito
                                 </small>
                             </td>
                         </tr>
                     </tfoot>
                 </table>
             </div>
+        </div>
 
-            <!-- Información adicional mejorada -->
-            {% if compras and compras|length > 0 %}
-            <div class="card-footer bg-white">
-                <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
-                    <div class="text-muted small">
-                        <i class="fas fa-chart-line me-1"></i>
-                        Mostrando <span id="footerVisibleCount">{{ compras|length }}</span> de {{ compras|length }} compra(s)
-                    </div>
-                    <div class="text-muted small">
-                        <i class="fas fa-chart-pie me-1"></i>
-                        Distribución: 
-                        <span class="text-success">{{ compras_contado|default(0) }} contado</span> | 
-                        <span class="text-warning">{{ compras_credito|default(0) }} crédito</span>
-                    </div>
-                    <div class="text-muted small">
-                        <i class="fas fa-percent me-1"></i>
-                        % Crédito: <span id="porcentajeCredito">{{ ((compras_credito / total_compras * 100) if total_compras > 0 else 0)|round(1) }}</span>%
-                    </div>
+        <!-- Pie con resumen adicional -->
+        {% if compras and compras|length > 0 %}
+        <div class="card-footer bg-white border-top border-slate-200 py-3 px-4">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
+                <div class="text-slate-600 small fw-semibold">
+                    <i class="fas fa-chart-line text-primary me-1"></i>
+                    Mostrando <span id="footerVisibleCount" class="fw-bold text-slate-800">{{ compras|length }}</span> de
+                    {{ compras|length }} compra(s)
+                </div>
+                <div class="text-slate-600 small">
+                    <i class="fas fa-chart-pie text-info me-1"></i>
+                    Distribución:
+                    <span class="text-success fw-bold">{{ compras_contado|default(0) }} contado</span> |
+                    <span class="text-warning fw-bold">{{ compras_credito|default(0) }} crédito</span>
+                </div>
+                <div class="text-slate-600 small">
+                    <i class="fas fa-percent text-secondary me-1"></i>
+                    % Crédito: <strong class="text-slate-800" id="porcentajeCredito">{{ ((compras_credito / total_compras
+                        * 100) if total_compras > 0 else 0)|round(1) }}</strong>%
                 </div>
             </div>
-            {% endif %}
         </div>
+        {% endif %}
     </div>
 </div>
 
-<!-- ============================================ -->
-<!-- MODAL DE ANULACIÓN DE COMPRA (COMPLETO)       -->
-<!-- ============================================ -->
-<div class="modal fade" id="anularCompraModal" tabindex="-1" aria-labelledby="anularCompraModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+<!-- ========================================================
+     MODAL DE ANULACIÓN DE COMPRA
+     ======================================================== -->
+<div class="modal fade" id="anularCompraModal" tabindex="-1" aria-labelledby="anularCompraModalLabel" aria-hidden="true"
+    data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
             <!-- Cabecera del Modal -->
             <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title" id="anularCompraModalLabel">
+                <h5 class="modal-title fw-bold" id="anularCompraModalLabel">
                     <i class="fas fa-exclamation-triangle me-2"></i>
                     Confirmar Anulación de Compra
                 </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Cerrar"></button>
             </div>
-            
+
             <!-- Cuerpo del Modal -->
             <div class="modal-body">
                 <!-- Spinner de carga -->
                 <div id="anularLoadingSpinner" class="text-center py-5">
-                    <div class="spinner-border text-primary mb-3" role="status">
+                    <div class="spinner-border text-danger mb-3" role="status">
                         <span class="visually-hidden">Cargando...</span>
                     </div>
-                    <p class="text-muted">Cargando información de la compra...</p>
-                    <small class="text-muted">Esto puede tomar unos segundos</small>
+                    <p class="text-slate-700 fw-semibold mb-1">Cargando información de la compra...</p>
+                    <small class="text-slate-500">Por favor espere un momento</small>
                 </div>
-                
-                <!-- Contenido dinámico (inicialmente oculto) -->
+
+                <!-- Contenido dinámico -->
                 <div id="anularCompraContent" style="display: none;">
-                    <!-- Alerta de advertencia -->
-                    <div class="alert alert-warning border-start border-4 border-warning">
-                        <div class="d-flex">
-                            <div class="me-3">
-                                <i class="fas fa-exclamation-triangle fa-2x"></i>
-                            </div>
-                            <div>
-                                <h6 class="alert-heading mb-1">¡Atención! Acción irreversible</h6>
-                                <p class="mb-0 small">Está a punto de anular una compra. Esta acción revertirá el inventario, los movimientos de caja y actualizará las cuentas por pagar si aplica.</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Tarjeta con información de la compra -->
-                    <div class="card mb-3 border shadow-sm">
-                        <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                            <h6 class="mb-0">
-                                <i class="fas fa-file-invoice me-2 text-primary"></i>
-                                Datos de la Compra a Anular
-                            </h6>
-                            <span class="badge bg-primary" id="modalCompraId">#-</span>
-                        </div>
-                        <div class="card-body p-3" id="compraInfoContent">
-                            <!-- Se llena dinámicamente con JavaScript -->
-                        </div>
-                    </div>
-                    
-                    <!-- Tabla de productos (se llena dinámicamente) -->
-                    <div class="card mb-3 border shadow-sm" id="productosCard" style="display: none;">
-                        <div class="card-header bg-light">
-                            <h6 class="mb-0">
-                                <i class="fas fa-boxes me-2 text-info"></i>
-                                Productos que serán devueltos al inventario
-                            </h6>
-                        </div>
-                        <div class="card-body p-0">
-                            <div class="table-responsive">
-                                <table class="table table-sm table-striped mb-0">
-                                    <thead class="table-secondary">
-                                        <tr>
-                                            <th>Código</th>
-                                            <th>Descripción</th>
-                                            <th class="text-center">Cantidad</th>
-                                            <th class="text-end">Costo Unit.</th>
-                                            <th class="text-end">Subtotal</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="productosTableBody">
-                                        <!-- Se llena dinámicamente -->
-                                    </tbody>
-                                    <tfoot class="table-light">
-                                        <tr>
-                                            <td colspan="3" class="text-end fw-bold">Total:</td>
-                                            <td class="text-end fw-bold text-danger" id="productosTotal">C$ 0.00</td>
-                                        </tr>
-                                    </tfoot>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Información de caja y créditos -->
-                    <div class="card mb-3 border shadow-sm" id="infoFinancieraCard" style="display: none;">
-                        <div class="card-header bg-light">
-                            <h6 class="mb-0">
-                                <i class="fas fa-money-bill-wave me-2 text-success"></i>
-                                Información Financiera Relacionada
-                            </h6>
-                        </div>
-                        <div class="card-body p-3" id="infoFinancieraContent">
-                            <!-- Se llena dinámicamente -->
-                        </div>
-                    </div>
-                    
-                    <!-- Formulario de anulación -->
-                    <form id="formAnularCompra" method="POST" novalidate>
-                        <input type="hidden" name="motivo_anulacion" id="hiddenMotivoAnulacion">
-                        
-                        <!-- Campo de motivo de anulación -->
-                        <div class="mb-3">
-                            <label for="motivoAnulacion" class="form-label fw-bold">
-                                <i class="fas fa-comment-alt me-1 text-danger"></i> 
-                                Motivo de la Anulación 
-                                <span class="text-danger">*</span>
-                            </label>
-                            <textarea 
-                                class="form-control" 
-                                id="motivoAnulacion" 
-                                name="motivo_anulacion" 
-                                rows="3" 
-                                maxlength="500"
-                                placeholder="Describa detalladamente el motivo por el cual anula esta compra (mínimo 10 caracteres)..."
-                                required
-                                minlength="10"></textarea>
-                            <div class="d-flex justify-content-between mt-1">
-                                <small class="text-muted">
-                                    <span id="motivoMinLength" class="text-danger">Mínimo 10 caracteres</span>
-                                </small>
-                                <small class="text-muted">
-                                    <span id="charCount">0</span>/500 caracteres
-                                </small>
-                            </div>
-                            <div class="invalid-feedback">
-                                El motivo debe tener entre 10 y 500 caracteres.
-                            </div>
-                        </div>
-                        
-                        <!-- Checkbox de confirmación -->
-                        <div class="card border-danger mb-3">
-                            <div class="card-body bg-danger bg-opacity-10">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="confirmarAnulacion" required>
-                                    <label class="form-check-label fw-bold" for="confirmarAnulacion">
-                                        <i class="fas fa-check-circle me-1"></i>
-                                        CONFIRMO que deseo anular esta compra
-                                    </label>
+                    <div class="row g-3">
+                        <!-- Columna Izquierda: Datos y Formulario -->
+                        <div class="col-12 col-lg-6">
+                            <!-- Alerta de advertencia -->
+                            <div
+                                class="alert alert-warning border-start border-4 border-warning d-flex align-items-start gap-3 p-3 mb-3 rounded-3">
+                                <div class="text-warning mt-1">
+                                    <i class="fas fa-exclamation-triangle fa-2x"></i>
                                 </div>
-                                <small class="text-muted d-block mt-2 ms-4">
-                                    Al confirmar, entiendo y acepto que:
-                                </small>
-                                <ul class="text-muted small ms-4 mb-0 mt-1">
-                                    <li>Todos los productos serán devueltos al inventario de la bodega correspondiente</li>
-                                    <li>Las cuentas por pagar relacionadas serán canceladas (si aplica)</li>
-                                    <li><strong class="text-danger">Esta acción es irreversible y quedará registrada en la bitácora</strong></li>
-                                </ul>
+                                <div>
+                                    <h6 class="alert-heading mb-1 fw-bold text-dark">¡Atención! Acción irreversible</h6>
+                                    <p class="mb-0 small text-slate-700">Al anular la compra se revertirá el inventario de la bodega, los movimientos de caja y las cuentas por pagar asociadas.</p>
+                                </div>
+                            </div>
+
+                            <!-- Tarjeta con información de la compra -->
+                            <div class="modal-card-info mb-3">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <span class="small fw-bold text-slate-800">
+                                        <i class="fas fa-file-invoice me-2 text-primary"></i>Datos de la Compra
+                                    </span>
+                                    <span class="badge bg-primary font-monospace" id="modalCompraId">#-</span>
+                                </div>
+                                <div class="card-body p-3" id="compraInfoContent">
+                                    <!-- Se llena dinámicamente con JavaScript -->
+                                </div>
+                            </div>
+
+                            <!-- Información financiera -->
+                            <div class="modal-card-info mb-3" id="infoFinancieraCard" style="display: none;">
+                                <div class="card-header">
+                                    <span class="small fw-bold text-slate-800">
+                                        <i class="fas fa-money-bill-wave me-2 text-success"></i>Información Financiera Relacionada
+                                    </span>
+                                </div>
+                                <div class="card-body p-3" id="infoFinancieraContent">
+                                    <!-- Se llena dinámicamente -->
+                                </div>
+                            </div>
+
+                            <!-- Formulario de anulación -->
+                            <form id="formAnularCompra" method="POST" novalidate class="modal-card-info mb-0">
+                                <div class="card-header">
+                                    <span class="small fw-bold text-danger">
+                                        <i class="fas fa-ban me-2"></i>Confirmación de Anulación
+                                    </span>
+                                </div>
+                                <div class="card-body p-3">
+                                    <input type="hidden" name="motivo_anulacion" id="hiddenMotivoAnulacion">
+
+                                    <!-- Campo de motivo -->
+                                    <div class="mb-3">
+                                        <label for="motivoAnulacion"
+                                            class="form-label fw-bold text-slate-700 small mb-1">
+                                            <i class="fas fa-comment-alt me-1 text-danger"></i>
+                                            Motivo de la Anulación <span class="text-danger">*</span>
+                                        </label>
+                                        <textarea class="form-control form-control-premium" id="motivoAnulacion"
+                                            name="motivo_anulacion" rows="3" maxlength="500"
+                                            placeholder="Describa claramente por qué anula esta compra (mínimo 10 caracteres)..."
+                                            required minlength="10" style="resize: none;"></textarea>
+                                        <div class="d-flex justify-content-between align-items-center mt-2 px-1">
+                                            <small id="motivoMinLength" class="text-danger fw-semibold">Mínimo 10
+                                                caracteres</small>
+                                            <small class="text-slate-500"><span id="charCount"
+                                                    class="fw-bold text-slate-800">0</span> / 500 caracteres</small>
+                                        </div>
+                                    </div>
+
+                                    <!-- Checkbox de confirmación -->
+                                    <div
+                                        class="alert alert-danger bg-danger bg-opacity-10 border-danger border-opacity-25 mb-0 p-3 rounded-3">
+                                        <div class="form-check d-flex align-items-center gap-2">
+                                            <input class="form-check-input border-danger" type="checkbox"
+                                                id="confirmarAnulacion" required
+                                                style="width: 1.2em; height: 1.2em; cursor: pointer;">
+                                            <label
+                                                class="form-check-label fw-bold text-danger small mb-0 cursor-pointer"
+                                                for="confirmarAnulacion" style="cursor: pointer;">
+                                                CONFIRMO que deseo anular esta compra
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- Columna Derecha: Detalle de Productos -->
+                        <div class="col-12 col-lg-6">
+                            <div class="modal-card-info mb-0" id="productosCard" style="display: none;">
+                                <div class="card-header">
+                                    <span class="small fw-bold text-slate-800">
+                                        <i class="fas fa-boxes me-2 text-info"></i>Productos a devolver al inventario
+                                    </span>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive" style="max-height: 480px; overflow-y: auto;">
+                                        <table class="table table-sm table-hover mb-0 align-middle">
+                                            <thead class="table-light sticky-top">
+                                                <tr>
+                                                    <th class="ps-3">Código</th>
+                                                    <th>Descripción</th>
+                                                    <th class="text-center">Cant.</th>
+                                                    <th class="text-end">Costo Unit.</th>
+                                                    <th class="text-end pe-3">Subtotal</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="productosTableBody">
+                                                <!-- Se llena dinámicamente -->
+                                            </tbody>
+                                            <tfoot class="table-light sticky-bottom border-top">
+                                                <tr>
+                                                    <td colspan="4" class="text-end fw-bold text-slate-800">Total Productos:</td>
+                                                    <td class="text-end fw-bold text-danger pe-3 font-monospace"
+                                                        id="productosTotal">C$ 0.00</td>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </form>
+                    </div>
                 </div>
             </div>
-            
+
             <!-- Pie del Modal -->
-            <div class="modal-footer bg-light">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary px-3 py-2 rounded-3 fw-semibold"
+                    data-bs-dismiss="modal">
                     <i class="fas fa-times me-1"></i> Cancelar
                 </button>
-                <button type="button" class="btn btn-danger" id="btnConfirmarAnulacion" disabled>
-                    <i class="fas fa-ban me-1"></i> 
+                <button type="button" class="btn btn-danger px-4 py-2 rounded-3 fw-bold shadow-sm"
+                    id="btnConfirmarAnulacion" disabled>
+                    <i class="fas fa-ban me-1"></i>
                     <span id="btnAnularText">Confirmar Anulación</span>
-                    <span id="btnAnularSpinner" class="spinner-border spinner-border-sm ms-1" style="display: none;" role="status"></span>
+                    <span id="btnAnularSpinner" class="spinner-border spinner-border-sm ms-1" style="display: none;"
+                        role="status"></span>
                 </button>
             </div>
         </div>
@@ -682,811 +984,736 @@
 
 {% block extra_js %}
 <script>
-// ============================================
-// VARIABLES GLOBALES
-// ============================================
-let compraIdActual = null;
-let datosCompraActual = null;
+    // ============================================
+    // VARIABLES GLOBALES
+    // ============================================
+    let compraIdActual = null;
+    let datosCompraActual = null;
 
-// ============================================
-// FUNCIONES DE UTILIDAD
-// ============================================
+    // ============================================
+    // FUNCIONES DE UTILIDAD
+    // ============================================
 
-function formatearMoneda(valor) {
-    const num = parseFloat(valor) || 0;
-    return `C$ ${num.toLocaleString('es-NI', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    })}`;
-}
+    function formatearMoneda(valor) {
+        const num = parseFloat(valor) || 0;
+        return `C$ ${num.toLocaleString('es-NI', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        })}`;
+    }
 
-function formatearTodosLosValoresMonetarios() {
-    document.querySelectorAll('.money-value[data-value]').forEach(element => {
-        const valor = element.getAttribute('data-value');
-        if (valor !== null) {
-            element.textContent = formatearMoneda(valor);
+    function formatearTodosLosValoresMonetarios() {
+        document.querySelectorAll('.money-value[data-value]').forEach(element => {
+            const valor = element.getAttribute('data-value');
+            if (valor !== null) {
+                element.textContent = formatearMoneda(valor);
+            }
+        });
+    }
+
+    function construirUrlAnulacion(compraId) {
+        return `/admin/compras/compras-entradas/anular/${compraId}`;
+    }
+
+    // ============================================
+    // SISTEMA DE FILTRADO
+    // ============================================
+
+    let activeFilters = {
+        estado: '',
+        tipo: '',
+        fecha: '',
+        search: ''
+    };
+
+    function actualizarFiltros() {
+        const estadoValue = document.getElementById('estadoFilter').value;
+        const tipoValue = document.getElementById('tipoCompraFilter').value;
+        const fechaValue = document.getElementById('fechaFilter').value;
+        const searchValue = document.getElementById('searchInput').value.toLowerCase().trim();
+
+        activeFilters.estado = estadoValue;
+        activeFilters.tipo = tipoValue;
+        activeFilters.fecha = fechaValue;
+        activeFilters.search = searchValue;
+
+        aplicarFiltros();
+        actualizarBadgesFiltros();
+    }
+
+    function aplicarFiltros() {
+        const rows = document.querySelectorAll('#tableBody tr');
+        let visibleCount = 0;
+        let totalProductosVisible = 0;
+        let totalMontoVisible = 0;
+        let contadoCount = 0;
+        let creditoCount = 0;
+
+        rows.forEach(row => {
+            let show = true;
+
+            if (row.querySelector('td[colspan]')) {
+                row.style.display = '';
+                return;
+            }
+
+            if (activeFilters.estado) {
+                const estado = row.getAttribute('data-estado');
+                if (estado !== activeFilters.estado) show = false;
+            }
+
+            if (show && activeFilters.tipo) {
+                const tipo = row.getAttribute('data-tipo');
+                if (tipo !== activeFilters.tipo) show = false;
+            }
+
+            if (show && activeFilters.fecha) {
+                const fecha = row.getAttribute('data-fecha');
+                if (fecha && !evaluarFiltroFecha(fecha, activeFilters.fecha)) show = false;
+            }
+
+            if (show && activeFilters.search) {
+                const text = row.textContent.toLowerCase();
+                if (!text.includes(activeFilters.search)) show = false;
+            }
+
+            row.style.display = show ? '' : 'none';
+
+            if (show) {
+                visibleCount++;
+
+                const productosBadge = row.querySelector('td:nth-child(7) .badge');
+                if (productosBadge) {
+                    const productos = parseInt(productosBadge.textContent) || 0;
+                    totalProductosVisible += productos;
+                }
+
+                const montoCell = row.querySelector('td:nth-child(8)');
+                if (montoCell && montoCell.getAttribute('data-value')) {
+                    const monto = parseFloat(montoCell.getAttribute('data-value')) || 0;
+                    totalMontoVisible += monto;
+                }
+
+                const tipoBadge = row.querySelector('td:nth-child(5) .badge-modern') || row.querySelector('td:nth-child(5) .badge');
+                if (tipoBadge) {
+                    const tipoTexto = tipoBadge.textContent;
+                    if (tipoTexto.includes('CONTADO')) contadoCount++;
+                    else if (tipoTexto.includes('CRÉDITO') || tipoTexto.includes('CREDITO')) creditoCount++;
+                }
+            }
+        });
+
+        const vCountEl = document.getElementById('visibleCount');
+        if (vCountEl) vCountEl.textContent = visibleCount;
+
+        const fCountEl = document.getElementById('footerVisibleCount');
+        if (fCountEl) fCountEl.textContent = visibleCount;
+
+        const tProdEl = document.getElementById('totalProductosVisible');
+        if (tProdEl) tProdEl.textContent = totalProductosVisible;
+
+        const tMontoEl = document.getElementById('totalMontoVisible');
+        if (tMontoEl) tMontoEl.textContent = formatearMoneda(totalMontoVisible);
+
+        const contEl = document.getElementById('contadoCount');
+        if (contEl) contEl.textContent = contadoCount;
+
+        const credEl = document.getElementById('creditoCount');
+        if (credEl) credEl.textContent = creditoCount;
+
+        const totalComprasSpan = document.getElementById('totalComprasCount');
+        if (totalComprasSpan) totalComprasSpan.textContent = visibleCount;
+    }
+
+    function evaluarFiltroFecha(fechaStr, filtro) {
+        if (!fechaStr) return false;
+
+        const hoy = new Date();
+        hoy.setHours(0, 0, 0, 0);
+
+        const fecha = new Date(fechaStr);
+        fecha.setHours(0, 0, 0, 0);
+
+        const ayer = new Date(hoy);
+        ayer.setDate(ayer.getDate() - 1);
+
+        const inicioSemana = new Date(hoy);
+        inicioSemana.setDate(hoy.getDate() - hoy.getDay());
+
+        const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+
+        switch (filtro) {
+            case 'today':
+                return fecha.getTime() === hoy.getTime();
+            case 'yesterday':
+                return fecha.getTime() === ayer.getTime();
+            case 'week':
+                return fecha >= inicioSemana;
+            case 'month':
+                return fecha >= inicioMes;
+            default:
+                return true;
         }
-    });
-}
+    }
 
-/**
- * Construye la URL correcta para anulación
- */
-function construirUrlAnulacion(compraId) {
-    return `/admin/compras/compras-entradas/anular/${compraId}`;
-}
+    function actualizarBadgesFiltros() {
+        const badgesContainer = document.getElementById('activeFiltersBadges');
+        const activeCount = Object.values(activeFilters).filter(v => v && v !== '').length;
+        const activeCountSpan = document.getElementById('activeFiltersCount');
 
-// ============================================
-// SISTEMA DE FILTRADO
-// ============================================
+        if (activeCount > 0) {
+            badgesContainer.style.display = 'flex';
+            if (activeCountSpan) {
+                activeCountSpan.style.display = 'inline-block';
+                activeCountSpan.textContent = activeCount;
+            }
 
-let activeFilters = {
-    estado: '',
-    tipo: '',
-    fecha: '',
-    search: ''
-};
+            badgesContainer.innerHTML = '<small class="text-slate-500 me-2">Filtros activos:</small>';
 
-function actualizarFiltros() {
-    const estadoValue = document.getElementById('estadoFilter').value;
-    const tipoValue = document.getElementById('tipoCompraFilter').value;
-    const fechaValue = document.getElementById('fechaFilter').value;
-    const searchValue = document.getElementById('searchInput').value.toLowerCase().trim();
-    
-    activeFilters.estado = estadoValue;
-    activeFilters.tipo = tipoValue;
-    activeFilters.fecha = fechaValue;
-    activeFilters.search = searchValue;
-    
-    aplicarFiltros();
-    actualizarBadgesFiltros();
-}
+            if (activeFilters.estado) {
+                const badge = crearBadge('Estado: ' + activeFilters.estado, 'estado');
+                badgesContainer.appendChild(badge);
+            }
+            if (activeFilters.tipo) {
+                const badge = crearBadge('Tipo: ' + activeFilters.tipo, 'tipo');
+                badgesContainer.appendChild(badge);
+            }
+            if (activeFilters.fecha) {
+                const textoFecha = {
+                    'today': 'Hoy',
+                    'yesterday': 'Ayer',
+                    'week': 'Esta semana',
+                    'month': 'Este mes'
+                }[activeFilters.fecha] || activeFilters.fecha;
+                const badge = crearBadge('Fecha: ' + textoFecha, 'fecha');
+                badgesContainer.appendChild(badge);
+            }
+            if (activeFilters.search) {
+                const badge = crearBadge('Búsqueda: ' + activeFilters.search, 'search');
+                badgesContainer.appendChild(badge);
+            }
+        } else {
+            badgesContainer.style.display = 'none';
+            if (activeCountSpan) activeCountSpan.style.display = 'none';
+        }
+    }
 
-function aplicarFiltros() {
-    const rows = document.querySelectorAll('#tableBody tr');
-    let visibleCount = 0;
-    let totalProductosVisible = 0;
-    let totalMontoVisible = 0;
-    let contadoCount = 0;
-    let creditoCount = 0;
-    
-    rows.forEach(row => {
-        let show = true;
-        
-        if (row.querySelector('td[colspan]')) {
-            row.style.display = '';
+    function crearBadge(texto, filtroKey) {
+        const span = document.createElement('span');
+        span.className = 'badge bg-slate-100 text-slate-700 border border-slate-300 d-inline-flex align-items-center gap-1 p-2';
+        span.style.cursor = 'pointer';
+        span.innerHTML = `
+            ${texto}
+            <i class="fas fa-times-circle text-slate-400 ms-1" style="font-size: 0.8rem;"></i>
+        `;
+        span.addEventListener('click', () => {
+            if (filtroKey === 'search') {
+                document.getElementById('searchInput').value = '';
+                activeFilters.search = '';
+            } else {
+                const selectId = filtroKey === 'estado' ? 'estadoFilter' :
+                                (filtroKey === 'tipo' ? 'tipoCompraFilter' : 'fechaFilter');
+                const select = document.getElementById(selectId);
+                if (select) select.value = '';
+                activeFilters[filtroKey] = '';
+            }
+            actualizarFiltros();
+        });
+        return span;
+    }
+
+    function limpiarFiltros() {
+        document.getElementById('estadoFilter').value = '';
+        document.getElementById('tipoCompraFilter').value = '';
+        document.getElementById('fechaFilter').value = '';
+        document.getElementById('searchInput').value = '';
+        document.getElementById('clearSearchBtn').style.display = 'none';
+
+        activeFilters = { estado: '', tipo: '', fecha: '', search: '' };
+        aplicarFiltros();
+        actualizarBadgesFiltros();
+    }
+
+    // ============================================
+    // EXPORTACIÓN
+    // ============================================
+
+    function exportToCSV() {
+        const rows = document.querySelectorAll('#tableBody tr');
+        const visibleRows = Array.from(rows).filter(row => row.style.display !== 'none' && !row.querySelector('td[colspan]'));
+
+        if (visibleRows.length === 0) {
+            alert('No hay datos para exportar');
             return;
         }
-        
-        if (activeFilters.estado) {
-            const estado = row.getAttribute('data-estado');
-            if (estado !== activeFilters.estado) show = false;
-        }
-        
-        if (show && activeFilters.tipo) {
-            const tipo = row.getAttribute('data-tipo');
-            if (tipo !== activeFilters.tipo) show = false;
-        }
-        
-        if (show && activeFilters.fecha) {
-            const fecha = row.getAttribute('data-fecha');
-            if (fecha && !evaluarFiltroFecha(fecha, activeFilters.fecha)) show = false;
-        }
-        
-        if (show && activeFilters.search) {
-            const text = row.textContent.toLowerCase();
-            if (!text.includes(activeFilters.search)) show = false;
-        }
-        
-        row.style.display = show ? '' : 'none';
-        
-        if (show) {
-            visibleCount++;
-            
-            const productosCell = row.querySelector('td:nth-child(7) .badge');
-            if (productosCell) {
-                const productos = parseInt(productosCell.textContent) || 0;
-                totalProductosVisible += productos;
-            }
-            
-            const montoCell = row.querySelector('td:nth-child(8)');
-            if (montoCell && montoCell.getAttribute('data-value')) {
-                const monto = parseFloat(montoCell.getAttribute('data-value')) || 0;
-                totalMontoVisible += monto;
-            }
-            
-            const tipoBadge = row.querySelector('td:nth-child(5) .badge');
-            if (tipoBadge) {
-                const tipoTexto = tipoBadge.textContent;
-                if (tipoTexto.includes('CONTADO')) contadoCount++;
-                else if (tipoTexto.includes('CRÉDITO')) creditoCount++;
-            }
-        }
-    });
-    
-    document.getElementById('visibleCount').textContent = visibleCount;
-    document.getElementById('footerVisibleCount').textContent = visibleCount;
-    document.getElementById('totalProductosVisible').textContent = totalProductosVisible;
-    document.getElementById('totalMontoVisible').innerHTML = formatearMoneda(totalMontoVisible);
-    document.getElementById('contadoCount').textContent = contadoCount;
-    document.getElementById('creditoCount').textContent = creditoCount;
-    
-    const totalComprasSpan = document.getElementById('totalComprasCount');
-    if (totalComprasSpan) totalComprasSpan.textContent = visibleCount;
-}
 
-function evaluarFiltroFecha(fechaStr, filtro) {
-    if (!fechaStr) return false;
-    
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-    
-    const fecha = new Date(fechaStr);
-    fecha.setHours(0, 0, 0, 0);
-    
-    const ayer = new Date(hoy);
-    ayer.setDate(ayer.getDate() - 1);
-    
-    const inicioSemana = new Date(hoy);
-    inicioSemana.setDate(hoy.getDate() - hoy.getDay());
-    
-    const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-    
-    switch (filtro) {
-        case 'today':
-            return fecha.getTime() === hoy.getTime();
-        case 'yesterday':
-            return fecha.getTime() === ayer.getTime();
-        case 'week':
-            return fecha >= inicioSemana;
-        case 'month':
-            return fecha >= inicioMes;
-        default:
-            return true;
-    }
-}
+        const headers = ['ID', 'Fecha', 'Factura', 'Proveedor', 'Tipo', 'Bodega', 'Productos', 'Total', 'Usuario', 'Estado'];
 
-function actualizarBadgesFiltros() {
-    const badgesContainer = document.getElementById('activeFiltersBadges');
-    const activeCount = Object.values(activeFilters).filter(v => v && v !== '').length;
-    const activeCountSpan = document.getElementById('activeFiltersCount');
-    
-    if (activeCount > 0) {
-        badgesContainer.style.display = 'flex';
-        if (activeCountSpan) {
-            activeCountSpan.style.display = 'inline-block';
-            activeCountSpan.textContent = activeCount;
-        }
-        
-        badgesContainer.innerHTML = '<small class="text-muted me-2">Filtros activos:</small>';
-        
-        if (activeFilters.estado) {
-            const badge = crearBadge('Estado: ' + activeFilters.estado, 'estado');
-            badgesContainer.appendChild(badge);
-        }
-        if (activeFilters.tipo) {
-            const badge = crearBadge('Tipo: ' + activeFilters.tipo, 'tipo');
-            badgesContainer.appendChild(badge);
-        }
-        if (activeFilters.fecha) {
-            const textoFecha = {
-                'today': 'Hoy',
-                'yesterday': 'Ayer',
-                'week': 'Esta semana',
-                'month': 'Este mes'
-            }[activeFilters.fecha] || activeFilters.fecha;
-            const badge = crearBadge('Fecha: ' + textoFecha, 'fecha');
-            badgesContainer.appendChild(badge);
-        }
-        if (activeFilters.search) {
-            const badge = crearBadge('Búsqueda: ' + activeFilters.search, 'search');
-            badgesContainer.appendChild(badge);
-        }
-    } else {
-        badgesContainer.style.display = 'none';
-        if (activeCountSpan) activeCountSpan.style.display = 'none';
-    }
-}
-
-function crearBadge(texto, filtroKey) {
-    const span = document.createElement('span');
-    span.className = 'badge bg-secondary d-inline-flex align-items-center gap-1 p-2';
-    span.style.cursor = 'pointer';
-    span.innerHTML = `
-        ${texto}
-        <i class="fas fa-times-circle ms-1" style="font-size: 0.8rem;"></i>
-    `;
-    span.addEventListener('click', () => {
-        if (filtroKey === 'search') {
-            document.getElementById('searchInput').value = '';
-            activeFilters.search = '';
-        } else {
-            const selectId = filtroKey === 'estado' ? 'estadoFilter' : 
-                            (filtroKey === 'tipo' ? 'tipoCompraFilter' : 'fechaFilter');
-            const select = document.getElementById(selectId);
-            if (select) select.value = '';
-            activeFilters[filtroKey] = '';
-        }
-        actualizarFiltros();
-    });
-    return span;
-}
-
-function limpiarFiltros() {
-    document.getElementById('estadoFilter').value = '';
-    document.getElementById('tipoCompraFilter').value = '';
-    document.getElementById('fechaFilter').value = '';
-    document.getElementById('searchInput').value = '';
-    document.getElementById('clearSearchBtn').style.display = 'none';
-    
-    activeFilters = { estado: '', tipo: '', fecha: '', search: '' };
-    aplicarFiltros();
-    actualizarBadgesFiltros();
-}
-
-// ============================================
-// EXPORTACIÓN
-// ============================================
-
-function exportToCSV() {
-    const rows = document.querySelectorAll('#tableBody tr');
-    const visibleRows = Array.from(rows).filter(row => row.style.display !== 'none' && !row.querySelector('td[colspan]'));
-    
-    if (visibleRows.length === 0) {
-        alert('No hay datos para exportar');
-        return;
-    }
-    
-    const headers = ['ID', 'Fecha', 'Factura', 'Proveedor', 'Tipo', 'Bodega', 'Productos', 'Total', 'Usuario', 'Estado'];
-    
-    const data = [headers];
-    visibleRows.forEach(row => {
-        const cols = row.querySelectorAll('td');
-        if (cols.length >= 10) {
-            const rowData = [
-                cols[0].textContent.trim().replace('#', ''),
-                cols[1].textContent.trim(),
-                cols[2].textContent.trim(),
-                cols[3].textContent.trim(),
-                cols[4].textContent.trim(),
-                cols[5].textContent.trim(),
-                cols[6].textContent.trim(),
-                cols[7].textContent.trim(),
-                cols[8].textContent.trim(),
-                cols[9].textContent.trim()
-            ];
-            data.push(rowData);
-        }
-    });
-    
-    const csvContent = data.map(row => 
-        row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(',')
-    ).join('\n');
-    
-    const blob = new Blob(["\uFEFF" + csvContent], {type: 'text/csv;charset=utf-8;'});
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.href = url;
-    link.setAttribute('download', `compras_${new Date().toLocaleDateString('sv-SE')}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-}
-
-function copyToClipboard() {
-    const rows = document.querySelectorAll('#tableBody tr');
-    const visibleRows = Array.from(rows).filter(row => row.style.display !== 'none' && !row.querySelector('td[colspan]'));
-    
-    if (visibleRows.length === 0) {
-        alert('No hay datos para copiar');
-        return;
-    }
-    
-    const headers = ['ID', 'Fecha', 'Factura', 'Proveedor', 'Tipo', 'Bodega', 'Productos', 'Total', 'Usuario', 'Estado'];
-    
-    const data = [headers];
-    visibleRows.forEach(row => {
-        const cols = row.querySelectorAll('td');
-        if (cols.length >= 10) {
-            const rowData = [
-                cols[0].textContent.trim().replace('#', ''),
-                cols[1].textContent.trim(),
-                cols[2].textContent.trim(),
-                cols[3].textContent.trim(),
-                cols[4].textContent.trim(),
-                cols[5].textContent.trim(),
-                cols[6].textContent.trim(),
-                cols[7].textContent.trim(),
-                cols[8].textContent.trim(),
-                cols[9].textContent.trim()
-            ];
-            data.push(rowData);
-        }
-    });
-    
-    const textContent = data.map(row => row.join('\t')).join('\n');
-    
-    navigator.clipboard.writeText(textContent).then(() => {
-        const btn = document.getElementById('copyTableBtn');
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-check me-2"></i>¡Copiado!';
-        setTimeout(() => {
-            btn.innerHTML = originalText;
-        }, 2000);
-    }).catch(err => {
-        alert('Error al copiar: ' + err);
-    });
-}
-
-// ============================================
-// MANEJO DEL MODAL DE ANULACIÓN
-// ============================================
-
-/**
- * Carga los datos de la compra desde el servidor
- */
-async function cargarDatosCompra(compraId) {
-    try {
-        const url = construirUrlAnulacion(compraId);
-        console.log('🔍 GET - Cargando:', url);
-        
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
+        const data = [headers];
+        visibleRows.forEach(row => {
+            const cols = row.querySelectorAll('td');
+            if (cols.length >= 10) {
+                const rowData = [
+                    cols[0].textContent.trim().replace('#', ''),
+                    cols[1].textContent.trim(),
+                    cols[2].textContent.trim(),
+                    cols[3].textContent.trim(),
+                    cols[4].textContent.trim(),
+                    cols[5].textContent.trim(),
+                    cols[6].textContent.trim(),
+                    cols[7].textContent.trim(),
+                    cols[8].textContent.trim(),
+                    cols[9].textContent.trim()
+                ];
+                data.push(rowData);
             }
         });
-        
-        console.log('📡 GET - Status:', response.status);
-        
-        if (!response.ok) {
-            let errorMsg = `Error HTTP ${response.status}`;
-            try {
-                const errorData = await response.json();
-                errorMsg = errorData.error || errorMsg;
-            } catch (e) {
-                const text = await response.text();
-                console.error('Respuesta:', text.substring(0, 200));
+
+        const csvContent = data.map(row =>
+            row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(',')
+        ).join('\n');
+
+        const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.href = url;
+        link.setAttribute('download', `compras_${new Date().toLocaleDateString('sv-SE')}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    }
+
+    function copyToClipboard() {
+        const rows = document.querySelectorAll('#tableBody tr');
+        const visibleRows = Array.from(rows).filter(row => row.style.display !== 'none' && !row.querySelector('td[colspan]'));
+
+        if (visibleRows.length === 0) {
+            alert('No hay datos para copiar');
+            return;
+        }
+
+        const headers = ['ID', 'Fecha', 'Factura', 'Proveedor', 'Tipo', 'Bodega', 'Productos', 'Total', 'Usuario', 'Estado'];
+
+        const data = [headers];
+        visibleRows.forEach(row => {
+            const cols = row.querySelectorAll('td');
+            if (cols.length >= 10) {
+                const rowData = [
+                    cols[0].textContent.trim().replace('#', ''),
+                    cols[1].textContent.trim(),
+                    cols[2].textContent.trim(),
+                    cols[3].textContent.trim(),
+                    cols[4].textContent.trim(),
+                    cols[5].textContent.trim(),
+                    cols[6].textContent.trim(),
+                    cols[7].textContent.trim(),
+                    cols[8].textContent.trim(),
+                    cols[9].textContent.trim()
+                ];
+                data.push(rowData);
             }
-            throw new Error(errorMsg);
-        }
-        
-        const data = await response.json();
-        console.log('✅ GET - Datos recibidos');
-        
-        if (data.success && data.compra) {
-            datosCompraActual = data.compra;
-            mostrarDatosCompra(data.compra);
-        } else {
-            throw new Error(data.error || 'Error desconocido');
-        }
-        
-    } catch (error) {
-        console.error('❌ Error:', error);
-        mostrarError(error.message);
-    }
-}
-
-/**
- * Muestra los datos de la compra en el modal
- */
-function mostrarDatosCompra(compra) {
-    console.log('📋 Mostrando compra #' + compra.id);
-    
-    // Configurar acción del formulario
-    const form = document.getElementById('formAnularCompra');
-    if (form) {
-        const actionUrl = construirUrlAnulacion(compra.id);
-        form.setAttribute('action', actionUrl);
-        console.log('📝 Form action:', actionUrl);
-    }
-    
-    // Mostrar ID
-    document.getElementById('modalCompraId').textContent = `#${compra.id}`;
-    
-    // Información principal
-    const contenedor = document.getElementById('compraInfoContent');
-    contenedor.innerHTML = `
-        <div class="row">
-            <div class="col-md-6">
-                <div class="mb-2">
-                    <small class="text-muted d-block">Fecha y Hora</small>
-                    <strong><i class="far fa-calendar-alt me-1"></i> ${compra.fecha || 'N/A'}</strong>
-                </div>
-                <div class="mb-2">
-                    <small class="text-muted d-block">Proveedor</small>
-                    <strong><i class="fas fa-truck me-1"></i> ${compra.proveedor || 'N/A'}</strong>
-                </div>
-                <div class="mb-2">
-                    <small class="text-muted d-block">Factura</small>
-                    <strong><i class="fas fa-file-invoice me-1"></i> ${compra.factura || 'Sin factura'}</strong>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="mb-2">
-                    <small class="text-muted d-block">Tipo de Compra</small>
-                    <span class="badge ${compra.tipo_compra === 'CONTADO' ? 'bg-success' : 'bg-warning text-dark'} fs-6">
-                        <i class="fas ${compra.tipo_compra === 'CONTADO' ? 'fa-money-bill-wave' : 'fa-credit-card'} me-1"></i>
-                        ${compra.tipo_compra || 'N/A'}
-                    </span>
-                </div>
-                <div class="mb-2">
-                    <small class="text-muted d-block">Bodega</small>
-                    <strong><i class="fas fa-warehouse me-1"></i> ${compra.bodega || 'N/A'}</strong>
-                </div>
-                <div class="mb-2">
-                    <small class="text-muted d-block">Total de la Compra</small>
-                    <strong class="text-success fs-5">
-                        ${formatearMoneda(compra.total_compra)}
-                    </strong>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    // Productos
-    if (compra.productos && compra.productos.length > 0) {
-        const productosCard = document.getElementById('productosCard');
-        const tbody = document.getElementById('productosTableBody');
-        const totalEl = document.getElementById('productosTotal');
-        
-        if (productosCard) productosCard.style.display = 'block';
-        
-        let html = '';
-        let total = 0;
-        
-        compra.productos.forEach(p => {
-            const subtotal = parseFloat(p.subtotal) || 0;
-            total += subtotal;
-            html += `
-                <tr>
-                    <td><code>${p.codigo || 'N/A'}</code></td>
-                    <td>${p.descripcion || 'N/A'}</td>
-                    <td class="text-center">
-                        <span class="badge bg-secondary">${p.cantidad} ${p.unidad || ''}</span>
-                    </td>
-                    <td class="text-end">${formatearMoneda(p.costo_unitario)}</td>
-                    <td class="text-end">${formatearMoneda(subtotal)}</td>
-                </tr>`;
         });
-        
-        if (tbody) tbody.innerHTML = html;
-        if (totalEl) totalEl.textContent = formatearMoneda(total);
-    }
-    
-    // Información financiera (cuentas por pagar)
-    if (compra.tiene_cuenta_pagar) {
-        const infoCard = document.getElementById('infoFinancieraCard');
-        const infoContent = document.getElementById('infoFinancieraContent');
-        
-        if (infoCard && infoContent) {
-            infoCard.style.display = 'block';
-            
-            let htmlInfo = `
-                <div class="alert alert-info mt-2 mb-0">
-                    <i class="fas fa-file-invoice-dollar me-1"></i>
-                    <strong>Cuenta por Pagar:</strong> 
-                    <strong>${formatearMoneda(compra.saldo_pendiente || 0)}</strong>
-                    <br><small>Será anulada junto con la compra</small>
-                </div>`;
-            
-            infoContent.innerHTML = htmlInfo;
-        }
-    }
-    
-    // Mostrar contenido, ocultar spinner
-    document.getElementById('anularLoadingSpinner').style.display = 'none';
-    document.getElementById('anularCompraContent').style.display = 'block';
-    
-    // Resetear validación
-    resetearValidacionAnulacion();
-}
 
-/**
- * Muestra error en el modal
- */
-function mostrarError(mensaje) {
-    document.getElementById('compraInfoContent').innerHTML = `
-        <div class="alert alert-danger text-center">
-            <i class="fas fa-exclamation-circle fa-3x mb-3 d-block"></i>
-            <h5>Error al cargar datos</h5>
-            <p>${mensaje}</p>
-            <small>Por favor, cierre este modal e intente nuevamente.</small>
-        </div>`;
-    
-    document.getElementById('anularLoadingSpinner').style.display = 'none';
-    document.getElementById('anularCompraContent').style.display = 'block';
-    
-    const btn = document.getElementById('btnConfirmarAnulacion');
-    if (btn) btn.disabled = true;
-}
+        const textContent = data.map(row => row.join('\t')).join('\n');
 
-/**
- * Resetea el formulario de anulación
- */
-function resetearValidacionAnulacion() {
-    const motivo = document.getElementById('motivoAnulacion');
-    const confirmado = document.getElementById('confirmarAnulacion');
-    const btn = document.getElementById('btnConfirmarAnulacion');
-    
-    if (motivo) {
-        motivo.value = '';
-        motivo.classList.remove('is-valid', 'is-invalid');
-    }
-    if (confirmado) confirmado.checked = false;
-    if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-ban me-1"></i> <span id="btnAnularText">Confirmar Anulación</span>';
-    }
-    
-    const charCount = document.getElementById('charCount');
-    if (charCount) charCount.textContent = '0';
-    
-    const minLength = document.getElementById('motivoMinLength');
-    if (minLength) minLength.innerHTML = '<span class="text-danger">Mínimo 10 caracteres</span>';
-}
-
-/**
- * Valida el formulario de anulación
- */
-function validarFormularioAnulacion() {
-    const motivo = document.getElementById('motivoAnulacion');
-    const confirmado = document.getElementById('confirmarAnulacion');
-    const btnConfirmar = document.getElementById('btnConfirmarAnulacion');
-    const charCount = document.getElementById('charCount');
-    const motivoMinLength = document.getElementById('motivoMinLength');
-    
-    if (!motivo || !confirmado || !btnConfirmar) return false;
-    
-    const motivoValue = motivo.value.trim();
-    const motivoLength = motivoValue.length;
-    const isMotivoValid = motivoLength >= 10 && motivoLength <= 500;
-    const isConfirmado = confirmado.checked;
-    
-    if (charCount) charCount.textContent = motivoLength;
-    
-    if (motivoMinLength) {
-        if (motivoLength >= 10) {
-            motivoMinLength.innerHTML = '<span class="text-success"><i class="fas fa-check-circle"></i> Longitud válida</span>';
-        } else if (motivoLength > 0) {
-            motivoMinLength.innerHTML = `<span class="text-danger">Faltan ${10 - motivoLength} caracteres</span>`;
-        } else {
-            motivoMinLength.innerHTML = '<span class="text-danger">Mínimo 10 caracteres</span>';
-        }
-    }
-    
-    if (motivoLength > 0 && !isMotivoValid) {
-        motivo.classList.add('is-invalid');
-        motivo.classList.remove('is-valid');
-    } else if (isMotivoValid) {
-        motivo.classList.remove('is-invalid');
-        motivo.classList.add('is-valid');
-    } else {
-        motivo.classList.remove('is-invalid', 'is-valid');
-    }
-    
-    const isValid = isMotivoValid && isConfirmado;
-    btnConfirmar.disabled = !isValid;
-    
-    return isValid;
-}
-
-/**
- * Envía el formulario de anulación
- */
-async function enviarFormularioAnulacion() {
-    if (!validarFormularioAnulacion()) return;
-    
-    // Sincronizar motivo
-    const motivo = document.getElementById('motivoAnulacion').value.trim();
-    document.getElementById('hiddenMotivoAnulacion').value = motivo;
-    
-    const form = document.getElementById('formAnularCompra');
-    const url = form.getAttribute('action') || form.action;
-    
-    console.log('🚀 POST - Enviando a:', url);
-    console.log('📦 Compra ID:', compraIdActual);
-    
-    const btn = document.getElementById('btnConfirmarAnulacion');
-    
-    // Estado de carga
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Anulando...';
-    
-    try {
-        const formData = new FormData(form);
-        
-        const response = await fetch(url, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'text/html, application/json'
-            },
-            redirect: 'follow'
-        });
-        
-        console.log('📡 POST - Status:', response.status);
-        
-        if (response.ok || response.redirected) {
-            // Cerrar modal
-            const modalEl = document.getElementById('anularCompraModal');
-            const modal = bootstrap.Modal.getInstance(modalEl);
-            if (modal) modal.hide();
-            
-            // Recargar la página
+        navigator.clipboard.writeText(textContent).then(() => {
+            const btn = document.getElementById('copyTableBtn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-check me-2"></i>¡Copiado!';
             setTimeout(() => {
-                window.location.reload();
-            }, 500);
-            return;
+                btn.innerHTML = originalText;
+            }, 2000);
+        }).catch(err => {
+            alert('Error al copiar: ' + err);
+        });
+    }
+
+    // ============================================
+    // MANEJO DEL MODAL DE ANULACIÓN
+    // ============================================
+
+    async function cargarDatosCompra(compraId) {
+        try {
+            const url = construirUrlAnulacion(compraId);
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            if (!response.ok) {
+                let errorMsg = `Error HTTP ${response.status}`;
+                try {
+                    const errorData = await response.json();
+                    errorMsg = errorData.error || errorMsg;
+                } catch (e) {
+                    const text = await response.text();
+                    console.error('Respuesta:', text.substring(0, 200));
+                }
+                throw new Error(errorMsg);
+            }
+
+            const data = await response.json();
+            if (data.success && data.compra) {
+                datosCompraActual = data.compra;
+                mostrarDatosCompra(data.compra);
+            } else {
+                throw new Error(data.error || 'Error desconocido');
+            }
+
+        } catch (error) {
+            console.error('❌ Error:', error);
+            mostrarError(error.message);
         }
-        
-        const text = await response.text();
-        console.error('❌ POST - Error:', text.substring(0, 300));
-        throw new Error(`Error del servidor (${response.status})`);
-        
-    } catch (error) {
-        console.error('❌ Error:', error);
-        
-        // Mostrar error en modal
-        const infoCard = document.getElementById('infoFinancieraCard');
-        const infoContent = document.getElementById('infoFinancieraContent');
-        if (infoCard && infoContent) {
-            infoCard.style.display = 'block';
-            infoContent.innerHTML = `
-                <div class="alert alert-danger">
+    }
+
+    function mostrarDatosCompra(compra) {
+        const form = document.getElementById('formAnularCompra');
+        if (form) {
+            form.setAttribute('action', construirUrlAnulacion(compra.id));
+        }
+
+        document.getElementById('modalCompraId').textContent = `#${compra.id}`;
+
+        const contenedor = document.getElementById('compraInfoContent');
+        contenedor.innerHTML = `
+            <div class="row g-2">
+                <div class="col-6">
+                    <div class="mb-2">
+                        <small class="text-slate-500 d-block fw-semibold">Fecha y Hora</small>
+                        <strong class="text-slate-800"><i class="far fa-calendar-alt text-primary me-1"></i> ${compra.fecha || 'N/A'}</strong>
+                    </div>
+                    <div class="mb-2">
+                        <small class="text-slate-500 d-block fw-semibold">Proveedor</small>
+                        <strong class="text-slate-800"><i class="fas fa-truck text-primary me-1"></i> ${compra.proveedor || 'N/A'}</strong>
+                    </div>
+                    <div>
+                        <small class="text-slate-500 d-block fw-semibold">Factura Externa</small>
+                        <strong class="text-slate-800"><i class="fas fa-file-invoice text-primary me-1"></i> ${compra.factura || 'Sin factura'}</strong>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="mb-2">
+                        <small class="text-slate-500 d-block fw-semibold">Tipo de Compra</small>
+                        <span class="badge ${compra.tipo_compra === 'CONTADO' ? 'bg-success' : 'bg-warning text-dark'} fw-bold">
+                            <i class="fas ${compra.tipo_compra === 'CONTADO' ? 'fa-money-bill-wave' : 'fa-credit-card'} me-1"></i>
+                            ${compra.tipo_compra || 'N/A'}
+                        </span>
+                    </div>
+                    <div class="mb-2">
+                        <small class="text-slate-500 d-block fw-semibold">Bodega</small>
+                        <strong class="text-slate-800"><i class="fas fa-warehouse text-primary me-1"></i> ${compra.bodega || 'N/A'}</strong>
+                    </div>
+                    <div>
+                        <small class="text-slate-500 d-block fw-semibold">Total de la Compra</small>
+                        <strong class="text-success fs-5 font-monospace">
+                            ${formatearMoneda(compra.total_compra)}
+                        </strong>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        if (compra.productos && compra.productos.length > 0) {
+            const productosCard = document.getElementById('productosCard');
+            const tbody = document.getElementById('productosTableBody');
+            const totalEl = document.getElementById('productosTotal');
+
+            if (productosCard) productosCard.style.display = 'block';
+
+            let html = '';
+            let total = 0;
+
+            compra.productos.forEach(p => {
+                const subtotal = parseFloat(p.subtotal) || 0;
+                total += subtotal;
+                html += `
+                <tr>
+                    <td class="ps-3"><code class="text-primary">${p.codigo || 'N/A'}</code></td>
+                    <td class="text-slate-800 fw-semibold">${p.descripcion || 'N/A'}</td>
+                    <td class="text-center">
+                        <span class="badge bg-slate-100 text-slate-800 border">${p.cantidad} ${p.unidad || ''}</span>
+                    </td>
+                    <td class="text-end font-monospace">${formatearMoneda(p.costo_unitario)}</td>
+                    <td class="text-end pe-3 font-monospace fw-bold text-slate-800">${formatearMoneda(subtotal)}</td>
+                </tr>`;
+            });
+
+            if (tbody) tbody.innerHTML = html;
+            if (totalEl) totalEl.textContent = formatearMoneda(total);
+        }
+
+        if (compra.tiene_cuenta_pagar) {
+            const infoCard = document.getElementById('infoFinancieraCard');
+            const infoContent = document.getElementById('infoFinancieraContent');
+
+            if (infoCard && infoContent) {
+                infoCard.style.display = 'block';
+                let htmlInfo = `
+                <div class="alert alert-info mb-0 py-2 px-3 small rounded-3">
+                    <i class="fas fa-file-invoice-dollar me-1"></i>
+                    <strong>Cuenta por Pagar Asociada:</strong> Saldo pendiente <strong>${formatearMoneda(compra.saldo_pendiente || 0)}</strong>. Será cancelada junto con la anulación.
+                </div>`;
+
+                infoContent.innerHTML = htmlInfo;
+            }
+        }
+
+        document.getElementById('anularLoadingSpinner').style.display = 'none';
+        document.getElementById('anularCompraContent').style.display = 'block';
+
+        resetearValidacionAnulacion();
+    }
+
+    function mostrarError(mensaje) {
+        document.getElementById('compraInfoContent').innerHTML = `
+        <div class="alert alert-danger text-center mb-0">
+            <i class="fas fa-exclamation-circle fa-2x mb-2 d-block"></i>
+            <h6 class="fw-bold">Error al cargar datos</h6>
+            <p class="small mb-0">${mensaje}</p>
+        </div>`;
+
+        document.getElementById('anularLoadingSpinner').style.display = 'none';
+        document.getElementById('anularCompraContent').style.display = 'block';
+
+        const btn = document.getElementById('btnConfirmarAnulacion');
+        if (btn) btn.disabled = true;
+    }
+
+    function resetearValidacionAnulacion() {
+        const motivo = document.getElementById('motivoAnulacion');
+        const confirmado = document.getElementById('confirmarAnulacion');
+        const btn = document.getElementById('btnConfirmarAnulacion');
+
+        if (motivo) {
+            motivo.value = '';
+            motivo.classList.remove('is-valid', 'is-invalid');
+        }
+        if (confirmado) confirmado.checked = false;
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-ban me-1"></i> <span id="btnAnularText">Confirmar Anulación</span>';
+        }
+
+        const charCount = document.getElementById('charCount');
+        if (charCount) charCount.textContent = '0';
+
+        const minLength = document.getElementById('motivoMinLength');
+        if (minLength) minLength.innerHTML = '<span class="text-danger">Mínimo 10 caracteres</span>';
+    }
+
+    function validarFormularioAnulacion() {
+        const motivo = document.getElementById('motivoAnulacion');
+        const confirmado = document.getElementById('confirmarAnulacion');
+        const btnConfirmar = document.getElementById('btnConfirmarAnulacion');
+        const charCount = document.getElementById('charCount');
+        const motivoMinLength = document.getElementById('motivoMinLength');
+
+        if (!motivo || !confirmado || !btnConfirmar) return false;
+
+        const motivoValue = motivo.value.trim();
+        const motivoLength = motivoValue.length;
+        const isMotivoValid = motivoLength >= 10 && motivoLength <= 500;
+        const isConfirmado = confirmado.checked;
+
+        if (charCount) charCount.textContent = motivoLength;
+
+        if (motivoMinLength) {
+            if (motivoLength >= 10) {
+                motivoMinLength.innerHTML = '<span class="text-success"><i class="fas fa-check-circle"></i> Longitud válida</span>';
+            } else if (motivoLength > 0) {
+                motivoMinLength.innerHTML = `<span class="text-danger">Faltan ${10 - motivoLength} caracteres</span>`;
+            } else {
+                motivoMinLength.innerHTML = '<span class="text-danger">Mínimo 10 caracteres</span>';
+            }
+        }
+
+        if (motivoLength > 0 && !isMotivoValid) {
+            motivo.classList.add('is-invalid');
+            motivo.classList.remove('is-valid');
+        } else if (isMotivoValid) {
+            motivo.classList.remove('is-invalid');
+            motivo.classList.add('is-valid');
+        } else {
+            motivo.classList.remove('is-invalid', 'is-valid');
+        }
+
+        const isValid = isMotivoValid && isConfirmado;
+        btnConfirmar.disabled = !isValid;
+
+        return isValid;
+    }
+
+    async function enviarFormularioAnulacion() {
+        if (!validarFormularioAnulacion()) return;
+
+        const motivo = document.getElementById('motivoAnulacion').value.trim();
+        document.getElementById('hiddenMotivoAnulacion').value = motivo;
+
+        const form = document.getElementById('formAnularCompra');
+        const url = form.getAttribute('action') || form.action;
+
+        const btn = document.getElementById('btnConfirmarAnulacion');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Anulando...';
+
+        try {
+            const formData = new FormData(form);
+
+            const response = await fetch(url, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'text/html, application/json'
+                },
+                redirect: 'follow'
+            });
+
+            if (response.ok || response.redirected) {
+                const modalEl = document.getElementById('anularCompraModal');
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                if (modal) modal.hide();
+
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
+                return;
+            }
+
+            const text = await response.text();
+            throw new Error(`Error del servidor (${response.status})`);
+
+        } catch (error) {
+            console.error('❌ Error:', error);
+
+            const infoCard = document.getElementById('infoFinancieraCard');
+            const infoContent = document.getElementById('infoFinancieraContent');
+            if (infoCard && infoContent) {
+                infoCard.style.display = 'block';
+                infoContent.innerHTML = `
+                <div class="alert alert-danger mb-0">
                     <i class="fas fa-times-circle me-1"></i>
                     <strong>Error:</strong> ${error.message}
-                    <hr>
-                    <small>URL: ${url}</small>
                 </div>`;
-        }
-        
-        // Restaurar botón
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-ban me-1"></i> <span id="btnAnularText">Reintentar</span>';
-    }
-}
+            }
 
-// ============================================
-// INICIALIZACIÓN PRINCIPAL
-// ============================================
-
-document.addEventListener('DOMContentLoaded', function () {
-    console.log('🚀 Inicializando Gestión de Compras...');
-    
-    // Formatear monedas
-    formatearTodosLosValoresMonetarios();
-    
-    // Inicializar filtros
-    aplicarFiltros();
-    
-    // ========================================
-    // EVENT LISTENERS - FILTROS
-    // ========================================
-    document.getElementById('estadoFilter')?.addEventListener('change', actualizarFiltros);
-    document.getElementById('tipoCompraFilter')?.addEventListener('change', actualizarFiltros);
-    document.getElementById('fechaFilter')?.addEventListener('change', actualizarFiltros);
-    
-    document.getElementById('searchInput')?.addEventListener('input', function(e) {
-        actualizarFiltros();
-        const clearBtn = document.getElementById('clearSearchBtn');
-        if (clearBtn) clearBtn.style.display = e.target.value ? 'block' : 'none';
-    });
-    
-    document.getElementById('clearSearchBtn')?.addEventListener('click', function() {
-        document.getElementById('searchInput').value = '';
-        actualizarFiltros();
-        this.style.display = 'none';
-    });
-    
-    document.getElementById('clearFiltersBtn')?.addEventListener('click', limpiarFiltros);
-    
-    // ========================================
-    // EVENT LISTENERS - EXPORTACIÓN
-    // ========================================
-    document.getElementById('exportExcel')?.addEventListener('click', function(e) {
-        e.preventDefault();
-        exportToCSV();
-    });
-    
-    document.getElementById('exportCSV')?.addEventListener('click', function(e) {
-        e.preventDefault();
-        exportToCSV();
-    });
-    
-    document.getElementById('copyTableBtn')?.addEventListener('click', function(e) {
-        e.preventDefault();
-        copyToClipboard();
-    });
-    
-    document.getElementById('printTableBtn')?.addEventListener('click', function(e) {
-        e.preventDefault();
-        window.print();
-    });
-    
-    // ========================================
-    // EVENT LISTENERS - MODAL DE ANULACIÓN
-    // ========================================
-    const anularModal = document.getElementById('anularCompraModal');
-    
-    if (anularModal) {
-        anularModal.addEventListener('show.bs.modal', function (event) {
-            const button = event.relatedTarget;
-            
-            if (!button) {
-                console.error('❌ No se encontró el botón');
-                return;
-            }
-            
-            compraIdActual = button.getAttribute('data-id');
-            
-            if (!compraIdActual) {
-                console.error('❌ No se encontró data-id');
-                mostrarError('No se pudo identificar la compra');
-                return;
-            }
-            
-            console.log('🔄 Abriendo modal para compra #' + compraIdActual);
-            
-            // Resetear todo
-            document.getElementById('anularLoadingSpinner').style.display = 'block';
-            document.getElementById('anularCompraContent').style.display = 'none';
-            document.getElementById('productosCard').style.display = 'none';
-            document.getElementById('infoFinancieraCard').style.display = 'none';
-            document.getElementById('modalCompraId').textContent = '#-';
-            document.getElementById('compraInfoContent').innerHTML = '';
-            document.getElementById('productosTableBody').innerHTML = '';
-            document.getElementById('infoFinancieraContent').innerHTML = '';
-            
-            resetearValidacionAnulacion();
-            
-            // Configurar acción del formulario
-            const form = document.getElementById('formAnularCompra');
-            if (form) {
-                form.setAttribute('action', construirUrlAnulacion(compraIdActual));
-                console.log('📝 Form action inicial:', form.getAttribute('action'));
-            }
-            
-            // Cargar datos
-            cargarDatosCompra(compraIdActual);
-        });
-        
-        anularModal.addEventListener('hidden.bs.modal', function () {
-            console.log('🔒 Modal cerrado');
-            compraIdActual = null;
-            datosCompraActual = null;
-        });
-    }
-    
-    // ========================================
-    // VALIDACIÓN DEL FORMULARIO
-    // ========================================
-    document.getElementById('motivoAnulacion')?.addEventListener('input', validarFormularioAnulacion);
-    document.getElementById('confirmarAnulacion')?.addEventListener('change', validarFormularioAnulacion);
-    
-    document.getElementById('btnConfirmarAnulacion')?.addEventListener('click', function(e) {
-        e.preventDefault();
-        enviarFormularioAnulacion();
-    });
-    
-    // ========================================
-    // ATALLO DE TECLADO
-    // ========================================
-    document.addEventListener('keydown', function(e) {
-        if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-            const modalOpen = document.querySelector('.modal.show');
-            if (!modalOpen) {
-                e.preventDefault();
-                document.getElementById('searchInput')?.focus();
-            }
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-ban me-1"></i> <span id="btnAnularText">Reintentar</span>';
         }
+    }
+
+    // ============================================
+    // INICIALIZACIÓN PRINCIPAL
+    // ============================================
+
+    document.addEventListener('DOMContentLoaded', function () {
+        // Formatear monedas
+        formatearTodosLosValoresMonetarios();
+
+        // Aplicar filtros iniciales
+        aplicarFiltros();
+
+        // Listeners de filtros
+        document.getElementById('estadoFilter')?.addEventListener('change', actualizarFiltros);
+        document.getElementById('tipoCompraFilter')?.addEventListener('change', actualizarFiltros);
+        document.getElementById('fechaFilter')?.addEventListener('change', actualizarFiltros);
+
+        document.getElementById('searchInput')?.addEventListener('input', function (e) {
+            actualizarFiltros();
+            const clearBtn = document.getElementById('clearSearchBtn');
+            if (clearBtn) clearBtn.style.display = e.target.value ? 'block' : 'none';
+        });
+
+        document.getElementById('clearSearchBtn')?.addEventListener('click', function () {
+            document.getElementById('searchInput').value = '';
+            actualizarFiltros();
+            this.style.display = 'none';
+        });
+
+        document.getElementById('clearFiltersBtn')?.addEventListener('click', limpiarFiltros);
+
+        // Listeners de exportación
+        document.getElementById('exportExcel')?.addEventListener('click', function (e) {
+            e.preventDefault();
+            exportToCSV();
+        });
+
+        document.getElementById('exportCSV')?.addEventListener('click', function (e) {
+            e.preventDefault();
+            exportToCSV();
+        });
+
+        document.getElementById('copyTableBtn')?.addEventListener('click', function (e) {
+            e.preventDefault();
+            copyToClipboard();
+        });
+
+        document.getElementById('printTableBtn')?.addEventListener('click', function (e) {
+            e.preventDefault();
+            window.print();
+        });
+
+        // Listeners Modal de Anulación
+        const anularModal = document.getElementById('anularCompraModal');
+        if (anularModal) {
+            anularModal.addEventListener('show.bs.modal', function (event) {
+                const button = event.relatedTarget;
+                if (!button) return;
+
+                compraIdActual = button.getAttribute('data-id');
+                if (!compraIdActual) {
+                    mostrarError('No se pudo identificar la compra');
+                    return;
+                }
+
+                document.getElementById('anularLoadingSpinner').style.display = 'block';
+                document.getElementById('anularCompraContent').style.display = 'none';
+                document.getElementById('productosCard').style.display = 'none';
+                document.getElementById('infoFinancieraCard').style.display = 'none';
+                document.getElementById('modalCompraId').textContent = '#-';
+                document.getElementById('compraInfoContent').innerHTML = '';
+                document.getElementById('productosTableBody').innerHTML = '';
+                document.getElementById('infoFinancieraContent').innerHTML = '';
+
+                resetearValidacionAnulacion();
+
+                const form = document.getElementById('formAnularCompra');
+                if (form) {
+                    form.setAttribute('action', construirUrlAnulacion(compraIdActual));
+                }
+
+                cargarDatosCompra(compraIdActual);
+            });
+
+            anularModal.addEventListener('hidden.bs.modal', function () {
+                compraIdActual = null;
+                datosCompraActual = null;
+            });
+        }
+
+        // Validación de anulación
+        document.getElementById('motivoAnulacion')?.addEventListener('input', validarFormularioAnulacion);
+        document.getElementById('confirmarAnulacion')?.addEventListener('change', validarFormularioAnulacion);
+
+        document.getElementById('btnConfirmarAnulacion')?.addEventListener('click', function (e) {
+            e.preventDefault();
+            enviarFormularioAnulacion();
+        });
+
+        // Atajo teclado Ctrl+F
+        document.addEventListener('keydown', function (e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+                const modalOpen = document.querySelector('.modal.show');
+                if (!modalOpen) {
+                    e.preventDefault();
+                    document.getElementById('searchInput')?.focus();
+                }
+            }
+        });
     });
-    
-    console.log('✅ Gestión de Compras inicializado correctamente');
-    console.log('📍 URL base anulación:', construirUrlAnulacion('ID'));
-});
 </script>
 {% endblock %}

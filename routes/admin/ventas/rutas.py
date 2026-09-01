@@ -311,10 +311,8 @@ def admin_asignacion_rutas():
             asignaciones_raw = cursor.fetchall()
             
             # Verificar el tipo de datos devuelto
-            print(f"DEBUG: Tipo de asignaciones_raw: {type(asignaciones_raw)}")
             if asignaciones_raw:
-                print(f"DEBUG: Primer elemento tipo: {type(asignaciones_raw[0])}")
-                print(f"DEBUG: Claves del primer elemento (si es dict): {list(asignaciones_raw[0].keys()) if isinstance(asignaciones_raw[0], dict) else 'No es dict'}")
+                pass
             
             # Procesar asignaciones para formatear correctamente
             asignaciones = []

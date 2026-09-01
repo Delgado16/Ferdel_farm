@@ -1,53 +1,62 @@
 {% extends "layout.html" %}
 
-{% block title %}Reporte Diario Consolidado - FerDel{% endblock %}
+{% block title %}Reporte Diario Consolidado (Finiquito) - FerDel{% endblock %}
 
 {% block content %}
 <style>
     .kpi-card {
-        transition: all 0.3s ease;
+        transition: all 0.25s ease;
         border: none;
         border-radius: 16px;
     }
     .kpi-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08) !important;
+        transform: translateY(-4px);
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08) !important;
     }
-    .text-indigo { color: #4f46e5; }
-    .bg-indigo-light { background-color: #eeebff; }
+    .text-indigo { color: #4f46e5 !important; }
+    .bg-indigo-light { background-color: #eeebff !important; }
+    .bg-gradient-cash {
+        background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+    }
     .bg-gradient-primary {
-        background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
-    }
-    .bg-gradient-success {
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-    }
-    .bg-gradient-danger {
-        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        background: linear-gradient(135deg, #4338ca 0%, #3b82f6 100%);
     }
     .bg-gradient-warning {
-        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+    }
+    .bg-gradient-danger {
+        background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
     }
     .bg-gradient-dark {
-        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
     }
     .section-card {
         border-radius: 16px;
         border: 1px solid #e2e8f0;
-        box-shadow: 0 4px 6px rgba(15, 23, 42, 0.015);
+        background: #ffffff;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03);
     }
     .nav-tabs-custom {
         border-bottom: 2px solid #e2e8f0;
+        gap: 0.5rem;
     }
     .nav-tabs-custom .nav-link {
         border: none;
         color: #64748b;
         font-weight: 600;
-        padding: 0.75rem 1.25rem;
+        padding: 0.85rem 1.25rem;
+        border-radius: 10px 10px 0 0;
+        transition: all 0.2s ease;
         position: relative;
     }
+    .nav-tabs-custom .nav-link:hover {
+        color: #4338ca;
+        background-color: #f8fafc;
+    }
     .nav-tabs-custom .nav-link.active {
-        color: #4f46e5;
-        background: none;
+        color: #4338ca;
+        background: #ffffff;
+        font-weight: 700;
     }
     .nav-tabs-custom .nav-link.active::after {
         content: '';
@@ -55,17 +64,66 @@
         bottom: -2px;
         left: 0;
         width: 100%;
-        height: 2px;
-        background-color: #4f46e5;
+        height: 3px;
+        background-color: #4338ca;
+        border-radius: 3px 3px 0 0;
+    }
+    .badge-soft-success {
+        background-color: #ecfdf5;
+        color: #059669;
+        border: 1px solid #a7f3d0;
+    }
+    .badge-soft-danger {
+        background-color: #fef2f2;
+        color: #dc2626;
+        border: 1px solid #fecaca;
+    }
+    .badge-soft-warning {
+        background-color: #fffbeb;
+        color: #d97706;
+        border: 1px solid #fde68a;
+    }
+    .badge-soft-primary {
+        background-color: #eff6ff;
+        color: #2563eb;
+        border: 1px solid #bfdbfe;
+    }
+    .badge-soft-secondary {
+        background-color: #f1f5f9;
+        color: #475569;
+        border: 1px solid #cbd5e1;
+    }
+    .table thead th {
+        background-color: #f8fafc;
+        color: #475569;
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 700;
+        border-top: none;
+    }
+    @media print {
+        .no-print { display: none !important; }
+        .card, .section-card { box-shadow: none !important; border: 1px solid #ccc !important; }
+        .tab-pane { display: block !important; opacity: 1 !important; margin-bottom: 2rem !important; }
     }
 </style>
 
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2" style="font-family: 'Outfit', sans-serif; font-weight: 800; letter-spacing: -0.02em;">
-        <i class="bi bi-calendar-check text-indigo"></i> Resumen del Día: {{ fecha_formatted }}
-    </h1>
-    <div class="btn-toolbar mb-2 mb-md-0 gap-2">
+    <div>
+        <div class="d-flex align-items-center gap-2">
+            <h1 class="h2 mb-0" style="font-family: 'Outfit', sans-serif; font-weight: 800; letter-spacing: -0.02em;">
+                <i class="bi bi-journal-check text-indigo me-1"></i> Finiquito y Reporte Diario Consolidado
+            </h1>
+            <span class="badge bg-indigo-light text-indigo rounded-pill px-3 py-1 fw-bold fs-6">{{ fecha_formatted }}</span>
+        </div>
+        <p class="text-muted small mb-0 mt-1">Cierre global de operaciones: Caja chica, ventas de contado, abonos en efectivo, cartera de clientes y egresos.</p>
+    </div>
+    <div class="btn-toolbar mb-2 mb-md-0 gap-2 no-print">
         <div class="btn-group">
+            <button onclick="window.print()" class="btn btn-sm btn-outline-dark">
+                <i class="bi bi-printer"></i> Imprimir
+            </button>
             <a href="{{ url_for('admin.reporte_diario', fecha=fecha, formato='pdf') }}" class="btn btn-sm btn-outline-danger">
                 <i class="bi bi-file-pdf"></i> PDF
             </a>
@@ -74,242 +132,188 @@
             </a>
         </div>
         <a href="{{ url_for('admin.reportes') }}" class="btn btn-sm btn-outline-secondary">
-            <i class="bi bi-arrow-left"></i> Volver a Reportes
+            <i class="bi bi-arrow-left"></i> Volver
         </a>
     </div>
 </div>
 
 <!-- Barra de Filtro de Fecha -->
-<div class="card section-card mb-4 bg-light">
+<div class="card section-card mb-4 no-print">
     <div class="card-body py-3">
         <form method="GET" action="{{ url_for('admin.reporte_diario') }}" class="row g-3 align-items-center justify-content-between">
-            <div class="col-md-4">
-                <span class="text-secondary small fw-semibold d-block mb-1">FECHA DE ANÁLISIS</span>
+            <div class="col-md-5">
+                <label class="text-secondary small fw-bold text-uppercase d-block mb-1">Fecha de Finiquito / Consulta</label>
                 <div class="input-group">
-                    <span class="input-group-text"><i class="bi bi-calendar-event"></i></span>
+                    <span class="input-group-text bg-white"><i class="bi bi-calendar3"></i></span>
                     <input type="date" name="fecha" class="form-control" value="{{ fecha }}">
                 </div>
             </div>
-            <div class="col-md-3 d-flex align-items-end">
-                <button type="submit" class="btn btn-dark w-100 py-2">
-                    <i class="bi bi-arrow-clockwise"></i> Generar Resumen
+            <div class="col-md-4 d-flex align-items-end gap-2">
+                <button type="submit" class="btn btn-dark w-100 py-2 fw-semibold">
+                    <i class="bi bi-arrow-clockwise me-1"></i> Generar Finiquito del Día
                 </button>
             </div>
         </form>
     </div>
 </div>
 
-<!-- Tarjetas KPI: Módulos Principales -->
-<h5 class="fw-bold mb-3 mt-4 text-secondary"><i class="bi bi-grid-1x2"></i> Módulos Principales del Negocio</h5>
+<!-- Tarjetas KPI: Resumen Ejecutivo del Finiquito -->
 <div class="row g-3 mb-4">
-    <!-- 1. Ventas -->
-    <div class="col-md-6 col-lg">
+    <!-- 1. Flujo de Caja (Efectivo Esperado) -->
+    <div class="col-xl-3 col-md-6">
+        <div class="card kpi-card bg-gradient-cash text-white p-3 shadow-sm h-100">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <span class="text-white-50 small fw-bold text-uppercase">Cierre de Caja (Efectivo)</span>
+                    <h3 class="mb-1 fw-bold mt-1">C${{ "{:,.2f}".format(caja_saldo_neto) }}</h3>
+                </div>
+                <div class="bg-white bg-opacity-25 rounded-circle p-2 d-flex align-items-center justify-content-center" style="width: 44px; height: 44px;">
+                    <i class="bi bi-safe fs-4"></i>
+                </div>
+            </div>
+            <div class="mt-3 text-white-50 small d-flex justify-content-between border-top border-white border-opacity-25 pt-2">
+                <span><i class="bi bi-arrow-down-left"></i> Entradas: C${{ "{:,.2f}".format(caja_total_entradas) }}</span>
+                <span><i class="bi bi-arrow-up-right"></i> Salidas: C${{ "{:,.2f}".format(caja_total_salidas) }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. Ventas Totales del Día -->
+    <div class="col-xl-3 col-md-6">
         <div class="card kpi-card bg-gradient-primary text-white p-3 shadow-sm h-100">
             <div class="d-flex justify-content-between align-items-start">
                 <div>
-                    <span class="text-white-50 small fw-bold">VENTAS TOTALES (HOY)</span>
-                    <h4 class="mb-1 fw-bold mt-1">C${{ "{:,.2f}".format(ventas_total) }}</h4>
+                    <span class="text-white-50 small fw-bold text-uppercase">Ventas Totales Hoy</span>
+                    <h3 class="mb-1 fw-bold mt-1">C${{ "{:,.2f}".format(ventas_total) }}</h3>
                 </div>
-                <div class="bg-white bg-opacity-25 rounded p-2">
-                    <i class="bi bi-cart-check fs-5"></i>
-                </div>
-            </div>
-            <div class="mt-3 text-white-50 small d-flex justify-content-between border-top border-white border-opacity-25 pt-2">
-                <span><i class="bi bi-cash"></i> Cont: C${{ "{:,.2f}".format(ventas_contado) }}</span>
-                <span><i class="bi bi-credit-card"></i> Créd: C${{ "{:,.2f}".format(ventas_credito) }}</span>
-            </div>
-        </div>
-    </div>
-    
-    <!-- 2. Compras -->
-    <div class="col-md-6 col-lg">
-        <div class="card kpi-card bg-gradient-success text-white p-3 shadow-sm h-100">
-            <div class="d-flex justify-content-between align-items-start">
-                <div>
-                    <span class="text-white-50 small fw-bold">COMPRAS (HOY)</span>
-                    <h4 class="mb-1 fw-bold mt-1">C${{ "{:,.2f}".format(compras_total) }}</h4>
-                </div>
-                <div class="bg-white bg-opacity-25 rounded p-2">
-                    <i class="bi bi-box-seam fs-5"></i>
+                <div class="bg-white bg-opacity-25 rounded-circle p-2 d-flex align-items-center justify-content-center" style="width: 44px; height: 44px;">
+                    <i class="bi bi-cart-check fs-4"></i>
                 </div>
             </div>
             <div class="mt-3 text-white-50 small d-flex justify-content-between border-top border-white border-opacity-25 pt-2">
-                <span><i class="bi bi-cash"></i> Cont: C${{ "{:,.2f}".format(compras_contado) }}</span>
-                <span><i class="bi bi-credit-card"></i> Créd: C${{ "{:,.2f}".format(compras_credito) }}</span>
+                <span class="fw-semibold text-white"><i class="bi bi-cash"></i> Contado: C${{ "{:,.2f}".format(ventas_contado) }}</span>
+                <span><i class="bi bi-credit-card"></i> Crédito: C${{ "{:,.2f}".format(ventas_credito) }}</span>
             </div>
         </div>
     </div>
-    
-    <!-- 3. Cuentas por Cobrar -->
-    <div class="col-md-6 col-lg">
+
+    <!-- 3. Cobranza y Abonos Recibidos -->
+    <div class="col-xl-3 col-md-6">
         <div class="card kpi-card bg-gradient-warning text-white p-3 shadow-sm h-100">
             <div class="d-flex justify-content-between align-items-start">
                 <div>
-                    <span class="text-white-50 small fw-bold">CUENTAS POR COBRAR</span>
-                    <h4 class="mb-1 fw-bold mt-1">C${{ "{:,.2f}".format(cxc_saldo_total) }}</h4>
+                    <span class="text-white-50 small fw-bold text-uppercase">Cobranza / Abonos Hoy</span>
+                    <h3 class="mb-1 fw-bold mt-1">C${{ "{:,.2f}".format(cobros_total) }}</h3>
                 </div>
-                <div class="bg-white bg-opacity-25 rounded p-2 text-dark">
-                    <i class="bi bi-people fs-5"></i>
-                </div>
-            </div>
-            <div class="mt-3 text-white-50 small d-flex justify-content-between border-top border-white border-opacity-25 pt-2">
-                <span class="text-white"><i class="bi bi-cash-stack"></i> Cobrado Hoy: C${{ "{:,.2f}".format(cobros_total) }}</span>
-            </div>
-        </div>
-    </div>
-    
-    <!-- 4. Cuentas por Pagar -->
-    <div class="col-md-6 col-lg">
-        <div class="card kpi-card bg-gradient-danger text-white p-3 shadow-sm h-100">
-            <div class="d-flex justify-content-between align-items-start">
-                <div>
-                    <span class="text-white-50 small fw-bold">CUENTAS POR PAGAR</span>
-                    <h4 class="mb-1 fw-bold mt-1">C${{ "{:,.2f}".format(cxp_saldo_total) }}</h4>
-                </div>
-                <div class="bg-white bg-opacity-25 rounded p-2">
-                    <i class="bi bi-building-dash fs-5"></i>
+                <div class="bg-white bg-opacity-25 rounded-circle p-2 d-flex align-items-center justify-content-center text-dark" style="width: 44px; height: 44px;">
+                    <i class="bi bi-cash-stack fs-4"></i>
                 </div>
             </div>
             <div class="mt-3 text-white-50 small d-flex justify-content-between border-top border-white border-opacity-25 pt-2">
-                <span class="text-white"><i class="bi bi-exclamation-circle"></i> Saldo Global Pendiente</span>
+                <span class="text-white"><i class="bi bi-wallet2"></i> Efectivo: C${{ "{:,.2f}".format(cobros_efectivo) }}</span>
+                <span><i class="bi bi-bank"></i> Bancos: C${{ "{:,.2f}".format(cobros_bancos) }}</span>
             </div>
         </div>
     </div>
-    
-    <!-- 5. Inventario -->
-    <div class="col-md-12 col-lg">
+
+    <!-- 4. Cuentas por Cobrar (Cartera Global) -->
+    <div class="col-xl-3 col-md-6">
         <div class="card kpi-card bg-gradient-dark text-white p-3 shadow-sm h-100">
             <div class="d-flex justify-content-between align-items-start">
                 <div>
-                    <span class="text-white-50 small fw-bold">INVENTARIO (GLOBAL)</span>
-                    <h4 class="mb-1 fw-bold mt-1">{{ "{:,}".format(inventario_total_productos) }}</h4>
-                    <span class="small">Productos Activos</span>
+                    <span class="text-white-50 small fw-bold text-uppercase">Saldo Cartera Global (CxC)</span>
+                    <h3 class="mb-1 fw-bold mt-1">C${{ "{:,.2f}".format(cxc_saldo_total) }}</h3>
                 </div>
-                <div class="bg-white bg-opacity-25 rounded p-2">
-                    <i class="bi bi-boxes fs-5"></i>
+                <div class="bg-white bg-opacity-25 rounded-circle p-2 d-flex align-items-center justify-content-center" style="width: 44px; height: 44px;">
+                    <i class="bi bi-people fs-4"></i>
                 </div>
             </div>
-            <div class="mt-2 text-white-50 small d-flex justify-content-between border-top border-white border-opacity-25 pt-2">
-                <span class="{% if bajo_stock|length > 0 %}text-warning fw-bold{% else %}text-white{% endif %}">
-                    <i class="bi bi-exclamation-triangle"></i> Stock Crítico: {{ bajo_stock|length }} items
-                </span>
+            <div class="mt-3 text-white-50 small d-flex justify-content-between border-top border-white border-opacity-25 pt-2">
+                <span class="text-warning"><i class="bi bi-plus-circle"></i> Nuevos Créd: C${{ "{:,.2f}".format(cxc_nuevos_creditos_hoy) }}</span>
+                <span class="text-success"><i class="bi bi-dash-circle"></i> Abonos: C${{ "{:,.2f}".format(cxc_abonos_recuperados_hoy) }}</span>
             </div>
         </div>
     </div>
 </div>
 
-<h5 class="fw-bold mb-3 mt-5 text-secondary"><i class="bi bi-wallet2"></i> Resumen de Caja y Gastos Operativos (Hoy)</h5>
-<div class="row g-3 mb-4">
-    <!-- Gastos Directos -->
-    <div class="col-md-6">
-        <div class="card kpi-card bg-white p-3 shadow-sm border h-100">
-            <div class="d-flex justify-content-between align-items-start">
-                <div>
-                    <span class="text-secondary small fw-bold">GASTOS OPERATIVOS (HOY)</span>
-                    <h4 class="mb-1 fw-bold mt-1 text-danger">C${{ "{:,.2f}".format(gastos_total) }}</h4>
-                </div>
-                <div class="bg-danger bg-opacity-10 text-danger rounded p-2">
-                    <i class="bi bi-graph-down-arrow fs-5"></i>
-                </div>
-            </div>
-        </div>
-    </div>
-    <!-- Caja Chica Saldo Neto -->
-    <div class="col-md-6">
-        <div class="card kpi-card bg-white p-3 shadow-sm border h-100">
-            <div class="d-flex justify-content-between align-items-start">
-                <div>
-                    <span class="text-secondary small fw-bold">SALDO NETO CAJA CHICA</span>
-                    <h4 class="mb-1 fw-bold mt-1 text-dark">C${{ "{:,.2f}".format(caja_saldo_neto) }}</h4>
-                </div>
-                <div class="bg-secondary bg-opacity-10 text-dark rounded p-2">
-                    <i class="bi bi-safe fs-5"></i>
-                </div>
-            </div>
-            <div class="mt-2 text-secondary small d-flex justify-content-between border-top pt-2">
-                <span>Apertura: C${{ "{:,.2f}".format(caja_apertura) }}</span>
-                <span>Flujo: C${{ "{:,.2f}".format((caja_entradas) - caja_salidas) }}</span>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="row g-4 mb-4">
-    <!-- Gráficos de Resumen Diario -->
+<!-- Gráficos de Balance y Distribución -->
+<div class="row g-4 mb-4 no-print">
+    <!-- 1. Distribución de Ventas -->
     <div class="col-md-4">
         <div class="card section-card shadow-sm h-100">
-            <div class="card-header bg-white py-3">
-                <strong class="text-secondary small fw-bold uppercase">Distribución de Ventas</strong>
+            <div class="card-header bg-white py-3 border-0">
+                <h6 class="text-secondary fw-bold text-uppercase mb-0 small"><i class="bi bi-pie-chart text-primary me-1"></i> Distribución de Ventas</h6>
             </div>
-            <div class="card-body d-flex flex-column align-items-center justify-content-center">
+            <div class="card-body d-flex flex-column align-items-center justify-content-center pt-0">
                 {% if ventas_total > 0 %}
-                <div style="position: relative; height: 180px; width: 100%;">
+                <div style="position: relative; height: 170px; width: 100%;">
                     <canvas id="salesDistributionChart"></canvas>
                 </div>
-                <div class="text-center mt-3">
-                    <span class="badge bg-primary px-2 py-1 me-1">Oficina: {{ "{:.1f}%".format((ventas_normal / ventas_total) * 100) if ventas_total > 0 else 0 }}</span>
-                    <span class="badge bg-info text-dark px-2 py-1">Rutas: {{ "{:.1f}%".format((ventas_ruta / ventas_total) * 100) if ventas_total > 0 else 0 }}</span>
+                <div class="d-flex justify-content-center gap-2 mt-3 flex-wrap">
+                    <span class="badge badge-soft-primary px-2 py-1">Oficina: C${{ "{:,.2f}".format(ventas_normal) }}</span>
+                    <span class="badge badge-soft-success px-2 py-1">Rutas: C${{ "{:,.2f}".format(ventas_ruta) }}</span>
                 </div>
                 {% else %}
                 <div class="text-center py-4">
                     <i class="bi bi-cart-x fs-1 text-muted"></i>
-                    <p class="text-muted mt-2 small">Sin ventas registradas hoy</p>
+                    <p class="text-muted mt-2 small">Sin ventas registradas en la fecha</p>
                 </div>
                 {% endif %}
             </div>
         </div>
     </div>
 
+    <!-- 2. Medios de Cobranza -->
     <div class="col-md-4">
         <div class="card section-card shadow-sm h-100">
-            <div class="card-header bg-white py-3">
-                <strong class="text-secondary small fw-bold uppercase">Medios de Pago (Recaudación)</strong>
+            <div class="card-header bg-white py-3 border-0">
+                <h6 class="text-secondary fw-bold text-uppercase mb-0 small"><i class="bi bi-wallet2 text-success me-1"></i> Medios de Cobranza</h6>
             </div>
-            <div class="card-body d-flex flex-column align-items-center justify-content-center">
+            <div class="card-body d-flex flex-column align-items-center justify-content-center pt-0">
                 {% if cobros_total > 0 %}
-                <div style="position: relative; height: 180px; width: 100%;">
+                <div style="position: relative; height: 170px; width: 100%;">
                     <canvas id="paymentMethodsChart"></canvas>
                 </div>
-                <div class="text-center mt-3">
-                    <span class="badge bg-success px-2 py-1 me-1">Efectivo: {{ "{:.1f}%".format((cobros_efectivo / cobros_total) * 100) if cobros_total > 0 else 0 }}</span>
-                    <span class="badge bg-warning text-dark px-2 py-1">Bancos: {{ "{:.1f}%".format((cobros_bancos / cobros_total) * 100) if cobros_total > 0 else 0 }}</span>
+                <div class="d-flex justify-content-center gap-2 mt-3 flex-wrap">
+                    <span class="badge badge-soft-success px-2 py-1">Efectivo: C${{ "{:,.2f}".format(cobros_efectivo) }}</span>
+                    <span class="badge badge-soft-warning px-2 py-1">Bancos: C${{ "{:,.2f}".format(cobros_bancos) }}</span>
                 </div>
                 {% else %}
                 <div class="text-center py-4">
                     <i class="bi bi-cash-coin fs-1 text-muted"></i>
-                    <p class="text-muted mt-2 small">Sin recaudaciones hoy</p>
+                    <p class="text-muted mt-2 small">Sin cobros/abonos en la fecha</p>
                 </div>
                 {% endif %}
             </div>
         </div>
     </div>
 
-    <!-- Vendedores y Rendimiento de Ruta -->
+    <!-- 3. Rendimiento por Vendedor -->
     <div class="col-md-4">
         <div class="card section-card shadow-sm h-100">
-            <div class="card-header bg-white py-3">
-                <strong class="text-secondary small fw-bold uppercase">Rendimiento por Vendedor</strong>
+            <div class="card-header bg-white py-3 border-0">
+                <h6 class="text-secondary fw-bold text-uppercase mb-0 small"><i class="bi bi-trophy text-warning me-1"></i> Vendedores en Ruta</h6>
             </div>
             <div class="card-body p-0">
-                <div class="table-responsive">
+                <div class="table-responsive" style="max-height: 220px;">
                     <table class="table table-hover align-middle mb-0">
                         <thead class="table-light">
                             <tr class="small text-secondary">
                                 <th>Vendedor</th>
                                 <th class="text-center">Facturas</th>
-                                <th class="text-end">Total</th>
+                                <th class="text-end">Total Vendido</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for v in vendedores %}
                             <tr>
                                 <td class="fw-semibold">{{ v.vendedor }}</td>
-                                <td class="text-center">{{ v.facturas }}</td>
+                                <td class="text-center"><span class="badge bg-light text-dark">{{ v.facturas }}</span></td>
                                 <td class="text-end fw-bold text-indigo">C${{ "{:,.2f}".format(v.total_vendido) }}</td>
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="3" class="text-center py-4 text-muted small">No hay ventas de ruta registradas hoy</td>
+                                <td colspan="3" class="text-center py-4 text-muted small">Sin ventas de ruta en esta fecha</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -320,64 +324,182 @@
     </div>
 </div>
 
-<!-- Pestañas Detalladas -->
+<!-- Pestañas Detalladas del Finiquito -->
 <div class="card section-card shadow-sm mb-4">
-    <div class="card-header bg-white py-2">
-        <ul class="nav nav-tabs nav-tabs-custom card-header-tabs border-0" id="detailsTab" role="tablist">
+    <div class="card-header bg-white py-2 border-0">
+        <ul class="nav nav-tabs nav-tabs-custom card-header-tabs border-0 flex-wrap" id="finiquitoTab" role="tablist">
             <li class="nav-item" role="presentation">
                 <button class="nav-link active" id="caja-tab" data-bs-toggle="tab" data-bs-target="#caja" type="button" role="tab">
-                    <i class="bi bi-safe2"></i> Caja Chica ({{ caja_movimientos|length }})
+                    <i class="bi bi-safe text-success me-1"></i> Arqueo y Caja Chica ({{ caja_movimientos|length }})
                 </button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="gastos-tab" data-bs-toggle="tab" data-bs-target="#gastos" type="button" role="tab">
-                    <i class="bi bi-receipt"></i> Gastos y Compras ({{ gastos|length + compras|length }})
+                <button class="nav-link" id="clientes-tab" data-bs-toggle="tab" data-bs-target="#clientes" type="button" role="tab">
+                    <i class="bi bi-people text-primary me-1"></i> Cartera de Clientes y Variación ({{ clientes_cartera|length }})
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="ventas-tab" data-bs-toggle="tab" data-bs-target="#ventas" type="button" role="tab">
+                    <i class="bi bi-receipt text-indigo me-1"></i> Facturación y Ventas ({{ ventas_detalle|length }})
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="abonos-tab" data-bs-toggle="tab" data-bs-target="#abonos" type="button" role="tab">
+                    <i class="bi bi-cash-stack text-warning me-1"></i> Cobranza y Abonos ({{ cobros_list|length }})
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="egresos-tab" data-bs-toggle="tab" data-bs-target="#egresos" type="button" role="tab">
+                    <i class="bi bi-box-arrow-right text-danger me-1"></i> Compras y Gastos ({{ gastos|length + compras|length }})
                 </button>
             </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="inventario-tab" data-bs-toggle="tab" data-bs-target="#inventario" type="button" role="tab">
-                    <i class="bi bi-box-seam"></i> Movimiento Inventario
+                    <i class="bi bi-boxes text-dark me-1"></i> Inventario
                 </button>
             </li>
         </ul>
     </div>
+    
     <div class="card-body">
-        <div class="tab-content" id="detailsTabContent">
-            <!-- PESTAÑA CAJA -->
+        <div class="tab-content" id="finiquitoTabContent">
+            
+            <!-- 1. PESTAÑA ARQUEO Y FLUJO DE CAJA -->
             <div class="tab-pane fade show active" id="caja" role="tabpanel">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="fw-bold mb-0 text-dark">Historial de Flujo de Caja Chica</h5>
-                    <span class="badge bg-light text-dark border">Apertura: C${{ "{:,.2f}".format(caja_apertura) }}</span>
+                <div class="row g-4 mb-4">
+                    <!-- Cuadro de Conciliación de Efectivo -->
+                    <div class="col-lg-5">
+                        <div class="card bg-light border p-3 rounded-4 h-100">
+                            <h6 class="fw-bold text-dark mb-3"><i class="bi bi-calculator me-1"></i> Conciliación de Efectivo del Día</h6>
+                            <ul class="list-group list-group-flush rounded-3">
+                                <li class="list-group-item bg-transparent d-flex justify-content-between align-items-center py-2">
+                                    <span class="text-secondary small">Apertura de Caja</span>
+                                    <span class="fw-semibold">C${{ "{:,.2f}".format(caja_apertura) }}</span>
+                                </li>
+                                <li class="list-group-item bg-transparent d-flex justify-content-between align-items-center py-2 text-success">
+                                    <span class="small">(+) Ventas de Contado (Efectivo)</span>
+                                    <span class="fw-bold">+ C${{ "{:,.2f}".format(ventas_contado) }}</span>
+                                </li>
+                                <li class="list-group-item bg-transparent d-flex justify-content-between align-items-center py-2 text-success">
+                                    <span class="small">(+) Abonos Cobrados en Efectivo</span>
+                                    <span class="fw-bold">+ C${{ "{:,.2f}".format(cobros_efectivo) }}</span>
+                                </li>
+                                <li class="list-group-item bg-transparent d-flex justify-content-between align-items-center py-2 text-danger">
+                                    <span class="small">(-) Gastos Operativos</span>
+                                    <span class="fw-bold">- C${{ "{:,.2f}".format(gastos_total) }}</span>
+                                </li>
+                                <li class="list-group-item bg-transparent d-flex justify-content-between align-items-center py-2 text-danger">
+                                    <span class="small">(-) Compras a Proveedores (Contado)</span>
+                                    <span class="fw-bold">- C${{ "{:,.2f}".format(compras_contado) }}</span>
+                                </li>
+                                <li class="list-group-item bg-white border-top border-2 d-flex justify-content-between align-items-center py-3 mt-2 rounded">
+                                    <span class="fw-bold text-dark fs-6">CIERRE DE EFECTIVO ESPERADO</span>
+                                    <span class="fw-bold fs-5 text-success">C${{ "{:,.2f}".format(caja_saldo_neto) }}</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Timeline de Movimientos de Caja -->
+                    <div class="col-lg-7">
+                        <h6 class="fw-bold text-dark mb-3"><i class="bi bi-clock-history me-1"></i> Registro Cronológico de Movimientos de Caja</h6>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Tipo</th>
+                                        <th>Descripción</th>
+                                        <th>Referencia</th>
+                                        <th class="text-end">Monto</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for m in caja_movimientos %}
+                                    <tr>
+                                        <td>
+                                            {% if m.tipo == 'APERTURA' %}
+                                            <span class="badge badge-soft-primary"><i class="bi bi-key"></i> Apertura</span>
+                                            {% elif m.tipo == 'ENTRADA' %}
+                                            <span class="badge badge-soft-success"><i class="bi bi-arrow-down-left"></i> Entrada</span>
+                                            {% else %}
+                                            <span class="badge badge-soft-danger"><i class="bi bi-arrow-up-right"></i> Salida</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="small">{{ m.descripcion }}</td>
+                                        <td><span class="font-monospace small text-muted">{{ m.referencia }}</span></td>
+                                        <td class="text-end fw-bold {% if m.tipo in ['APERTURA', 'ENTRADA'] %}text-success{% else %}text-danger{% endif %}">
+                                            C${{ "{:,.2f}".format(m.monto) }}
+                                        </td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="4" class="text-center py-4 text-muted small">Sin movimientos de caja registrados</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
+            </div>
+
+            <!-- 2. PESTAÑA CARTERA DE CLIENTES Y VARIACIÓN -->
+            <div class="tab-pane fade" id="clientes" role="tabpanel">
+                <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                    <div>
+                        <h5 class="fw-bold mb-1 text-dark">Movimiento de Saldos de Clientes (Variación del Día)</h5>
+                        <p class="text-muted small mb-0">Clientes con saldo deudor o que generaron compras a crédito / abonos en la fecha.</p>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <input type="text" id="buscadorClientes" class="form-control form-control-sm" placeholder="Buscar cliente por nombre o código..." style="min-width: 250px;">
+                    </div>
+                </div>
+
                 <div class="table-responsive">
-                    <table class="table table-striped table-hover align-middle">
+                    <table class="table table-hover align-middle" id="tablaClientesCartera">
                         <thead>
-                            <tr class="small text-secondary">
-                                <th>Tipo</th>
-                                <th>Descripción</th>
-                                <th>Referencia</th>
-                                <th class="text-end">Monto</th>
+                            <tr>
+                                <th>Cliente</th>
+                                <th class="text-end">Saldo Inicial</th>
+                                <th class="text-end text-danger">(+) Créditos Hoy</th>
+                                <th class="text-end text-success">(-) Abonos Hoy</th>
+                                <th class="text-end">Saldo Final Actual</th>
+                                <th class="text-center">Variación Hoy</th>
+                                <th class="text-center">Estado Deuda</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for m in caja_movimientos %}
-                            <tr>
+                            {% for c in clientes_cartera %}
+                            <tr class="fila-cliente">
                                 <td>
-                                    {% if m.tipo == 'ENTRADA' %}
-                                    <span class="badge bg-success-soft text-success"><i class="bi bi-arrow-down-left"></i> Entrada</span>
-                                    {% else %}
-                                    <span class="badge bg-danger-soft text-danger"><i class="bi bi-arrow-up-right"></i> Salida</span>
-                                    {% endif %}
+                                    <div class="fw-bold text-dark nombre-cliente">{{ c.nombre }}</div>
+                                    <small class="text-muted font-monospace codigo-cliente">{{ c.codigo }}</small>
                                 </td>
-                                <td>{{ m.descripcion }}</td>
-                                <td>{{ m.referencia }}</td>
-                                <td class="text-end fw-bold {% if m.tipo == 'ENTRADA' %}text-success{% else %}text-danger{% endif %}">
-                                    C${{ "{:,.2f}".format(m.monto) }}
+                                <td class="text-end text-secondary fw-semibold">C${{ "{:,.2f}".format(c.saldo_inicial) }}</td>
+                                <td class="text-end fw-bold {% if c.credito_hoy > 0 %}text-danger{% else %}text-muted{% endif %}">
+                                    {% if c.credito_hoy > 0 %}+ C${{ "{:,.2f}".format(c.credito_hoy) }}{% else %}-{% endif %}
+                                </td>
+                                <td class="text-end fw-bold {% if c.abono_hoy > 0 %}text-success{% else %}text-muted{% endif %}">
+                                    {% if c.abono_hoy > 0 %}- C${{ "{:,.2f}".format(c.abono_hoy) }}{% else %}-{% endif %}
+                                </td>
+                                <td class="text-end fw-bold text-dark fs-6">C${{ "{:,.2f}".format(c.saldo_actual) }}</td>
+                                <td class="text-center">
+                                    <span class="{{ c.variacion_class }} small">
+                                        <i class="bi {{ c.variacion_icon }} me-1"></i>{{ c.tipo_variacion }}
+                                        {% if c.variacion_neta != 0 %}
+                                        ({{ "C${:,.2f}".format(c.variacion_neta|abs) }})
+                                        {% endif %}
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge {{ c.estado_badge }} rounded-pill px-2 py-1 small">
+                                        {{ c.estado_deuda }}
+                                    </span>
                                 </td>
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="4" class="text-center py-4 text-muted small">Sin movimientos de caja hoy</td>
+                                <td colspan="7" class="text-center py-4 text-muted small">No hay clientes con saldos pendientes ni actividad registrada en la fecha.</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -385,14 +507,109 @@
                 </div>
             </div>
 
-            <!-- PESTAÑA GASTOS Y COMPRAS -->
-            <div class="tab-pane fade" id="gastos" role="tabpanel">
-                <!-- Compras a Proveedores -->
-                <h5 class="fw-bold mb-3 text-dark">Compras Realizadas hoy</h5>
-                <div class="table-responsive mb-4">
-                    <table class="table table-striped table-hover align-middle">
+            <!-- 3. PESTAÑA FACTURACIÓN Y VENTAS -->
+            <div class="tab-pane fade" id="ventas" role="tabpanel">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0 text-dark">Detalle de Facturas Emitidas Hoy</h5>
+                    <span class="badge badge-soft-primary fs-6">Total: C${{ "{:,.2f}".format(ventas_total) }}</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
                         <thead>
-                            <tr class="small text-secondary">
+                            <tr>
+                                <th>Factura</th>
+                                <th>Origen</th>
+                                <th>Cliente</th>
+                                <th>Vendedor</th>
+                                <th class="text-center">Condición</th>
+                                <th class="text-end">Total Factura</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for v in ventas_detalle %}
+                            <tr>
+                                <td class="fw-bold font-monospace text-dark">{{ v.id_factura }}</td>
+                                <td>
+                                    {% if 'Oficina' in v.origen %}
+                                    <span class="badge badge-soft-secondary"><i class="bi bi-building"></i> {{ v.origen }}</span>
+                                    {% else %}
+                                    <span class="badge badge-soft-primary"><i class="bi bi-truck"></i> {{ v.origen }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="fw-semibold">{{ v.cliente }}</td>
+                                <td>{{ v.vendedor }}</td>
+                                <td class="text-center">
+                                    {% if v.tipo_venta == 'CONTADO' %}
+                                    <span class="badge badge-soft-success"><i class="bi bi-cash"></i> Contado</span>
+                                    {% else %}
+                                    <span class="badge badge-soft-warning"><i class="bi bi-credit-card"></i> Crédito</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end fw-bold text-dark">C${{ "{:,.2f}".format(v.total) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-muted small">No se emitieron facturas de venta hoy</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 4. PESTAÑA COBRANZA Y ABONOS -->
+            <div class="tab-pane fade" id="abonos" role="tabpanel">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0 text-dark">Recibos de Cobro y Abonos a Cuentas por Cobrar</h5>
+                    <span class="badge badge-soft-success fs-6">Recaudado: C${{ "{:,.2f}".format(cobros_total) }}</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>Cliente</th>
+                                <th>Cobrador / Vendedor</th>
+                                <th>Factura Aplicada</th>
+                                <th>Método de Pago</th>
+                                <th class="text-end">Monto Abonado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ab in cobros_list %}
+                            <tr>
+                                <td class="fw-bold text-dark">{{ ab.cliente }}</td>
+                                <td>{{ ab.cobrador }}</td>
+                                <td><span class="font-monospace small text-muted">{{ ab.factura }}</span></td>
+                                <td>
+                                    {% if ab.es_efectivo %}
+                                    <span class="badge badge-soft-success"><i class="bi bi-cash"></i> {{ ab.metodo }}</span>
+                                    {% else %}
+                                    <span class="badge badge-soft-warning"><i class="bi bi-bank"></i> {{ ab.metodo }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end fw-bold text-success">C${{ "{:,.2f}".format(ab.monto) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center py-4 text-muted small">No se recibieron abonos de clientes hoy</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 5. PESTAÑA COMPRAS Y GASTOS -->
+            <div class="tab-pane fade" id="egresos" role="tabpanel">
+                <!-- Compras a Proveedores -->
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0 text-dark">Compras de Inventario a Proveedores</h5>
+                    <span class="badge badge-soft-secondary">Total: C${{ "{:,.2f}".format(compras_total) }}</span>
+                </div>
+                <div class="table-responsive mb-4">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
                                 <th>Factura Proveedor</th>
                                 <th>Proveedor</th>
                                 <th>Condición</th>
@@ -402,10 +619,10 @@
                         <tbody>
                             {% for c in compras %}
                             <tr>
-                                <td class="fw-bold">{{ c.factura }}</td>
+                                <td class="fw-bold font-monospace">{{ c.factura }}</td>
                                 <td>{{ c.proveedor }}</td>
                                 <td>
-                                    <span class="badge {% if c.tipo_compra == 'CREDITO' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                                    <span class="badge {% if c.tipo_compra == 'CREDITO' %}badge-soft-warning{% else %}badge-soft-secondary{% endif %}">
                                         {{ c.tipo_compra }}
                                     </span>
                                 </td>
@@ -421,32 +638,33 @@
                 </div>
 
                 <!-- Gastos Generales -->
-                <h5 class="fw-bold mb-3 text-dark">Gastos Operativos Registrados</h5>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0 text-dark">Gastos Operativos Registrados</h5>
+                    <span class="badge badge-soft-danger">Total: C${{ "{:,.2f}".format(gastos_total) }}</span>
+                </div>
                 <div class="table-responsive">
-                    <table class="table table-striped table-hover align-middle">
+                    <table class="table table-hover align-middle">
                         <thead>
-                            <tr class="small text-secondary">
-                                <th>Origen</th>
+                            <tr>
                                 <th>Tipo de Gasto</th>
                                 <th>Subcategoría</th>
-                                <th>Proveedor / Destinatario</th>
-                                <th>Factura/Referencia</th>
+                                <th>Proveedor / Beneficiario</th>
+                                <th>Factura/Ref</th>
                                 <th class="text-end">Monto</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for g in gastos %}
                             <tr>
-                                <td><span class="badge bg-light text-dark">{{ g.origen }}</span></td>
                                 <td class="fw-semibold">{{ g.tipo_gasto }}</td>
                                 <td>{{ g.subcategoria }}</td>
                                 <td>{{ g.proveedor }}</td>
-                                <td>{{ g.factura }}</td>
+                                <td><span class="font-monospace small text-muted">{{ g.factura }}</span></td>
                                 <td class="text-end fw-bold text-danger">C${{ "{:,.2f}".format(g.monto) }}</td>
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="6" class="text-center py-3 text-muted small">Sin gastos operativos registrados hoy</td>
+                                <td colspan="5" class="text-center py-3 text-muted small">Sin gastos operativos registrados hoy</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -454,16 +672,16 @@
                 </div>
             </div>
 
-            <!-- PESTAÑA INVENTARIO -->
+            <!-- 6. PESTAÑA INVENTARIO -->
             <div class="tab-pane fade" id="inventario" role="tabpanel">
                 <div class="row g-4">
                     <!-- Productos más Vendidos Hoy -->
                     <div class="col-md-7">
                         <h5 class="fw-bold mb-3 text-dark">Top Productos Vendidos Hoy</h5>
                         <div class="table-responsive">
-                            <table class="table table-striped table-hover align-middle">
+                            <table class="table table-hover align-middle">
                                 <thead>
-                                    <tr class="small text-secondary">
+                                    <tr>
                                         <th>Código</th>
                                         <th>Producto</th>
                                         <th class="text-center">Cant. Vendida</th>
@@ -473,14 +691,14 @@
                                 <tbody>
                                     {% for p in productos_vendidos %}
                                     <tr>
-                                        <td class="fw-bold">{{ p.codigo }}</td>
+                                        <td class="fw-bold font-monospace">{{ p.codigo }}</td>
                                         <td>{{ p.producto }}</td>
                                         <td class="text-center fw-bold">{{ p.cantidad }}</td>
                                         <td class="text-end fw-bold text-success">C${{ "{:,.2f}".format(p.total) }}</td>
                                     </tr>
                                     {% else %}
                                     <tr>
-                                        <td colspan="4" class="text-center py-4 text-muted small">Sin movimientos de venta de productos hoy</td>
+                                        <td colspan="4" class="text-center py-4 text-muted small">Sin ventas de productos registradas hoy</td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
@@ -492,9 +710,9 @@
                     <div class="col-md-5">
                         <h5 class="fw-bold mb-3 text-danger"><i class="bi bi-exclamation-triangle"></i> Alertas de Stock Bajo (Bodega)</h5>
                         <div class="table-responsive">
-                            <table class="table table-striped table-hover align-middle">
+                            <table class="table table-hover align-middle">
                                 <thead>
-                                    <tr class="small text-secondary">
+                                    <tr>
                                         <th>Código</th>
                                         <th>Producto</th>
                                         <th class="text-center">Existencias</th>
@@ -504,7 +722,7 @@
                                 <tbody>
                                     {% for b in bajo_stock %}
                                     <tr>
-                                        <td class="fw-bold">{{ b.codigo }}</td>
+                                        <td class="fw-bold font-monospace">{{ b.codigo }}</td>
                                         <td class="small">{{ b.producto }}</td>
                                         <td class="text-center"><span class="badge bg-danger">{{ b.existencias }}</span></td>
                                         <td class="text-center text-muted">{{ b.stock_minimo }}</td>
@@ -520,6 +738,7 @@
                     </div>
                 </div>
             </div>
+
         </div>
     </div>
 </div>
@@ -527,51 +746,76 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     document.addEventListener("DOMContentLoaded", function () {
+        // --- FILTRO DE BÚSQUEDA CLIENTES EN VIVO ---
+        const buscador = document.getElementById('buscadorClientes');
+        if (buscador) {
+            buscador.addEventListener('input', function() {
+                const query = this.value.toLowerCase().trim();
+                const filas = document.querySelectorAll('.fila-cliente');
+                filas.forEach(fila => {
+                    const nombre = fila.querySelector('.nombre-cliente')?.innerText.toLowerCase() || '';
+                    const codigo = fila.querySelector('.codigo-cliente')?.innerText.toLowerCase() || '';
+                    if (nombre.includes(query) || codigo.includes(query)) {
+                        fila.style.display = '';
+                    } else {
+                        fila.style.display = 'none';
+                    }
+                });
+            });
+        }
+
         // --- 1. GRÁFICO DISTRIBUCIÓN VENTAS ---
         {% if ventas_total > 0 %}
-        const ctxSales = document.getElementById('salesDistributionChart').getContext('2d');
-        new Chart(ctxSales, {
-            type: 'doughnut',
-            data: {
-                labels: ['Oficina/Local', 'Rutas'],
-                datasets: [{
-                    data: [{{ ventas_normal }}, {{ ventas_ruta }}],
-                    backgroundColor: ['#4f46e5', '#06b6d4'],
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
+        const ctxSales = document.getElementById('salesDistributionChart')?.getContext('2d');
+        if (ctxSales) {
+            new Chart(ctxSales, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Oficina / Central', 'Rutas'],
+                    datasets: [{
+                        data: [{{ ventas_normal }}, {{ ventas_ruta }}],
+                        backgroundColor: ['#4338ca', '#10b981'],
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
                 },
-                cutout: '70%'
-            }
-        });
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }
+                    },
+                    cutout: '65%'
+                }
+            });
+        }
         {% endif %}
 
         // --- 2. GRÁFICO COBROS MÉTODO PAGO ---
         {% if cobros_total > 0 %}
-        const ctxPayments = document.getElementById('paymentMethodsChart').getContext('2d');
-        new Chart(ctxPayments, {
-            type: 'pie',
-            data: {
-                labels: ['Efectivo', 'Bancos/Otros'],
-                datasets: [{
-                    data: [{{ cobros_efectivo }}, {{ cobros_bancos }}],
-                    backgroundColor: ['#10b981', '#f59e0b'],
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
+        const ctxPayments = document.getElementById('paymentMethodsChart')?.getContext('2d');
+        if (ctxPayments) {
+            new Chart(ctxPayments, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Efectivo', 'Bancos / Otros'],
+                    datasets: [{
+                        data: [{{ cobros_efectivo }}, {{ cobros_bancos }}],
+                        backgroundColor: ['#10b981', '#f59e0b'],
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }
+                    },
+                    cutout: '65%'
                 }
-            }
-        });
+            });
+        }
         {% endif %}
     });
 </script>

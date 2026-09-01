@@ -249,6 +249,8 @@ def registrar_pago_cuenta():
                 """, (id_cuenta, f"{fecha_pago} 00:00:00", monto_pago, id_metodo_pago, 
                       detalles_metodo, comentarios, id_usuario))
                 
+                id_pago = cursor.lastrowid
+                
                 # Actualizar saldo pendiente y estado en la cuenta
                 cursor.execute("""
                     UPDATE cuentas_por_pagar 
@@ -263,6 +265,28 @@ def registrar_pago_cuenta():
                     SET Saldo_Pendiente = COALESCE(Saldo_Pendiente, 0) - %s
                     WHERE ID_Proveedor = %s
                 """, (monto_pago, cuenta['ID_Proveedor']))
+                
+                # REGISTRO EN CAJA SI EL PAGO ES EN EFECTIVO
+                cursor.execute("SELECT Nombre FROM metodos_pago WHERE ID_MetodoPago = %s", (id_metodo_pago,))
+                mp_data = cursor.fetchone()
+                nombre_mp = mp_data['Nombre'].upper() if mp_data else 'EFECTIVO'
+                es_efectivo = (int(id_metodo_pago) == 1 or 'EFECTIVO' in nombre_mp or 'CASH' in nombre_mp)
+                
+                if es_efectivo:
+                    desc_caja = f"Pago CxP #{id_cuenta} - Proveedor: {proveedor} - Doc: {num_documento or 'S/D'} - {comentarios or 'Pago de factura'}"
+                    cursor.execute("""
+                        INSERT INTO caja_movimientos 
+                        (Fecha, Tipo_Movimiento, Descripcion, Monto, Referencia_Documento, ID_Usuario, Estado)
+                        VALUES (NOW(), 'SALIDA', %s, %s, %s, %s, 'ACTIVO')
+                    """, (
+                        desc_caja,
+                        monto_pago,
+                        f"PAGO-CXP-{id_pago}",
+                        id_usuario
+                    ))
+                    print(f"💰 Se registró salida en caja_movimientos por C${monto_pago:,.2f} para Pago CxP #{id_pago}")
+                else:
+                    print(f"🏦 Pago CxP #{id_pago} registrado por {nombre_mp} - No afecta caja física")
                 
                 # Mensaje de éxito
                 if nuevo_saldo == 0:
@@ -485,6 +509,28 @@ def registrar_abono_proveedor_global():
                 
                 cursor.execute("SELECT Nombre FROM proveedores WHERE ID_Proveedor = %s", (id_proveedor,))
                 prov_nombre = cursor.fetchone()['Nombre']
+                
+                # REGISTRO EN CAJA SI EL ABONO GLOBAL ES EN EFECTIVO
+                cursor.execute("SELECT Nombre FROM metodos_pago WHERE ID_MetodoPago = %s", (id_metodo_pago,))
+                mp_data = cursor.fetchone()
+                nombre_mp = mp_data['Nombre'].upper() if mp_data else 'EFECTIVO'
+                es_efectivo = (int(id_metodo_pago) == 1 or 'EFECTIVO' in nombre_mp or 'CASH' in nombre_mp)
+                
+                if es_efectivo:
+                    desc_caja = f"Abono Global a Proveedor: {prov_nombre} - {comentarios or 'Abono en cascada'}"
+                    cursor.execute("""
+                        INSERT INTO caja_movimientos 
+                        (Fecha, Tipo_Movimiento, Descripcion, Monto, Referencia_Documento, ID_Usuario, Estado)
+                        VALUES (NOW(), 'SALIDA', %s, %s, %s, %s, 'ACTIVO')
+                    """, (
+                        desc_caja,
+                        float(monto_abono),
+                        f"ABONO-GLOBAL-PROV-{id_proveedor}-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+                        id_usuario
+                    ))
+                    print(f"💰 Se registró salida en caja_movimientos por C${float(monto_abono):,.2f} para Abono Global Proveedor #{id_proveedor}")
+                else:
+                    print(f"🏦 Abono Global Proveedor #{id_proveedor} por {nombre_mp} - No afecta caja física")
                 
                 detalle_msg = ", ".join(detalles_aplicados)
                 flash(f'¡Abono global a {prov_nombre} registrado correctamente! Monto total: C${monto_abono:,.2f}. Aplicado a: {detalle_msg}', 'success')

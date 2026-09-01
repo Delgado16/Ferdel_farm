@@ -613,6 +613,7 @@ def admin_eliminar_cliente(id):
 @bitacora_decorator("DETALLE_CLIENTE")
 def admin_detalle_cliente(id):
     try:
+        import json
         id_empresa = session.get('id_empresa', 1)
         
         with get_db_cursor() as cursor:
@@ -664,8 +665,27 @@ def admin_detalle_cliente(id):
             for cuenta in cuentas_pendientes:
                 if cuenta.get('Dias_Vencido') is None:
                     cuenta['Dias_Vencido'] = 0
+
+            # 2.1 Cuentas por cobrar ya saldadas/pagadas
+            cursor.execute("""
+                SELECT 
+                    cxc.ID_Movimiento,
+                    cxc.Num_Documento,
+                    cxc.Fecha,
+                    cxc.Fecha_Vencimiento,
+                    cxc.Monto_Movimiento,
+                    cxc.Saldo_Pendiente,
+                    cxc.Estado,
+                    cxc.Observacion
+                FROM cuentas_por_cobrar cxc
+                WHERE cxc.ID_Cliente = %s 
+                    AND cxc.Estado IN ('Pagada', 'Cancelada', 'Saldada')
+                ORDER BY cxc.Fecha DESC
+                LIMIT 40
+            """, (id,))
+            cuentas_saldadas = cursor.fetchall()
             
-            # 3. Últimas facturas (facturacion normal)
+            # 3. Facturas (facturacion normal)
             cursor.execute("""
                 SELECT 
                     f.ID_Factura as ID_Factura,
@@ -687,12 +707,12 @@ def admin_detalle_cliente(id):
                     AND f.Estado = 'Activa'
                 GROUP BY f.ID_Factura, f.Fecha_Creacion, f.Credito_Contado, f.Observacion, f.Estado
                 ORDER BY f.Fecha_Creacion DESC
-                LIMIT 10
+                LIMIT 50
             """, (id,))
             
             facturas_normales = cursor.fetchall()
             
-            # 4. Últimas facturas (facturacion ruta)
+            # 4. Facturas (facturacion ruta)
             cursor.execute("""
                 SELECT 
                     fr.ID_FacturaRuta as ID_Factura,
@@ -714,7 +734,7 @@ def admin_detalle_cliente(id):
                     AND fr.Estado = 'Activa'
                 GROUP BY fr.ID_FacturaRuta, fr.Fecha_Creacion, fr.Credito_Contado, fr.Observacion, fr.Estado
                 ORDER BY fr.Fecha_Creacion DESC
-                LIMIT 10
+                LIMIT 50
             """, (id,))
             
             facturas_ruta = cursor.fetchall()
@@ -722,7 +742,8 @@ def admin_detalle_cliente(id):
             # Combinar y ordenar las facturas
             ultimas_facturas = list(facturas_normales) + list(facturas_ruta)
             ultimas_facturas.sort(key=lambda x: x['Fecha'] if x['Fecha'] else datetime.min.date(), reverse=True)
-            ultimas_facturas = ultimas_facturas[:10]
+            total_facturas_registradas = len(ultimas_facturas)
+            ultimas_facturas = ultimas_facturas[:50]
             
             # 5. Antigüedad de saldos (Aging)
             cursor.execute("""
@@ -751,7 +772,7 @@ def admin_detalle_cliente(id):
             if not aging:
                 aging = {'Rango_0_30': 0, 'Rango_31_60': 0, 'Rango_61_90': 0, 'Vencido': 0, 'Mas_90': 0}
             
-            # 6. Ventas por mes - CONSULTA CORREGIDA (facturacion normal)
+            # 6. Ventas por mes (facturacion normal)
             cursor.execute("""
                 SELECT 
                     YEAR(f.Fecha_Creacion) as Anio,
@@ -775,7 +796,7 @@ def admin_detalle_cliente(id):
             
             ventas_normales = cursor.fetchall()
             
-            # 7. Ventas por mes - CONSULTA CORREGIDA (facturacion ruta)
+            # 7. Ventas por mes (facturacion ruta)
             cursor.execute("""
                 SELECT 
                     YEAR(fr.Fecha_Creacion) as Anio,
@@ -800,7 +821,6 @@ def admin_detalle_cliente(id):
             ventas_ruta = cursor.fetchall()
             
             # Combinar ventas por mes
-            from collections import defaultdict
             ventas_dict = defaultdict(lambda: {
                 'Cantidad_Facturas': 0,
                 'Cantidad_Contado': 0,
@@ -887,7 +907,6 @@ def admin_detalle_cliente(id):
             top_productos_ruta = cursor.fetchall()
             
             # Combinar top productos
-            from collections import defaultdict
             productos_dict = defaultdict(lambda: {'Cantidad_Total': 0, 'Total_Vendido': 0})
             for prod in top_productos_normal:
                 key = prod['ID_Producto']
@@ -949,12 +968,12 @@ def admin_detalle_cliente(id):
                 WHERE e.ID_Cliente = %s 
                     AND e.Usa_Anticipo = 1
                 ORDER BY e.Fecha_Entrega DESC
-                LIMIT 10
+                LIMIT 20
             """, (id,))
             
             ultimas_entregas = cursor.fetchall()
             
-            # 12. Último abono del cliente
+            # 12. Historial completo de abonos del cliente (Ruta y General)
             cursor.execute("""
                 SELECT * FROM (
                     SELECT 
@@ -966,7 +985,8 @@ def admin_detalle_cliente(id):
                         mp.Nombre as Metodo_Pago,
                         u.NombreUsuario as Vendedor,
                         a.Nombre_Ruta as Ruta,
-                        cxc.Num_Documento as Documento
+                        cxc.Num_Documento as Documento,
+                        'Ruta' as Origen
                     FROM abonos_detalle ad
                     LEFT JOIN metodos_pago mp ON ad.ID_MetodoPago = mp.ID_MetodoPago
                     LEFT JOIN usuarios u ON ad.ID_Usuario = u.ID_Usuario
@@ -986,7 +1006,8 @@ def admin_detalle_cliente(id):
                         mp.Nombre as Metodo_Pago,
                         u.NombreUsuario as Vendedor,
                         NULL as Ruta,
-                        cxc.Num_Documento as Documento
+                        cxc.Num_Documento as Documento,
+                        'Oficina / General' as Origen
                     FROM abonos_general ag
                     LEFT JOIN metodos_pago mp ON ag.ID_MetodoPago = mp.ID_MetodoPago
                     LEFT JOIN usuarios u ON ag.ID_Usuario = u.ID_Usuario
@@ -994,22 +1015,42 @@ def admin_detalle_cliente(id):
                     WHERE ag.ID_Cliente = %s
                 ) AS todos_abonos
                 ORDER BY Fecha DESC
-                LIMIT 1
+                LIMIT 50
             """, (id, id))
             
-            ultimo_abono = cursor.fetchone()
+            historial_abonos = cursor.fetchall()
+            ultimo_abono = historial_abonos[0] if historial_abonos else None
+            total_abonos_monto = sum(float(a['Monto_Aplicado'] or 0) for a in historial_abonos)
             
-            # 13. Estadísticas rápidas
-            stats = {
-                'total_facturas_pendientes': len(cuentas_pendientes),
-                'facturas_vencidas': sum(1 for f in cuentas_pendientes if f['Estado'] == 'Vencida'),
-                'saldo_total': float(cliente.get('Saldo_Pendiente_Total') or 0),
-                'monto_vencido': float(aging.get('Vencido', 0) or 0),
-                'anticipos_activos': len(anticipos),
-                'total_anticipado': sum(float(a.get('Saldo_Restante') or 0) for a in anticipos)
-            }
-            
-            # Calcular total de ventas
+            # 13. Sucursales del cliente
+            cursor.execute("""
+                SELECT ID_Sucursal, Nombre_Sucursal, Direccion, Telefono, Encargado, Estado, Fecha_Creacion
+                FROM sucursales
+                WHERE ID_Cliente = %s AND Estado = 'ACTIVO'
+                ORDER BY Nombre_Sucursal ASC
+            """, (id,))
+            sucursales = cursor.fetchall()
+
+            # 14. Estadísticas rápidas y semáforo de riesgo
+            saldo_total = float(cliente.get('Saldo_Pendiente_Total') or 0)
+            monto_vencido = float(aging.get('Vencido', 0) or 0)
+            facturas_vencidas_count = sum(1 for f in cuentas_pendientes if f['Estado'] == 'Vencida')
+
+            # Semáforo de riesgo crediticio
+            if saldo_total == 0:
+                estado_crediticio = 'AL DÍA'
+                color_crediticio = 'success'
+            elif facturas_vencidas_count > 0 or monto_vencido > 0:
+                estado_crediticio = 'EN MORA / VENCIDO'
+                color_crediticio = 'danger'
+            elif len(cuentas_pendientes) > 0:
+                estado_crediticio = 'PENDIENTE AL CORRIENTE'
+                color_crediticio = 'warning'
+            else:
+                estado_crediticio = 'SIN DEUDA'
+                color_crediticio = 'info'
+
+            # Total de ventas acumuladas
             cursor.execute("""
                 SELECT COALESCE(SUM(df.Total), 0) as total_ventas
                 FROM facturacion f
@@ -1026,8 +1067,8 @@ def admin_detalle_cliente(id):
             """, (id,))
             total_ruta = cursor.fetchone()['total_ventas'] or 0
             
-            stats['total_ventas'] = float(total_normal) + float(total_ruta)
-            
+            total_ventas = float(total_normal) + float(total_ruta)
+
             # Ventas último año
             cursor.execute("""
                 SELECT COALESCE(SUM(df.Total), 0) as total
@@ -1049,19 +1090,65 @@ def admin_detalle_cliente(id):
             """, (id,))
             anio_ruta = cursor.fetchone()['total'] or 0
             
-            stats['total_ultimo_anio'] = float(anio_normal) + float(anio_ruta)
+            total_ultimo_anio = float(anio_normal) + float(anio_ruta)
+            
+            # Ticket promedio
+            total_facturas_historicas = sum(m.get('Cantidad_Facturas', 0) for m in ventas_por_mes)
+            ticket_promedio = (total_ventas / total_facturas_historicas) if total_facturas_historicas > 0 else 0
+
+            stats = {
+                'total_facturas_pendientes': len(cuentas_pendientes),
+                'facturas_vencidas': facturas_vencidas_count,
+                'saldo_total': saldo_total,
+                'monto_vencido': monto_vencido,
+                'anticipos_activos': len(anticipos),
+                'total_anticipado': sum(float(a.get('Saldo_Restante') or 0) for a in anticipos),
+                'total_ventas': total_ventas,
+                'total_ultimo_anio': total_ultimo_anio,
+                'total_abonos_monto': total_abonos_monto,
+                'total_abonos_count': len(historial_abonos),
+                'ticket_promedio': ticket_promedio,
+                'total_facturas_count': total_facturas_historicas,
+                'estado_crediticio': estado_crediticio,
+                'color_crediticio': color_crediticio,
+                'total_sucursales': len(sucursales)
+            }
+
+            # 15. Datos para gráficos Chart.js (últimos 12 meses cronológico)
+            ventas_chart_data = list(reversed(ventas_por_mes[:12]))
+            meses_nombres = {1: 'Ene', 2: 'Feb', 3: 'Mar', 4: 'Abr', 5: 'May', 6: 'Jun', 7: 'Jul', 8: 'Ago', 9: 'Sep', 10: 'Oct', 11: 'Nov', 12: 'Dic'}
+            chart_labels = [f"{meses_nombres.get(v['Numero_Mes'], '')} {str(v['Anio'])[-2:]}" for v in ventas_chart_data]
+            chart_contado = [float(v['Total_Contado']) for v in ventas_chart_data]
+            chart_credito = [float(v['Total_Credito']) for v in ventas_chart_data]
+            chart_totales = [float(v['Total_Ventas']) for v in ventas_chart_data]
+
+            top_prod_labels = [p['Producto'][:18] + ('...' if len(p['Producto']) > 18 else '') for p in top_productos[:6]]
+            top_prod_totals = [float(p['Total_Vendido']) for p in top_productos[:6]]
+
+            chart_json = {
+                'labels': chart_labels,
+                'contado': chart_contado,
+                'credito': chart_credito,
+                'totales': chart_totales,
+                'top_prod_labels': top_prod_labels,
+                'top_prod_totals': top_prod_totals
+            }
             
             return render_template('admin/catalog/client/detalle_clientes.html', 
                                  cliente=cliente,
                                  cuentas_pendientes=cuentas_pendientes,
+                                 cuentas_saldadas=cuentas_saldadas,
                                  ultimas_facturas=ultimas_facturas,
                                  aging=aging,
                                  ventas_por_mes=ventas_por_mes,
                                  top_productos=top_productos,
                                  anticipos=anticipos,
                                  ultimas_entregas=ultimas_entregas,
+                                 historial_abonos=historial_abonos,
                                  ultimo_abono=ultimo_abono,
+                                 sucursales=sucursales,
                                  stats=stats,
+                                 chart_json=json.dumps(chart_json),
                                  today=datetime.now().date())
     
     except Exception as e:
@@ -1069,6 +1156,92 @@ def admin_detalle_cliente(id):
         logging.error(traceback.format_exc())
         flash(f"Error al cargar el detalle del cliente: {str(e)}", "danger")
         return redirect(url_for("admin.admin_clientes"))
+
+
+@admin_bp.route('/catalog/client/factura-detalle/<tipo>/<int:id_factura>', methods=['GET'])
+@admin_bp.route('/admin/catalog/client/factura-detalle/<tipo>/<int:id_factura>', methods=['GET'])
+@admin_required
+def admin_cliente_factura_detalle(tipo, id_factura):
+    try:
+        tipo = tipo.upper()
+        with get_db_cursor() as cursor:
+            if tipo == 'NORMAL':
+                cursor.execute("""
+                    SELECT f.ID_Factura, f.Fecha_Creacion as Fecha, f.Credito_Contado, f.Observacion,
+                           f.Estado, c.Nombre as Cliente, u.NombreUsuario as Vendedor
+                    FROM facturacion f
+                    INNER JOIN clientes c ON f.IDCliente = c.ID_Cliente
+                    LEFT JOIN usuarios u ON f.ID_Usuario_Creacion = u.ID_Usuario
+                    WHERE f.ID_Factura = %s
+                """, (id_factura,))
+                factura = cursor.fetchone()
+                if not factura:
+                    return jsonify({'success': False, 'error': 'Factura no encontrada'}), 404
+                
+                cursor.execute("""
+                    SELECT df.ID_Detalle, df.Cantidad, COALESCE(df.Costo, 0) as Precio_Unitario, df.Total,
+                           p.Descripcion as Producto, p.COD_Producto
+                    FROM detalle_facturacion df
+                    INNER JOIN productos p ON df.ID_Producto = p.ID_Producto
+                    WHERE df.ID_Factura = %s
+                """, (id_factura,))
+                detalles = cursor.fetchall()
+            elif tipo == 'RUTA':
+                cursor.execute("""
+                    SELECT fr.ID_FacturaRuta as ID_Factura, fr.Fecha_Creacion as Fecha, fr.Credito_Contado,
+                           fr.Observacion, fr.Estado, c.Nombre as Cliente, u.NombreUsuario as Vendedor,
+                           r.Nombre_Ruta as Ruta
+                    FROM facturacion_ruta fr
+                    INNER JOIN clientes c ON fr.ID_Cliente = c.ID_Cliente
+                    LEFT JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
+                    LEFT JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+                    LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                    WHERE fr.ID_FacturaRuta = %s
+                """, (id_factura,))
+                factura = cursor.fetchone()
+                if not factura:
+                    return jsonify({'success': False, 'error': 'Factura no encontrada'}), 404
+                
+                cursor.execute("""
+                    SELECT dfr.ID_DetalleRuta as ID_Detalle, dfr.Cantidad, COALESCE(dfr.Precio, dfr.Costo, 0) as Precio_Unitario, dfr.Total,
+                           p.Descripcion as Producto, p.COD_Producto
+                    FROM detalle_facturacion_ruta dfr
+                    INNER JOIN productos p ON dfr.ID_Producto = p.ID_Producto
+                    WHERE dfr.ID_FacturaRuta = %s
+                """, (id_factura,))
+                detalles = cursor.fetchall()
+            else:
+                return jsonify({'success': False, 'error': 'Tipo de factura inválido'}), 400
+
+            factura_data = dict(factura)
+            if factura_data.get('Fecha'):
+                try:
+                    factura_data['Fecha_Str'] = factura_data['Fecha'].strftime('%d/%m/%Y %H:%M')
+                except Exception:
+                    factura_data['Fecha_Str'] = str(factura_data['Fecha'])
+            else:
+                factura_data['Fecha_Str'] = 'N/A'
+            
+            detalles_data = []
+            total_calculado = 0.0
+            for d in detalles:
+                item = dict(d)
+                item['Precio_Unitario'] = float(item['Precio_Unitario'] or 0)
+                item['Total'] = float(item['Total'] or 0)
+                item['Cantidad'] = float(item['Cantidad'] or 0)
+                total_calculado += item['Total']
+                detalles_data.append(item)
+
+            return jsonify({
+                'success': True,
+                'factura': factura_data,
+                'detalles': detalles_data,
+                'total_calculado': total_calculado,
+                'tipo': tipo
+            })
+    except Exception as e:
+        logging.error(f"Error al obtener detalle de factura para modal: {str(e)}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)})
 
 
 @admin_bp.route('/admin/catalog/client/sucursales')
