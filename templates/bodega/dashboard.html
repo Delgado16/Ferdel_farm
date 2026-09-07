@@ -729,16 +729,38 @@ body {
                             <div class="p-3 rounded-3 bg-white shadow-sm border border-light position-relative overflow-hidden transition-all hover-translate-y" style="transition: transform 0.2s;">
                                 {% if prod.Nivel_Alerta == 'AGOTADO' %}
                                 <div class="position-absolute top-0 start-0 w-100 h-100 bg-danger bg-opacity-10" style="pointer-events: none;"></div>
+                                {% elif prod.Nivel_Alerta == 'CRÍTICO' %}
+                                <div class="position-absolute top-0 start-0 w-100 h-100 bg-warning bg-opacity-10" style="pointer-events: none;"></div>
                                 {% endif %}
                                 <div class="d-flex justify-content-between align-items-start position-relative z-index-1">
-                                    <div>
-                                        <div class="fw-bold text-dark mb-1 cursor-pointer" onclick="abrirKardexModal('{{ prod.ID_Producto }}', '{{ prod.Producto }}')">{{ prod.Producto }}</div>
-                                        <small class="text-muted d-block"><i class="fas fa-warehouse me-1 text-primary opacity-50"></i>{{ prod.Bodega }}</small>
+                                    <div class="me-2">
+                                        <div class="fw-bold text-dark mb-0 cursor-pointer" onclick="abrirKardexModal('{{ prod.ID_Producto }}', '{{ prod.Producto }}')">
+                                            {{ prod.Producto }}
+                                            {% if prod.COD_Producto %}<small class="text-muted font-monospace ms-1">({{ prod.COD_Producto }})</small>{% endif %}
+                                        </div>
+                                        <div class="text-muted small mt-1">
+                                            <i class="fas fa-warehouse me-1 text-primary opacity-50"></i>{{ prod.Bodega }}
+                                            <span class="text-secondary ms-1">• Mín: <strong class="text-dark">{{ "%.2f"|format(prod.Stock_Minimo|float) }}</strong> {{ prod.Unidad }}</span>
+                                        </div>
+                                        {% if prod.Bodegas_Detalle and ' | ' in prod.Bodegas_Detalle %}
+                                        <div class="text-muted mt-1" style="font-size: 0.75rem;">
+                                            <i class="fas fa-info-circle me-1 text-info opacity-75"></i>{{ prod.Bodegas_Detalle }}
+                                        </div>
+                                        {% endif %}
                                     </div>
-                                    <div class="text-end ms-2">
-                                        <span class="badge {% if prod.Nivel_Alerta == 'AGOTADO' %}bg-danger text-white{% else %}bg-warning text-dark{% endif %} rounded-pill px-2 py-1 fs-7">
+                                    <div class="text-end text-nowrap">
+                                        <span class="badge {% if prod.Nivel_Alerta == 'AGOTADO' %}bg-danger text-white{% elif prod.Nivel_Alerta == 'CRÍTICO' %}bg-danger bg-opacity-75 text-white{% else %}bg-warning text-dark{% endif %} rounded-pill px-2 py-1 fs-7">
+                                            {% if prod.Nivel_Alerta == 'AGOTADO' %}
+                                            <i class="fas fa-times-circle me-1"></i>0 {{ prod.Unidad }}
+                                            {% else %}
                                             {{ prod.Stock_Actual_Formateado }}
+                                            {% endif %}
                                         </span>
+                                        <div class="mt-1" style="font-size: 0.72rem;">
+                                            <span class="fw-bold {% if prod.Nivel_Alerta == 'AGOTADO' or prod.Nivel_Alerta == 'CRÍTICO' %}text-danger{% else %}text-warning{% endif %}">
+                                                {{ prod.Nivel_Alerta }} ({{ prod.Porcentaje_Stock }}%)
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

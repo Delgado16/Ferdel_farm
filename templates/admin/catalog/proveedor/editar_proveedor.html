@@ -372,13 +372,34 @@
                         </div>
 
                         <!-- Estado en el Sistema -->
-                        <div class="mb-2 pt-3 border-top">
+                        <div class="mb-3 pt-3 border-top">
                             <label for="estado" class="form-label-premium">Estado del Proveedor <span class="text-danger">*</span></label>
                             <select name="estado" id="estado" class="form-select form-select-premium" required>
                                 <option value="ACTIVO" {% if proveedor.Estado == 'ACTIVO' %}selected{% endif %}>ACTIVO (Habilitado para compras)</option>
                                 <option value="INACTIVO" {% if proveedor.Estado == 'INACTIVO' %}selected{% endif %}>INACTIVO (Suspendido)</option>
                             </select>
                             <div class="form-text small text-slate-500 mt-1">Los proveedores inactivos no aparecerán para nuevas compras.</div>
+                        </div>
+
+                        <!-- Cliente Vinculado (Cruce de Cuentas) -->
+                        <div class="mb-2 pt-3 border-top">
+                            <label for="id_cliente_vinculado" class="form-label-premium">
+                                <i class="bi bi-arrow-left-right text-primary me-1"></i> Cliente Vinculado (Cruce de Cuentas / Contraparte)
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-person text-slate-500"></i></span>
+                                <select name="id_cliente_vinculado" id="id_cliente_vinculado" class="form-select form-select-premium">
+                                    <option value="">-- Sin cliente vinculado --</option>
+                                    {% for cli in clientes %}
+                                    <option value="{{ cli.ID_Cliente }}" {% if proveedor.ID_Cliente_Vinculado == cli.ID_Cliente %}selected{% endif %}>
+                                        {{ cli.Nombre }} {% if cli.RUC_CEDULA %}({{ cli.RUC_CEDULA }}){% endif %} - Saldo Deuda CxC: C$ {{ "{:,.2f}".format(cli.Saldo_Pendiente_Total|float) }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="form-text small text-slate-500 mt-1">
+                                Si este proveedor también nos compra como cliente, vincúlelo para habilitar el balance neto cruzado y la compensación directa.
+                            </div>
                         </div>
                     </div>
                 </div>

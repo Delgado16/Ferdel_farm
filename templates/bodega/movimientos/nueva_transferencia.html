@@ -225,6 +225,34 @@ function getProductosBodegaUrl(bodegaId) {
 let productosTransferencia = [];
 let productosDisponibles = [];
 
+function esCajillaProducto(prod) {
+    if (!prod) return false;
+    const um = String(prod.Unidad_Medida || prod.unidad_medida || '');
+    const desc = (prod.Descripcion || prod.descripcion || '').toLowerCase();
+    const umDesc = (prod.Unidad_Descripcion || prod.unidad_descripcion || '').toLowerCase();
+    const umAbr = (prod.Unidad_Abreviatura || prod.unidad_abreviatura || '').toLowerCase();
+    return um === '7' || umDesc.includes('cajilla') || umAbr === 'cji' || desc.includes('huevo') || desc.includes('cajilla');
+}
+
+function formatearCantidadCajillas(cantidad, esCajilla) {
+    const cant = parseFloat(cantidad) || 0;
+    if (!esCajilla) {
+        return Number.isInteger(cant) ? cant.toString() : cant.toFixed(2);
+    }
+    const cajillas = Math.floor(Math.abs(cant));
+    const sueltos = Math.round((Math.abs(cant) % 1) * 30);
+    
+    if (cajillas > 0 && sueltos > 0) {
+        return `${cajillas} cj y ${sueltos} ud`;
+    } else if (cajillas > 0) {
+        return `${cajillas} cj`;
+    } else if (sueltos > 0) {
+        return `${sueltos} ud`;
+    } else {
+        return '0 cj';
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     const fechaInput = document.querySelector('input[name="fecha"]');
     if (!fechaInput.value) {
@@ -235,6 +263,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('select-bodega-destino').addEventListener('change', validarYActualizar);
     document.getElementById('btn-buscar').addEventListener('click', filtrarProductos);
     
+    document.getElementById('buscar-producto-bodega').addEventListener('input', filtrarProductos);
     document.getElementById('buscar-producto-bodega').addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -289,6 +318,11 @@ function cargarProductosBodega() {
     const btnBuscar = document.getElementById('btn-buscar');
     
     productosDisponibles = [];
+    productosTransferencia = [];
+    const tbody = document.getElementById('productos-tbody');
+    if (tbody) tbody.innerHTML = '';
+    actualizarMensajeVacio();
+    actualizarResumen();
     actualizarEstado();
     validarBodegas();
     
@@ -371,7 +405,9 @@ function mostrarProductos(productos) {
     
     let html = '';
     disponibles.forEach(producto => {
+        const isCaj = esCajillaProducto(producto);
         const stock = parseFloat(producto.Existencias || producto.Stock_Bodega || 0);
+        const stockFormateado = formatearCantidadCajillas(stock, isCaj);
         html += `
             <a href="#" class="list-group-item list-group-item-action product-search-item p-2" 
                onclick="seleccionarProducto(${producto.ID_Producto})">
@@ -380,7 +416,7 @@ function mostrarProductos(productos) {
                         <strong class="small text-slate-800">${escapeHtml(producto.Descripcion)}</strong>
                         <div class="micro-text text-muted font-monospace mt-1">Cód: ${escapeHtml(producto.COD_Producto || '-')}</div>
                     </div>
-                    <span class="badge bg-light text-dark border stock-badge-premium">${stock.toFixed(2)}</span>
+                    <span class="badge bg-light text-dark border stock-badge-premium">${stockFormateado}</span>
                 </div>
             </a>
         `;
@@ -439,10 +475,11 @@ function agregarProducto(producto = null) {
     }
     
     const tbody = document.getElementById('productos-tbody');
+    const esCajilla = esCajillaProducto(producto);
     const stock = parseFloat(producto.Existencias || producto.Stock_Bodega || 0);
+    const stockFormateado = formatearCantidadCajillas(stock, esCajilla);
     
     const productoId = `prod-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const esCajilla = parseInt(producto.Unidad_Medida) === 7;
     let cantidadHTML = '';
     
     if (esCajilla) {
@@ -479,7 +516,7 @@ function agregarProducto(producto = null) {
             <small class="text-muted font-monospace">${escapeHtml(producto.COD_Producto || 'Sin código')}</small>
         </td>
         <td class="text-center align-middle">
-            <span class="badge bg-light text-dark border stock-badge-premium">${stock.toFixed(2)}</span>
+            <span class="badge bg-light text-dark border stock-badge-premium">${stockFormateado}</span>
         </td>
         <td class="align-middle">
             ${cantidadHTML}
@@ -504,7 +541,7 @@ function agregarProducto(producto = null) {
     productosTransferencia.push(item);
     
     actualizarMensajeVacio();
-    mostrarProductos(productosDisponibles);
+    filtrarProductos();
     actualizarResumen();
 }
 
@@ -576,7 +613,7 @@ function eliminarProducto(uniqueId) {
     productosTransferencia = productosTransferencia.filter(p => p.uniqueId !== uniqueId);
     
     actualizarMensajeVacio();
-    mostrarProductos(productosDisponibles);
+    filtrarProductos();
     actualizarResumen();
 }
 
@@ -587,11 +624,41 @@ function actualizarResumen() {
     cantInput.textContent = productosTransferencia.length;
     
     let totalUnidades = 0;
+    let tieneCajillas = false;
+    let totalCajillas = 0;
+    let totalSueltos = 0;
+    
     productosTransferencia.forEach(p => {
-        totalUnidades += parseFloat(p.cantidad) || 0;
+        const cant = parseFloat(p.cantidad) || 0;
+        const prod = productosDisponibles.find(pd => String(pd.ID_Producto) === String(p.id_producto));
+        const esCaj = prod ? esCajillaProducto(prod) : false;
+        
+        if (esCaj) {
+            tieneCajillas = true;
+            const cj = Math.floor(Math.abs(cant));
+            const ud = Math.round((Math.abs(cant) % 1) * 30);
+            totalCajillas += cj;
+            totalSueltos += ud;
+        } else {
+            totalUnidades += cant;
+        }
     });
     
-    undInput.textContent = totalUnidades.toFixed(3);
+    if (totalSueltos >= 30) {
+        totalCajillas += Math.floor(totalSueltos / 30);
+        totalSueltos = totalSueltos % 30;
+    }
+    
+    let resumenUnidadesTexto = '';
+    if (tieneCajillas && totalUnidades > 0) {
+        resumenUnidadesTexto = `${totalCajillas} cj${totalSueltos > 0 ? ` y ${totalSueltos} ud` : ''} + ${totalUnidades.toFixed(2)} und`;
+    } else if (tieneCajillas) {
+        resumenUnidadesTexto = `${totalCajillas} cj${totalSueltos > 0 ? ` y ${totalSueltos} ud` : ''}`;
+    } else {
+        resumenUnidadesTexto = totalUnidades.toFixed(3);
+    }
+    
+    undInput.textContent = resumenUnidadesTexto;
     
     // Guardar en JSON
     const dataSend = productosTransferencia.map(p => ({

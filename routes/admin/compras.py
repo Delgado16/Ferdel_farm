@@ -1,6 +1,6 @@
+import logging
 from decimal import Decimal
 import traceback
-from venv import logger
 from flask import render_template, redirect, session, url_for, request, flash, jsonify
 from flask_login import current_user
 from datetime import datetime, timedelta
@@ -13,7 +13,6 @@ from helpers.bitacora import bitacora_decorator
 @admin_required
 @bitacora_decorator("COMPRAS-ENTRADAS")
 def admin_compras_entradas():
-    # ========== EXTRAER FILTROS DEL REQUEST ==========
     fecha_str = request.args.get('fecha')
     estado_filtro = request.args.get('estado', 'todas').upper()
     tipo_filtro = request.args.get('tipo', '').upper()
@@ -22,18 +21,15 @@ def admin_compras_entradas():
         fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date() if fecha_str else None
         
         with get_db_cursor() as cursor:
-            # ========== CONSTRUIR CONDICIONES WHERE DINÁMICAMENTE ==========
+
             where_conditions = []
             params = []
             
-            # *** CAMBIO PRINCIPAL: Condición para identificar COMPRAS por su ID_TipoMovimiento = 1 ***
-            # Ya no se usan las condiciones basadas en texto (Adicion, Letra, Descripcion)
             where_conditions.append("mi.ID_TipoMovimiento = 1")
             
-            # EXCLUIR registros que tienen ID_Factura_venta (son ventas, no compras)
+
             where_conditions.append("(mi.ID_Factura_venta IS NULL OR mi.ID_Factura_venta = '')")
             
-            # Filtro por estado
             if estado_filtro == 'ACTIVAS':
                 where_conditions.append("mi.Estado = 'Activa'")
             elif estado_filtro == 'ANULADAS':
@@ -120,21 +116,17 @@ def admin_compras_entradas():
             cursor.execute(query, tuple(params))
             compras = cursor.fetchall()
             
-            # Procesar resultados para convertir a diccionario y asegurar valores
+
             compras_procesadas = []
             for compra in compras:
                 compra_dict = dict(compra)
-                # Asegurar que los campos tengan valores por defecto
                 compra_dict['Fecha_Formateada'] = compra_dict.get('Fecha_Formateada', 'N/A')
                 compra_dict['Hora_Formateada'] = compra_dict.get('Hora_Formateada', '')
                 compra_dict['Total_Productos'] = compra_dict.get('Total_Productos') or 0
                 compra_dict['Total_Compra'] = float(compra_dict.get('Total_Compra') or 0)
                 compras_procesadas.append(compra_dict)
             
-            # ========== CONSULTAS DE RESUMEN FINANCIERO (TODAS ACTIVAS) ==========
-            # *** MODIFICADAS: Ahora usan ID_TipoMovimiento = 1 ***
-            
-            # **CONSULTA 2: Capital Invertido TOTAL (Contado + Crédito) - SOLO ACTIVAS**
+
             cursor.execute("""
                 SELECT 
                     COALESCE(SUM(dmi.Subtotal), 0) as Capital_Total
@@ -281,9 +273,9 @@ def admin_crear_compra():
                         p.COD_Producto, 
                         p.Descripcion,
                         p.ID_Categoria, 
-                        c.Descripcion as Categoria,
-                        um.Descripcion as Unidad_Medida,
-                        um.Abreviatura as Simbolo_Medida,
+                        COALESCE(c.Descripcion, 'Sin categoría') as Categoria,
+                        COALESCE(um.Descripcion, 'Unidad') as Unidad_Medida,
+                        COALESCE(um.Abreviatura, 'und') as Simbolo_Medida,
                         COALESCE((
                             SELECT SUM(ib.Existencias) 
                             FROM inventario_bodega ib 
@@ -294,6 +286,7 @@ def admin_crear_compra():
                     LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
                     WHERE p.Estado = 'activo'
                     AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
+                    GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, p.ID_Categoria, c.Descripcion, um.Descripcion, um.Abreviatura
                     ORDER BY c.Descripcion, p.Descripcion
                 """, (id_empresa,))
                 productos = cursor.fetchall()
@@ -565,6 +558,20 @@ def admin_crear_compra():
                         SET Saldo_Pendiente = COALESCE(Saldo_Pendiente, 0) + %s
                         WHERE ID_Proveedor = %s
                     """, (saldo_pendiente, id_proveedor))
+                    
+                    try:
+                        from helpers.cruce_cuentas import procesar_compensacion_vinculada
+                        res_cruce = procesar_compensacion_vinculada(
+                            cursor,
+                            id_proveedor=id_proveedor,
+                            id_empresa=session.get('id_empresa', 1),
+                            id_usuario=id_usuario,
+                            observacion=f"Compensación automática por Compra #{id_movimiento}"
+                        )
+                        if res_cruce.get('success') and res_cruce.get('monto_compensado', 0) > 0:
+                            flash(f"ℹ️ {res_cruce.get('mensaje')}", "info")
+                    except Exception as e_cruce:
+                        logging.error(f"Error en auto-compensación cruce en compra: {e_cruce}")
                 
                 # REGISTRAR SALIDAS EN CAJA FÍSICA SI HUBO PAGOS EN EFECTIVO
                 if monto_efectivo > 0:
@@ -579,7 +586,15 @@ def admin_crear_compra():
                         f"COMPRA-{id_movimiento}",
                         id_usuario
                     ))
-                    print(f"💰 Se registró salida en caja_movimientos por C${monto_efectivo:,.2f} para Compra #{id_movimiento}")
+                    print(f" Se registró salida en caja_movimientos por C${monto_efectivo:,.2f} para Compra #{id_movimiento}")
+                
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return jsonify({
+                        'success': True,
+                        'message': f'Compra #{id_movimiento} creada exitosamente',
+                        'id_movimiento': id_movimiento,
+                        'redirect_url': url_for('admin.admin_compras_entradas')
+                    })
                 
                 flash(f'Compra creada exitosamente', 'success')
                 return redirect(url_for('admin.admin_compras_entradas'))
@@ -587,6 +602,11 @@ def admin_crear_compra():
     except Exception as e:
         print(f"Error completo al crear compra: {str(e)}")
         print(f"Traceback: {traceback.format_exc()}")
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({
+                'success': False,
+                'error': f'Error al crear compra: {str(e)}'
+            }), 400
         flash(f'Error al crear compra: {str(e)}', 'error')
         return redirect(url_for('admin.admin_crear_compra'))
 
@@ -594,66 +614,111 @@ def admin_crear_compra():
 @admin_required
 def obtener_productos_por_categoria_compra(id_categoria):
     """
-    Obtiene productos filtrados por categoría usando inventario_bodega
-    RUTA FUNCIONANDO: ✅ (MODIFICADA: SIN PRECIO_VENTA)
+    Obtiene productos filtrados por categoría y bodega usando inventario_bodega evitando duplicados
     """
     try:
         id_empresa = session.get('id_empresa', 1)
+        id_bodega = request.args.get('id_bodega', type=int)
         
         with get_db_cursor(True) as cursor:
-            # Obtener bodega de la empresa
-            cursor.execute("""
-                SELECT ID_Bodega FROM bodegas 
-                WHERE ID_Empresa = %s AND Estado = 1 LIMIT 1
-            """, (id_empresa,))
-            bodega_result = cursor.fetchone()
-            
-            if not bodega_result:
-                return jsonify({'error': 'No se encontró bodega para la empresa'}), 404
-            
-            id_bodega = bodega_result['ID_Bodega']
-            
-            if id_categoria == 0:
-                cursor.execute("""
-                    SELECT 
-                        p.ID_Producto, 
-                        p.COD_Producto, 
-                        p.Descripcion,
-                        p.ID_Categoria,
-                        c.Descripcion as Categoria,
-                        um.Descripcion as Unidad_Medida,
-                        um.Abreviatura as Simbolo_Medida,
-                        COALESCE(ib.Existencias, 0) as Existencias
-                    FROM productos p
-                    LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
-                    LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
-                    LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto 
-                        AND ib.ID_Bodega = %s
-                    WHERE p.Estado = 'activo'
-                    AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
-                    ORDER BY c.Descripcion, p.Descripcion
-                """, (id_bodega, id_empresa))
+            nombre_bodega = None
+            if id_bodega and id_bodega > 0:
+                cursor.execute("SELECT Nombre FROM bodegas WHERE ID_Bodega = %s", (id_bodega,))
+                b_row = cursor.fetchone()
+                if b_row:
+                    nombre_bodega = b_row['Nombre']
+
+                if id_categoria == 0:
+                    cursor.execute("""
+                        SELECT 
+                            p.ID_Producto, 
+                            p.COD_Producto, 
+                            p.Descripcion,
+                            p.ID_Categoria,
+                            COALESCE(c.Descripcion, 'Sin categoría') as Categoria,
+                            COALESCE(um.Descripcion, 'Unidad') as Unidad_Medida,
+                            COALESCE(um.Abreviatura, 'und') as Simbolo_Medida,
+                            COALESCE(SUM(ib.Existencias), 0) as Existencias
+                        FROM productos p
+                        LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
+                        LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                        LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto 
+                            AND ib.ID_Bodega = %s
+                        WHERE p.Estado = 'activo'
+                        AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
+                        GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, p.ID_Categoria, c.Descripcion, um.Descripcion, um.Abreviatura
+                        ORDER BY c.Descripcion, p.Descripcion
+                    """, (id_bodega, id_empresa))
+                else:
+                    cursor.execute("""
+                        SELECT 
+                            p.ID_Producto, 
+                            p.COD_Producto, 
+                            p.Descripcion,
+                            p.ID_Categoria,
+                            COALESCE(c.Descripcion, 'Sin categoría') as Categoria,
+                            COALESCE(um.Descripcion, 'Unidad') as Unidad_Medida,
+                            COALESCE(um.Abreviatura, 'und') as Simbolo_Medida,
+                            COALESCE(SUM(ib.Existencias), 0) as Existencias
+                        FROM productos p
+                        LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
+                        LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                        LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto 
+                            AND ib.ID_Bodega = %s
+                        WHERE p.Estado = 'activo'
+                        AND p.ID_Categoria = %s 
+                        AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
+                        GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, p.ID_Categoria, c.Descripcion, um.Descripcion, um.Abreviatura
+                        ORDER BY p.Descripcion
+                    """, (id_bodega, id_categoria, id_empresa))
             else:
-                cursor.execute("""
-                    SELECT 
-                        p.ID_Producto, 
-                        p.COD_Producto, 
-                        p.Descripcion,
-                        p.ID_Categoria,
-                        c.Descripcion as Categoria,
-                        um.Descripcion as Unidad_Medida,
-                        um.Abreviatura as Simbolo_Medida,
-                        COALESCE(ib.Existencias, 0) as Existencias
-                    FROM productos p
-                    LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
-                    LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
-                    LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto 
-                        AND ib.ID_Bodega = %s
-                    WHERE p.Estado = 'activo'
-                    AND p.ID_Categoria = %s 
-                    AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
-                    ORDER BY p.Descripcion
-                """, (id_bodega, id_categoria, id_empresa))
+                if id_categoria == 0:
+                    cursor.execute("""
+                        SELECT 
+                            p.ID_Producto, 
+                            p.COD_Producto, 
+                            p.Descripcion,
+                            p.ID_Categoria,
+                            COALESCE(c.Descripcion, 'Sin categoría') as Categoria,
+                            COALESCE(um.Descripcion, 'Unidad') as Unidad_Medida,
+                            COALESCE(um.Abreviatura, 'und') as Simbolo_Medida,
+                            COALESCE((
+                                SELECT SUM(ib.Existencias) 
+                                FROM inventario_bodega ib 
+                                WHERE ib.ID_Producto = p.ID_Producto
+                            ), 0) as Existencias
+                        FROM productos p
+                        LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
+                        LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                        WHERE p.Estado = 'activo'
+                        AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
+                        GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, p.ID_Categoria, c.Descripcion, um.Descripcion, um.Abreviatura
+                        ORDER BY c.Descripcion, p.Descripcion
+                    """, (id_empresa,))
+                else:
+                    cursor.execute("""
+                        SELECT 
+                            p.ID_Producto, 
+                            p.COD_Producto, 
+                            p.Descripcion,
+                            p.ID_Categoria,
+                            COALESCE(c.Descripcion, 'Sin categoría') as Categoria,
+                            COALESCE(um.Descripcion, 'Unidad') as Unidad_Medida,
+                            COALESCE(um.Abreviatura, 'und') as Simbolo_Medida,
+                            COALESCE((
+                                SELECT SUM(ib.Existencias) 
+                                FROM inventario_bodega ib 
+                                WHERE ib.ID_Producto = p.ID_Producto
+                            ), 0) as Existencias
+                        FROM productos p
+                        LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
+                        LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                        WHERE p.Estado = 'activo'
+                        AND p.ID_Categoria = %s 
+                        AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
+                        GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, p.ID_Categoria, c.Descripcion, um.Descripcion, um.Abreviatura
+                        ORDER BY p.Descripcion
+                    """, (id_categoria, id_empresa))
             
             productos = cursor.fetchall()
             productos_list = [{
@@ -664,7 +729,9 @@ def obtener_productos_por_categoria_compra(id_categoria):
                 'id_categoria': p['ID_Categoria'],
                 'categoria': p['Categoria'],
                 'unidad_medida': p['Unidad_Medida'],
-                'simbolo_medida': p['Simbolo_Medida']
+                'simbolo_medida': p['Simbolo_Medida'] or 'und',
+                'id_bodega': id_bodega,
+                'nombre_bodega': nombre_bodega
             } for p in productos]
             
             return jsonify(productos_list)
@@ -677,36 +744,28 @@ def obtener_productos_por_categoria_compra(id_categoria):
 @admin_required
 def verificar_existencias_producto(id_producto):
     """
-    Verifica existencias de un producto usando inventario_bodega
-    RUTA FUNCIONANDO: ✅
+    Verifica existencias de un producto en una bodega específica usando inventario_bodega
     """
     try:
         id_empresa = session.get('id_empresa', 1)
-        id_bodega_req = request.args.get('id_bodega', type=int)
+        id_bodega = request.args.get('id_bodega', type=int)
         
         with get_db_cursor(True) as cursor:
-            id_bodega = id_bodega_req
-            
-            if not id_bodega:
-                # Obtener bodega principal de la empresa
-                cursor.execute("""
-                    SELECT ID_Bodega FROM bodegas 
-                    WHERE ID_Empresa = %s AND (Estado = 1 OR Estado = 'activa') LIMIT 1
-                """, (id_empresa,))
-                bodega_result = cursor.fetchone()
+            nombre_bodega = None
+            if id_bodega and id_bodega > 0:
+                cursor.execute("SELECT Nombre FROM bodegas WHERE ID_Bodega = %s", (id_bodega,))
+                bodega_row = cursor.fetchone()
+                if bodega_row:
+                    nombre_bodega = bodega_row['Nombre']
                 
-                if bodega_result:
-                    id_bodega = bodega_result['ID_Bodega']
-            
-            if id_bodega:
                 cursor.execute("""
                     SELECT 
                         p.ID_Producto,
                         p.Descripcion,
                         COALESCE(p.Precio_Mercado, 0) as Precio_Venta,
-                        um.Descripcion as Unidad_Medida,
-                        um.Abreviatura as Simbolo_Medida,
-                        COALESCE(ib.Existencias, 0) as Existencias
+                        COALESCE(um.Descripcion, 'Unidad') as Unidad_Medida,
+                        COALESCE(um.Abreviatura, 'und') as Simbolo_Medida,
+                        COALESCE(SUM(ib.Existencias), 0) as Existencias
                     FROM productos p
                     LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
                     LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto 
@@ -714,6 +773,7 @@ def verificar_existencias_producto(id_producto):
                     WHERE p.ID_Producto = %s 
                     AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
                     AND p.Estado = 'activo'
+                    GROUP BY p.ID_Producto, p.Descripcion, p.Precio_Mercado, um.Descripcion, um.Abreviatura
                 """, (id_bodega, id_producto, id_empresa))
             else:
                 cursor.execute("""
@@ -721,8 +781,8 @@ def verificar_existencias_producto(id_producto):
                         p.ID_Producto,
                         p.Descripcion,
                         COALESCE(p.Precio_Mercado, 0) as Precio_Venta,
-                        um.Descripcion as Unidad_Medida,
-                        um.Abreviatura as Simbolo_Medida,
+                        COALESCE(um.Descripcion, 'Unidad') as Unidad_Medida,
+                        COALESCE(um.Abreviatura, 'und') as Simbolo_Medida,
                         COALESCE((
                             SELECT SUM(ib.Existencias) 
                             FROM inventario_bodega ib 
@@ -733,6 +793,7 @@ def verificar_existencias_producto(id_producto):
                     WHERE p.ID_Producto = %s 
                     AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
                     AND p.Estado = 'activo'
+                    GROUP BY p.ID_Producto, p.Descripcion, p.Precio_Mercado, um.Descripcion, um.Abreviatura
                 """, (id_producto, id_empresa))
             
             producto = cursor.fetchone()
@@ -744,7 +805,9 @@ def verificar_existencias_producto(id_producto):
                     'existencias': float(producto['Existencias']),
                     'precio_venta': float(producto['Precio_Venta']),
                     'unidad_medida': producto['Unidad_Medida'],
-                    'simbolo_medida': producto['Simbolo_Medida'] or 'und'
+                    'simbolo_medida': producto['Simbolo_Medida'] or 'und',
+                    'id_bodega': id_bodega,
+                    'nombre_bodega': nombre_bodega
                 })
             else:
                 return jsonify({'error': 'Producto no encontrado'}), 404

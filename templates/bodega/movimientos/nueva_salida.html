@@ -239,6 +239,34 @@ let productosSalida = [];
 let contadorProductos = 0;
 let productosDisponibles = [];
 
+function esCajillaProducto(prod) {
+    if (!prod) return false;
+    const um = String(prod.Unidad_Medida || prod.unidad_medida || '');
+    const desc = (prod.Descripcion || prod.descripcion || '').toLowerCase();
+    const umDesc = (prod.Unidad_Descripcion || prod.unidad_descripcion || '').toLowerCase();
+    const umAbr = (prod.Unidad_Abreviatura || prod.unidad_abreviatura || '').toLowerCase();
+    return um === '7' || umDesc.includes('cajilla') || umAbr === 'cji' || desc.includes('huevo') || desc.includes('cajilla');
+}
+
+function formatearCantidadCajillas(cantidad, esCajilla) {
+    const cant = parseFloat(cantidad) || 0;
+    if (!esCajilla) {
+        return Number.isInteger(cant) ? cant.toString() : cant.toFixed(2);
+    }
+    const cajillas = Math.floor(Math.abs(cant));
+    const sueltos = Math.round((Math.abs(cant) % 1) * 30);
+    
+    if (cajillas > 0 && sueltos > 0) {
+        return `${cajillas} cj y ${sueltos} ud`;
+    } else if (cajillas > 0) {
+        return `${cajillas} cj`;
+    } else if (sueltos > 0) {
+        return `${sueltos} ud`;
+    } else {
+        return '0 cj';
+    }
+}
+
 function escapeHtml(text) {
     if (!text) return '';
     const div = document.createElement('div');
@@ -345,7 +373,8 @@ function agregarProductoSeleccionado(producto) {
     const index = contadorProductos++;
     
     let filaHTML = '';
-    const esCajilla = parseInt(producto.Unidad_Medida) === 7;
+    const esCajilla = esCajillaProducto(producto);
+    const stockFormateado = formatearCantidadCajillas(producto.Stock_Bodega, esCajilla);
     
     let cantidadHTML = '';
     if (esCajilla) {
@@ -383,7 +412,7 @@ function agregarProductoSeleccionado(producto) {
                     <small class="text-muted font-monospace">${escapeHtml(producto.COD_Producto || 'Sin código')}</small>
                 </td>
                 <td class="text-center align-middle">
-                    <span class="badge bg-light text-dark border stock-badge-premium">${producto.Stock_Bodega.toFixed(2)}</span>
+                    <span class="badge bg-light text-dark border stock-badge-premium">${stockFormateado}</span>
                 </td>
                 <td class="align-middle">
                     ${cantidadHTML}
@@ -416,7 +445,7 @@ function agregarProductoSeleccionado(producto) {
                     <small class="text-muted font-monospace">${escapeHtml(producto.COD_Producto || 'Sin código')}</small>
                 </td>
                 <td class="text-center align-middle">
-                    <span class="badge bg-light text-dark border stock-badge-premium">${producto.Stock_Bodega.toFixed(2)}</span>
+                    <span class="badge bg-light text-dark border stock-badge-premium">${stockFormateado}</span>
                 </td>
                 <td class="align-middle">
                     ${cantidadHTML}
@@ -534,19 +563,48 @@ function renderizarProductosBodega(listaProductos) {
         const item = document.createElement('a');
         item.className = 'list-group-item list-group-item-action product-search-item p-2';
         item.href = '#';
+        
+        const yaEstaAgregado = Array.from(document.querySelectorAll('.id-producto'))
+            .some(input => input.value == p.ID_Producto);
+            
+        if (yaEstaAgregado) {
+            item.classList.add('bg-light');
+            item.style.opacity = '0.7';
+        }
+        
         item.onclick = (e) => {
             e.preventDefault();
             if (!getTipoMovimiento()) {
                 alert('⚠️ Seleccione el tipo de movimiento antes de agregar productos.');
                 return;
             }
+            const existente = Array.from(document.querySelectorAll('.id-producto'))
+                .find(input => input.value == p.ID_Producto);
+            if (existente) {
+                alert(`El producto "${p.Descripcion}" ya está en la lista`);
+                return;
+            }
             agregarProductoSeleccionado(p);
+            item.classList.add('bg-light');
+            item.style.opacity = '0.7';
+            const badgeSpan = item.querySelector('.stock-badge-status');
+            if (badgeSpan) {
+                badgeSpan.className = 'badge bg-success text-white micro-text stock-badge-status';
+                badgeSpan.innerHTML = '<i class="fas fa-check me-1"></i> Agregado';
+            }
         };
+        
+        const isCaj = esCajillaProducto(p);
+        const stockFormateado = formatearCantidadCajillas(p.Stock_Bodega, isCaj);
+        const badgeText = yaEstaAgregado 
+            ? '<i class="fas fa-check me-1"></i> Agregado' 
+            : stockFormateado;
+        const badgeClass = yaEstaAgregado ? 'bg-success text-white' : 'bg-light text-dark';
         
         item.innerHTML = `
             <div class="d-flex w-100 justify-content-between align-items-center">
                 <strong class="small text-slate-800">${escapeHtml(p.Descripcion)}</strong>
-                <span class="badge bg-light text-dark border micro-text">${p.Stock_Bodega.toFixed(2)}</span>
+                <span class="badge ${badgeClass} border micro-text stock-badge-status">${badgeText}</span>
             </div>
             <div class="d-flex justify-content-between micro-text text-muted font-monospace mt-1">
                 <span>Cód: ${escapeHtml(p.COD_Producto || '-')}</span>
@@ -621,6 +679,8 @@ function eliminarProductoSalida(index) {
             document.getElementById('tabla-productos-container').style.display = 'none';
             document.getElementById('alerta-sin-productos').style.display = 'block';
         }
+        
+        filtrarProductos();
     }
 }
 
@@ -629,13 +689,28 @@ function actualizarResumen() {
     let totalCosto = 0;
     let totalVenta = 0;
     let cantidadProductos = 0;
+    let tieneCajillas = false;
+    let totalCajillas = 0;
+    let totalSueltos = 0;
     
     document.querySelectorAll('#productos-tbody tr').forEach(fila => {
-        const cantidad = parseFloat(fila.querySelector('.cantidad').value) || 0;
+        const cantidad = parseFloat(fila.querySelector('.cantidad')?.value) || 0;
         const inputPrecio = fila.querySelector('.precio');
         const inputCosto = fila.querySelector('.costo');
+        const idProd = fila.querySelector('.id-producto')?.value;
+        const prod = productosDisponibles.find(p => String(p.ID_Producto) === String(idProd));
+        const esCaj = prod ? esCajillaProducto(prod) : fila.querySelector('.input-cajillas') !== null;
         
-        totalUnidades += cantidad;
+        if (esCaj) {
+            tieneCajillas = true;
+            const cj = Math.floor(Math.abs(cantidad));
+            const ud = Math.round((Math.abs(cantidad) % 1) * 30);
+            totalCajillas += cj;
+            totalSueltos += ud;
+        } else {
+            totalUnidades += cantidad;
+        }
+        
         cantidadProductos++;
         
         if (esVenta() && inputPrecio) {
@@ -645,8 +720,22 @@ function actualizarResumen() {
         }
     });
     
+    if (totalSueltos >= 30) {
+        totalCajillas += Math.floor(totalSueltos / 30);
+        totalSueltos = totalSueltos % 30;
+    }
+    
+    let resumenUnidadesTexto = '';
+    if (tieneCajillas && totalUnidades > 0) {
+        resumenUnidadesTexto = `${totalCajillas} cj${totalSueltos > 0 ? ` y ${totalSueltos} ud` : ''} + ${totalUnidades.toFixed(2)} und`;
+    } else if (tieneCajillas) {
+        resumenUnidadesTexto = `${totalCajillas} cj${totalSueltos > 0 ? ` y ${totalSueltos} ud` : ''}`;
+    } else {
+        resumenUnidadesTexto = totalUnidades.toFixed(3);
+    }
+    
     document.getElementById('resumen-cantidad').textContent = cantidadProductos;
-    document.getElementById('resumen-unidades').textContent = totalUnidades.toFixed(3);
+    document.getElementById('resumen-unidades').textContent = resumenUnidadesTexto;
     
     if (esVenta()) {
         const totalVentaText = `C$ ${totalVenta.toFixed(2)}`;
@@ -766,6 +855,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     const buscarInput = document.getElementById('buscar-producto-bodega');
     if (buscarInput) {
+        buscarInput.addEventListener('input', filtrarProductos);
         buscarInput.addEventListener('keyup', filtrarProductos);
     }
 });

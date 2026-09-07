@@ -224,12 +224,29 @@ def admin_productos():
                         'abreviatura': uni[2] if uni[2] else ''
                     })
             
+            # Contadores globales de estado
+            cursor.execute("""
+                SELECT 
+                    SUM(CASE WHEN LOWER(Estado) = 'activo' THEN 1 ELSE 0 END) as total_activos,
+                    SUM(CASE WHEN LOWER(Estado) = 'inactivo' THEN 1 ELSE 0 END) as total_inactivos
+                FROM productos
+            """)
+            conteo_estados = cursor.fetchone()
+            if isinstance(conteo_estados, dict):
+                total_activos = conteo_estados.get('total_activos') or 0
+                total_inactivos = conteo_estados.get('total_inactivos') or 0
+            else:
+                total_activos = conteo_estados[0] if conteo_estados and conteo_estados[0] is not None else 0
+                total_inactivos = conteo_estados[1] if conteo_estados and conteo_estados[1] is not None else 0
+
             # Estadísticas
             stats = {
                 'total': len(productos_list),
                 'critico': sum(1 for p in productos_list if 0 < p['stock'] <= p['stock_minimo']),
                 'sin_stock': sum(1 for p in productos_list if p['stock'] == 0),
-                'total_stock': sum(p['stock'] for p in productos_list)
+                'total_stock': sum(p['stock'] for p in productos_list),
+                'total_activos': int(total_activos),
+                'total_inactivos': int(total_inactivos)
             }
             
             return render_template('admin/bodega/producto/productos.html', 
@@ -252,11 +269,11 @@ def admin_productos():
         flash(f'Error al cargar productos: {str(e)}', 'error')
         return render_template('admin/bodega/producto/productos.html',
                                 productos=[], 
-                                stats={'total': 0, 'critico': 0, 'sin_stock': 0, 'total_stock': 0},
+                                stats={'total': 0, 'critico': 0, 'sin_stock': 0, 'total_stock': 0, 'total_activos': 0, 'total_inactivos': 0},
                                 categorias=[], 
                                 categoria_seleccionada='todos',
-                                bodegas=[],
                                 bodega_seleccionada='todas',
+                                bodegas=[],
                                 stock_seleccionado='todos',
                                 empresas=[],
                                 empresa_seleccionada='todas',

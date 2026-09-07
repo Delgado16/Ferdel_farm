@@ -414,6 +414,27 @@
                                 </select>
                                 <div class="form-text small text-slate-500">Clientes inactivos no pueden facturar</div>
                             </div>
+
+                            <!-- Proveedor Vinculado (Cruce de Cuentas) -->
+                            <div class="col-12 pt-2 border-top">
+                                <label for="id_proveedor_vinculado" class="form-label-premium">
+                                    <i class="bi bi-arrow-left-right text-primary me-1"></i> Proveedor Vinculado (Cruce de Cuentas / Contraparte)
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-building text-slate-500"></i></span>
+                                    <select name="id_proveedor_vinculado" id="id_proveedor_vinculado" class="form-select form-select-premium">
+                                        <option value="">-- Sin proveedor vinculado --</option>
+                                        {% for prov in proveedores %}
+                                        <option value="{{ prov.ID_Proveedor }}" {% if cliente.ID_Proveedor_Vinculado == prov.ID_Proveedor %}selected{% endif %}>
+                                            {{ prov.Nombre }} {% if prov.RUC_CEDULA %}({{ prov.RUC_CEDULA }}){% endif %} - Saldo Deuda: C$ {{ "{:,.2f}".format(prov.Saldo_Pendiente|float) }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="form-text small text-slate-500">
+                                    Si este cliente también es proveedor de la empresa, vincúlelo para habilitar el balance neto cruzado y la compensación directa sin movimientos de efectivo.
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

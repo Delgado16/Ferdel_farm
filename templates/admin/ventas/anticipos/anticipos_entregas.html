@@ -1,124 +1,29 @@
 {% extends "layout.html" %}
 
-{% block title %}Entregas con Anticipos{% endblock %}
+{% block title %}Entregas con Anticipos - FerDel Sistema{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-    /* ========== ESTILOS MEJORADOS ========== */
-    :root {
-        --spacing-xs: 0.25rem;
-        --spacing-sm: 0.5rem;
-        --spacing-md: 1rem;
-        --spacing-lg: 1.5rem;
-        --spacing-xl: 2rem;
-    }
-
-    .container-fluid {
-        padding: var(--spacing-md);
-    }
-
-    @media (max-width: 768px) {
-        .container-fluid {
-            padding: var(--spacing-sm);
-        }
-    }
-
     .stats-card {
-        transition: transform 0.2s, box-shadow 0.2s;
+        transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         cursor: pointer;
-        margin-bottom: var(--spacing-md);
     }
 
     .stats-card:hover {
         transform: translateY(-3px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    }
-
-    @media (max-width: 768px) {
-        .stats-card .card-body {
-            padding: var(--spacing-sm);
-        }
-
-        .stats-card h3 {
-            font-size: 1.5rem;
-        }
-    }
-
-    .page-header {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: space-between;
-        align-items: center;
-        gap: var(--spacing-md);
-        margin-bottom: var(--spacing-lg);
-    }
-
-    .action-buttons {
-        display: flex;
-        gap: var(--spacing-sm);
-        flex-wrap: wrap;
-    }
-
-    @media (max-width: 576px) {
-        .page-header {
-            flex-direction: column;
-            align-items: stretch;
-        }
-
-        .action-buttons .btn {
-            flex: 1;
-        }
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08) !important;
     }
 
     .entrega-item {
-        background-color: #f8f9fa;
-        transition: all 0.3s;
-        margin-bottom: var(--spacing-sm);
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        transition: all 0.2s ease;
     }
 
     .entrega-item:hover {
-        background-color: #e9ecef;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-
-    @media (max-width: 768px) {
-        .entrega-item .row {
-            margin: 0;
-        }
-
-        .entrega-item [class*="col-"] {
-            padding: var(--spacing-xs);
-        }
-
-        .entrega-item .form-label {
-            font-size: 0.75rem;
-            margin-bottom: 0.125rem;
-        }
-    }
-
-    .table-responsive {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-
-    .table {
-        min-width: 800px;
-    }
-
-    .table td,
-    .table th {
-        vertical-align: middle;
-        white-space: nowrap;
-    }
-
-    @media (max-width: 768px) {
-
-        .table td,
-        .table th {
-            padding: var(--spacing-sm);
-            font-size: 0.75rem;
-        }
+        background-color: #ffffff;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
     }
 
     .spinner-overlay {
@@ -127,7 +32,9 @@
         left: 0;
         right: 0;
         bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
+        background: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
         z-index: 9999;
         display: none;
         justify-content: center;
@@ -143,9 +50,9 @@
         top: 20px;
         right: 20px;
         z-index: 9999;
-        min-width: 300px;
-        max-width: 400px;
-        animation: slideInRight 0.3s ease-out;
+        min-width: 320px;
+        max-width: 420px;
+        animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     @keyframes slideInRight {
@@ -153,7 +60,6 @@
             transform: translateX(100%);
             opacity: 0;
         }
-
         to {
             transform: translateX(0);
             opacity: 1;
@@ -162,8 +68,8 @@
 
     @media (max-width: 576px) {
         .toast-notification {
-            left: 20px;
-            right: 20px;
+            left: 16px;
+            right: 16px;
             min-width: auto;
             max-width: none;
         }
@@ -171,51 +77,30 @@
 
     .is-invalid {
         border-color: #dc3545 !important;
-        background-color: #fff0f0 !important;
+        background-color: #fff5f5 !important;
     }
 
-    .btn-action-group {
-        display: flex;
-        gap: var(--spacing-sm);
-        flex-wrap: wrap;
-        margin-top: var(--spacing-md);
-    }
-
-    @media (max-width: 576px) {
-        .btn-action-group {
-            flex-direction: column;
-        }
-
-        .btn-action-group .btn {
-            width: 100%;
-        }
-    }
-
-    .proforma-preview {
-        font-family: Arial, Helvetica, sans-serif;
-        font-size: 10.5px;
-        max-width: 100%;
-        overflow-x: auto;
-    }
+    .bg-primary-soft { background-color: rgba(44, 94, 46, 0.08) !important; color: var(--primary-color) !important; }
+    .bg-success-soft { background-color: rgba(16, 185, 129, 0.1) !important; color: #047857 !important; }
+    .bg-warning-soft { background-color: rgba(245, 158, 11, 0.1) !important; color: #b45309 !important; }
+    .bg-info-soft { background-color: rgba(6, 182, 212, 0.1) !important; color: #0e7490 !important; }
+    .bg-danger-soft { background-color: rgba(239, 68, 68, 0.1) !important; color: #b91c1c !important; }
 
     .font-size-xs {
         font-size: 0.75rem;
     }
 
-    .shadow-xs {
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    .proforma-preview {
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 11px;
+        max-width: 100%;
+        overflow-x: auto;
     }
-    
-    .bg-primary-soft { background-color: rgba(79, 70, 229, 0.08) !important; color: var(--primary) !important; }
-    .bg-danger-soft { background-color: rgba(239, 68, 68, 0.08) !important; color: var(--danger) !important; }
-    .bg-success-soft { background-color: rgba(16, 185, 129, 0.08) !important; color: var(--success) !important; }
-    .bg-warning-soft { background-color: rgba(245, 158, 11, 0.08) !important; color: var(--warning) !important; }
-    .bg-info-soft { background-color: rgba(6, 182, 212, 0.08) !important; color: var(--info) !important; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid py-2 py-md-4">
+<div class="container-fluid">
     <!-- Spinner Global -->
     <div id="spinnerOverlay" class="spinner-overlay">
         <div class="spinner-border text-light" style="width: 3rem; height: 3rem;" role="status">
@@ -223,328 +108,353 @@
         </div>
     </div>
 
-    <!-- Header -->
-    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-        <div>
-            <h3 class="fw-bold text-slate-800 mb-1">
-                <i class="fas fa-truck text-primary me-2"></i>Entregas con Anticipos
-            </h3>
-            <p class="text-muted small mb-0">Gestión de entregas de productos utilizando anticipos de clientes</p>
-        </div>
-        <div class="d-flex gap-2 flex-wrap">
-            <button type="button" class="btn btn-outline-info btn-sm px-3 py-2 rounded-3" onclick="imprimirPagina()">
-                <i class="fas fa-print me-1"></i> Imprimir
-            </button>
-        </div>
-    </div>
-
-    <!-- Información del Usuario -->
-    <div class="alert alert-info bg-info bg-opacity-10 text-info border border-info border-opacity-20 mb-3 mb-md-4 shadow-sm rounded-3">
-        <div class="d-flex align-items-center flex-wrap gap-2">
-            <i class="fas fa-user-circle fa-2x me-2 text-info"></i>
+    <div class="form-container mb-4">
+        <!-- Header -->
+        <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
             <div>
-                <strong>Usuario:</strong> {{ current_user.NombreUsuario if current_user.is_authenticated else 'Invitado' }}
-                <br class="d-md-none">
-                <small class="text-muted ms-md-2">ID: {{ current_user.id }}</small>
+                <h3 class="fw-bold text-slate-800 mb-1">
+                    <i class="bi bi-truck text-primary me-2"></i>Entregas con Anticipos
+                </h3>
+                <p class="text-muted small mb-0">Gestión y registro de salidas de productos asociados a anticipos de clientes</p>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+                <a href="{{ url_for('admin.admin_clientes_anticipos') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                    <i class="bi bi-arrow-left me-1"></i> Volver a Anticipos
+                </a>
+                <a href="{{ url_for('admin.admin_anticipo_nuevo') }}" class="btn btn-outline-primary btn-sm px-3 py-2 rounded-3">
+                    <i class="bi bi-plus-circle me-1"></i> Nuevo Anticipo
+                </a>
             </div>
         </div>
-    </div>
 
-    <!-- Estadísticas -->
-    <div class="row g-2 g-md-3 mb-3 mb-md-4">
-        <div class="col-6 col-md-3">
-            <div class="card stats-card bg-info bg-opacity-10 text-info border border-info border-opacity-10 shadow-sm rounded-4">
-                <div class="card-body p-3">
-                    <h6 class="card-title text-muted mb-1 font-size-xs text-uppercase fw-bold">Entregas Hoy</h6>
-                    <h3 class="mb-1 fw-bold text-info">{{ estadisticas.Total_Entregas_Hoy or 0 }}</h3>
-                    <small class="text-muted font-size-xs">entregas</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="card stats-card bg-success bg-opacity-10 text-success border border-success border-opacity-10 shadow-sm rounded-4">
-                <div class="card-body p-3">
-                    <h6 class="card-title text-muted mb-1 font-size-xs text-uppercase fw-bold">Monto Entregado</h6>
-                    <h3 class="mb-1 fw-bold text-success">C${{ "{:,.2f}".format(estadisticas.Monto_Total_Entregado_Hoy or 0) }}</h3>
-                    <small class="text-muted font-size-xs">total hoy</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="card stats-card bg-warning bg-opacity-10 text-warning border border-warning border-opacity-10 shadow-sm rounded-4">
-                <div class="card-body p-3">
-                    <h6 class="card-title text-muted mb-1 font-size-xs text-uppercase fw-bold">Anticipos Activos</h6>
-                    <h3 class="mb-1 fw-bold text-warning">{{ estadisticas.Anticipos_Activos or 0 }}</h3>
-                    <small class="text-muted font-size-xs">activos</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="card stats-card bg-primary bg-opacity-10 text-primary border border-primary border-opacity-10 shadow-sm rounded-4">
-                <div class="card-body p-3">
-                    <h6 class="card-title text-muted mb-1 font-size-xs text-uppercase fw-bold">Cajas Disponibles</h6>
-                    <h3 class="mb-1 fw-bold text-primary">{{ estadisticas.Cajas_Disponibles_Total or 0 }}</h3>
-                    <small class="text-muted font-size-xs">en anticipos</small>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Alertas de anticipos bajos -->
-    {% if anticipos_bajos %}
-    <div class="alert alert-warning mb-3 mb-md-4 shadow-sm">
-        <h5 class="mb-2"><i class="fas fa-exclamation-triangle me-1"></i> Anticipos por agotarse:</h5>
-        {% for a in anticipos_bajos %}
-        <div class="d-flex flex-wrap align-items-center gap-2 p-2 bg-light rounded mb-2"
-            data-anticipo-id="{{ a.ID_Anticipo }}">
-            <div class="flex-grow-1">
-                <strong>{{ a.Nombre_Cliente }}</strong> | {{ a.Telefono }} | {{ a.Nombre_Producto }}
-                <span class="badge bg-warning ms-1">{{ a.Cajas_Restantes }} cajas restantes</span>
-                <span class="badge bg-secondary">{{ a.perfil_cliente }}</span>
-                <div class="mt-1 small">Saldo: C${{ "{:,.2f}".format(a.Saldo_Restante) }}</div>
-            </div>
-            <button type="button" class="btn btn-sm btn-outline-primary btn-ver-proforma"
-                data-anticipo-id="{{ a.ID_Anticipo }}">
-                <i class="fas fa-eye"></i> Ver Proforma
-            </button>
-        </div>
-        {% endfor %}
-    </div>
-    {% endif %}
-
-    <!-- Formulario Principal -->
-    <div class="card shadow-sm mb-3 mb-md-4">
-        <div class="card-header bg-primary-soft text-primary py-3">
-            <h5 class="mb-0 fw-bold"><i class="fas fa-plus-circle"></i> Registrar Nueva Entrega</h5>
-        </div>
-        <div class="card-body">
-            <form method="POST" id="formEntrega" novalidate>
-                <!-- Anticipo y Bodega -->
-                <div class="row g-2 g-md-3">
-                    <div class="col-12 col-md-6 mb-2 mb-md-3">
-                        <label for="id_anticipo" class="form-label-premium"><i class="fas fa-wallet me-1 text-primary"></i>Seleccionar Anticipo *</label>
-                        <select name="id_anticipo" id="id_anticipo" class="form-select form-select-premium" required>
-                            <option value="">-- Seleccione un anticipo --</option>
-                            {% for a in anticipos %}
-                            <option value="{{ a.ID_Anticipo }}" data-producto="{{ a.Nombre_Producto }}"
-                                data-cajas="{{ a.Cajas_Disponibles }}" data-precio="{{ a.Precio_Unitario }}"
-                                data-cliente="{{ a.Nombre_Cliente }}" data-cliente-telefono="{{ a.Telefono }}"
-                                data-cliente-perfil="{{ a.perfil_cliente }}" data-cliente-id="{{ a.ID_Cliente }}">
-                                {{ a.Nombre_Cliente }} - {{ a.Nombre_Producto }} ({{ a.Cajas_Disponibles }} cajas)
-                            </option>
-                            {% endfor %}
-                        </select>
-                        {% if not anticipos %}
-                        <small class="text-danger d-block mt-1">No hay anticipos activos disponibles</small>
-                        {% endif %}
-                    </div>
-
-                    <div class="col-12 col-md-6 mb-2 mb-md-3">
-                        <label for="id_bodega" class="form-label-premium"><i class="fas fa-warehouse me-1 text-primary"></i>Bodega de Salida *</label>
-                        <select name="id_bodega" id="id_bodega" class="form-select form-select-premium" required>
-                            <option value="">-- Seleccione bodega --</option>
-                            {% for b in bodegas %}
-                            <option value="{{ b.ID_Bodega }}">
-                                {{ b.Nombre }}{% if b.Ubicacion %} - {{ b.Ubicacion }}{% endif %}
-                            </option>
-                            {% endfor %}
-                        </select>
-                        <small class="text-muted d-block mt-1">Seleccione la bodega desde donde sale el producto</small>
+        <!-- Estadísticas Rápidas -->
+        <div class="row g-2 g-md-3 mb-4">
+            <div class="col-6 col-md-3">
+                <div class="card stats-card bg-info-soft border border-info border-opacity-25 rounded-3 h-100">
+                    <div class="card-body p-3">
+                        <div class="d-flex align-items-center justify-content-between mb-1">
+                            <span class="text-muted font-size-xs text-uppercase fw-bold">Entregas Hoy</span>
+                            <i class="bi bi-box-arrow-up-right fs-5 text-info"></i>
+                        </div>
+                        <h3 class="mb-0 fw-bold text-info">{{ estadisticas.Total_Entregas_Hoy or 0 }}</h3>
+                        <small class="text-muted font-size-xs">salidas registradas</small>
                     </div>
                 </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card stats-card bg-success-soft border border-success border-opacity-25 rounded-3 h-100">
+                    <div class="card-body p-3">
+                        <div class="d-flex align-items-center justify-content-between mb-1">
+                            <span class="text-muted font-size-xs text-uppercase fw-bold">Monto Entregado</span>
+                            <i class="bi bi-cash-stack fs-5 text-success"></i>
+                        </div>
+                        <h3 class="mb-0 fw-bold text-success">C${{ "{:,.2f}".format(estadisticas.Monto_Total_Entregado_Hoy or 0) }}</h3>
+                        <small class="text-muted font-size-xs">total en valor hoy</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card stats-card bg-warning-soft border border-warning border-opacity-25 rounded-3 h-100">
+                    <div class="card-body p-3">
+                        <div class="d-flex align-items-center justify-content-between mb-1">
+                            <span class="text-muted font-size-xs text-uppercase fw-bold">Anticipos Activos</span>
+                            <i class="bi bi-wallet2 fs-5 text-warning"></i>
+                        </div>
+                        <h3 class="mb-0 fw-bold text-warning">{{ estadisticas.Anticipos_Activos or 0 }}</h3>
+                        <small class="text-muted font-size-xs">con saldo pendiente</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card stats-card bg-primary-soft border border-primary border-opacity-25 rounded-3 h-100">
+                    <div class="card-body p-3">
+                        <div class="d-flex align-items-center justify-content-between mb-1">
+                            <span class="text-muted font-size-xs text-uppercase fw-bold">Cajas Disponibles</span>
+                            <i class="bi bi-box-seam fs-5 text-primary"></i>
+                        </div>
+                        <h3 class="mb-0 fw-bold text-primary">{{ estadisticas.Cajas_Disponibles_Total or 0 }}</h3>
+                        <small class="text-muted font-size-xs">pendientes por entregar</small>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-                <!-- Detalle del Anticipo -->
-                <div class="row mb-3" id="detalle_anticipo" style="display: none;">
-                    <div class="col-12">
-                        <div class="card bg-light border-0 shadow-sm">
-                            <div class="card-body p-3">
-                                <h6 class="card-subtitle mb-3 text-muted fw-bold">
-                                    <i class="fas fa-info-circle text-primary"></i> Detalle del Anticipo Seleccionado
+        <!-- Alertas de anticipos bajos -->
+        {% if anticipos_bajos %}
+        <div class="alert alert-warning border border-warning border-opacity-25 mb-4 shadow-sm rounded-3">
+            <h6 class="fw-bold mb-2 text-warning">
+                <i class="bi bi-exclamation-triangle-fill me-1"></i> Anticipos próximos a agotarse (5 o menos cajas restantes):
+            </h6>
+            <div class="d-flex flex-column gap-2 mt-2">
+                {% for a in anticipos_bajos %}
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 p-2 bg-white rounded border border-warning border-opacity-25" data-anticipo-id="{{ a.ID_Anticipo }}">
+                    <div>
+                        <strong class="text-dark">{{ a.Nombre_Cliente }}</strong> 
+                        <span class="text-muted">| {{ a.Telefono or 'Sin Tel.' }} | {{ a.Nombre_Producto }}</span>
+                        <span class="badge bg-warning text-dark ms-1">{{ a.Cajas_Restantes }} cajas restantes</span>
+                        <span class="badge bg-light text-secondary border">{{ a.perfil_cliente }}</span>
+                        <div class="small text-muted mt-1">Saldo restante: <strong>C${{ "{:,.2f}".format(a.Saldo_Restante) }}</strong></div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-primary btn-ver-proforma rounded-pill px-3" data-anticipo-id="{{ a.ID_Anticipo }}">
+                        <i class="bi bi-file-earmark-text me-1"></i> Ver Proforma
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Formulario Principal -->
+        <div class="card border border-slate-200 rounded-3 shadow-none mb-4">
+            <div class="card-header bg-light py-3 border-bottom d-flex align-items-center">
+                <h5 class="mb-0 fw-bold text-slate-800">
+                    <i class="bi bi-plus-circle text-primary me-2"></i>Registrar Nueva Entrega
+                </h5>
+            </div>
+            <div class="card-body p-3 p-md-4">
+                <form method="POST" id="formEntrega" novalidate>
+                    <!-- Anticipo y Bodega -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-12 col-md-6">
+                            <label for="id_anticipo" class="form-label-premium">
+                                <i class="bi bi-wallet2 text-primary me-1"></i>Seleccionar Anticipo *
+                            </label>
+                            <select name="id_anticipo" id="id_anticipo" class="form-select form-select-premium" required>
+                                <option value="">-- Seleccione un anticipo disponible --</option>
+                                {% for a in anticipos %}
+                                <option value="{{ a.ID_Anticipo }}" 
+                                    data-producto="{{ a.Nombre_Producto }}"
+                                    data-cajas="{{ a.Cajas_Disponibles }}" 
+                                    data-precio="{{ a.Precio_Unitario }}"
+                                    data-cliente="{{ a.Nombre_Cliente }}" 
+                                    data-cliente-telefono="{{ a.Telefono }}"
+                                    data-cliente-perfil="{{ a.perfil_cliente }}" 
+                                    data-cliente-id="{{ a.ID_Cliente }}">
+                                    {{ a.Nombre_Cliente }} - {{ a.Nombre_Producto }} ({{ a.Cajas_Disponibles }} cajas disponibles)
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if not anticipos %}
+                            <small class="text-danger d-block mt-1">No hay anticipos activos con saldo disponible</small>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label for="id_bodega" class="form-label-premium">
+                                <i class="bi bi-building text-primary me-1"></i>Bodega de Salida *
+                            </label>
+                            <select name="id_bodega" id="id_bodega" class="form-select form-select-premium" required>
+                                <option value="">-- Seleccione bodega de despacho --</option>
+                                {% for b in bodegas %}
+                                <option value="{{ b.ID_Bodega }}">
+                                    {{ b.Nombre }}{% if b.Ubicacion %} - {{ b.Ubicacion }}{% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted d-block mt-1">Bodega física desde la cual saldrá el producto</small>
+                        </div>
+                    </div>
+
+                    <!-- Detalle del Anticipo Seleccionado -->
+                    <div class="row mb-3" id="detalle_anticipo" style="display: none;">
+                        <div class="col-12">
+                            <div class="p-3 bg-light rounded-3 border border-slate-200">
+                                <h6 class="text-slate-800 fw-bold mb-3">
+                                    <i class="bi bi-info-circle text-primary me-1"></i> Resumen del Anticipo Seleccionado
                                 </h6>
                                 <div class="row g-2 g-md-3">
                                     <div class="col-6 col-sm-4 col-md-3">
-                                        <div class="p-2 bg-white rounded border-start border-primary border-3 shadow-xs h-100">
+                                        <div class="p-2 bg-white rounded border-start border-primary border-3 h-100 shadow-sm">
                                             <small class="text-muted d-block text-uppercase font-size-xs">Cliente</small>
-                                            <span id="info_cliente" class="fw-semibold text-dark font-size-xs text-break"></span>
+                                            <span id="info_cliente" class="fw-bold text-dark font-size-xs text-break"></span>
                                         </div>
                                     </div>
                                     <div class="col-6 col-sm-4 col-md-3">
-                                        <div class="p-2 bg-white rounded border-start border-success border-3 shadow-xs h-100">
+                                        <div class="p-2 bg-white rounded border-start border-success border-3 h-100 shadow-sm">
                                             <small class="text-muted d-block text-uppercase font-size-xs">Producto</small>
-                                            <span id="info_producto" class="fw-semibold text-dark font-size-xs text-break"></span>
+                                            <span id="info_producto" class="fw-bold text-dark font-size-xs text-break"></span>
                                         </div>
                                     </div>
                                     <div class="col-6 col-sm-4 col-md-3">
-                                        <div class="p-2 bg-white rounded border-start border-info border-3 shadow-xs h-100">
+                                        <div class="p-2 bg-white rounded border-start border-info border-3 h-100 shadow-sm">
                                             <small class="text-muted d-block text-uppercase font-size-xs">Precio Unitario</small>
-                                            <span class="fw-semibold text-dark font-size-xs">C$ <span id="info_precio"></span></span>
+                                            <span class="fw-bold text-dark font-size-xs">C$ <span id="info_precio">0.00</span></span>
                                         </div>
                                     </div>
                                     <div class="col-6 col-sm-4 col-md-3">
-                                        <div class="p-2 bg-white rounded border-start border-warning border-3 shadow-xs h-100">
+                                        <div class="p-2 bg-white rounded border-start border-warning border-3 h-100 shadow-sm">
                                             <small class="text-muted d-block text-uppercase font-size-xs">Disponibles</small>
-                                            <span id="info_cajas_disponibles" class="fw-semibold text-dark font-size-xs"></span>
+                                            <span id="info_cajas_disponibles" class="fw-bold text-warning font-size-xs">0</span>
                                         </div>
                                     </div>
                                     <div class="col-6 col-sm-4 col-md-3">
-                                        <div class="p-2 bg-white rounded border-start border-danger border-3 shadow-xs h-100">
+                                        <div class="p-2 bg-white rounded border-start border-danger border-3 h-100 shadow-sm">
                                             <small class="text-muted d-block text-uppercase font-size-xs">Saldo Restante</small>
-                                            <span class="fw-semibold text-dark font-size-xs">C$ <span id="info_saldo"></span></span>
+                                            <span class="fw-bold text-dark font-size-xs">C$ <span id="info_saldo">0.00</span></span>
                                         </div>
                                     </div>
                                     <div class="col-6 col-sm-4 col-md-3">
-                                        <div class="p-2 bg-white rounded border-start border-secondary border-3 shadow-xs h-100">
+                                        <div class="p-2 bg-white rounded border-start border-secondary border-3 h-100 shadow-sm">
                                             <small class="text-muted d-block text-uppercase font-size-xs">Teléfono</small>
-                                            <span id="info_telefono" class="fw-semibold text-dark font-size-xs text-break"></span>
+                                            <span id="info_telefono" class="fw-bold text-dark font-size-xs text-break"></span>
                                         </div>
                                     </div>
                                     <div class="col-6 col-sm-4 col-md-3">
-                                        <div class="p-2 bg-white rounded border-start border-dark border-3 shadow-xs h-100">
+                                        <div class="p-2 bg-white rounded border-start border-dark border-3 h-100 shadow-sm">
                                             <small class="text-muted d-block text-uppercase font-size-xs">Perfil Cliente</small>
-                                            <span id="info_perfil" class="fw-semibold text-dark font-size-xs text-break"></span>
+                                            <span id="info_perfil" class="fw-bold text-dark font-size-xs text-break"></span>
                                         </div>
                                     </div>
                                     <div class="col-6 col-sm-4 col-md-3">
-                                        <div class="p-2 bg-white rounded border-start border-primary border-3 shadow-xs h-100">
+                                        <div class="p-2 bg-white rounded border-start border-primary border-3 h-100 shadow-sm">
                                             <small class="text-muted d-block text-uppercase font-size-xs">Cajas Restantes</small>
-                                            <span id="info_cajas_pendientes" class="fw-bold text-primary font-size-xs"></span>
+                                            <span id="info_cajas_pendientes" class="fw-bold text-primary font-size-xs">0</span>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Entregas por Sucursal -->
-                <div class="row mb-3">
-                    <div class="col-12">
-                        <label class="form-label-premium"><i class="fas fa-list-ol me-1 text-primary"></i>Detalle de Entregas por Sucursal *</label>
-                        <div id="entregasContainer">
-                            <div class="entrega-item p-2 p-md-3 border rounded mb-2 bg-white shadow-xs">
-                                <div class="row g-2 g-md-3 align-items-end">
-                                    <div class="col-12 col-md-6">
-                                        <label class="form-label small text-muted">Sucursal</label>
-                                        <select name="sucursales[]" class="form-select form-select-premium form-select-sm" required
-                                            onchange="actualizarResumen()">
-                                            <option value="">-- Seleccione sucursal --</option>
-                                            {% for s in sucursales %}
-                                            <option value="{{ s.ID_Sucursal }}" data-cliente-id="{{ s.ID_Cliente }}">
-                                                {{ s.Nombre_Cliente }} - {{ s.Nombre_Sucursal }}
-                                            </option>
-                                            {% endfor %}
-                                        </select>
+                    <!-- Entregas por Sucursal -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label-premium">
+                                <i class="bi bi-list-ol text-primary me-1"></i>Detalle de Entregas por Sucursal *
+                            </label>
+                            <div id="entregasContainer">
+                                <div class="entrega-item p-3 mb-2">
+                                    <div class="row g-2 g-md-3 align-items-end">
+                                        <div class="col-12 col-md-6">
+                                            <label class="form-label small text-muted">Sucursal Destino</label>
+                                            <select name="sucursales[]" class="form-select form-select-premium form-select-sm" required onchange="actualizarResumen()">
+                                                <option value="">-- Seleccione sucursal --</option>
+                                                {% for s in sucursales %}
+                                                <option value="{{ s.ID_Sucursal }}" data-cliente-id="{{ s.ID_Cliente }}">
+                                                    {{ s.Nombre_Cliente }} - {{ s.Nombre_Sucursal }}
+                                                </option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="col-8 col-md-4">
+                                            <label class="form-label small text-muted">Cantidad de Cajas</label>
+                                            <input type="number" name="cantidades[]" class="form-control form-control-premium form-control-sm" placeholder="Cajas" min="1" step="1" required oninput="actualizarResumen()">
+                                        </div>
+                                        <div class="col-4 col-md-2">
+                                            <button type="button" class="btn btn-outline-danger btn-sm w-100" onclick="eliminarEntrega(this)">
+                                                <i class="bi bi-trash me-1"></i> <span class="d-none d-md-inline">Eliminar</span>
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div class="col-8 col-md-4">
-                                        <label class="form-label small text-muted">Cantidad de Cajas</label>
-                                        <input type="number" name="cantidades[]" class="form-control form-control-premium form-control-sm"
-                                            placeholder="Cajas" min="1" step="1" required oninput="actualizarResumen()">
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-outline-secondary btn-sm mt-2 rounded-3" onclick="agregarEntrega()">
+                                <i class="bi bi-plus-lg me-1"></i> Agregar otra sucursal
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Resumen y Notas -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-12 col-md-6">
+                            <div class="card bg-light border border-slate-200 shadow-none h-100">
+                                <div class="card-body">
+                                    <h6 class="mb-3 fw-bold text-slate-800">
+                                        <i class="bi bi-calculator text-primary me-1"></i> Resumen de la Operación
+                                    </h6>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-muted">Cajas a entregar en esta orden:</span>
+                                        <strong class="text-dark"><span id="resumen_total_cajas">0</span> cajas</strong>
                                     </div>
-                                    <div class="col-4 col-md-2">
-                                        <button type="button" class="btn btn-outline-danger btn-sm w-100"
-                                            onclick="eliminarEntrega(this)">
-                                            <i class="fas fa-trash"></i> <span class="d-none d-md-inline">Eliminar</span>
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Cajas restantes en anticipo:</span>
+                                        <strong class="text-dark"><span id="resumen_cajas_restantes">0</span> cajas</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label for="notas" class="form-label-premium">Notas / Observaciones (Opcional)</label>
+                            <textarea name="notas" id="notas" class="form-control form-control-premium" rows="3" placeholder="Agregar observaciones sobre la entrega o transporte..."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2 pt-2 border-top">
+                        <button type="submit" class="btn btn-outline-success" id="btnSubmit">
+                            <i class="bi bi-check-circle me-1"></i> Procesar Todas las Entregas
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="resetFormulario()">
+                            <i class="bi bi-eraser me-1"></i> Limpiar
+                        </button>
+                        <a href="{{ url_for('admin.admin_clientes_anticipos') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-1"></i> Volver
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Historial de Salidas del Día -->
+        <div class="card border border-slate-200 rounded-3 shadow-none">
+            <div class="card-header bg-light py-3 border-bottom d-flex justify-content-between align-items-center">
+                <h6 class="m-0 fw-bold text-slate-800">
+                    <i class="bi bi-clock-history text-secondary me-2"></i>Salidas del Día (Agrupadas)
+                </h6>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 align-middle">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Cliente</th>
+                                <th>Producto</th>
+                                <th>Sucursales</th>
+                                <th class="text-center">Entregas</th>
+                                <th class="text-center">Cajas</th>
+                                <th class="text-end">Total</th>
+                                <th>Usuario</th>
+                                <th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for e in entregas %}
+                            <tr>
+                                <td><span class="badge bg-light text-secondary border">{{ e.Fecha_Dia }}</span></td>
+                                <td>
+                                    <strong>{{ e.Nombre_Cliente }}</strong>
+                                    <br><small class="text-muted">{{ e.Cliente_Telefono or '-' }}</small>
+                                </td>
+                                <td>{{ e.Nombre_Producto }}</td>
+                                <td><small class="text-muted">{{ e.Sucursales or '-' }}</small></td>
+                                <td class="text-center">
+                                    <span class="badge bg-info-soft border border-info border-opacity-25">{{ e.Num_Entregas }}</span>
+                                </td>
+                                <td class="text-center"><strong>{{ e.Total_Cajas }}</strong></td>
+                                <td class="text-end"><strong>C${{ "{:,.2f}".format(e.Total_Monto) }}</strong></td>
+                                <td><small class="text-muted">{{ e.Usuarios or 'N/A' }}</small></td>
+                                <td class="text-center">
+                                    {% if e.ID_Anticipo %}
+                                    <div class="d-inline-flex gap-1">
+                                        <a href="{{ url_for('admin.ticket_entregas', id_anticipo=e.ID_Anticipo, fecha=e.Fecha_Raw) }}" class="btn btn-sm btn-outline-success" title="Ver Ticket">
+                                            <i class="bi bi-receipt me-1"></i> Ticket
+                                        </a>
+                                        <button type="button" class="btn btn-sm btn-outline-info btn-ver-proforma" data-anticipo-id="{{ e.ID_Anticipo }}" title="Ver Proforma">
+                                            <i class="bi bi-file-earmark-text me-1"></i> Proforma
                                         </button>
                                     </div>
-                                </div>
-                            </div>
-                        </div>
-                        <button type="button" class="btn btn-outline-secondary btn-sm mt-2" onclick="agregarEntrega()">
-                            <i class="fas fa-plus"></i> Agregar otra sucursal
-                        </button>
-                    </div>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="9" class="text-center py-4 text-muted">No hay entregas registradas hoy</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
-
-                <!-- Resumen y Notas -->
-                <div class="row g-2 g-md-3">
-                    <div class="col-12 col-md-6 mb-3">
-                        <div class="card bg-light border-0 shadow-sm">
-                            <div class="card-body">
-                                <h6 class="mb-2 fw-bold text-slate-800">Resumen de Entregas</h6>
-                                <div class="d-flex justify-content-between mb-1">
-                                    <span class="text-muted">Cajas a entregar:</span>
-                                    <strong class="text-dark"><span id="resumen_total_cajas">0</span> cajas</strong>
-                                </div>
-                                <div class="d-flex justify-content-between">
-                                    <span class="text-muted">Cajas restantes:</span>
-                                    <strong class="text-dark"><span id="resumen_cajas_restantes">0</span> cajas</strong>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-12 col-md-6 mb-3">
-                        <label for="notas" class="form-label-premium">Notas Generales (Opcional)</label>
-                        <textarea name="notas" id="notas" class="form-control form-control-premium" rows="3"
-                            placeholder="Agregar notas generales sobre las entregas..."></textarea>
-                    </div>
-                </div>
-
-                <div class="btn-action-group">
-                    <button type="submit" class="btn btn-outline-success" id="btnSubmit">
-                        <i class="fas fa-check-circle"></i> Procesar Todas las Entregas
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary" onclick="resetFormulario()">
-                        <i class="fas fa-eraser"></i> Limpiar
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Historial -->
-    <div class="card shadow-sm border-0 rounded-3 mb-4">
-        <div class="card-header bg-light py-3 border-bottom d-flex justify-content-between align-items-center">
-            <h6 class="m-0 font-weight-bold text-slate-800"><i class="fas fa-history text-secondary me-2"></i>Salidas del Día (Agrupadas)</h6>
-        </div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-modern table-hover mb-0">
-                    <thead>
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Cliente</th>
-                            <th>Producto</th>
-                            <th>Sucursales</th>
-                            <th class="text-center">Entregas</th>
-                            <th class="text-center">Cajas</th>
-                            <th class="text-end">Total</th>
-                            <th>Usuario</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for e in entregas %}
-                        <tr>
-                            <td><span class="badge border border-slate-200" style="color: #475569 !important; background-color: #f1f5f9 !important;">{{ e.Fecha_Dia }}</span></td>
-                            <td><strong>{{ e.Nombre_Cliente }}</strong><br><small class="text-muted">{{
-                                    e.Cliente_Telefono or '-' }}</small></td>
-                            <td>{{ e.Nombre_Producto }}</td>
-                            <td><small>{{ e.Sucursales or '-' }}</small></td>
-                            <td class="text-center"><span class="badge border border-info border-opacity-25" style="color: #0891b2 !important; background-color: rgba(6, 182, 212, 0.08) !important;">{{ e.Num_Entregas }}</span></td>
-                            <td class="text-center"><strong>{{ e.Total_Cajas }}</strong></td>
-                            <td class="text-end"><strong>C${{ "{:,.2f}".format(e.Total_Monto) }}</strong></td>
-                            <td><small>{{ e.Usuarios or 'N/A' }}</small></td>
-                            <td class="text-center">
-                                {% if e.ID_Anticipo %}
-                                <a href="{{ url_for('admin.ticket_entregas', id_anticipo=e.ID_Anticipo, fecha=e.Fecha_Raw) }}"
-                                    class="btn btn-sm btn-outline-success" title="Ver Ticket de esta Fecha">
-                                    <i class="fas fa-receipt"></i> Ticket
-                                </a>
-                                <button type="button" class="btn btn-sm btn-outline-info btn-ver-proforma"
-                                    data-anticipo-id="{{ e.ID_Anticipo }}" title="Ver Proforma">
-                                    <i class="fas fa-file-alt"></i> Proforma
-                                </button>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="9" class="text-center py-4">No hay entregas registradas</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
             </div>
         </div>
     </div>
@@ -555,23 +465,27 @@
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content border-0 rounded-4">
             <div class="modal-header bg-primary-soft text-primary py-3 border-bottom">
-                <h5 class="modal-title fw-bold"><i class="fas fa-file-alt me-2"></i> Proforma de Entregas</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title fw-bold"><i class="bi bi-file-earmark-text me-2"></i> Proforma de Entregas</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body" id="proformaModalBody">
                 <div class="text-center p-5">
-                    <div class="spinner-border text-primary"></div>
-                    <p class="text-muted mt-2">Cargando...</p>
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="text-muted mt-2">Cargando proforma...</p>
                 </div>
             </div>
             <div class="modal-footer bg-light">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
-                <button type="button" class="btn btn-outline-success" id="btnImprimirModal">Imprimir</button>
+                <button type="button" class="btn btn-outline-success" id="btnImprimirModal">
+                    <i class="bi bi-printer me-1"></i> Imprimir
+                </button>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
 
+{% block extra_js %}
 <script>
     // ========== VARIABLES GLOBALES ==========
     let precioUnitarioActual = 0;
@@ -586,16 +500,21 @@
         notificaciones.forEach(n => n.remove());
 
         const notificacion = document.createElement('div');
-        notificacion.className = `toast-notification alert alert-${tipo} shadow-lg`;
+        notificacion.className = `toast-notification alert alert-${tipo} alert-dismissible fade show shadow-lg border-0`;
+        const iconClass = tipo === 'danger' ? 'bi-exclamation-circle' : 'bi-check-circle';
         notificacion.innerHTML = `
-        <div class="d-flex align-items-center">
-            <i class="fas ${tipo === 'danger' ? 'fa-exclamation-circle' : 'fa-check-circle'} me-2 fs-5"></i>
-            <div class="flex-grow-1">${mensaje}</div>
-            <button type="button" class="btn-close" onclick="this.closest('.toast-notification').remove()"></button>
-        </div>
-    `;
+            <div class="d-flex align-items-center">
+                <i class="bi ${iconClass} fs-5 me-2"></i>
+                <div class="flex-grow-1">${mensaje}</div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        `;
         document.body.appendChild(notificacion);
-        setTimeout(() => notificacion.remove(), 5000);
+        setTimeout(() => {
+            if (document.body.contains(notificacion)) {
+                notificacion.remove();
+            }
+        }, 5000);
     }
 
     // ========== PROFORMA ==========
@@ -605,11 +524,12 @@
             return;
         }
 
-        const modal = new bootstrap.Modal(document.getElementById('proformaModal'));
+        const modalElement = document.getElementById('proformaModal');
+        const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
         modal.show();
 
         const modalBody = document.getElementById('proformaModalBody');
-        modalBody.innerHTML = `<div class="text-center p-5"><div class="spinner-border text-primary"></div><p>Cargando proforma...</p></div>`;
+        modalBody.innerHTML = `<div class="text-center p-5"><div class="spinner-border text-primary" role="status"></div><p class="mt-2 text-muted">Cargando proforma...</p></div>`;
 
         fetch(`/admin/ventas/anticipos/proforma/api/${idAnticipo}?filtro=todas`)
             .then(response => response.json())
@@ -635,7 +555,7 @@
                                 ${(data.entregas || []).map((e, i) => `<tr><td>${i + 1}</td><td>${e.fecha || '-'}</td><td>${e.sucursal || '-'}</td><td>${e.cantidad || 0} cjs</td><td>${e.registrado_por || '-'}</td></tr>`).join('') || '<tr><td colspan="5" class="text-center">Sin entregas</td></tr>'}
                             </tbody>
                         </table>
-                        <div class="bg-light p-2 mt-2">
+                        <div class="bg-light p-2 mt-2 rounded">
                             <strong>ESTADO:</strong> Total entregado: ${data.anticipo?.total_entregado || 0} cajas | Pendiente: ${data.anticipo?.pendiente || 0} cajas | Avance: ${data.anticipo?.porcentaje || 0}%
                         </div>
                     </div>
@@ -757,8 +677,6 @@
         actualizarResumen();
         mostrarNotificacion('Formulario limpiado', 'success');
     }
-
-    function imprimirPagina() { window.print(); }
 
     // ========== VALIDACIÓN ==========
     function validarFormulario(e) {

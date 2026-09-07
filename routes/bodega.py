@@ -142,34 +142,35 @@ def bodega_dashboard():
             """, (id_empresa,))
             resumen_dia_total = cursor.fetchone() or {}
             
-            # 4. Productos con stock bajo (Consolidado por bodega)
+            # 4. Productos con stock bajo (Consolidado por producto, mostrando bodegas afectadas)
             cursor.execute("""
                 SELECT 
                     p.ID_Producto,
                     p.COD_Producto,
                     p.Descripcion AS Producto,
                     COALESCE(um.Abreviatura, 'UND') AS Unidad,
-                    ib.Existencias AS Stock_Actual,
+                    COALESCE(SUM(ib.Existencias), 0) AS Stock_Actual,
                     p.Stock_Minimo AS Stock_Minimo,
-                    b.Nombre AS Bodega,
-                    CONCAT(FORMAT(ib.Existencias, 2), ' ', COALESCE(um.Abreviatura, 'UND')) AS Stock_Actual_Formateado,
-                    ROUND(CASE WHEN p.Stock_Minimo > 0 THEN (ib.Existencias / p.Stock_Minimo) * 100 ELSE 100 END, 2) AS Porcentaje_Stock,
+                    COALESCE(GROUP_CONCAT(DISTINCT CASE WHEN ib.Existencias <= p.Stock_Minimo THEN b.Nombre END ORDER BY b.Nombre SEPARATOR ', '), 'General') AS Bodega,
+                    GROUP_CONCAT(CASE WHEN ib.Existencias <= p.Stock_Minimo THEN CONCAT(b.Nombre, ': ', FORMAT(ib.Existencias, 2), ' ', COALESCE(um.Abreviatura, 'UND'), CASE WHEN ib.Existencias <= 0 THEN ' (Sin stock)' ELSE ' (Stock bajo)' END) END SEPARATOR ' | ') AS Bodegas_Detalle,
+                    CONCAT(FORMAT(COALESCE(SUM(ib.Existencias), 0), 2), ' ', COALESCE(um.Abreviatura, 'UND')) AS Stock_Actual_Formateado,
+                    ROUND(CASE WHEN p.Stock_Minimo > 0 THEN (COALESCE(SUM(ib.Existencias), 0) / p.Stock_Minimo) * 100 ELSE 100 END, 2) AS Porcentaje_Stock,
                     CASE 
-                        WHEN ib.Existencias = 0 THEN 'AGOTADO'
-                        WHEN ib.Existencias <= p.Stock_Minimo * 0.5 THEN 'CRÍTICO'
-                        WHEN ib.Existencias <= p.Stock_Minimo THEN 'BAJO'
+                        WHEN COALESCE(SUM(ib.Existencias), 0) <= 0 THEN 'AGOTADO'
+                        WHEN COALESCE(SUM(ib.Existencias), 0) <= p.Stock_Minimo * 0.5 THEN 'CRÍTICO'
+                        WHEN COALESCE(SUM(ib.Existencias), 0) <= p.Stock_Minimo THEN 'BAJO'
                         ELSE 'NORMAL'
                     END AS Nivel_Alerta
                 FROM productos p
-                INNER JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
+                LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
+                LEFT JOIN bodegas b ON ib.ID_Bodega = b.ID_Bodega AND b.Estado = 'activa' AND (b.ID_Empresa = %s OR b.ID_Empresa IS NULL)
                 LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
-                INNER JOIN bodegas b ON ib.ID_Bodega = b.ID_Bodega
                 WHERE p.Estado = 'activo'
-                    AND b.Estado = 'activa'
                     AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
-                    AND (b.ID_Empresa = %s OR b.ID_Empresa IS NULL)
-                    AND ib.Existencias <= p.Stock_Minimo
-                ORDER BY p.COD_Producto ASC, Porcentaje_Stock ASC
+                    AND p.Stock_Minimo > 0
+                GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, um.Abreviatura, p.Stock_Minimo
+                HAVING COALESCE(SUM(ib.Existencias), 0) <= p.Stock_Minimo
+                ORDER BY Porcentaje_Stock ASC, p.COD_Producto ASC
                 LIMIT 35
             """, (id_empresa, id_empresa))
             productos_stock_bajo = cursor.fetchall()
@@ -208,7 +209,7 @@ def bodega_dashboard():
                     COALESCE(b.Ubicacion, 'Sin ubicación') AS Ubicacion,
                     COUNT(DISTINCT ib.ID_Producto) AS total_productos,
                     COALESCE(SUM(ib.Existencias), 0) AS total_existencias,
-                    COUNT(DISTINCT CASE WHEN ib.Existencias <= p.Stock_Minimo THEN ib.ID_Producto END) AS productos_criticos
+                    COUNT(DISTINCT CASE WHEN ib.Existencias <= p.Stock_Minimo AND p.Stock_Minimo > 0 THEN ib.ID_Producto END) AS productos_criticos
                 FROM bodegas b
                 LEFT JOIN inventario_bodega ib ON b.ID_Bodega = ib.ID_Bodega
                 LEFT JOIN productos p ON ib.ID_Producto = p.ID_Producto AND p.Estado = 'activo'
@@ -802,7 +803,7 @@ def bodega_nueva_entrada_form():
                 LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
                 LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
                 LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
-                WHERE p.Estado = 'activo'
+                WHERE (p.Estado IS NULL OR LOWER(p.Estado) NOT IN ('inactivo', 'eliminado', '0'))
                 GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, 
                          p.Unidad_Medida, p.Stock_Minimo,
                          um.Descripcion, cp.Descripcion
@@ -1432,11 +1433,12 @@ def bodega_procesar_salida():
 def api_productos_stock_bodega():
     """API para obtener productos con stock disponible en una bodega específica"""
     try:
-        bodega_id = request.args.get('bodega')
+        bodega_id = request.args.get('bodega') or request.args.get('id_bodega')
         
         if not bodega_id:
-            return jsonify({'error': 'Se requiere ID de bodega'}), 400
+            return jsonify({'error': 'Se requiere ID de bodega', 'status': 'error', 'success': False}), 400
         
+        id_empresa = session.get('id_empresa', 1)
         with get_db_cursor(True) as cursor:
             # Obtener productos activos con stock en la bodega específica
             cursor.execute("""
@@ -1446,25 +1448,27 @@ def api_productos_stock_bodega():
                     p.Descripcion, 
                     p.Unidad_Medida, 
                     um.Descripcion as Unidad_Descripcion,
+                    um.Abreviatura as Unidad_Abreviatura,
                     p.Precio_Mercado as Precio_Venta, 
                     p.Stock_Minimo,
                     cp.Descripcion as Categoria_Descripcion,
                     COALESCE(ib.Existencias, 0) as Stock_Bodega,
-                    COALESCE(SUM(ib_total.Existencias), 0) as Existencias_Totales
+                    COALESCE(ib.Existencias, 0) as Existencias,
+                    COALESCE((
+                        SELECT SUM(ib_total.Existencias) 
+                        FROM inventario_bodega ib_total 
+                        WHERE ib_total.ID_Producto = p.ID_Producto
+                    ), 0) as Existencias_Totales
                 FROM productos p
+                INNER JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto 
+                    AND ib.ID_Bodega = %s
                 LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
                 LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
-                LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto 
-                    AND ib.ID_Bodega = %s
-                LEFT JOIN inventario_bodega ib_total ON p.ID_Producto = ib_total.ID_Producto
-                WHERE p.Estado = 'activo'
+                WHERE (p.Estado IS NULL OR LOWER(p.Estado) NOT IN ('inactivo', 'eliminado', '0'))
+                    AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
                     AND COALESCE(ib.Existencias, 0) > 0
-                GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, 
-                         p.Unidad_Medida, Precio_Venta, p.Stock_Minimo,
-                         um.Descripcion, cp.Descripcion, ib.Existencias
                 ORDER BY p.Descripcion
-                LIMIT 100
-            """, (bodega_id,))
+            """, (bodega_id, id_empresa))
             
             productos = cursor.fetchall()
             
@@ -1474,15 +1478,21 @@ def api_productos_stock_bodega():
                 producto_dict = dict(producto)
                 producto_dict['Precio_Venta'] = float(producto_dict['Precio_Venta'] or 0)
                 producto_dict['Stock_Bodega'] = float(producto_dict['Stock_Bodega'] or 0)
+                producto_dict['Existencias'] = float(producto_dict['Existencias'] or 0)
                 producto_dict['Existencias_Totales'] = float(producto_dict['Existencias_Totales'] or 0)
                 producto_dict['Stock_Minimo'] = float(producto_dict['Stock_Minimo'] or 0)
                 productos_list.append(producto_dict)
             
-            return jsonify(productos_list)
+            return jsonify({
+                'status': 'success',
+                'success': True,
+                'productos': productos_list,
+                'total': len(productos_list)
+            })
             
     except Exception as e:
         print(f"Error en API productos stock bodega: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': str(e), 'status': 'error', 'success': False}), 500
 
 # 6. FORMULARIO TRANSFERENCIA
 @bodega_bp.route('/bodega/movimientos/transferencia/nueva')
@@ -1890,7 +1900,9 @@ def api_productos_bodega_con_stock(id_bodega):
                 INNER JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto AND ib.ID_Bodega = %s
                 LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
                 LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
-                WHERE p.Estado = 'activo' AND p.ID_Empresa = %s AND COALESCE(ib.Existencias, 0) > 0
+                WHERE (p.Estado IS NULL OR LOWER(p.Estado) NOT IN ('inactivo', 'eliminado', '0')) 
+                    AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL) 
+                    AND COALESCE(ib.Existencias, 0) > 0
                 ORDER BY p.Descripcion
             """, (id_bodega, id_empresa))
             
@@ -2167,7 +2179,8 @@ def bodega_reportes_movimientos():
                 FROM productos p
                 LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
                 LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
-                WHERE p.Estado = 1
+                WHERE (p.Estado = 'activo' OR p.Estado = 1)
+                  AND p.Stock_Minimo > 0
                 GROUP BY p.ID_Producto, p.Descripcion, p.COD_Producto, 
                          p.Stock_Minimo, um.Descripcion
                 HAVING COALESCE(SUM(ib.Existencias), 0) <= p.Stock_Minimo
@@ -2390,24 +2403,34 @@ def api_obtener_stock(id_producto, id_bodega):
         with get_db_cursor(True) as cursor:
             cursor.execute("""
                 SELECT p.ID_Producto, p.Descripcion, p.COD_Producto,
-                       ib.Existencias, p.Existencias as Total_General,
+                       COALESCE(ib.Existencias, 0) as Existencias,
+                       COALESCE(ib.Existencias, 0) as Stock_Bodega,
+                       COALESCE((SELECT SUM(ib_t.Existencias) FROM inventario_bodega ib_t WHERE ib_t.ID_Producto = p.ID_Producto), 0) as Total_General,
                        p.Precio_Mercado as Precio_Venta, p.Stock_Minimo,
-                       um.Descripcion as Unidad_Medida
+                       um.Descripcion as Unidad_Medida,
+                       um.Abreviatura as Unidad_Abreviatura
                 FROM productos p
                 LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto 
                     AND ib.ID_Bodega = %s
                 LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
-                WHERE p.ID_Producto = %s AND p.Estado = 1
+                WHERE p.ID_Producto = %s AND (p.Estado = 'activo' OR p.Estado = 1 OR p.Estado = '1')
             """, (id_bodega, id_producto))
             
             producto = cursor.fetchone()
             
             if not producto:
-                return jsonify({'error': 'Producto no encontrado'}), 404
+                return jsonify({'error': 'Producto no encontrado', 'success': False}), 404
+            
+            producto_dict = dict(producto)
+            producto_dict['Existencias'] = float(producto_dict['Existencias'] or 0)
+            producto_dict['Stock_Bodega'] = float(producto_dict['Stock_Bodega'] or 0)
+            producto_dict['Total_General'] = float(producto_dict['Total_General'] or 0)
+            if producto_dict.get('Precio_Venta') is not None:
+                producto_dict['Precio_Venta'] = float(producto_dict['Precio_Venta'])
             
             return jsonify({
                 'success': True,
-                'producto': producto
+                'producto': producto_dict
             })
             
     except Exception as e:
@@ -2417,40 +2440,46 @@ def api_obtener_stock(id_producto, id_bodega):
 @bodega_bp.route('/api/productos/buscar')
 @admin_or_bodega_required
 def api_buscar_productos():
-    """Buscar productos por código o descripción"""
+    """Buscar productos por código o descripción con stock filtrado por bodega opcional"""
     try:
         termino = request.args.get('q', '')
-        id_bodega = request.args.get('bodega', '')
+        id_bodega = request.args.get('bodega') or request.args.get('id_bodega')
         
         if not termino:
             return jsonify([])
         
+        id_empresa = session.get('id_empresa', 1)
         with get_db_cursor(True) as cursor:
+            params = []
+            
             query = """
                 SELECT p.ID_Producto, p.COD_Producto, p.Descripcion, 
                        p.Unidad_Medida, um.Descripcion as Unidad_Descripcion,
-                       p.Precio_Mercado as Precio_Venta, p.Existencias as Stock_General,
-                       ib.Existencias as Stock_Bodega,
+                       um.Abreviatura as Unidad_Abreviatura,
+                       p.Precio_Mercado as Precio_Venta,
+                       COALESCE((SELECT SUM(ib_t.Existencias) FROM inventario_bodega ib_t WHERE ib_t.ID_Producto = p.ID_Producto), 0) as Stock_General,
+                       COALESCE(ib.Existencias, 0) as Stock_Bodega,
+                       COALESCE(ib.Existencias, 0) as Existencias,
                        p.Stock_Minimo
                 FROM productos p
                 LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
-                LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto 
             """
             
-            params = []
-            
             if id_bodega:
-                query += " AND ib.ID_Bodega = %s"
+                query += " LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto AND ib.ID_Bodega = %s"
                 params.append(id_bodega)
+            else:
+                query += " LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto"
             
             query += """
                 WHERE (p.COD_Producto LIKE %s OR p.Descripcion LIKE %s) 
-                AND p.Estado = 1
+                AND (p.Estado IS NULL OR LOWER(p.Estado) NOT IN ('inactivo', 'eliminado', '0'))
+                AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
                 ORDER BY p.Descripcion
-                LIMIT 20
+                LIMIT 50
             """
             
-            params.extend([f"%{termino}%", f"%{termino}%"])
+            params.extend([f"%{termino}%", f"%{termino}%", id_empresa])
             
             cursor.execute(query, tuple(params))
             productos = cursor.fetchall()

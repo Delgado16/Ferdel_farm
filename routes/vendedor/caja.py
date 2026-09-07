@@ -263,7 +263,7 @@ def cierre_caja_modal():
             diferencia = monto_real - saldo_esperado
             
             # Limitar la longitud del concepto a 200 caracteres (longitud de columna varchar(200))
-            concepto = f"Cierre de caja - Diferencia: Gs. {diferencia:,.0f}. {observacion}" if observacion else f"Cierre de caja - Diferencia: Gs. {diferencia:,.0f}"
+            concepto = f"Cierre de caja - Diferencia: C$ {diferencia:,.2f}. {observacion}" if observacion else f"Cierre de caja - Diferencia: C$ {diferencia:,.2f}"
             concepto = concepto[:200]
             
             # Insertar cierre
@@ -368,7 +368,7 @@ def vendedor_gastos():
                 
                 # Validar que el gasto no exceda el saldo actual en caja
                 if monto > saldo_anterior:
-                    flash(f'El monto del gasto (Gs. {monto:,.0f}) supera el saldo actual en caja (Gs. {saldo_anterior:,.0f})', 'error')
+                    flash(f'El monto del gasto (C$ {monto:,.2f}) supera el saldo actual en caja (C$ {saldo_anterior:,.2f})', 'error')
                     return redirect(url_for('vendedor.vendedor_gastos'))
                 
                 # Calcular nuevo saldo (el gasto resta del saldo)
@@ -377,8 +377,8 @@ def vendedor_gastos():
                 # Insertar el nuevo gasto
                 cursor.execute("""
                     INSERT INTO movimientos_caja_ruta 
-                    (ID_Asignacion, ID_Usuario, Tipo, Concepto, Monto, Tipo_Pago, Saldo_Acumulado, Estado)
-                    VALUES (%s, %s, 'GASTO', %s, %s, %s, %s, 'ACTIVO')
+                    (ID_Asignacion, ID_Usuario, Tipo, Concepto, Monto, Tipo_Pago, Saldo_Acumulado, Estado, Fecha)
+                    VALUES (%s, %s, 'GASTO', %s, %s, %s, %s, 'ACTIVO', NOW())
                 """, (id_asignacion, usuario_actual, concepto[:200], monto, tipo_pago, nuevo_saldo))
                 
                 flash('Gasto registrado exitosamente', 'success')
@@ -395,7 +395,7 @@ def vendedor_gastos():
             # Obtener todos los gastos del día para esta asignación
             cursor.execute("""
                 SELECT m.ID_Movimiento, m.Concepto, m.Monto, m.Tipo_Pago, 
-                       DATE_FORMAT(m.Fecha, '%%H:%%i') as Hora,
+                       m.Fecha,
                        m.Saldo_Acumulado
                 FROM movimientos_caja_ruta m
                 WHERE m.ID_Asignacion = %s 
@@ -407,12 +407,33 @@ def vendedor_gastos():
             
             gastos = cursor.fetchall()
             
-            # Convertir Decimal a float para la plantilla
+            # Formatear datos para la plantilla
             for gasto in gastos:
-                if gasto['Monto'] is not None:
+                if gasto.get('Monto') is not None:
                     gasto['Monto'] = float(gasto['Monto'])
-                if gasto['Saldo_Acumulado'] is not None:
+                if gasto.get('Saldo_Acumulado') is not None:
                     gasto['Saldo_Acumulado'] = float(gasto['Saldo_Acumulado'])
+                
+                # Formatear Hora de forma robusta
+                fecha_val = gasto.get('Fecha')
+                if isinstance(fecha_val, datetime):
+                    gasto['Hora'] = fecha_val.strftime('%I:%M %p')
+                elif hasattr(fecha_val, 'strftime'):
+                    gasto['Hora'] = fecha_val.strftime('%I:%M %p')
+                elif isinstance(fecha_val, str):
+                    try:
+                        dt = datetime.strptime(fecha_val, '%Y-%m-%d %H:%M:%S')
+                        gasto['Hora'] = dt.strftime('%I:%M %p')
+                    except Exception:
+                        try:
+                            dt = datetime.strptime(fecha_val[:19], '%Y-%m-%dT%H:%M:%S')
+                            gasto['Hora'] = dt.strftime('%I:%M %p')
+                        except Exception:
+                            gasto['Hora'] = fecha_val[11:16] if len(fecha_val) >= 16 else fecha_val
+                elif fecha_val:
+                    gasto['Hora'] = str(fecha_val)
+                else:
+                    gasto['Hora'] = '--:--'
             
             # Calcular total de gastos del día
             cursor.execute("""

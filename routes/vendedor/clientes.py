@@ -1317,5 +1317,3 @@ def vendedor_cliente_detalle(id_cliente):
         flash('Error al cargar detalles del cliente', 'danger')
         return redirect(url_for('vendedor.vendedor_clientes'))
 
-
-

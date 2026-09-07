@@ -753,7 +753,7 @@
     let filtroCategoriaActual = '0';
     
     // Lista de productos segura desde el servidor
-    const productosBase = {{ productos | tojson | safe }};
+    let productosBase = {{ productos | tojson | safe }};
 
     // Rutas URL
     const RUTAS = {
@@ -1098,10 +1098,25 @@
         const valActual = valorGuardado !== null ? valorGuardado : select.value;
         select.innerHTML = '';
 
-        let productosAMostrar = Array.isArray(productosBase) ? productosBase : [];
+        const bodegaSelect = document.getElementById('id_bodega');
+        const idBodegaActual = bodegaSelect ? bodegaSelect.value : '';
+        const bodegaNombre = (bodegaSelect && idBodegaActual) ? bodegaSelect.options[bodegaSelect.selectedIndex]?.text : null;
+
+        let listaCruda = Array.isArray(productosBase) ? productosBase : [];
         if (filtroCategoriaActual && filtroCategoriaActual !== '0') {
-            productosAMostrar = productosAMostrar.filter(p => (p.ID_Categoria || p.id_categoria) == filtroCategoriaActual);
+            listaCruda = listaCruda.filter(p => (p.ID_Categoria || p.id_categoria) == filtroCategoriaActual);
         }
+
+        // Evitar duplicados por ID_Producto
+        const productosAMostrar = [];
+        const idsVistos = new Set();
+        listaCruda.forEach(p => {
+            const pId = String(p.ID_Producto || p.id || '');
+            if (pId && !idsVistos.has(pId)) {
+                idsVistos.add(pId);
+                productosAMostrar.push(p);
+            }
+        });
 
         if (productosAMostrar.length === 0) {
             const opcion = document.createElement('option');
@@ -1145,7 +1160,9 @@
                 const pExistencias = p.Existencias !== undefined ? p.Existencias : (p.existencias !== undefined ? p.existencias : null);
 
                 opt.value = pId;
-                const stockLabel = pExistencias !== null ? ` | Stock: ${pExistencias} ${pSimbolo}` : '';
+                const stockLabel = pExistencias !== null 
+                    ? (bodegaNombre ? ` | Stock en ${bodegaNombre}: ${pExistencias} ${pSimbolo}` : ` | Stock Total: ${pExistencias} ${pSimbolo}`)
+                    : '';
                 opt.textContent = `${pDesc} (${pCod})${stockLabel}`;
                 opt.dataset.categoria = pCat;
                 opt.dataset.unidad = pUnidad;
@@ -1164,13 +1181,65 @@
         }
     }
 
-    window.aplicarFiltroCategoria = function() {
+    async function actualizarProductosPorBodega() {
+        const idBodega = document.getElementById('id_bodega')?.value || '0';
+        const idCategoria = filtroCategoriaActual || '0';
+        
+        try {
+            let url = `${RUTAS.porCategoria}${idCategoria}`;
+            if (idBodega && idBodega !== '0') {
+                url += `?id_bodega=${idBodega}`;
+            }
+            const response = await fetch(url, {
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            if (response.ok) {
+                const productosActualizados = await response.json();
+                if (Array.isArray(productosActualizados)) {
+                    productosBase = productosActualizados;
+                    document.querySelectorAll('.producto-select').forEach(select => {
+                        llenarSelectProductos(select, select.value);
+                    });
+                    document.querySelectorAll('.product-card').forEach(tarjeta => {
+                        const id = tarjeta.id.replace('producto-card-', '');
+                        if (window.actualizarInfoProducto) {
+                            window.actualizarInfoProducto(id);
+                        }
+                    });
+                }
+            }
+        } catch (err) {
+            console.error("Error al actualizar productos por bodega:", err);
+        }
+    }
+
+    window.aplicarFiltroCategoria = async function() {
         const catSelect = document.getElementById('filtro_categoria');
         if (!catSelect) return;
         const idCategoria = catSelect.value;
         const nombreCategoria = catSelect.options[catSelect.selectedIndex]?.text || 'Categoría';
+        const idBodega = document.getElementById('id_bodega')?.value || '';
 
         filtroCategoriaActual = idCategoria;
+
+        try {
+            let url = `${RUTAS.porCategoria}${idCategoria}`;
+            if (idBodega && idBodega !== '0') {
+                url += `?id_bodega=${idBodega}`;
+            }
+            const response = await fetch(url, {
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                if (Array.isArray(data)) {
+                    productosBase = data;
+                }
+            }
+        } catch (err) {
+            console.error("Error al filtrar por categoría:", err);
+        }
+
         document.querySelectorAll('.producto-select').forEach(select => {
             llenarSelectProductos(select, select.value);
         });
@@ -1185,15 +1254,13 @@
         }
     };
 
-    window.limpiarFiltro = function() {
+    window.limpiarFiltro = async function() {
         const catSelect = document.getElementById('filtro_categoria');
         if (catSelect) catSelect.value = '0';
         const filtroInfo = document.getElementById('filtro-info');
         if (filtroInfo) filtroInfo.style.display = 'none';
         filtroCategoriaActual = '0';
-        document.querySelectorAll('.producto-select').forEach(select => {
-            llenarSelectProductos(select, select.value);
-        });
+        await actualizarProductosPorBodega();
     };
 
     window.agregarProducto = function() {
@@ -1292,11 +1359,17 @@
                     : 'bg-warning bg-opacity-10 text-warning-emphasis border-warning';
                 const iconClass = existenciasNum > 0 ? 'fas fa-check-circle' : 'fas fa-exclamation-triangle';
                 
+                const bodegaSelect = document.getElementById('id_bodega');
+                const nombreBodega = data.nombre_bodega || (bodegaSelect && bodegaSelect.value ? bodegaSelect.options[bodegaSelect.selectedIndex]?.text : null);
+                const textoBodega = (nombreBodega && bodegaSelect && bodegaSelect.value) 
+                    ? `en <strong>${nombreBodega}</strong>` 
+                    : `(total en todas las bodegas)`;
+
                 if (stockInfo) {
                     stockInfo.innerHTML = `
                         <div class="d-inline-flex align-items-center px-2 py-1 rounded border ${badgeClass}" style="font-size: 0.85rem;">
                             <i class="${iconClass} me-2"></i>
-                            <span>Stock actual en bodega: <strong>${existenciasNum.toLocaleString('es-NI')} ${simbolo}</strong></span>
+                            <span>Stock actual ${textoBodega}: <strong>${existenciasNum.toLocaleString('es-NI')} ${simbolo}</strong></span>
                         </div>`;
                 }
                 if (productoInfo) productoInfo.style.display = 'block';
@@ -1311,8 +1384,11 @@
 
     async function obtenerExistenciasActuales(idProducto) {
         try {
-            const idBodega = document.getElementById('id_bodega')?.value;
+            const idBodega = document.getElementById('id_bodega')?.value || '';
             let url = getRuta('existencias', idProducto);
+            if (idBodega && idBodega !== '0') {
+                url += `?id_bodega=${idBodega}`;
+            }
             const response = await fetch(url, {
                 method: 'GET',
                 headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
@@ -1767,19 +1843,16 @@
             body: formData,
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
-        .then(response => {
-            if (response.redirected) {
-                window.location.href = response.url;
-                return null;
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                mostrarAlerta('success', '✅ Éxito', data.message || 'Compra registrada correctamente');
+                setTimeout(() => {
+                    window.location.href = data.redirect_url || getRuta('listado');
+                }, 1300);
+            } else {
+                mostrarAlerta('danger', '❌ Error', data.error || 'Error al procesar la compra');
             }
-            return response.text();
-        })
-        .then(text => {
-            if (text === null) return;
-            mostrarAlerta('success', '✅ Éxito', 'Compra registrada correctamente');
-            setTimeout(() => {
-                window.location.href = getRuta('listado');
-            }, 1200);
         })
         .catch(error => {
             console.error('Error:', error);
@@ -1848,13 +1921,8 @@
         // Tipo de compra y bodega
         const selectBodega = document.getElementById('id_bodega');
         if (selectBodega) {
-            selectBodega.addEventListener('change', function () {
-                document.querySelectorAll('.product-card').forEach(tarjeta => {
-                    const id = tarjeta.id.replace('producto-card-', '');
-                    if (window.actualizarInfoProducto) {
-                        window.actualizarInfoProducto(id);
-                    }
-                });
+            selectBodega.addEventListener('change', async function () {
+                await actualizarProductosPorBodega();
             });
         }
 

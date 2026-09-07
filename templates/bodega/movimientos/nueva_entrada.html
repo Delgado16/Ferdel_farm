@@ -222,6 +222,43 @@ let productos = [];
 let contadorProductos = 0;
 let esTipoProduccion = false;
 
+function esCajillaProducto(prod) {
+    if (!prod) return false;
+    const um = String(prod.Unidad_Medida || prod.unidad_medida || '');
+    const desc = (prod.Descripcion || prod.descripcion || '').toLowerCase();
+    const umDesc = (prod.Unidad_Descripcion || prod.unidad_descripcion || '').toLowerCase();
+    const umAbr = (prod.Unidad_Abreviatura || prod.unidad_abreviatura || '').toLowerCase();
+    return um === '7' || umDesc.includes('cajilla') || umAbr === 'cji' || desc.includes('huevo') || desc.includes('cajilla');
+}
+
+function formatearCantidadCajillas(cantidad, esCajilla) {
+    const cant = parseFloat(cantidad) || 0;
+    if (!esCajilla) {
+        return Number.isInteger(cant) ? cant.toString() : cant.toFixed(2);
+    }
+    const cajillas = Math.floor(Math.abs(cant));
+    const sueltos = Math.round((Math.abs(cant) % 1) * 30);
+    
+    if (cajillas > 0 && sueltos > 0) {
+        return `${cajillas} cj y ${sueltos} ud`;
+    } else if (cajillas > 0) {
+        return `${cajillas} cj`;
+    } else if (sueltos > 0) {
+        return `${sueltos} ud`;
+    } else {
+        return '0 cj';
+    }
+}
+
+function getStockProductoParaBodega(prod, idBodega) {
+    if (!idBodega) return prod.Existencias_Totales !== undefined ? prod.Existencias_Totales : '0';
+    if (prod.stock_bodegas && Array.isArray(prod.stock_bodegas)) {
+        const sb = prod.stock_bodegas.find(s => String(s.ID_Bodega) === String(idBodega));
+        if (sb && sb.Existencias !== undefined) return sb.Existencias;
+    }
+    return 0;
+}
+
 function escapeHtml(text) {
     if (!text) return '';
     const div = document.createElement('div');
@@ -313,6 +350,9 @@ function configurarColumnasPorTipo() {
 function agregarProducto(producto = null) {
     const tbody = document.getElementById('productos-tbody');
     const index = contadorProductos++;
+    const idBodega = document.getElementById('select-bodega')?.value;
+    const bodegaSelect = document.getElementById('select-bodega');
+    const nombreBodega = (bodegaSelect && bodegaSelect.value) ? bodegaSelect.options[bodegaSelect.selectedIndex]?.text : null;
     
     const fila = document.createElement('tr');
     fila.id = `producto-${index}`;
@@ -321,8 +361,9 @@ function agregarProducto(producto = null) {
     if (producto) {
         const codigo = producto.COD_Producto || 'Sin código';
         const categoria = producto.Categoria_Descripcion || '';
-        const existencias = producto.Existencias_Totales || '0';
-        const esCajilla = parseInt(producto.Unidad_Medida) === 7;
+        const esCajilla = esCajillaProducto(producto);
+        const existencias = getStockProductoParaBodega(producto, idBodega);
+        const existenciasFormateadas = formatearCantidadCajillas(existencias, esCajilla);
         
         let cantidadHTML = '';
         if (esCajilla) {
@@ -372,7 +413,7 @@ function agregarProducto(producto = null) {
             </td>
             <td class="subtotal-cell celda-subtotal text-end align-middle fw-semibold text-slate-800">C$0.00</td>
             <td class="text-center">
-                <span class="badge bg-light text-dark border stock-badge-premium">${existencias}</span>
+                <span class="badge bg-light text-dark border stock-badge-premium" title="${nombreBodega ? 'Stock en ' + nombreBodega : 'Stock total'}">${existenciasFormateadas}</span>
             </td>
             <td class="text-center">
                 <button type="button" class="btn btn-outline-danger btn-sm rounded-3" 
@@ -385,12 +426,16 @@ function agregarProducto(producto = null) {
         let options = '<option value="">-- Buscar producto --</option>';
         for (let prod of productosDisponibles) {
             const codigo = prod.COD_Producto || 'Sin código';
+            const isCaj = esCajillaProducto(prod);
+            const st = getStockProductoParaBodega(prod, idBodega);
+            const stFormateado = formatearCantidadCajillas(st, isCaj);
+            const stockLabel = nombreBodega ? ` | Stock (${nombreBodega}): ${stFormateado}` : ` | Stock: ${stFormateado}`;
             options += `<option value="${prod.ID_Producto}" 
                                 data-codigo="${escapeHtml(codigo)}"
                                 data-descripcion="${escapeHtml(prod.Descripcion)}"
                                 data-unidad="${prod.Unidad_Medida}"
-                                data-stock="${prod.Existencias_Totales || '0'}">
-                            ${escapeHtml(prod.Descripcion)} (${escapeHtml(codigo)})
+                                data-stock="${stFormateado}">
+                            ${escapeHtml(prod.Descripcion)} (${escapeHtml(codigo)})${stockLabel}
                         </option>`;
         }
         
@@ -454,15 +499,21 @@ function seleccionarProductoDesdeLista(index, productoId) {
     const select = document.querySelector(`#producto-${index} .select-producto`);
     const option = select.selectedOptions[0];
     const fila = document.getElementById(`producto-${index}`);
+    const idBodega = document.getElementById('select-bodega')?.value;
     
     fila.querySelector('.id-producto').value = productoId;
     
+    const prod = productosDisponibles.find(p => String(p.ID_Producto) === String(productoId));
+    const esCajilla = prod ? esCajillaProducto(prod) : parseInt(option.dataset.unidad) === 7;
+    
     const stockBadge = fila.querySelector('.stock-badge-premium');
-    if (option.dataset.stock) {
+    if (prod) {
+        const existencias = getStockProductoParaBodega(prod, idBodega);
+        stockBadge.textContent = formatearCantidadCajillas(existencias, esCajilla);
+    } else if (option.dataset.stock) {
         stockBadge.textContent = option.dataset.stock;
     }
     
-    const esCajilla = parseInt(option.dataset.unidad) === 7;
     const celdaCantidad = fila.cells[1];
     if (esCajilla) {
         celdaCantidad.innerHTML = `
@@ -542,6 +593,11 @@ function eliminarProducto(index) {
             document.getElementById('productos-container').style.display = 'none';
             document.getElementById('alerta-productos').style.display = 'block';
         }
+        
+        // Si hay una búsqueda activa, refrescar los estados visuales sin reiniciar la búsqueda
+        if (document.getElementById('buscar-producto')?.value.trim()) {
+            buscarProductos();
+        }
     }
 }
 
@@ -550,19 +606,48 @@ function actualizarResumen() {
     let unidades = 0;
     let cantidadProductos = 0;
     let totalCostoUnitario = 0;
+    let tieneCajillas = false;
+    let totalCajillas = 0;
+    let totalSueltos = 0;
     
     document.querySelectorAll('#productos-tbody tr').forEach(fila => {
-        const cantidad = parseFloat(fila.querySelector('.cantidad').value) || 0;
+        const cantidad = parseFloat(fila.querySelector('.cantidad')?.value) || 0;
         const costo = esTipoProduccion ? 0 : (parseFloat(fila.querySelector('.costo')?.value) || 0);
+        const idProd = fila.querySelector('.id-producto')?.value;
+        const prod = productosDisponibles.find(p => String(p.ID_Producto) === String(idProd));
+        const esCaj = prod ? esCajillaProducto(prod) : fila.querySelector('.input-cajillas') !== null;
         
-        unidades += cantidad;
+        if (esCaj) {
+            tieneCajillas = true;
+            const cj = Math.floor(Math.abs(cantidad));
+            const ud = Math.round((Math.abs(cantidad) % 1) * 30);
+            totalCajillas += cj;
+            totalSueltos += ud;
+        } else {
+            unidades += cantidad;
+        }
+        
         totalCosto += cantidad * costo;
         totalCostoUnitario += costo;
         cantidadProductos++;
     });
     
+    if (totalSueltos >= 30) {
+        totalCajillas += Math.floor(totalSueltos / 30);
+        totalSueltos = totalSueltos % 30;
+    }
+    
+    let resumenUnidadesTexto = '';
+    if (tieneCajillas && unidades > 0) {
+        resumenUnidadesTexto = `${totalCajillas} cj${totalSueltos > 0 ? ` y ${totalSueltos} ud` : ''} + ${unidades.toFixed(2)} und`;
+    } else if (tieneCajillas) {
+        resumenUnidadesTexto = `${totalCajillas} cj${totalSueltos > 0 ? ` y ${totalSueltos} ud` : ''}`;
+    } else {
+        resumenUnidadesTexto = unidades.toFixed(3);
+    }
+    
     document.getElementById('resumen-cantidad').textContent = cantidadProductos;
-    document.getElementById('resumen-unidades').textContent = unidades.toFixed(3);
+    document.getElementById('resumen-unidades').textContent = resumenUnidadesTexto;
     
     if (!esTipoProduccion) {
         document.getElementById('resumen-total').textContent = `C$${totalCosto.toFixed(2)}`;
@@ -612,12 +697,18 @@ function habilitarBotonGuardar() {
 
 function buscarProductos() {
     const termino = document.getElementById('buscar-producto').value.trim();
+    const resultadosDiv = document.getElementById('resultados-productos');
+    
     if (!termino) {
-        alert('Ingrese un término de búsqueda');
+        resultadosDiv.innerHTML = `
+            <div class="text-center text-muted py-4">
+                <i class="fas fa-search fa-2x mb-2 text-slate-300"></i>
+                <p class="small mb-0">Escriba el nombre o código para iniciar búsqueda</p>
+            </div>
+        `;
         return;
     }
     
-    const resultadosDiv = document.getElementById('resultados-productos');
     resultadosDiv.innerHTML = '';
     
     const productosFiltrados = productosDisponibles.filter(p => 
@@ -634,10 +725,23 @@ function buscarProductos() {
         return;
     }
     
+    const idBodega = document.getElementById('select-bodega')?.value;
+    const bodegaSelect = document.getElementById('select-bodega');
+    const nombreBodega = (bodegaSelect && bodegaSelect.value) ? bodegaSelect.options[bodegaSelect.selectedIndex]?.text : null;
+    
     productosFiltrados.forEach(producto => {
         const item = document.createElement('a');
         item.className = 'list-group-item list-group-item-action product-search-item p-2';
         item.href = '#';
+        
+        const yaEstaAgregado = Array.from(document.querySelectorAll('.id-producto'))
+            .some(input => input.value == producto.ID_Producto);
+            
+        if (yaEstaAgregado) {
+            item.classList.add('bg-light');
+            item.style.opacity = '0.7';
+        }
+        
         item.onclick = (e) => {
             e.preventDefault();
             const existente = Array.from(document.querySelectorAll('.id-producto'))
@@ -649,17 +753,30 @@ function buscarProductos() {
             }
             
             agregarProducto(producto);
-            document.getElementById('buscar-producto').value = '';
-            resultadosDiv.innerHTML = '<div class="text-center text-muted py-3"><i class="fas fa-check-circle text-success fa-2x mb-1"></i><br><small>Agregado</small></div>';
+            
+            // Mantener la búsqueda activa y marcar visualmente el ítem como agregado
+            item.classList.add('bg-light');
+            item.style.opacity = '0.7';
+            const badgeSpan = item.querySelector('.stock-badge-status');
+            if (badgeSpan) {
+                badgeSpan.className = 'badge bg-success text-white micro-text stock-badge-status';
+                badgeSpan.innerHTML = '<i class="fas fa-check me-1"></i> Agregado';
+            }
         };
         
+        const isCaj = esCajillaProducto(producto);
         const codigo = producto.COD_Producto || 'Sin código';
-        const existencias = producto.Existencias_Totales || '0';
+        const existencias = getStockProductoParaBodega(producto, idBodega);
+        const existenciasFormateadas = formatearCantidadCajillas(existencias, isCaj);
+        const stockLabel = yaEstaAgregado 
+            ? '<i class="fas fa-check me-1"></i> Agregado'
+            : (nombreBodega ? `Stock (${nombreBodega}): ${existenciasFormateadas}` : `Stock: ${existenciasFormateadas}`);
+        const badgeClass = yaEstaAgregado ? 'bg-success text-white' : 'bg-light text-dark';
         
         item.innerHTML = `
-            <div class="d-flex w-100 justify-content-between">
+            <div class="d-flex w-100 justify-content-between align-items-center">
                 <strong class="small text-slate-800">${escapeHtml(producto.Descripcion)}</strong>
-                <span class="badge bg-light text-dark border micro-text">Stock: ${existencias}</span>
+                <span class="badge ${badgeClass} border micro-text stock-badge-status">${stockLabel}</span>
             </div>
             <div class="micro-text text-muted font-monospace mt-1">Cód: ${escapeHtml(codigo)}</div>
         `;
@@ -722,8 +839,61 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    const selectBodega = document.getElementById('select-bodega');
+    if (selectBodega) {
+        selectBodega.addEventListener('change', function() {
+            const idBodega = this.value;
+            const nombreBodega = this.value ? this.options[this.selectedIndex]?.text : null;
+            
+            // Actualizar badges en la tabla
+            document.querySelectorAll('#productos-tbody tr').forEach(fila => {
+                const idInput = fila.querySelector('.id-producto');
+                if (idInput && idInput.value) {
+                    const prod = productosDisponibles.find(p => String(p.ID_Producto) === String(idInput.value));
+                    if (prod) {
+                        const isCaj = esCajillaProducto(prod);
+                        const stockBadge = fila.querySelector('.stock-badge-premium');
+                        if (stockBadge) {
+                            const st = getStockProductoParaBodega(prod, idBodega);
+                            stockBadge.textContent = formatearCantidadCajillas(st, isCaj);
+                            stockBadge.title = nombreBodega ? 'Stock en ' + nombreBodega : 'Stock total';
+                        }
+                    }
+                }
+            });
+            
+            // Actualizar opciones en selects manuales
+            document.querySelectorAll('.select-producto').forEach(select => {
+                const val = select.value;
+                let options = '<option value="">-- Buscar producto --</option>';
+                for (let prod of productosDisponibles) {
+                    const codigo = prod.COD_Producto || 'Sin código';
+                    const isCaj = esCajillaProducto(prod);
+                    const st = getStockProductoParaBodega(prod, idBodega);
+                    const stFormateado = formatearCantidadCajillas(st, isCaj);
+                    const stockLabel = nombreBodega ? ` | Stock (${nombreBodega}): ${stFormateado}` : ` | Stock: ${stFormateado}`;
+                    options += `<option value="${prod.ID_Producto}" 
+                                        data-codigo="${escapeHtml(codigo)}"
+                                        data-descripcion="${escapeHtml(prod.Descripcion)}"
+                                        data-unidad="${prod.Unidad_Medida}"
+                                        data-stock="${stFormateado}">
+                                    ${escapeHtml(prod.Descripcion)} (${escapeHtml(codigo)})${stockLabel}
+                                </option>`;
+                }
+                select.innerHTML = options;
+                if (val) select.value = val;
+            });
+            
+            // Si hay búsqueda activa, refrescar resultados
+            if (document.getElementById('buscar-producto').value.trim()) {
+                buscarProductos();
+            }
+        });
+    }
+    
     const buscarInput = document.getElementById('buscar-producto');
     if (buscarInput) {
+        buscarInput.addEventListener('input', buscarProductos);
         buscarInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 e.preventDefault();

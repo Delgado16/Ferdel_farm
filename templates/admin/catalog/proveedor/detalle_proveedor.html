@@ -478,6 +478,12 @@
                             <i class="bi bi-wallet2 text-warning"></i>
                             <span>Saldo Pendiente: <strong>C$ {{ "{:,.2f}".format(stats.saldo_total) }}</strong></span>
                         </span>
+                        {% if balance_cruzado %}
+                        <a href="{{ url_for('admin.admin_detalle_cliente', id=balance_cruzado.cliente.ID_Cliente) }}" class="hero-meta-item text-decoration-none" title="Ver Expediente de Cliente Vinculado">
+                            <i class="bi bi-arrow-left-right text-warning"></i>
+                            <span>Cliente Vinculado: <strong>{{ balance_cruzado.cliente.Nombre }}</strong></span>
+                        </a>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -595,6 +601,79 @@
             </div>
         </div>
     </div>
+
+    <!-- PANEL DE BALANCE CRUZADO (SI EXISTE CLIENTE VINCULADO) -->
+    {% if balance_cruzado %}
+    <div class="card-premium-section p-4 mb-4 border-start border-4 border-primary no-print" style="background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+            <div class="d-flex align-items-center gap-3">
+                <div class="p-3 bg-primary bg-opacity-10 text-primary rounded-3">
+                    <i class="bi bi-arrow-left-right fs-4"></i>
+                </div>
+                <div>
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <h5 class="fw-bold text-slate-900 mb-0">Balance Cruzado con Cliente Vinculado</h5>
+                        <span class="badge bg-{{ balance_cruzado.color_balance }} px-2.5 py-1 rounded-pill fw-bold">
+                            {{ balance_cruzado.estado_balance }}
+                        </span>
+                    </div>
+                    <small class="text-slate-600">
+                        Contraparte: <strong class="text-slate-900">{{ balance_cruzado.cliente.Nombre }}</strong> (ID #{{ balance_cruzado.cliente.ID_Cliente }})
+                        {% if balance_cruzado.cliente.RUC_CEDULA %}&bull; RUC/Cédula: <span class="font-monospace text-slate-800">{{ balance_cruzado.cliente.RUC_CEDULA }}</span>{% endif %}
+                    </small>
+                </div>
+            </div>
+            
+            <div class="d-flex flex-wrap gap-2">
+                {% if balance_cruzado.monto_compensable > 0 %}
+                <button type="button" class="btn btn-brand-primary btn-sm px-3 py-2 rounded-3 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
+                        data-bs-toggle="modal" data-bs-target="#modalCruceCuentasProveedor">
+                    <i class="bi bi-arrow-left-right"></i> <span>Aplicar Cruce de Cuentas</span>
+                </button>
+                {% endif %}
+                <a href="{{ url_for('admin.admin_detalle_cliente', id=balance_cruzado.cliente.ID_Cliente) }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3 fw-semibold d-inline-flex align-items-center gap-1.5">
+                    <i class="bi bi-box-arrow-up-right"></i> <span>Ver Cliente</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Métricas de Balance Cruzado -->
+        <div class="row g-3 pt-2">
+            <div class="col-md-3 col-sm-6">
+                <div class="p-3 bg-white rounded-3 border">
+                    <small class="text-slate-500 d-block fw-bold text-uppercase" style="font-size: 0.75rem;">1. Saldo a Pagar (CxP)</small>
+                    <div class="fs-5 fw-bold font-monospace text-warning mt-1">C$ {{ "{:,.2f}".format(balance_cruzado.saldo_cxp) }}</div>
+                    <small class="text-slate-600" style="font-size: 0.8rem;">Le debemos como Proveedor</small>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="p-3 bg-white rounded-3 border">
+                    <small class="text-slate-500 d-block fw-bold text-uppercase" style="font-size: 0.75rem;">2. Saldo a Cobrar (CxC)</small>
+                    <div class="fs-5 fw-bold font-monospace text-slate-900 mt-1">C$ {{ "{:,.2f}".format(balance_cruzado.saldo_cxc) }}</div>
+                    <small class="text-slate-600" style="font-size: 0.8rem;">Nos debe como Cliente</small>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="p-3 bg-white rounded-3 border">
+                    <small class="text-slate-500 d-block fw-bold text-uppercase" style="font-size: 0.75rem;">3. Saldo Neto Real</small>
+                    <div class="fs-5 fw-bold font-monospace text-{{ balance_cruzado.color_balance }} mt-1">C$ {{ "{:,.2f}".format(balance_cruzado.saldo_neto) }}</div>
+                    <small class="text-slate-600" style="font-size: 0.8rem;">
+                        {% if balance_cruzado.tipo_balance == 'FAVOR_PROVEEDOR' %}A favor del Proveedor
+                        {% elif balance_cruzado.tipo_balance == 'FAVOR_EMPRESA' %}A favor de FerDel
+                        {% else %}Saldos igualados{% endif %}
+                    </small>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="p-3 bg-white rounded-3 border {% if balance_cruzado.monto_compensable > 0 %}border-success bg-success bg-opacity-10{% endif %}">
+                    <small class="text-slate-500 d-block fw-bold text-uppercase" style="font-size: 0.75rem;">4. Monto Compensable</small>
+                    <div class="fs-5 fw-bold font-monospace text-success mt-1">C$ {{ "{:,.2f}".format(balance_cruzado.monto_compensable) }}</div>
+                    <small class="text-slate-600" style="font-size: 0.8rem;">Cruce disponible inmediato</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Navegación por Pestañas (Tabs) -->
     <ul class="nav custom-proveedor-tabs mb-4 no-print" id="proveedorTabs" role="tablist">
@@ -1474,6 +1553,77 @@
         </div>
     </div>
 </div>
+
+<!-- ======================================================== -->
+<!-- MODAL: CRUCE DE CUENTAS / COMPENSACIÓN DE SALDOS         -->
+<!-- ======================================================== -->
+{% if balance_cruzado and balance_cruzado.monto_compensable > 0 %}
+<div class="modal fade" id="modalCruceCuentasProveedor" tabindex="-1" aria-labelledby="modalCruceCuentasProveedorLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow-lg overflow-hidden">
+            <div class="modal-header text-white border-0 py-3 px-4" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, var(--primary-color, #2c5e2e) 100%);">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="p-2 bg-success text-white rounded-3">
+                        <i class="bi bi-arrow-left-right fs-5"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold text-white mb-0" id="modalCruceCuentasProveedorLabel">Cruce de Cuentas / Compensación</h5>
+                        <small class="text-slate-300">Proveedor ⇄ Cliente Vinculado</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin.admin_cruzar_cuentas_proveedor', id=proveedor.ID_Proveedor) }}">
+                <div class="modal-body p-4">
+                    <div class="alert alert-info bg-info bg-opacity-10 text-slate-800 border-info border-opacity-25 rounded-3 p-3 mb-3 small">
+                        <strong class="d-block mb-1 text-slate-900"><i class="bi bi-info-circle-fill text-info me-1"></i> ¿Cómo funciona el cruce?</strong>
+                        Al aplicar el cruce, el sistema amortizará automáticamente las facturas más antiguas (FIFO) en Cuentas por Pagar (lo que le debemos al proveedor) y Cuentas por Cobrar (lo que nos debe como cliente), sin generar salidas ni entradas de efectivo.
+                    </div>
+
+                    <div class="p-3 bg-light rounded-3 border mb-3 small">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-slate-600">Proveedor (CxP adeudada):</span>
+                            <span class="fw-bold font-monospace text-warning">C$ {{ "{:,.2f}".format(balance_cruzado.saldo_cxp) }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-slate-600">Cliente (CxC pendiente):</span>
+                            <span class="fw-bold font-monospace text-slate-900">C$ {{ "{:,.2f}".format(balance_cruzado.saldo_cxc) }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between border-top pt-1 mt-1">
+                            <span class="fw-bold text-slate-800">Máximo Compensable:</span>
+                            <span class="fw-bold font-monospace text-success fs-6">C$ {{ "{:,.2f}".format(balance_cruzado.monto_compensable) }}</span>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="monto_cruce_proveedor" class="form-label-premium">Monto a Compensar / Cruzar (C$) <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-success bg-opacity-10 text-success fw-bold">C$</span>
+                            <input type="number" name="monto_cruce" id="monto_cruce_proveedor" class="form-control form-control-premium font-monospace fs-5 fw-bold"
+                                   step="0.01" min="0.01" max="{{ balance_cruzado.monto_compensable }}"
+                                   value="{{ '%.2f'|format(balance_cruzado.monto_compensable) }}" required>
+                        </div>
+                        <div class="form-text small text-slate-500">Monto máximo permitido: C$ {{ "{:,.2f}".format(balance_cruzado.monto_compensable) }}</div>
+                    </div>
+
+                    <div class="mb-2">
+                        <label for="observacion_cruce_proveedor" class="form-label-premium">Observaciones / Motivo Contable</label>
+                        <textarea name="observacion" id="observacion_cruce_proveedor" class="form-control form-control-premium" rows="2"
+                                  placeholder="Ej: Compensación mutua acordada por facturas recíprocas"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-0 py-3 px-4">
+                    <button type="button" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-brand-primary btn-sm px-4 py-2 rounded-3 fw-bold">
+                        <i class="bi bi-check-lg me-1"></i> Aplicar Cruce Contable
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 {% endblock %}
 
 {% block scripts %}

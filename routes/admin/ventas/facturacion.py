@@ -938,6 +938,20 @@ def admin_crear_venta():
                         id_factura,
                         id_usuario
                     ))
+                    
+                    try:
+                        from helpers.cruce_cuentas import procesar_compensacion_vinculada
+                        res_cruce = procesar_compensacion_vinculada(
+                            cursor,
+                            id_cliente=id_cliente,
+                            id_empresa=id_empresa,
+                            id_usuario=id_usuario,
+                            observacion=f"Compensación automática por Factura #{id_factura}"
+                        )
+                        if res_cruce.get('success') and res_cruce.get('monto_compensado', 0) > 0:
+                            flash(f"ℹ️ {res_cruce.get('mensaje')}", "info")
+                    except Exception as e_cruce:
+                        logging.error(f"Error en auto-compensación cruce: {e_cruce}")
                 else:
                     # No hay crédito, solo actualizar última factura y saldo a favor
                     cursor.execute("""
@@ -4164,6 +4178,20 @@ def admin_confirmar_entrega(id_factura):
                             ID_Ultima_Factura = %s
                         WHERE ID_Cliente = %s
                     """, (nuevo_saldo_cliente, id_factura, factura['IDCliente']))
+                    
+                    try:
+                        from helpers.cruce_cuentas import procesar_compensacion_vinculada
+                        res_cruce = procesar_compensacion_vinculada(
+                            cursor,
+                            id_cliente=factura['IDCliente'],
+                            id_empresa=id_empresa,
+                            id_usuario=id_usuario,
+                            observacion=f"Compensación automática por Entrega Factura #{id_factura}"
+                        )
+                        if res_cruce.get('success') and res_cruce.get('monto_compensado', 0) > 0:
+                            flash(f"ℹ️ {res_cruce.get('mensaje')}", "info")
+                    except Exception as e_cruce:
+                        logging.error(f"Error en auto-compensación cruce: {e_cruce}")
                     
                 # Finalizar factura
                 metodos_pago_json = json.dumps(metodos_pago_list, ensure_ascii=False) if metodos_pago_list else None

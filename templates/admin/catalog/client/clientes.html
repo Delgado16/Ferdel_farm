@@ -3,40 +3,41 @@
 {% block title %}Gestión de Clientes - FerDel{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4 fade-in-up">
-    <!-- Encabezado con botones de volver y sucursal -->
-    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+<div class="container-fluid py-4 fade-in">
+    <!-- Encabezado de Página -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <div>
-            <h3 class="fw-bold text-slate-800 mb-1">
-                <i class="fas fa-users text-primary me-2"></i>Gestión de Clientes
+            <h3 class="fw-bold mb-1" style="color: #0f172a;">
+                <i class="bi bi-people-fill text-success me-2"></i>Gestión de Clientes
             </h3>
-            <p class="text-muted small mb-0">Administración de la cartera de clientes, rutas de entrega, límites de crédito y anticipos</p>
+            <p class="text-secondary fw-medium small mb-0">Administración de la cartera de clientes, rutas de entrega y anticipos</p>
         </div>
-        <div>
-            <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
-                <i class="fas fa-arrow-left me-1"></i> Volver al Dashboard
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline-secondary btn-sm d-flex align-items-center fw-semibold text-dark border-secondary">
+                <i class="bi bi-arrow-left me-1"></i> Volver al Dashboard
             </a>
         </div>
     </div>
 
-    <!-- Botones de Acción Superior -->
+    <!-- Barra de Acciones y Filtros -->
     <div class="d-flex flex-wrap gap-2 mb-3">
-        <button class="btn btn-outline-primary rounded-3 px-3 py-2" data-bs-toggle="modal" data-bs-target="#crearClienteModal">
-            <i class="fas fa-plus-circle me-1"></i> Agregar Nuevo Cliente
+        <button class="btn btn-primary btn-sm d-flex align-items-center fw-bold px-3 py-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#crearClienteModal" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); border: none;">
+            <i class="bi bi-person-plus-fill me-1.5 fs-6"></i> Agregar Nuevo Cliente
         </button>
-        <a href="{{ url_for('admin.admin_sucursales_clientes') }}" class="btn btn-outline-info rounded-3 px-3 py-2">
-            <i class="fas fa-store me-1"></i> Gestionar Sucursales
+        <a href="{{ url_for('admin.admin_sucursales_clientes') }}" class="btn btn-outline-dark btn-sm d-flex align-items-center fw-semibold px-3 py-2">
+            <i class="bi bi-shop me-1.5"></i> Gestionar Sucursales
         </a>
     </div>
 
-    <!-- Filtro por sucursal y buscador -->
-    <div class="card-premium-section mb-4">
-        <div class="card-body p-4">
-            <form method="get" class="mb-0">
-                <div class="row g-3">
-                    <div class="col-md-3">
-                        <label for="filtroRuta" class="form-label-premium fw-bold mb-1">Filtrar por Ruta</label>
-                        <select name="ruta" class="form-select form-select-premium" id="filtroRuta">
+    <!-- Filtro por ruta y buscador -->
+    <div class="card-form mb-4 p-3 shadow-sm border" style="background-color: #ffffff; border-color: #cbd5e1 !important;">
+        <form method="get" class="mb-0">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label for="filtroRuta" class="form-label fw-bold text-dark mb-1">Filtrar por Ruta</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light text-dark"><i class="bi bi-geo-alt-fill text-success"></i></span>
+                        <select name="ruta" class="form-select text-dark fw-semibold" id="filtroRuta">
                             <option value="">Todas las rutas</option>
                             {% if rutas %}
                                 {% for r_item in rutas %}
@@ -47,174 +48,201 @@
                             {% endif %}
                         </select>
                     </div>
-                    <div class="col-md-3">
-                        <label for="filtroSucursal" class="form-label-premium fw-bold mb-1">Filtrar por Sucursal</label>
-                        <select name="sucursal" class="form-select form-select-premium" id="filtroSucursal">
-                            <option value="">Todas las sucursales</option>
-                            {% if sucursales %}
-                                {% for sucursal in sucursales %}
-                                <option value="{{ sucursal.ID_Sucursal }}" {% if sucursal_seleccionada == sucursal.ID_Sucursal|string %}selected{% endif %}>
-                                    {{ sucursal.Nombre_Sucursal }}
-                                </option>
-                                {% endfor %}
-                            {% endif %}
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label for="buscador" class="form-label-premium fw-bold mb-1">Buscar Cliente</label>
-                        <input type="text" id="buscador" name="q" class="form-control form-control-premium" placeholder="Buscar por nombre, RUC/Cédula..." 
+                </div>
+                <div class="col-md-5">
+                    <label for="buscador" class="form-label fw-bold text-dark mb-1">Buscar Cliente</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light text-dark"><i class="bi bi-search text-primary"></i></span>
+                        <input type="text" id="buscador" name="q" class="form-control text-dark fw-semibold" placeholder="Buscar por nombre o teléfono..." 
                                value="{{ search }}">
                     </div>
-                    <div class="col-md-3 d-flex align-items-end">
-                        <div class="d-flex w-100 gap-2">
-                            <button class="btn btn-outline-primary w-100 py-2 rounded-3" type="submit">
-                                <i class="fas fa-search me-1"></i> Buscar
-                            </button>
-                            {% if search or sucursal_seleccionada or ruta_seleccionada %}
-                            <a href="{{ url_for('admin.admin_clientes') }}" class="btn btn-outline-secondary w-100 py-2 rounded-3">
-                                <i class="fas fa-sync-alt me-1"></i> Limpiar
-                            </a>
-                            {% endif %}
-                        </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="d-flex w-100 gap-2">
+                        <button class="btn btn-success w-100 d-flex align-items-center justify-content-center fw-bold shadow-sm" type="submit" style="background-color: var(--primary-color); border-color: var(--primary-color);">
+                            <i class="bi bi-search me-1.5"></i> Buscar
+                        </button>
+                        {% if search or ruta_seleccionada %}
+                        <a href="{{ url_for('admin.admin_clientes') }}" class="btn btn-outline-secondary d-flex align-items-center justify-content-center px-3 fw-bold" title="Limpiar filtros">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </a>
+                        {% endif %}
                     </div>
                 </div>
-            </form>
-        </div>
+            </div>
+        </form>
     </div>
 
-    <!-- Información de resultados -->
-    {% if search or sucursal_seleccionada or ruta_seleccionada %}
-    <div class="alert alert-info bg-info bg-opacity-10 text-info border border-info border-opacity-20 py-2.5 px-3 small rounded-3 mb-3 d-flex align-items-center">
-        <i class="fas fa-info-circle me-2"></i>
-        <div>
-            <strong>{{ total }}</strong> cliente(s) encontrado(s)
-            {% if search %}para "<strong>{{ search }}</strong>"{% endif %}
+    <!-- Resumen de resultados si hay filtro -->
+    {% if search or ruta_seleccionada %}
+    <div class="alert alert-info py-2.5 px-3 rounded-3 mb-3 d-flex align-items-center border" style="background-color: #e0f2fe; border-color: #7dd3fc !important; color: #0369a1;">
+        <i class="bi bi-info-circle-fill me-2 fs-5"></i>
+        <div class="fw-semibold">
+            <strong class="text-dark">{{ total }}</strong> cliente(s) encontrado(s)
+            {% if search %}para "<strong class="text-dark">{{ search }}</strong>"{% endif %}
             {% if ruta_seleccionada %}en la ruta seleccionada{% endif %}
-            {% if sucursal_seleccionada %}en la sucursal seleccionada{% endif %}
         </div>
     </div>
     {% endif %}
 
     <!-- Tabla de clientes -->
     {% if clientes %}
-    <div class="card-premium-section mb-4">
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover table-modern align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>ID</th>
-                            <th>Nombre</th>
-                            <th>RUC/Cédula</th>
-                            <th>Teléfono</th>
-                            <th>Dirección</th>
-                            <th>Sucursal</th>
-                            <th>Ruta</th>
-                            <th>Tipo Cliente</th>
-                            <th>Saldo Pendiente</th>
-                            <th>Anticipo Activo</th>
-                            <th>Estado</th>
-                            <th class="text-center">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for cliente in clientes %}
-                        <tr>
-                            <td class="fw-bold"><span class="badge bg-light text-dark border">#{{ cliente.ID_Cliente }}</span></td>
-                            <td>
-                                <strong class="text-slate-800">{{ cliente.Nombre }}</strong>
-                            </td>
-                            <td class="font-monospace small text-slate-800">{{ cliente.RUC_CEDULA or '-' }}</td>
-                            <td>
-                                {% if cliente.Telefono %}
-                                    <a href="tel:{{ cliente.Telefono }}" class="text-decoration-none fw-bold text-primary">
-                                        <i class="fas fa-phone-alt me-1 text-secondary"></i> {{ cliente.Telefono }}
-                                    </a>
+    <div class="table-container shadow-sm mb-4 border" style="border-color: #cbd5e1 !important; border-radius: 12px; overflow: hidden;">
+        <table class="table table-hover align-middle mb-0">
+            <thead style="background-color: #f1f5f9; border-bottom: 2px solid #cbd5e1;">
+                <tr>
+                    <th class="ps-3 text-dark fw-bold" style="width: 80px;">ID</th>
+                    <th class="text-dark fw-bold">Nombre</th>
+                    <th class="text-dark fw-bold">Teléfono</th>
+                    <th class="text-dark fw-bold">Ruta</th>
+                    <th class="text-dark fw-bold">Tipo / Perfil</th>
+                    <th class="text-dark fw-bold">Saldo Pendiente</th>
+                    <th class="text-dark fw-bold">Anticipo Activo</th>
+                    <th class="text-dark fw-bold">Estado</th>
+                    <th class="text-center pe-3 text-dark fw-bold" style="width: 170px;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cliente in clientes %}
+                <tr>
+                    <td class="ps-3">
+                        <span class="badge px-2 py-1" style="background-color: #0f172a; color: #ffffff; font-weight: 700; font-size: 0.8rem;">#{{ cliente.ID_Cliente }}</span>
+                    </td>
+                    <td>
+                        <strong style="color: #0f172a; font-size: 0.95rem;">{{ cliente.Nombre }}</strong>
+                    </td>
+                    <td>
+                        {% if cliente.Telefono %}
+                            <a href="tel:{{ cliente.Telefono }}" class="text-decoration-none fw-bold" style="color: #047857;">
+                                <i class="bi bi-telephone-fill me-1" style="color: #059669;"></i>{{ cliente.Telefono }}
+                            </a>
+                        {% else %}
+                            <span class="text-muted fw-semibold">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if cliente.Nombre_Ruta %}
+                        <span class="badge rounded-pill px-2.5 py-1.5" style="background-color: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; font-weight: 700; font-size: 0.8rem;">
+                            <i class="bi bi-geo-alt-fill me-1" style="color: #059669;"></i>{{ cliente.Nombre_Ruta }}
+                        </span>
+                        {% else %}
+                        <span class="badge rounded-pill px-2 py-1" style="background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; font-weight: 600;">Sin ruta</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="d-flex flex-column gap-1">
+                            <div>
+                                {% if cliente.tipo_cliente == 'Especial' %}
+                                <span class="badge rounded-pill px-2 py-1" style="background-color: #fffbeb; color: #92400e; border: 1px solid #fde68a; font-weight: 700;">Especial</span>
                                 {% else %}
-                                    <span class="text-muted">-</span>
+                                <span class="badge rounded-pill px-2 py-1" style="background-color: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; font-weight: 700;">Común</span>
                                 {% endif %}
-                            </td>
-                            <td class="text-slate-800 small">{{ cliente.Direccion or '-' }}</td>
-                            <td>
-                                {% if cliente.Nombre_Sucursal %}
-                                <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">{{ cliente.Nombre_Sucursal }}</span>
-                                {% else %}
-                                <span class="text-muted small">-</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if cliente.Nombre_Ruta %}
-                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">{{ cliente.Nombre_Ruta }}</span>
-                                {% else %}
-                                <span class="text-muted small">-</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if cliente.tipo_cliente == 'DISTRIBUIDOR' %}
-                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">Distribuidor</span>
-                                {% elif cliente.tipo_cliente == 'MINORISTA' %}
-                                <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">Minorista</span>
-                                {% else %}
-                                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">{{ cliente.tipo_cliente or 'N/A' }}</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% set saldo = cliente.Saldo_Pendiente_Total|float %}
-                                <span class="fw-bold font-monospace {% if saldo > 0 %}text-danger{% elif saldo < 0 %}text-success{% else %}text-muted{% endif %}">
-                                    C$ {{ "{:,.2f}".format(saldo) }}
+                            </div>
+                            {% if cliente.perfil_cliente %}
+                            <span class="small fw-bold" style="color: #475569;"><i class="bi bi-tag-fill me-1 text-secondary"></i>{{ cliente.perfil_cliente }}</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td>
+                        {% set saldo = cliente.Saldo_Pendiente_Total|float %}
+                        {% if saldo > 0 %}
+                        <span class="fw-bold font-monospace" style="color: #b91c1c; font-size: 0.95rem;">
+                            C$ {{ "{:,.2f}".format(saldo) }}
+                        </span>
+                        {% elif saldo < 0 %}
+                        <span class="fw-bold font-monospace" style="color: #15803d; font-size: 0.95rem;">
+                            C$ {{ "{:,.2f}".format(saldo) }}
+                        </span>
+                        {% else %}
+                        <span class="fw-semibold font-monospace" style="color: #475569; font-size: 0.95rem;">
+                            C$ 0.00
+                        </span>
+                        {% endif %}
+
+                        {% if cliente.ID_Proveedor_Vinculado %}
+                        {% set saldo_pv = (cliente.Saldo_Proveedor_Vinculado or 0)|float %}
+                        {% set neto = saldo - saldo_pv %}
+                        <div class="mt-1 pt-1 border-top" style="border-color: #e2e8f0 !important;">
+                            <div class="d-flex align-items-center gap-1 mb-1">
+                                <span class="badge" style="background-color: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; font-size: 0.72rem; font-weight: 700;">
+                                    <i class="bi bi-arrow-left-right me-1"></i>Prov: {{ cliente.Nombre_Proveedor_Vinculado }}
                                 </span>
-                            </td>
-                            <td>
-                                {% if cliente.Anticipo_Activo %}
-                                <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">
-                                    Activo ({{ cliente.Cajas_Consumidas_Anticipo }}/{{ cliente.Limite_Anticipo_Cajas }})
-                                </span>
+                            </div>
+                            <div class="small" style="font-size: 0.76rem;">
+                                <span class="text-secondary">Neto:</span>
+                                {% if neto > 0.01 %}
+                                <strong style="color: #b91c1c;">C$ {{ "{:,.2f}".format(neto) }} (a cobrar)</strong>
+                                {% elif neto < -0.01 %}
+                                <strong style="color: #047857;">C$ {{ "{:,.2f}".format(neto|abs) }} (a pagar)</strong>
                                 {% else %}
-                                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">Inactivo</span>
+                                <strong style="color: #1e40af;">C$ 0.00 (Saldado)</strong>
                                 {% endif %}
-                            </td>
-                            <td>
-                                <span class="badge {% if cliente.Estado == 'ACTIVO' %}bg-success bg-opacity-10 text-success border border-success border-opacity-25{% else %}bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25{% endif %} rounded-pill px-2.5 py-1.5 fw-bold">
-                                    {{ cliente.Estado }}
-                                </span>
-                            </td>
-                            <td class="text-center">
-                                <div class="d-flex justify-content-center gap-1">
-                                    <a href="{{ url_for('admin.admin_detalle_cliente', id=cliente.ID_Cliente) }}"
-                                       class="btn btn-sm btn-outline-primary rounded-3" title="Ver detalles">
-                                        <i class="fas fa-eye me-1"></i> Detalles
-                                    </a>
-                                    <a href="{{ url_for('admin.admin_editar_cliente', id=cliente.ID_Cliente) }}"
-                                       class="btn btn-sm btn-outline-secondary rounded-3" title="Editar">
-                                        <i class="fas fa-edit me-1"></i> Editar
-                                    </a>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if cliente.Anticipo_Activo %}
+                        <span class="badge rounded-pill px-2.5 py-1.5" style="background-color: #fef3c7; color: #78350f; border: 1px solid #fcd34d; font-weight: 700;">
+                            <i class="bi bi-gift-fill me-1 text-warning"></i>Activo ({{ cliente.Cajas_Consumidas_Anticipo or 0 }}/{{ cliente.Limite_Anticipo_Cajas or 0 }})
+                        </span>
+                        {% if cliente.Nombre_Producto_Anticipado %}
+                        <div class="fw-bold small mt-1 text-truncate" style="color: #1e293b; max-width: 150px;" title="{{ cliente.Nombre_Producto_Anticipado }}">
+                            {{ cliente.Nombre_Producto_Anticipado }}
+                        </div>
+                        {% endif %}
+                        {% else %}
+                        <span class="badge rounded-pill px-2.5 py-1" style="background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; font-weight: 600;">Inactivo</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if cliente.Estado == 'ACTIVO' %}
+                        <span class="badge rounded-pill px-2.5 py-1.5" style="background-color: #dcfce7; color: #14532d; border: 1px solid #86efac; font-weight: 700; font-size: 0.8rem;">
+                            <i class="bi bi-check-circle-fill me-1"></i>ACTIVO
+                        </span>
+                        {% else %}
+                        <span class="badge rounded-pill px-2.5 py-1.5" style="background-color: #fee2e2; color: #7f1d1d; border: 1px solid #fca5a5; font-weight: 700; font-size: 0.8rem;">
+                            <i class="bi bi-x-circle-fill me-1"></i>INACTIVO
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center pe-3">
+                        <div class="btn-group btn-group-sm" role="group">
+                            <a href="{{ url_for('admin.admin_detalle_cliente', id=cliente.ID_Cliente) }}"
+                               class="btn btn-outline-primary fw-semibold px-2 py-1" title="Ver detalles" style="border-color: #3b82f6; color: #1d4ed8;">
+                                <i class="bi bi-eye-fill me-1"></i>Ver
+                            </a>
+                            <a href="{{ url_for('admin.admin_editar_cliente', id=cliente.ID_Cliente) }}"
+                               class="btn btn-outline-secondary fw-semibold px-2 py-1" title="Editar" style="border-color: #64748b; color: #1e293b;">
+                                <i class="bi bi-pencil-square me-1"></i>Editar
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
     {% else %}
-    <div class="alert alert-warning bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20 rounded-3">
-        <i class="fas fa-exclamation-triangle me-2"></i>
-        {% if search %}
-        No se encontraron clientes para "<strong>{{ search }}</strong>".
-        {% else %}
-        No se encontraron clientes en el sistema.
-        {% endif %}
+    <div class="alert alert-warning d-flex align-items-center rounded-3 border" style="background-color: #fffbeb; border-color: #fde68a !important; color: #92400e;">
+        <i class="bi bi-exclamation-triangle-fill me-2 fs-5 text-warning"></i>
+        <div class="fw-semibold">
+            {% if search %}
+            No se encontraron clientes para "<strong class="text-dark">{{ search }}</strong>".
+            {% else %}
+            No se encontraron clientes en el sistema.
+            {% endif %}
+        </div>
     </div>
     {% endif %}
 
     <!-- Paginación -->
     {% if total > per_page %}
-    <nav aria-label="Page navigation" class="mt-4">
+    <nav aria-label="Paginación de clientes" class="mt-4">
         <ul class="pagination justify-content-center">
             {% if page > 1 %}
             <li class="page-item">
-                <a class="page-link rounded-3 border-0 bg-light text-slate-800 px-3 py-2 mx-1" href="{{ url_for('admin.admin_clientes', page=page-1, q=search, sucursal=sucursal_seleccionada, ruta=ruta_seleccionada) }}" aria-label="Previous">
+                <a class="page-link rounded-3 border bg-light text-dark fw-bold px-3 py-2 mx-1" href="{{ url_for('admin.admin_clientes', page=page-1, q=search, ruta=ruta_seleccionada) }}" aria-label="Anterior">
                     <span aria-hidden="true">&laquo;</span>
                 </a>
             </li>
@@ -223,89 +251,80 @@
             {% for p in range(1, total_pages + 1) %}
                 {% if p >= page - 2 and p <= page + 2 %}
                 <li class="page-item">
-                    <a class="page-link rounded-3 border-0 px-3 py-2 mx-1 {% if p == page %}bg-primary text-whitefw-bold{% else %}bg-light text-slate-800{% endif %}" href="{{ url_for('admin.admin_clientes', page=p, q=search, sucursal=sucursal_seleccionada, ruta=ruta_seleccionada) }}">{{ p }}</a>
+                    <a class="page-link rounded-3 border px-3 py-2 mx-1 fw-bold {% if p == page %}bg-success text-white border-success{% else %}bg-light text-dark{% endif %}" href="{{ url_for('admin.admin_clientes', page=p, q=search, ruta=ruta_seleccionada) }}">{{ p }}</a>
                 </li>
                 {% endif %}
             {% endfor %}
             
             {% if page < total_pages %}
             <li class="page-item">
-                <a class="page-link rounded-3 border-0 bg-light text-slate-800 px-3 py-2 mx-1" href="{{ url_for('admin.admin_clientes', page=page+1, q=search, sucursal=sucursal_seleccionada, ruta=ruta_seleccionada) }}" aria-label="Next">
+                <a class="page-link rounded-3 border bg-light text-dark fw-bold px-3 py-2 mx-1" href="{{ url_for('admin.admin_clientes', page=page+1, q=search, ruta=ruta_seleccionada) }}" aria-label="Siguiente">
                     <span aria-hidden="true">&raquo;</span>
                 </a>
             </li>
             {% endif %}
         </ul>
-        <div class="text-center text-muted small mt-2">
+        <div class="text-center text-secondary fw-semibold small mt-2">
             Página {{ page }} de {{ total_pages }} - Total: {{ total }} cliente(s)
         </div>
     </nav>
     {% endif %}
 </div>
 
-<!-- Modal para crear cliente -->
+<!-- Modal para crear cliente adaptado a layout.html -->
 <div class="modal fade" id="crearClienteModal" tabindex="-1" aria-labelledby="crearClienteModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
-            <div class="modal-header text-white border-0 py-3 px-4" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, var(--primary-color) 100%);">
-                <div class="d-flex align-items-center gap-2.5">
-                    <div class="p-2 bg-success bg-opacity-25 text-white rounded-3">
-                        <i class="bi bi-person-plus-fill fa-lg"></i>
+            <!-- Modal Header con gradiente de marca -->
+            <div class="modal-header text-white border-0 py-3 px-4" style="background: linear-gradient(135deg, var(--sidebar-bg, #0f172a) 0%, var(--primary-color, #2c5e2e) 100%);">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="user-avatar" style="background: rgba(255,255,255,0.25);">
+                        <i class="bi bi-person-plus-fill fs-5"></i>
                     </div>
                     <div>
                         <h5 class="modal-title fw-bold text-white mb-0" id="crearClienteModalLabel">
                             Agregar Nuevo Cliente
                         </h5>
-                        <small class="text-slate-300">Complete los datos del expediente comercial</small>
+                        <small class="text-white" style="opacity: 0.85;">Registro de datos generales y comerciales</small>
                     </div>
                 </div>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             
             <form method="POST" action="{{ url_for('admin.admin_crear_cliente') }}" id="crearClienteForm" novalidate>
                 <div class="modal-body p-4">
                     
-                    <!-- Bloque 1: Identificación y Contacto -->
-                    <div class="mb-4">
-                        <div class="d-flex align-items-center mb-3 pb-2 border-bottom">
-                            <i class="bi bi-person-lines-fill text-primary me-2"></i>
-                            <h6 class="fw-bold text-slate-800 mb-0">Identificación y Contacto</h6>
+                    <!-- Sección 1: Datos Generales -->
+                    <div class="form-section mb-4">
+                        <div class="section-title">
+                            <i class="bi bi-person-vcard me-2"></i>Información Principal
                         </div>
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label for="nombre" class="form-label-premium fw-bold mb-1 small text-uppercase">Nombre Completo <span class="text-danger">*</span></label>
+                                <label for="nombre" class="form-label">Nombre Completo <span class="text-danger">*</span></label>
                                 <div class="input-group">
-                                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-person text-muted"></i></span>
-                                    <input type="text" class="form-control form-control-premium" id="nombre" name="nombre" 
+                                    <span class="input-group-text"><i class="bi bi-person"></i></span>
+                                    <input type="text" class="form-control" id="nombre" name="nombre" 
                                            required minlength="2" maxlength="255"
                                            placeholder="Nombre o Razón Social">
                                 </div>
+                                <div class="invalid-feedback">Ingrese un nombre válido (mínimo 2 caracteres).</div>
                             </div>
                             <div class="col-md-6">
-                                <label for="ruc_cedula" class="form-label-premium fw-bold mb-1 small text-uppercase">RUC / Cédula</label>
+                                <label for="telefono" class="form-label">Teléfono de Contacto <span class="text-danger">*</span></label>
                                 <div class="input-group">
-                                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-card-heading text-muted"></i></span>
-                                    <input type="text" class="form-control form-control-premium font-monospace" id="ruc_cedula" name="ruc_cedula" 
-                                           maxlength="20"
-                                           placeholder="Ej: 401-160503-1006T">
-                                </div>
-                                <div class="form-text small text-muted">Opcional. Debe incluir al menos una letra.</div>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="telefono" class="form-label-premium fw-bold mb-1 small text-uppercase">Teléfono de Contacto <span class="text-danger">*</span></label>
-                                <div class="input-group">
-                                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-telephone text-muted"></i></span>
-                                    <input type="tel" name="telefono" id="telefono" class="form-control form-control-premium" 
+                                    <span class="input-group-text"><i class="bi bi-telephone"></i></span>
+                                    <input type="tel" name="telefono" id="telefono" class="form-control" 
                                            required maxlength="20"
-                                           placeholder="Ej: 8888-8888"
-                                           oninput="this.value = this.value.replace(/[^0-9+\-()\s]/g, '')">
+                                           placeholder="Ej: 8888-8888">
                                 </div>
+                                <div class="invalid-feedback">Ingrese un número telefónico válido.</div>
                             </div>
-                            <div class="col-md-6">
-                                <label for="id_ruta" class="form-label-premium fw-bold mb-1 small text-uppercase">Ruta de Entrega</label>
+                            <div class="col-12">
+                                <label for="id_ruta" class="form-label">Ruta de Entrega</label>
                                 <div class="input-group">
-                                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-geo-alt text-muted"></i></span>
-                                    <select class="form-select form-select-premium" id="id_ruta" name="id_ruta">
+                                    <span class="input-group-text"><i class="bi bi-geo-alt"></i></span>
+                                    <select class="form-select" id="id_ruta" name="id_ruta">
                                         <option value="">Sin ruta asignada</option>
                                         {% for ruta in rutas %}
                                         <option value="{{ ruta.ID_Ruta }}">{{ ruta.Nombre_Ruta }}</option>
@@ -313,46 +332,42 @@
                                     </select>
                                 </div>
                             </div>
-                            <div class="col-12">
-                                <label for="direccion" class="form-label-premium fw-bold mb-1 small text-uppercase">Dirección</label>
-                                <div class="input-group">
-                                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-geo-alt text-muted"></i></span>
-                                    <textarea class="form-control form-control-premium" id="direccion" name="direccion" rows="2" 
-                                              maxlength="500"
-                                              placeholder="Dirección completa del cliente"></textarea>
-                                </div>
-                            </div>
                         </div>
                     </div>
 
-                    <!-- Bloque 2: Clasificación y Saldo Inicial -->
-                    <div class="mb-4">
-                        <div class="d-flex align-items-center mb-3 pb-2 border-bottom">
-                            <i class="bi bi-briefcase text-info me-2"></i>
-                            <h6 class="fw-bold text-slate-800 mb-0">Clasificación y Finanzas</h6>
+                    <!-- Sección 2: Clasificación y Saldo Inicial -->
+                    <div class="form-section mb-4">
+                        <div class="section-title">
+                            <i class="bi bi-cash-stack me-2"></i>Clasificación Comercial
                         </div>
                         <div class="row g-3">
                             <div class="col-md-4">
-                                <label for="tipo_cliente" class="form-label-premium fw-bold mb-1 small text-uppercase">Tipo de Cliente <span class="text-danger">*</span></label>
-                                <select class="form-select form-select-premium" id="tipo_cliente" name="tipo_cliente" required>
-                                    <option value="Comun">Cliente Común</option>
-                                    <option value="Especial">Cliente Especial</option>
-                                </select>
-                            </div>
-                            <div class="col-md-4">
-                                <label for="perfil_cliente" class="form-label-premium fw-bold mb-1 small text-uppercase">Perfil Comercial <span class="text-danger">*</span></label>
-                                <select class="form-select form-select-premium" id="perfil_cliente" name="perfil_cliente" required>
-                                    <option value="Mercado">Mercado</option>
-                                    <option value="Ruta">Ruta</option>
-                                    <option value="Mayorista">Mayorista</option>
-                                    <option value="Especial">Especial</option>
-                                </select>
-                            </div>
-                            <div class="col-md-4">
-                                <label for="saldo_pendiente" class="form-label-premium fw-bold mb-1 small text-uppercase">Saldo Inicial (C$)</label>
+                                <label for="tipo_cliente" class="form-label">Tipo de Cliente <span class="text-danger">*</span></label>
                                 <div class="input-group">
-                                    <span class="input-group-text bg-light border-end-0">C$</span>
-                                    <input type="number" class="form-control form-control-premium font-monospace" id="saldo_pendiente" name="saldo_pendiente" 
+                                    <span class="input-group-text"><i class="bi bi-award"></i></span>
+                                    <select class="form-select" id="tipo_cliente" name="tipo_cliente" required>
+                                        <option value="Comun" selected>Común</option>
+                                        <option value="Especial">Especial</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="perfil_cliente" class="form-label">Perfil Comercial <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-tag"></i></span>
+                                    <select class="form-select" id="perfil_cliente" name="perfil_cliente" required>
+                                        <option value="Mercado" selected>Mercado</option>
+                                        <option value="Ruta">Ruta</option>
+                                        <option value="Mayorista">Mayorista</option>
+                                        <option value="Especial">Especial</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="saldo_pendiente" class="form-label">Saldo Inicial</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">C$</span>
+                                    <input type="number" class="form-control font-monospace" id="saldo_pendiente" name="saldo_pendiente" 
                                            step="0.01" min="0" value="0.00"
                                            placeholder="0.00">
                                 </div>
@@ -360,36 +375,45 @@
                         </div>
                     </div>
 
-                    <!-- Bloque 3: Configuración de Anticipos -->
-                    <div class="card-premium-section p-3 border rounded-3 bg-light bg-opacity-50">
+                    <!-- Sección 3: Configuración de Anticipos -->
+                    <div class="card p-3 border rounded-3 bg-light bg-opacity-50">
                         <div class="form-check form-switch d-flex align-items-center justify-content-between p-0 m-0">
-                            <label class="form-check-label fw-bold text-slate-800 mb-0" for="anticipo_activo" style="cursor: pointer;">
+                            <label class="form-check-label fw-bold mb-0 cursor-pointer" for="anticipo_activo" style="color: var(--text-main);">
                                 <i class="bi bi-gift text-warning me-1.5"></i> Habilitar Anticipos de Producto
                             </label>
                             <input class="form-check-input ms-auto" type="checkbox" id="anticipo_activo" name="anticipo_activo" value="1"
-                                   style="width: 2.75em; height: 1.35em; cursor: pointer;">
+                                   style="cursor: pointer;">
                         </div>
 
                         <div id="anticipo-config" style="display: none;" class="mt-3 pt-3 border-top">
                             <div class="row g-3">
                                 <div class="col-md-4">
-                                    <label for="limite_anticipo_cajas" class="form-label-premium fw-bold mb-1 small text-uppercase">Límite de Cajas</label>
-                                    <input type="number" class="form-control form-control-premium font-monospace" id="limite_anticipo_cajas" 
-                                           name="limite_anticipo_cajas" min="1" max="1000" value="1">
+                                    <label for="limite_anticipo_cajas" class="form-label">Límite de Cajas</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="bi bi-box-seam"></i></span>
+                                        <input type="number" class="form-control font-monospace" id="limite_anticipo_cajas" 
+                                               name="limite_anticipo_cajas" min="1" max="1000" value="1">
+                                    </div>
                                 </div>
                                 <div class="col-md-4">
-                                    <label for="saldo_anticipos" class="form-label-premium fw-bold mb-1 small text-uppercase">Saldo Inicial Anticipo (C$)</label>
-                                    <input type="number" class="form-control form-control-premium font-monospace" id="saldo_anticipos" 
-                                           name="saldo_anticipos" min="0" step="0.01" value="0.00">
+                                    <label for="saldo_anticipos" class="form-label">Saldo Inicial Anticipo</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">C$</span>
+                                        <input type="number" class="form-control font-monospace" id="saldo_anticipos" 
+                                               name="saldo_anticipos" min="0" step="0.01" value="0.00">
+                                    </div>
                                 </div>
                                 <div class="col-md-4">
-                                    <label for="producto_anticipado" class="form-label-premium fw-bold mb-1 small text-uppercase">Producto Anticipado</label>
-                                    <select class="form-select form-select-premium" id="producto_anticipado" name="producto_anticipado">
-                                        <option value="">Seleccione producto</option>
-                                        {% for producto in productos %}
-                                        <option value="{{ producto.ID_Producto }}">{{ producto.Nombre }}</option>
-                                        {% endfor %}
-                                    </select>
+                                    <label for="producto_anticipado" class="form-label">Producto Anticipado</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="bi bi-basket"></i></span>
+                                        <select class="form-select" id="producto_anticipado" name="producto_anticipado">
+                                            <option value="">Seleccione producto</option>
+                                            {% for producto in productos %}
+                                            <option value="{{ producto.ID_Producto }}">{{ producto.Nombre }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -397,10 +421,10 @@
 
                 </div>
                 <div class="modal-footer bg-light border-0 py-3 px-4">
-                    <button type="button" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3" data-bs-dismiss="modal">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">
                         Cancelar
                     </button>
-                    <button type="submit" class="btn btn-primary btn-sm px-4 py-2 rounded-3 fw-bold shadow-sm" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); border: none;">
+                    <button type="submit" class="btn btn-primary btn-sm px-4 fw-semibold" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); border: none;">
                         <i class="bi bi-check-circle-fill me-1"></i> Guardar Cliente
                     </button>
                 </div>
@@ -415,22 +439,26 @@
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('crearClienteForm');
     const telefonoInput = document.getElementById('telefono');
-    const rucCedulaInput = document.getElementById('ruc_cedula');
     const saldoInput = document.getElementById('saldo_pendiente');
     const anticipoCheckbox = document.getElementById('anticipo_activo');
     const anticipoConfig = document.getElementById('anticipo-config');
     const limiteCajasInput = document.getElementById('limite_anticipo_cajas');
     
-    // Mostrar/ocultar configuración de anticipo
+    // Toggle de configuración de anticipos
     function toggleAnticipoConfig() {
+        if (!anticipoCheckbox || !anticipoConfig) return;
         if (anticipoCheckbox.checked) {
             anticipoConfig.style.display = 'block';
-            document.getElementById('producto_anticipado').required = true;
+            const prodSelect = document.getElementById('producto_anticipado');
+            if (prodSelect) prodSelect.required = true;
         } else {
             anticipoConfig.style.display = 'none';
-            document.getElementById('producto_anticipado').required = false;
+            const prodSelect = document.getElementById('producto_anticipado');
+            if (prodSelect) {
+                prodSelect.required = false;
+                prodSelect.value = '';
+            }
             if (limiteCajasInput) limiteCajasInput.value = '1';
-            document.getElementById('producto_anticipado').value = '';
         }
     }
     
@@ -441,7 +469,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Validación de Teléfono
     function validateTelefono() {
-        if (telefonoInput.value && !/^[\d\s\-+()]+$/.test(telefonoInput.value)) {
+        if (!telefonoInput) return true;
+        const val = telefonoInput.value.trim();
+        if (!val || !/^[\d\s\-+()]{6,20}$/.test(val)) {
             telefonoInput.setCustomValidity('Ingrese un número de teléfono válido');
             telefonoInput.classList.add('is-invalid');
             return false;
@@ -452,33 +482,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Validación de RUC/Cédula
-    function validateRucCedula() {
-        const val = rucCedulaInput.value.trim();
-        if (!val) {
-            rucCedulaInput.setCustomValidity('');
-            rucCedulaInput.classList.remove('is-invalid');
-            return true;
-        }
-        if (!/[a-zA-Z]/.test(val)) {
-            rucCedulaInput.setCustomValidity('El RUC/Cédula debe contener al menos una letra');
-            rucCedulaInput.classList.add('is-invalid');
-            return false;
-        } else {
-            rucCedulaInput.setCustomValidity('');
-            rucCedulaInput.classList.remove('is-invalid');
-            return true;
-        }
-    }
-    
     // Validación de Saldo
     function validateSaldo() {
+        if (!saldoInput) return true;
         let saldo = parseFloat(saldoInput.value);
-        if (isNaN(saldo)) {
-            saldoInput.value = '0.00';
-            saldo = 0;
-        }
-        if (saldo < 0) {
+        if (isNaN(saldo) || saldo < 0) {
             saldoInput.setCustomValidity('El saldo no puede ser negativo');
             saldoInput.classList.add('is-invalid');
             return false;
@@ -489,74 +497,76 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Formatear saldo
-    function formatSaldo() {
-        let saldo = parseFloat(saldoInput.value);
-        if (isNaN(saldo)) {
-            saldoInput.value = '0.00';
-        } else {
-            saldoInput.value = saldo.toFixed(2);
-        }
+    if (telefonoInput) {
+        telefonoInput.addEventListener('input', validateTelefono);
+    }
+    if (saldoInput) {
+        saldoInput.addEventListener('input', validateSaldo);
+        saldoInput.addEventListener('blur', function() {
+            let saldo = parseFloat(saldoInput.value);
+            saldoInput.value = isNaN(saldo) ? '0.00' : saldo.toFixed(2);
+        });
     }
     
-    // Event listeners
-    telefonoInput.addEventListener('input', validateTelefono);
-    rucCedulaInput.addEventListener('input', validateRucCedula);
-    saldoInput.addEventListener('input', validateSaldo);
-    saldoInput.addEventListener('blur', formatSaldo);
-    
-    // Validación del formulario
-    form.addEventListener('submit', function(event) {
-        const isTelefonoValid = validateTelefono();
-        const isRucCedulaValid = validateRucCedula();
-        const isSaldoValid = validateSaldo();
-        
-        if (anticipoCheckbox.checked) {
-            const productoAnticipado = document.getElementById('producto_anticipado').value;
-            if (!productoAnticipado) {
-                event.preventDefault();
-                alert('Por favor seleccione un producto anticipado');
-                return false;
+    // Validación en submit del formulario
+    if (form) {
+        form.addEventListener('submit', function(event) {
+            const isTelefonoValid = validateTelefono();
+            const isSaldoValid = validateSaldo();
+            
+            if (anticipoCheckbox && anticipoCheckbox.checked) {
+                const prodSelect = document.getElementById('producto_anticipado');
+                if (prodSelect && !prodSelect.value) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    prodSelect.classList.add('is-invalid');
+                    prodSelect.focus();
+                    return false;
+                }
             }
-        }
+            
+            if (!isTelefonoValid || !isSaldoValid || !form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            form.classList.add('was-validated');
+        });
+    }
+    
+    // Limpieza al cerrar modal
+    const modalEl = document.getElementById('crearClienteModal');
+    if (modalEl) {
+        modalEl.addEventListener('hidden.bs.modal', function () {
+            if (form) {
+                form.reset();
+                form.classList.remove('was-validated');
+            }
+            if (telefonoInput) {
+                telefonoInput.setCustomValidity('');
+                telefonoInput.classList.remove('is-invalid');
+            }
+            if (saldoInput) {
+                saldoInput.setCustomValidity('');
+                saldoInput.classList.remove('is-invalid');
+                saldoInput.value = '0.00';
+            }
+            if (anticipoCheckbox) {
+                anticipoCheckbox.checked = false;
+                toggleAnticipoConfig();
+            }
+        });
         
-        if (!isTelefonoValid || !isRucCedulaValid || !isSaldoValid || !form.checkValidity()) {
-            event.preventDefault();
-            event.stopPropagation();
-        }
-        form.classList.add('was-validated');
-    });
+        modalEl.addEventListener('shown.bs.modal', function () {
+            const nombreInput = document.getElementById('nombre');
+            if (nombreInput) nombreInput.focus();
+        });
+    }
     
-    // Limpiar formulario al cerrar modal
-    document.getElementById('crearClienteModal').addEventListener('hidden.bs.modal', function () {
-        form.reset();
-        form.classList.remove('was-validated');
-        telefonoInput.setCustomValidity('');
-        telefonoInput.classList.remove('is-invalid');
-        rucCedulaInput.setCustomValidity('');
-        rucCedulaInput.classList.remove('is-invalid');
-        saldoInput.setCustomValidity('');
-        saldoInput.classList.remove('is-invalid');
-        saldoInput.value = '0.00';
-        
-        if (anticipoCheckbox) {
-            anticipoCheckbox.checked = false;
-            toggleAnticipoConfig();
-        }
-    });
-    
-    // Auto-focus
-    document.getElementById('crearClienteModal').addEventListener('shown.bs.modal', function () {
-        document.getElementById('nombre').focus();
-    });
-    
-    // Focus en búsqueda
+    // Auto-focus en buscador si existe
     const searchInput = document.querySelector('input[name="q"]');
-    if (searchInput) {
+    if (searchInput && searchInput.value) {
         searchInput.focus();
     }
-    
-    // Event listener para cambios en la selección de ruta si es necesario en el futuro
 });
 </script>
 {% endblock %}

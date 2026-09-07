@@ -763,6 +763,18 @@ def vendedor_venta_crear():
                             WHERE ID_Cliente = %s AND ID_Empresa = %s
                         """, (total_venta, id_factura, int(id_cliente), asignacion['ID_Empresa']))
                         
+                        try:
+                            from helpers.cruce_cuentas import procesar_compensacion_vinculada
+                            procesar_compensacion_vinculada(
+                                cursor,
+                                id_cliente=int(id_cliente),
+                                id_empresa=asignacion['ID_Empresa'],
+                                id_usuario=id_vendedor,
+                                observacion=f"Compensación automática por Factura Ruta #{id_factura}"
+                            )
+                        except Exception as e_cruce:
+                            print(f"Error en auto-compensación cruce en venta ruta: {e_cruce}")
+                        
                         
                     except Exception as e:
                         print(f"❌ Error al crear cuenta por cobrar: {str(e)}")
@@ -919,7 +931,7 @@ def vendedor_generar_ticket_ruta(id_venta):
                     fr.Fecha_Creacion,
                     fr.Observacion,
                     fr.Credito_Contado,
-                    fr.Saldo_Anterior_Cliente,  -- ← NUEVO CAMPO
+                    fr.Saldo_Anterior_Cliente,
                     fr.ID_Usuario_Creacion,
                     c.ID_Cliente,
                     c.Nombre as Cliente,
@@ -927,31 +939,30 @@ def vendedor_generar_ticket_ruta(id_venta):
                     c.Telefono as Telefono_Cliente,
                     c.Direccion as Direccion_Cliente,
                     COALESCE(c.Saldo_Pendiente_Total, 0) as Saldo_Cliente_Actual,
-                    u.NombreUsuario as Usuario,
+                    COALESCE(u.NombreUsuario, 'Vendedor') as Usuario,
                     e.ID_Empresa,
-                    COALESCE(e.Nombre_Empresa, 'MI EMPRESA') as Nombre_Empresa,
-                    COALESCE(e.RUC, 'RUC NO CONFIGURADO') as RUC_Empresa,
+                    COALESCE(e.Nombre_Empresa, 'Distribuidora Ferdel') as Nombre_Empresa,
+                    COALESCE(e.RUC, '') as RUC_Empresa,
                     COALESCE(e.Direccion, '') as Direccion_Empresa,
                     COALESCE(e.Telefono, '') as Telefono_Empresa,
-                    r.Nombre_Ruta,
+                    COALESCE(r.Nombre_Ruta, 'Ruta Principal') as Nombre_Ruta,
                     CASE 
                         WHEN fr.Credito_Contado = 1 THEN 'CONTADO'
                         ELSE 'CREDITO'
                     END as Tipo_Venta_Formateado
                 FROM facturacion_ruta fr
                 INNER JOIN clientes c ON fr.ID_Cliente = c.ID_Cliente
-                INNER JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
-                INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
-                INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
-                LEFT JOIN empresa e ON fr.ID_Empresa = e.ID_Empresa
+                LEFT JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
+                LEFT JOIN usuarios u ON (fr.ID_Usuario_Creacion = u.ID_Usuario OR av.ID_Usuario = u.ID_Usuario)
+                LEFT JOIN rutas r ON (av.ID_Ruta = r.ID_Ruta OR c.ID_Ruta = r.ID_Ruta)
+                LEFT JOIN empresa e ON (fr.ID_Empresa = e.ID_Empresa OR c.ID_Empresa = e.ID_Empresa)
                 WHERE fr.ID_FacturaRuta = %s
-                AND av.ID_Usuario = %s
-            """, (id_venta, id_vendedor))
+            """, (id_venta,))
             
             factura = cursor.fetchone()
             
             if not factura:
-                flash('Venta no encontrada o no tienes permiso para verla', 'error')
+                flash('Venta no encontrada', 'error')
                 return redirect(url_for('vendedor.vendedor_ventas'))
             
             # Formatear fechas

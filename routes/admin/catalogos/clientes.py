@@ -59,21 +59,25 @@ def admin_clientes():
             
             offset = (page - 1) * per_page
             
-            # Consulta base ACTUALIZADA con todas las nuevas columnas de anticipos
+            # Consulta base ACTUALIZADA con información de proveedor vinculado
             base_query = """
-                SELECT c.ID_Cliente, c.Nombre, c.Telefono, c.Direccion, c.RUC_CEDULA,
+                SELECT c.ID_Cliente, c.Nombre, c.Telefono,
                        c.ID_Empresa, c.ID_Ruta, c.Saldo_Pendiente_Total,
                        c.Fecha_Ultimo_Movimiento, c.ID_Ultima_Factura, c.Fecha_Ultimo_Pago,
                        c.Estado, c.Fecha_Creacion, c.ID_Usuario_Creacion,
                        c.tipo_cliente, c.perfil_cliente,
                        c.Anticipo_Activo, c.Limite_Anticipo_Cajas, 
                        c.Cajas_Consumidas_Anticipo, c.Saldo_Anticipos, c.Producto_Anticipado,
+                       c.ID_Proveedor_Vinculado,
+                       pv.Nombre as Nombre_Proveedor_Vinculado,
+                       pv.Saldo_Pendiente as Saldo_Proveedor_Vinculado,
                        e.Nombre_Empresa, r.Nombre_Ruta,
                        p.Descripcion as Nombre_Producto_Anticipado, p.COD_Producto as Codigo_Producto_Anticipado
                 FROM clientes c
                 INNER JOIN empresa e ON c.ID_Empresa = e.ID_Empresa
                 LEFT JOIN rutas r ON c.ID_Ruta = r.ID_Ruta
                 LEFT JOIN productos p ON c.Producto_Anticipado = p.ID_Producto
+                LEFT JOIN proveedores pv ON c.ID_Proveedor_Vinculado = pv.ID_Proveedor
                 WHERE c.Estado = 'ACTIVO' 
                 AND c.ID_Empresa = %s
                 AND e.Estado = 'Activo'
@@ -81,9 +85,9 @@ def admin_clientes():
             params = [id_empresa]
             
             if search_query:
-                base_query += " AND (c.Nombre LIKE %s OR c.RUC_CEDULA LIKE %s OR c.Telefono LIKE %s)"
+                base_query += " AND (c.Nombre LIKE %s OR c.Telefono LIKE %s)"
                 search_param = f"%{search_query}%"
-                params.extend([search_param, search_param, search_param])
+                params.extend([search_param, search_param])
             
             if ruta_id:
                 base_query += " AND c.ID_Ruta = %s"
@@ -101,8 +105,8 @@ def admin_clientes():
             count_params = [id_empresa]
             
             if search_query:
-                count_query += " AND (c.Nombre LIKE %s OR c.RUC_CEDULA LIKE %s OR c.Telefono LIKE %s)"
-                count_params.extend([search_param, search_param, search_param])
+                count_query += " AND (c.Nombre LIKE %s OR c.Telefono LIKE %s)"
+                count_params.extend([search_param, search_param])
             
             if ruta_id:
                 count_query += " AND c.ID_Ruta = %s"
@@ -348,7 +352,17 @@ def admin_editar_cliente(id):
             """, (id_empresa,))
             productos = cursor.fetchall()
             
-            # Verificar que el cliente existe y obtener todos sus datos incluyendo anticipos
+            # Obtener proveedores activos para vincular como contraparte comercial
+            cursor.execute("""
+                SELECT ID_Proveedor, Nombre, RUC_CEDULA, Saldo_Pendiente 
+                FROM proveedores 
+                WHERE ID_Empresa = %s 
+                AND Estado = 'ACTIVO'
+                ORDER BY Nombre
+            """, (id_empresa,))
+            proveedores = cursor.fetchall()
+            
+            # Verificar que el cliente existe y obtener todos sus datos incluyendo anticipos y proveedor vinculado
             cursor.execute(
                 """SELECT c.ID_Cliente, c.Nombre, c.Telefono, c.Direccion, c.RUC_CEDULA,
                           c.ID_Empresa, c.ID_Ruta, c.Saldo_Pendiente_Total,
@@ -357,6 +371,7 @@ def admin_editar_cliente(id):
                           c.tipo_cliente, c.perfil_cliente,
                           c.Anticipo_Activo, c.Limite_Anticipo_Cajas, 
                           c.Cajas_Consumidas_Anticipo, c.Saldo_Anticipos, c.Producto_Anticipado,
+                          c.ID_Proveedor_Vinculado,
                           r.Nombre_Ruta
                    FROM clientes c
                    INNER JOIN empresa e ON c.ID_Empresa = e.ID_Empresa
@@ -378,7 +393,8 @@ def admin_editar_cliente(id):
                 return render_template("admin/catalog/client/editar_clientes.html", 
                                      cliente=cliente, 
                                      rutas=rutas,
-                                     productos=productos)
+                                     productos=productos,
+                                     proveedores=proveedores)
             
             # MÉTODO POST - Procesar formulario
             elif request.method == 'POST':
@@ -390,6 +406,7 @@ def admin_editar_cliente(id):
                 tipo_cliente = request.form.get("tipo_cliente", "Comun").strip()
                 perfil_cliente = request.form.get("perfil_cliente", "Mercado").strip()
                 id_ruta = request.form.get("id_ruta", "").strip()
+                id_proveedor_vinculado = request.form.get("id_proveedor_vinculado", "").strip()
                 
                 # NUEVOS CAMPOS DE ANTICIPO
                 anticipo_activo = request.form.get("anticipo_activo", "0").strip()
@@ -532,7 +549,26 @@ def admin_editar_cliente(id):
                 except ValueError:
                     saldo_pendiente_total = 0.0
 
-                # UPDATE ACTUALIZADO con campos de anticipo y saldo pendiente
+                # Validar proveedor vinculado
+                if id_proveedor_vinculado:
+                    try:
+                        id_proveedor_vinculado = int(id_proveedor_vinculado)
+                        if id_proveedor_vinculado <= 0:
+                            id_proveedor_vinculado = None
+                    except (ValueError, TypeError):
+                        id_proveedor_vinculado = None
+                    
+                    if id_proveedor_vinculado:
+                        cursor.execute("""
+                            SELECT 1 FROM proveedores 
+                            WHERE ID_Proveedor = %s AND ID_Empresa = %s AND Estado = 'ACTIVO'
+                        """, (id_proveedor_vinculado, id_empresa))
+                        if not cursor.fetchone():
+                            id_proveedor_vinculado = None
+                else:
+                    id_proveedor_vinculado = None
+
+                # UPDATE ACTUALIZADO con campos de anticipo, saldo pendiente y proveedor vinculado
                 cursor.execute("""
                     UPDATE clientes 
                     SET Nombre = %s, 
@@ -548,13 +584,46 @@ def admin_editar_cliente(id):
                         Saldo_Anticipos = %s,
                         Producto_Anticipado = %s,
                         Cajas_Consumidas_Anticipo = %s,
-                        Saldo_Pendiente_Total = %s
+                        Saldo_Pendiente_Total = %s,
+                        ID_Proveedor_Vinculado = %s
                     WHERE ID_Cliente = %s 
                     AND ID_Empresa = %s
                 """, (nombre, telefono, direccion, ruc_cedula, estado, 
                       tipo_cliente, perfil_cliente, id_ruta,
                       anticipo_activo, limite_anticipo_cajas, saldo_anticipos,
-                      producto_anticipado, cajas_consumidas, saldo_pendiente_total, id, id_empresa))
+                      producto_anticipado, cajas_consumidas, saldo_pendiente_total,
+                      id_proveedor_vinculado, id, id_empresa))
+                
+                # Sincronización bidireccional en tabla proveedores
+                id_proveedor_antiguo = cliente.get('ID_Proveedor_Vinculado')
+                if id_proveedor_antiguo and id_proveedor_antiguo != id_proveedor_vinculado:
+                    cursor.execute("""
+                        UPDATE proveedores 
+                        SET ID_Cliente_Vinculado = NULL 
+                        WHERE ID_Proveedor = %s AND ID_Empresa = %s
+                    """, (id_proveedor_antiguo, id_empresa))
+                    
+                if id_proveedor_vinculado:
+                    cursor.execute("""
+                        UPDATE proveedores 
+                        SET ID_Cliente_Vinculado = %s 
+                        WHERE ID_Proveedor = %s AND ID_Empresa = %s
+                    """, (id, id_proveedor_vinculado, id_empresa))
+                    
+                    try:
+                        from helpers.cruce_cuentas import procesar_compensacion_vinculada
+                        res_cruce = procesar_compensacion_vinculada(
+                            cursor,
+                            id_cliente=id,
+                            id_proveedor=id_proveedor_vinculado,
+                            id_empresa=id_empresa,
+                            id_usuario=id_usuario,
+                            observacion="Compensación automática por vinculación de cuentas"
+                        )
+                        if res_cruce.get('success') and res_cruce.get('monto_compensado', 0) > 0:
+                            flash(f"ℹ️ {res_cruce.get('mensaje')}", "info")
+                    except Exception as e_cruce:
+                        logging.error(f"Error en auto-compensación vinculación cliente: {e_cruce}")
                 
                 # Registrar en bitácora
                 accion = "actualizado" if estado == 'ACTIVO' else "desactivado"
@@ -951,7 +1020,7 @@ def admin_detalle_cliente(id):
             
             anticipos = cursor.fetchall()
             
-            # 11. Últimas entregas del cliente (consumos de anticipos)
+            # 11. Últimas entregas del cliente (consumos de anticipos) con sucursal
             cursor.execute("""
                 SELECT 
                     e.ID_Entrega,
@@ -962,9 +1031,12 @@ def admin_detalle_cliente(id):
                     e.Notas,
                     p.Descripcion as Producto,
                     p.COD_Producto,
-                    e.Usa_Anticipo
+                    e.Usa_Anticipo,
+                    e.ID_Sucursal,
+                    s.Nombre_Sucursal
                 FROM entregas e
                 INNER JOIN productos p ON e.ID_Producto = p.ID_Producto
+                LEFT JOIN sucursales s ON e.ID_Sucursal = s.ID_Sucursal
                 WHERE e.ID_Cliente = %s 
                     AND e.Usa_Anticipo = 1
                 ORDER BY e.Fecha_Entrega DESC
@@ -1134,6 +1206,47 @@ def admin_detalle_cliente(id):
                 'top_prod_totals': top_prod_totals
             }
             
+            # 16. Balance Cruzado con Proveedor Vinculado (Cruce de Cuentas)
+            balance_cruzado = None
+            if cliente.get('ID_Proveedor_Vinculado'):
+                cursor.execute("""
+                    SELECT ID_Proveedor, Nombre, Telefono, RUC_CEDULA, Saldo_Pendiente, Estado
+                    FROM proveedores
+                    WHERE ID_Proveedor = %s AND ID_Empresa = %s
+                """, (cliente['ID_Proveedor_Vinculado'], id_empresa))
+                prov_vinculado = cursor.fetchone()
+                
+                if prov_vinculado:
+                    saldo_cxc = float(cliente.get('Saldo_Pendiente_Total') or 0)
+                    saldo_cxp = float(prov_vinculado.get('Saldo_Pendiente') or 0)
+                    diferencia = saldo_cxc - saldo_cxp
+                    monto_compensable = min(saldo_cxc, saldo_cxp) if saldo_cxc > 0 and saldo_cxp > 0 else 0.0
+                    
+                    if diferencia > 0.001:
+                        tipo_balance = 'FAVOR_EMPRESA'
+                        estado_balance = 'Saldo a favor de FerDel (Cliente debe más de lo que se le adeuda)'
+                        color_balance = 'primary'
+                    elif diferencia < -0.001:
+                        tipo_balance = 'FAVOR_CONTRAPARTE'
+                        estado_balance = 'Saldo a favor del Proveedor (FerDel le debe más de lo que el cliente adeuda)'
+                        color_balance = 'warning'
+                    else:
+                        tipo_balance = 'EQUILIBRADO'
+                        estado_balance = 'Cuentas compensadas / Saldos en equilibrio'
+                        color_balance = 'success'
+                        
+                    balance_cruzado = {
+                        'proveedor': prov_vinculado,
+                        'saldo_cxc': saldo_cxc,
+                        'saldo_cxp': saldo_cxp,
+                        'saldo_neto': abs(diferencia),
+                        'diferencia_real': diferencia,
+                        'tipo_balance': tipo_balance,
+                        'estado_balance': estado_balance,
+                        'color_balance': color_balance,
+                        'monto_compensable': monto_compensable
+                    }
+            
             return render_template('admin/catalog/client/detalle_clientes.html', 
                                  cliente=cliente,
                                  cuentas_pendientes=cuentas_pendientes,
@@ -1148,6 +1261,7 @@ def admin_detalle_cliente(id):
                                  ultimo_abono=ultimo_abono,
                                  sucursales=sucursales,
                                  stats=stats,
+                                 balance_cruzado=balance_cruzado,
                                  chart_json=json.dumps(chart_json),
                                  today=datetime.now().date())
     
@@ -1156,6 +1270,48 @@ def admin_detalle_cliente(id):
         logging.error(traceback.format_exc())
         flash(f"Error al cargar el detalle del cliente: {str(e)}", "danger")
         return redirect(url_for("admin.admin_clientes"))
+
+
+@admin_bp.route('/admin/catalog/client/cruzar-cuentas/<int:id>', methods=['POST'])
+@admin_required
+@bitacora_decorator("CLIENTES-CRUCE-CUENTAS")
+def admin_cruzar_cuentas_cliente(id):
+    try:
+        id_empresa = session.get('id_empresa', 1)
+        id_usuario = current_user.id
+        monto_cruce_str = request.form.get("monto_cruce", "0").strip()
+        observacion = request.form.get("observacion", "").strip()
+        
+        try:
+            monto_cruce = float(monto_cruce_str)
+        except ValueError:
+            monto_cruce = 0.0
+            
+        if monto_cruce <= 0:
+            flash("El monto a cruzar / compensar debe ser mayor a 0.", "warning")
+            return redirect(url_for("admin.admin_detalle_cliente", id=id))
+            
+        from helpers.cruce_cuentas import procesar_compensacion_vinculada
+        with get_db_cursor(commit=True) as cursor:
+            res = procesar_compensacion_vinculada(
+                cursor,
+                id_cliente=id,
+                id_empresa=id_empresa,
+                id_usuario=id_usuario,
+                monto_especifico=monto_cruce,
+                observacion=observacion
+            )
+            
+            if res.get('success') and res.get('monto_compensado', 0) > 0:
+                flash(f"¡Cruce de cuentas aplicado con éxito! {res.get('mensaje')}", "success")
+            else:
+                flash(res.get('mensaje', 'No se pudo realizar la compensación.'), "info")
+            
+    except Exception as e:
+        logging.error(f"Error en cruce de cuentas cliente: {str(e)}", exc_info=True)
+        flash(f"Error al procesar el cruce de cuentas: {str(e)}", "danger")
+        
+    return redirect(url_for("admin.admin_detalle_cliente", id=id))
 
 
 @admin_bp.route('/catalog/client/factura-detalle/<tipo>/<int:id_factura>', methods=['GET'])
