@@ -64,13 +64,14 @@ def vendedor_movimiento_entrada_bodega():
                 productos_procesar = []
                 
                 for i in range(len(productos)):
-                    if productos[i] and cantidades[i] and float(cantidades[i]) > 0:
+                    cant_val = cantidades[i] if i < len(cantidades) else None
+                    if productos[i] and cant_val and float(cant_val or 0) > 0:
                         id_producto = int(productos[i])
-                        cantidad = float(cantidades[i])
+                        cantidad = float(cant_val or 0)
                         
                         # Obtener precio del producto
                         cursor.execute("""
-                            SELECT Precio_Ruta 
+                            SELECT COALESCE(Precio_Ruta, 0) as Precio_Ruta 
                             FROM productos 
                             WHERE ID_Producto = %s
                         """, (id_producto,))
@@ -185,7 +186,7 @@ def vendedor_movimiento_entrada_bodega():
                     p.ID_Producto,
                     p.COD_Producto,
                     p.Descripcion as Nombre_Producto,
-                    p.Precio_Ruta,
+                    COALESCE(p.Precio_Ruta, 0) as Precio_Ruta,
                     um.Abreviatura as Unidad,
                     c.Descripcion as Categoria
                 FROM productos p
@@ -267,25 +268,27 @@ def vendedor_movimiento_devolucion_bodega():
                 total_subtotal = 0
                 
                 for i in range(len(productos)):
-                    if productos[i] and cantidades[i] and float(cantidades[i]) > 0:
+                    cant_val = cantidades[i] if i < len(cantidades) else None
+                    if productos[i] and cant_val and float(cant_val or 0) > 0:
                         id_producto = int(productos[i])
-                        cantidad = float(cantidades[i])
+                        cantidad = float(cant_val or 0)
                         
                         # Verificar stock actual en ruta
                         cursor.execute("""
-                            SELECT Cantidad 
+                            SELECT COALESCE(Cantidad, 0) as Cantidad 
                             FROM inventario_ruta 
                             WHERE ID_Asignacion = %s AND ID_Producto = %s
                         """, (id_asignacion, id_producto))
                         
                         stock = cursor.fetchone()
-                        if not stock or float(stock['Cantidad']) < cantidad:
-                            flash(f'Stock insuficiente para devolución. Stock actual: {float(stock["Cantidad"]) if stock else 0}', 'error')
+                        stock_actual = float(stock['Cantidad'] or 0) if stock else 0.0
+                        if not stock or stock_actual < cantidad:
+                            flash(f'Stock insuficiente para devolución. Stock actual: {stock_actual}', 'error')
                             return redirect(url_for('vendedor.vendedor_movimiento_devolucion_bodega'))
                         
                         # Obtener precio del producto (Precio_Ruta)
                         cursor.execute("""
-                            SELECT Precio_Ruta 
+                            SELECT COALESCE(Precio_Ruta, 0) as Precio_Ruta 
                             FROM productos 
                             WHERE ID_Producto = %s
                         """, (id_producto,))
@@ -443,10 +446,10 @@ def vendedor_movimiento_devolucion_bodega():
             cursor.execute("""
                 SELECT 
                     ir.ID_Producto,
-                    ir.Cantidad as Stock_Actual,
+                    COALESCE(ir.Cantidad, 0) as Stock_Actual,
                     p.COD_Producto,
                     p.Descripcion as Nombre_Producto,
-                    p.Precio_Ruta,
+                    COALESCE(p.Precio_Ruta, 0) as Precio_Ruta,
                     um.Abreviatura as Unidad,
                     c.Descripcion as Categoria
                 FROM inventario_ruta ir
@@ -723,25 +726,27 @@ def vendedor_movimiento_merma():
                 total_subtotal = 0
                 
                 for i in range(len(productos)):
-                    if productos[i] and cantidades[i] and float(cantidades[i]) > 0:
+                    cant_val = cantidades[i] if i < len(cantidades) else None
+                    if productos[i] and cant_val and float(cant_val or 0) > 0:
                         id_producto = int(productos[i])
-                        cantidad = float(cantidades[i])
+                        cantidad = float(cant_val or 0)
                         
                         # Verificar stock actual
                         cursor.execute("""
-                            SELECT Cantidad 
+                            SELECT COALESCE(Cantidad, 0) as Cantidad 
                             FROM inventario_ruta 
                             WHERE ID_Asignacion = %s AND ID_Producto = %s
                         """, (id_asignacion, id_producto))
                         
                         stock = cursor.fetchone()
-                        if not stock or float(stock['Cantidad']) < cantidad:
-                            flash(f'Stock insuficiente para merma. Stock actual: {float(stock["Cantidad"]) if stock else 0}', 'error')
+                        stock_actual = float(stock['Cantidad'] or 0) if stock else 0.0
+                        if not stock or stock_actual < cantidad:
+                            flash(f'Stock insuficiente para merma. Stock actual: {stock_actual}', 'error')
                             return redirect(url_for('vendedor.vendedor_movimiento_merma'))
                         
                         # Obtener precio del producto
                         cursor.execute("""
-                            SELECT Precio_Ruta 
+                            SELECT COALESCE(Precio_Ruta, 0) as Precio_Ruta 
                             FROM productos 
                             WHERE ID_Producto = %s
                         """, (id_producto,))
@@ -750,7 +755,7 @@ def vendedor_movimiento_merma():
                         if not producto_info:
                             continue
                             
-                        precio = float(producto_info['Precio_Ruta'])
+                        precio = float(producto_info['Precio_Ruta'] or 0.0)
                         subtotal = cantidad * precio
                         
                         productos_procesar.append({
@@ -852,10 +857,10 @@ def vendedor_movimiento_merma():
             cursor.execute("""
                 SELECT 
                     ir.ID_Producto,
-                    ir.Cantidad as Stock_Actual,
+                    COALESCE(ir.Cantidad, 0) as Stock_Actual,
                     p.COD_Producto,
                     p.Descripcion as Nombre_Producto,
-                    p.Precio_Ruta,
+                    COALESCE(p.Precio_Ruta, 0) as Precio_Ruta,
                     um.Abreviatura as Unidad,
                     c.Descripcion as Categoria
                 FROM inventario_ruta ir
@@ -1293,16 +1298,17 @@ def vendedor_carga_directa_proveedor():
                 total_costo_compra = 0
                 
                 for i in range(len(productos)):
-                    if productos[i] and cantidades[i] and float(cantidades[i]) > 0:
+                    cant_val = cantidades[i] if i < len(cantidades) else None
+                    if productos[i] and cant_val and float(cant_val or 0) > 0:
                         id_producto = int(productos[i])
-                        cantidad = float(cantidades[i])
-                        costo = float(costos_unitarios[i]) if i < len(costos_unitarios) and costos_unitarios[i] else 0
+                        cantidad = float(cant_val or 0)
+                        costo = float(costos_unitarios[i] or 0) if i < len(costos_unitarios) and costos_unitarios[i] else 0.0
                         
                         cantidad = abs(cantidad)
                         costo = abs(costo)
                         
                         cursor.execute("""
-                            SELECT ID_Producto, IFNULL(Precio_Ruta, 0) as Precio_Ruta, Descripcion 
+                            SELECT ID_Producto, COALESCE(Precio_Ruta, 0) as Precio_Ruta, Descripcion 
                             FROM productos 
                             WHERE ID_Producto = %s AND Estado = 'activo'
                         """, (id_producto,))
@@ -1316,7 +1322,7 @@ def vendedor_carga_directa_proveedor():
                             'id_producto': id_producto,
                             'cantidad': cantidad,
                             'costo': costo,
-                            'precio_ruta': float(producto_info['Precio_Ruta']),
+                            'precio_ruta': float(producto_info['Precio_Ruta'] or 0.0),
                             'descripcion': producto_info['Descripcion']
                         })
                         total_cantidad += cantidad

@@ -54,12 +54,12 @@ def vendedor_inventario():
                 SELECT 
                     ir.ID_Inventario_Ruta,
                     ir.ID_Producto,
-                    ir.Cantidad,
+                    COALESCE(ir.Cantidad, 0) as Cantidad,
                     ir.Fecha_Actualizacion,
                     p.Descripcion as Nombre_Producto,
                     p.COD_Producto,
-                    p.Precio_Ruta as Precio_Venta,
-                    p.Stock_Minimo,
+                    COALESCE(p.Precio_Ruta, 0) as Precio_Venta,
+                    COALESCE(p.Stock_Minimo, 0) as Stock_Minimo,
                     um.Descripcion as Unidad,
                     um.Abreviatura as Unidad_Abrev,
                     c.Descripcion as Categoria
@@ -78,13 +78,16 @@ def vendedor_inventario():
             # 3. CALCULAR TOTALES
             # ============================================
             total_productos = len(inventario)
-            total_unidades = sum(float(item['Cantidad']) for item in inventario)
-            total_valor = sum(float(item['Cantidad']) * float(item['Precio_Venta']) for item in inventario)
+            total_unidades = sum(float(item['Cantidad'] or 0) for item in inventario)
+            total_valor = sum(float(item['Cantidad'] or 0) * float(item['Precio_Venta'] or 0) for item in inventario)
             
             # Productos con stock bajo (menor al mínimo)
             stock_bajo = []
             for item in inventario:
-                if float(item['Cantidad']) <= float(item['Stock_Minimo'] or 0):
+                item['Cantidad'] = float(item['Cantidad'] or 0)
+                item['Precio_Venta'] = float(item['Precio_Venta'] or 0)
+                item['Stock_Minimo'] = float(item['Stock_Minimo'] or 0)
+                if item['Cantidad'] <= item['Stock_Minimo']:
                     stock_bajo.append(item)
             
             # ============================================
@@ -110,10 +113,10 @@ def vendedor_inventario():
                 'total_unidades': total_unidades,
                 'total_valor': total_valor,
                 'stock_bajo': len(stock_bajo),
-                'ventas_hoy': ventas_hoy['total_ventas'] if ventas_hoy else 0,
-                'vendido_hoy': float(ventas_hoy['total_vendido']) if ventas_hoy else 0,
-                'items_vendidos': int(ventas_hoy['total_items']) if ventas_hoy else 0,
-                'productos_vendidos': int(ventas_hoy['total_productos_vendidos']) if ventas_hoy else 0
+                'ventas_hoy': int(ventas_hoy['total_ventas'] or 0) if ventas_hoy else 0,
+                'vendido_hoy': float(ventas_hoy['total_vendido'] or 0) if ventas_hoy else 0.0,
+                'items_vendidos': int(ventas_hoy['total_items'] or 0) if ventas_hoy else 0,
+                'productos_vendidos': int(ventas_hoy['total_productos_vendidos'] or 0) if ventas_hoy else 0
             }
             
             return render_template('vendedor/inventario/inventario.html',
@@ -241,16 +244,20 @@ def vendedor_producto_detalle(id_producto):
                 flash('Producto no encontrado en tu inventario', 'error')
                 return redirect(url_for('vendedor.vendedor_inventario'))
             
+            producto['Stock_Actual'] = float(producto.get('Stock_Actual') or 0)
+            producto['Precio_Venta'] = float(producto.get('Precio_Venta') or 0)
+            producto['Stock_Minimo'] = float(producto.get('Stock_Minimo') or 0)
+            
             # Obtener historial de movimientos de este producto (CORREGIDO)
             cursor.execute("""
                 SELECT 
                     mrc.ID_Movimiento,
                     mrc.Fecha_Movimiento,
                     mrc.Documento_Numero,
-                    mrc.Total_Subtotal,
-                    mrd.Cantidad,
-                    mrd.Precio_Unitario,
-                    mrd.Subtotal,
+                    COALESCE(mrc.Total_Subtotal, 0) as Total_Subtotal,
+                    COALESCE(mrd.Cantidad, 0) as Cantidad,
+                    COALESCE(mrd.Precio_Unitario, 0) as Precio_Unitario,
+                    COALESCE(mrd.Subtotal, 0) as Subtotal,
                     cm.Descripcion as Tipo_Movimiento
                 FROM movimientos_ruta_detalle mrd
                 INNER JOIN movimientos_ruta_cabecera mrc ON mrd.ID_Movimiento = mrc.ID_Movimiento
@@ -262,6 +269,12 @@ def vendedor_producto_detalle(id_producto):
             """, (asignacion['ID_Asignacion'], id_producto))
             
             historial = cursor.fetchall()
+            
+            for mov in historial:
+                mov['Cantidad'] = float(mov.get('Cantidad') or 0)
+                mov['Precio_Unitario'] = float(mov.get('Precio_Unitario') or 0)
+                mov['Subtotal'] = float(mov.get('Subtotal') or 0)
+                mov['Total_Subtotal'] = float(mov.get('Total_Subtotal') or 0)
             
             return render_template('vendedor/inventario/producto_detalle.html',
                                  producto=producto,
@@ -304,7 +317,7 @@ def vendedor_refrescar_inventario():
                 SELECT 
                     COUNT(*) as total_productos,
                     COALESCE(SUM(Cantidad), 0) as total_unidades,
-                    COALESCE(SUM(Cantidad * p.Precio_Ruta), 0) as total_valor
+                    COALESCE(SUM(Cantidad * COALESCE(p.Precio_Ruta, 0)), 0) as total_valor
                 FROM inventario_ruta ir
                 INNER JOIN productos p ON ir.ID_Producto = p.ID_Producto
                 WHERE ir.ID_Asignacion = %s
@@ -315,9 +328,9 @@ def vendedor_refrescar_inventario():
             return jsonify({
                 'success': True,
                 'data': {
-                    'total_productos': int(totales['total_productos']),
-                    'total_unidades': float(totales['total_unidades']),
-                    'total_valor': float(totales['total_valor'])
+                    'total_productos': int(totales['total_productos'] or 0) if totales else 0,
+                    'total_unidades': float(totales['total_unidades'] or 0) if totales else 0.0,
+                    'total_valor': float(totales['total_valor'] or 0) if totales else 0.0
                 }
             })
             
