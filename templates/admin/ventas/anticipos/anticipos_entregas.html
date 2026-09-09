@@ -395,53 +395,77 @@
             </div>
         </div>
 
-        <!-- Historial de Salidas del Día -->
+        <!-- Historial de Despachos y Control de Salidas -->
         <div class="card border border-slate-200 rounded-3 shadow-none">
-            <div class="card-header bg-light py-3 border-bottom d-flex justify-content-between align-items-center">
-                <h6 class="m-0 fw-bold text-slate-800">
-                    <i class="bi bi-clock-history text-secondary me-2"></i>Salidas del Día (Agrupadas)
-                </h6>
+            <div class="card-header bg-light py-3 border-bottom d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div>
+                    <h6 class="m-0 fw-bold text-slate-800">
+                        <i class="bi bi-truck text-secondary me-2"></i>Historial de Despachos y Salidas
+                    </h6>
+                    <small class="text-muted">Registro de entregas por fecha, cliente y sucursal destino</small>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-primary-soft text-primary border border-primary border-opacity-25 px-2 py-1">
+                        <i class="bi bi-box-seam me-1"></i> {{ entregas|length }} despachos recientes
+                    </span>
+                </div>
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
                     <table class="table table-hover mb-0 align-middle">
-                        <thead>
+                        <thead class="table-light">
                             <tr>
                                 <th>Fecha</th>
                                 <th>Cliente</th>
                                 <th>Producto</th>
-                                <th>Sucursales</th>
-                                <th class="text-center">Entregas</th>
-                                <th class="text-center">Cajas</th>
-                                <th class="text-end">Total</th>
-                                <th>Usuario</th>
+                                <th>Sucursal Destino</th>
+                                <th class="text-center">Cajas Despachadas</th>
+                                <th>Despachado por</th>
                                 <th class="text-center">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for e in entregas %}
                             <tr>
-                                <td><span class="badge bg-light text-secondary border">{{ e.Fecha_Dia }}</span></td>
+                                <td>
+                                    <span class="badge bg-light text-dark border">
+                                        {{ e.Fecha_Dia }}
+                                    </span>
+                                </td>
                                 <td>
                                     <strong>{{ e.Nombre_Cliente }}</strong>
-                                    <br><small class="text-muted">{{ e.Cliente_Telefono or '-' }}</small>
+                                    {% if e.Cliente_Telefono %}
+                                    <br><small class="text-muted"><i class="bi bi-telephone me-1"></i>{{ e.Cliente_Telefono }}</small>
+                                    {% endif %}
                                 </td>
                                 <td>{{ e.Nombre_Producto }}</td>
-                                <td><small class="text-muted">{{ e.Sucursales or '-' }}</small></td>
-                                <td class="text-center">
-                                    <span class="badge bg-info-soft border border-info border-opacity-25">{{ e.Num_Entregas }}</span>
+                                <td>
+                                    <span class="badge bg-light text-secondary border">
+                                        <i class="bi bi-geo-alt me-1"></i>{{ e.Nombre_Sucursal or '-' }}
+                                    </span>
                                 </td>
-                                <td class="text-center"><strong>{{ e.Total_Cajas }}</strong></td>
-                                <td class="text-end"><strong>C${{ "{:,.2f}".format(e.Total_Monto) }}</strong></td>
-                                <td><small class="text-muted">{{ e.Usuarios or 'N/A' }}</small></td>
+                                <td class="text-center">
+                                    <span class="badge bg-success fs-6 px-3 py-1">{{ e.Total_Cajas }} cjs</span>
+                                </td>
+                                <td><small class="text-muted">{{ e.Usuario or 'N/A' }}</small></td>
                                 <td class="text-center">
                                     {% if e.ID_Anticipo %}
                                     <div class="d-inline-flex gap-1">
-                                        <a href="{{ url_for('admin.ticket_entregas', id_anticipo=e.ID_Anticipo, fecha=e.Fecha_Raw) }}" class="btn btn-sm btn-outline-success" title="Ver Ticket">
+                                        <a href="{{ url_for('admin.ticket_entregas', id_anticipo=e.ID_Anticipo, ids=e.ID_Entrega, filtro='actual') }}" 
+                                           class="btn btn-sm btn-outline-success" 
+                                           title="Ver Ticket de este despacho">
                                             <i class="bi bi-receipt me-1"></i> Ticket
                                         </a>
-                                        <button type="button" class="btn btn-sm btn-outline-info btn-ver-proforma" data-anticipo-id="{{ e.ID_Anticipo }}" title="Ver Proforma">
-                                            <i class="bi bi-file-earmark-text me-1"></i> Proforma
+                                        <a href="{{ url_for('admin.ticket_entregas', id_anticipo=e.ID_Anticipo, filtro='todas') }}" 
+                                           class="btn btn-sm btn-outline-primary" 
+                                           title="Ver Factura Consolidada de todas las entregas">
+                                            <i class="bi bi-file-earmark-spreadsheet me-1"></i> Consolidado
+                                        </a>
+                                        <button type="button" 
+                                                class="btn btn-sm btn-outline-info btn-ver-proforma" 
+                                                data-anticipo-id="{{ e.ID_Anticipo }}" 
+                                                title="Ver Proforma">
+                                            <i class="bi bi-eye me-1"></i> Proforma
                                         </button>
                                     </div>
                                     {% endif %}
@@ -449,7 +473,7 @@
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="9" class="text-center py-4 text-muted">No hay entregas registradas hoy</td>
+                                <td colspan="7" class="text-center py-4 text-muted">No hay entregas registradas</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -459,6 +483,88 @@
         </div>
     </div>
 </div>
+
+<!-- Modal Emergente de Impresión tras Registrar Entrega -->
+{% if request.args.get('entrega_exitosa') == '1' %}
+<div class="modal fade" id="modalImpresionEntrega" tabindex="-1" aria-labelledby="modalImpresionEntregaLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header {% if request.args.get('completado') == '1' %}bg-success text-white{% else %}bg-primary text-white{% endif %} py-3">
+                <h5 class="modal-title fw-bold" id="modalImpresionEntregaLabel">
+                    {% if request.args.get('completado') == '1' %}
+                    <i class="bi bi-trophy-fill me-2"></i>¡Anticipo Completado al 100%!
+                    {% else %}
+                    <i class="bi bi-check-circle-fill me-2"></i>¡Entrega Registrada Exitosamente!
+                    {% endif %}
+                </h5>
+                <a href="{{ url_for('admin.admin_anticipo_entregas') }}" class="btn-close btn-close-white" aria-label="Close"></a>
+            </div>
+            <div class="modal-body p-4">
+                <div class="text-center mb-4">
+                    <div class="avatar-lg bg-light rounded-circle d-inline-flex align-items-center justify-content-center p-3 mb-2 border">
+                        <i class="bi bi-printer text-primary fs-1"></i>
+                    </div>
+                    <h5 class="fw-bold text-slate-800 mb-1">{{ request.args.get('cliente') }}</h5>
+                    <p class="text-muted small mb-0">Anticipo #{{ request.args.get('id_anticipo') }}</p>
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <div class="p-3 bg-light rounded-3 text-center border">
+                            <span class="text-muted small d-block mb-1">Cajas Despachadas</span>
+                            <span class="fw-bold text-success fs-5">{{ request.args.get('cajas_despachadas') }} cjs</span>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="p-3 bg-light rounded-3 text-center border">
+                            <span class="text-muted small d-block mb-1">Cajas Restantes</span>
+                            <span class="fw-bold {% if request.args.get('completado') == '1' %}text-success{% else %}text-warning{% endif %} fs-5">
+                                {{ request.args.get('cajas_restantes') }} cjs
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                {% if request.args.get('completado') == '1' %}
+                <div class="alert alert-success d-flex align-items-center mb-3">
+                    <i class="bi bi-info-circle-fill fs-5 me-2"></i>
+                    <div class="small">
+                        Se han despachado <strong>todas las cajas</strong> contratadas. Recomendamos imprimir la <strong>Factura Consolidada de Liquidación</strong>.
+                    </div>
+                </div>
+                {% endif %}
+
+                <p class="fw-semibold text-slate-700 mb-2 small text-uppercase">Selecciona el comprobante a imprimir:</p>
+                
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('admin.ticket_entregas', id_anticipo=request.args.get('id_anticipo'), ids=request.args.get('ids'), filtro='actual', autoPrint=1) }}" 
+                       class="btn btn-outline-success btn-lg d-flex align-items-center justify-content-between text-start p-3 rounded-3">
+                        <div>
+                            <div class="fw-bold"><i class="bi bi-receipt me-2"></i>Ticket de Salida (Despacho Actual)</div>
+                            <small class="text-muted">Comprobante de bodega para el chofer / sucursal entregada hoy</small>
+                        </div>
+                        <i class="bi bi-printer fs-5"></i>
+                    </a>
+
+                    <a href="{{ url_for('admin.ticket_entregas', id_anticipo=request.args.get('id_anticipo'), filtro='todas', autoPrint=1) }}" 
+                       class="btn btn-outline-primary btn-lg d-flex align-items-center justify-content-between text-start p-3 rounded-3">
+                        <div>
+                            <div class="fw-bold"><i class="bi bi-file-earmark-spreadsheet me-2"></i>Factura Consolidada de Liquidación</div>
+                            <small class="text-muted">Historial acumulado de todas las entregas y sucursales</small>
+                        </div>
+                        <i class="bi bi-printer fs-5"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="modal-footer bg-light border-top">
+                <a href="{{ url_for('admin.admin_anticipo_entregas') }}" class="btn btn-secondary w-100 py-2 rounded-3">
+                    <i class="bi bi-check2-circle me-1"></i> Continuar / Registrar Nueva Entrega
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <!-- Modal Proforma -->
 <div class="modal fade" id="proformaModal" tabindex="-1" aria-hidden="true">
@@ -798,6 +904,15 @@
         });
 
         document.getElementById('formEntrega').addEventListener('submit', validarFormulario);
+
+        // Mostrar automáticamente la ventana emergente de impresión si se acaba de registrar una entrega
+        {% if request.args.get('entrega_exitosa') == '1' %}
+        const modalEntregaEl = document.getElementById('modalImpresionEntrega');
+        if (modalEntregaEl) {
+            const modalEntregaInstance = new bootstrap.Modal(modalEntregaEl);
+            modalEntregaInstance.show();
+        }
+        {% endif %}
 
         document.getElementById('btnImprimirModal').addEventListener('click', () => {
             const printWindow = window.open('', '_blank');

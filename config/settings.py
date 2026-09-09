@@ -2,94 +2,38 @@
 Configuración de variables de entorno y settings
 """
 import os
-import time
 from dotenv import load_dotenv
 from datetime import timedelta
-import urllib.parse
 
-# ===== CONFIGURAR PARCHE DE ZONA HORARIA GLOBAL (Nicaragua UTC-6) =====
-import datetime
-if not hasattr(datetime, '__patched__'):
-    from zoneinfo import ZoneInfo
-    _original_datetime = datetime.datetime
-    _original_date = datetime.date
-
-    class SafeDatetime(_original_datetime):
-        @classmethod
-        def now(cls, tz=None):
-            if tz is None:
-                try:
-                    dt = _original_datetime.now(ZoneInfo('America/Managua')).replace(tzinfo=None)
-                except Exception:
-                    dt = _original_datetime.now()
-            else:
-                dt = _original_datetime.now(tz)
-            return cls(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, dt.microsecond, dt.tzinfo)
-        
-        @classmethod
-        def utcnow(cls):
-            try:
-                dt = _original_datetime.now(ZoneInfo('UTC')).replace(tzinfo=None)
-            except Exception:
-                dt = _original_datetime.utcnow()
-            return cls(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, dt.microsecond, dt.tzinfo)
-
-    class SafeDate(_original_date):
-        @classmethod
-        def today(cls):
-            try:
-                dt = _original_datetime.now(ZoneInfo('America/Managua'))
-                return cls(dt.year, dt.month, dt.day)
-            except Exception:
-                d = _original_date.today()
-                return cls(d.year, d.month, d.day)
-
-    datetime.datetime = SafeDatetime
-    datetime.date = SafeDate
-    datetime.__patched__ = True
-
-# También configurar a nivel de sistema operativo
-os.environ['TZ'] = 'America/Managua'
-if hasattr(time, 'tzset'):
-    time.tzset()
-
-
-load_dotenv(override=True)
+load_dotenv()
 
 # ===== VARIABLES DE ENTORNO =====
-DEBUG = os.environ.get('DEBUG', 'False') == 'True'
+DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 't')
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
 RENDER_ENV = os.environ.get('RENDER', False)
-RAILWAY_ENV = os.environ.get('RAILWAY_STATIC_URL', None) is not None
+RAILWAY_ENV = os.environ.get('RAILWAY_ENVIRONMENT', False) or os.environ.get('RAILWAY_STATIC_URL', False) or os.environ.get('RAILWAY_PROJECT_ID', False)
 
-DB_SSL_DISABLED = os.environ.get('DB_SSL_DISABLED', 'True') == 'True'
-DB_SSL_CA = os.environ.get('DB_SSL_CA', None)
-
+# ===== CONFIGURACIÓN SIMPLIFICADA DE BASE DE DATOS (SIN SSL) =====
 DB_CONFIG = {
-    'user': os.environ.get('DB_USER', 'root'),
+    'user': os.environ.get('DB_USER', 'avnadmin'),
     'password': os.environ.get('DB_PASSWORD', ''),
-    'host': os.environ.get('DB_HOST', 'altaria.proxy.rlwy.net'),
-    'port': int(os.environ.get('DB_PORT', 29240)),
-    'database': os.environ.get('DB_NAME', 'railway'),
+    'host': os.environ.get('DB_HOST', 'mysql-ferdel-pruebadoce46-eadc.c.aivencloud.com'),
+    'port': int(os.environ.get('DB_PORT', 28375)),
+    'database': os.environ.get('DB_NAME', 'db_ferdel'),
     'pool_name': 'ferdel_pool',
-    'pool_size': int(os.environ.get('DB_POOL_SIZE', 5)),
+    'pool_size': int(os.environ.get('DB_POOL_SIZE', 3)),
     'pool_reset_session': True,
-    'autocommit': os.environ.get('DB_AUTOCOMMIT', 'False') == 'True',
+    'autocommit': True,
     'connect_timeout': 30,
     'use_pure': True,
     'charset': 'utf8mb4',
-    'collation': 'utf8mb4_general_ci',
-    'ssl_disabled': DB_SSL_DISABLED
+    'collation': 'utf8mb4_general_ci'
 }
-
-if DB_SSL_CA:
-    DB_CONFIG['ssl_ca'] = DB_SSL_CA
-
 
 # ===== CONFIGURACIÓN DE SESIÓN =====
 SESSION_CONFIG = {
     'PERMANENT': False,
-    'TYPE': os.environ.get('SESSION_TYPE', None),
+    'TYPE': 'filesystem',
     'PERMANENT_LIFETIME': timedelta(hours=12),
     'TEMPLATES_AUTO_RELOAD': True,
 }
@@ -101,8 +45,7 @@ CORS_CONFIG = {
 
 def print_db_config():
     """Imprimir configuración de BD (sin mostrar contraseña)"""
-    ssl_status = "DESHABILITADO" if DB_CONFIG.get('ssl_disabled', True) else "HABILITADO"
-    print(f"📋 Configuración de BD (SSL: {ssl_status}):")
+    print("📋 Configuración de BD (SIN SSL):")
     print(f"   Host: {DB_CONFIG['host']}:{DB_CONFIG['port']}")
     print(f"   Database: {DB_CONFIG['database']}")
     print(f"   User: {DB_CONFIG['user']}")

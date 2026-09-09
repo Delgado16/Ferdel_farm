@@ -254,8 +254,8 @@ def admin_anticipo_detalle(id_anticipo):
                     e.Cantidad_Cajas,
                     e.Total,
                     e.Fecha_Entrega,
-                    DATE_FORMAT(e.Fecha_Entrega, '%%d/%%m/%%Y %%H:%%i') as Fecha_Formato,
-                    DATE_FORMAT(e.Fecha_Entrega, '%%Y-%%m-%%d') as Fecha_Raw,
+                    DATE_FORMAT(e.Fecha_Entrega, '%d/%m/%Y %H:%i') as Fecha_Formato,
+                    DATE_FORMAT(e.Fecha_Entrega, '%Y-%m-%d') as Fecha_Raw,
                     e.Notas,
                     s.Nombre_Sucursal,
                     u.NombreUsuario as Registrado_Por
@@ -266,6 +266,11 @@ def admin_anticipo_detalle(id_anticipo):
                 ORDER BY e.Fecha_Entrega DESC
             """, (id_anticipo,))
             entregas = cursor.fetchall()
+            
+            for e in entregas:
+                if hasattr(e['Fecha_Entrega'], 'strftime'):
+                    e['Fecha_Formato'] = e['Fecha_Entrega'].strftime('%d/%m/%Y %H:%M')
+                    e['Fecha_Raw'] = e['Fecha_Entrega'].strftime('%Y-%m-%d')
             
             return render_template('admin/ventas/anticipos/detalle_anticipo.html',
                                  anticipo=anticipo,
@@ -579,9 +584,22 @@ def admin_anticipo_entregas():
                 
                 # Commit implícito por el context manager
                 
-                # Redirigir al ticket con auto-impresión
-                flash(f'✅ {len(ids_entregas)} entregas registradas exitosamente!', 'success')
-                return redirect(url_for('admin.ticket_entregas', id_anticipo=id_anticipo, autoPrint=1))
+                # Redirigir a la pantalla de entregas activando la ventana emergente de impresión
+                ids_str = ','.join(map(str, ids_entregas))
+                es_completado = 1 if (nuevo_estado == 'COMPLETADO' or cajas_restantes <= 0) else 0
+                if es_completado:
+                    flash(f'🎉 ¡Anticipo completado al 100%! Se han despachado todas las cajas contratadas.', 'success')
+                else:
+                    flash(f'✅ {len(ids_entregas)} entrega(s) registrada(s) exitosamente! ({cajas_restantes} cajas restantes)', 'success')
+                
+                return redirect(url_for('admin.admin_anticipo_entregas', 
+                                        entrega_exitosa=1, 
+                                        id_anticipo=id_anticipo, 
+                                        ids=ids_str, 
+                                        completado=es_completado,
+                                        cajas_despachadas=total_cajas,
+                                        cajas_restantes=cajas_restantes,
+                                        cliente=anticipo['Nombre_Cliente']))
                 
         except ValueError as e:
             flash(f' Error en el formato de los datos: {str(e)}', 'error')
@@ -672,21 +690,27 @@ def admin_anticipo_entregas():
             if not bodegas:
                 flash('⚠️ No hay bodegas activas configuradas para su empresa', 'warning')
             
-            # 4. Obtener historial de entregas agrupadas por día
+            # 4. Obtener historial detallado de despachos y salidas
             cursor.execute("""
                 SELECT 
+                    e.ID_Entrega,
                     DATE_FORMAT(e.Fecha_Entrega, '%d/%m/%Y') as Fecha_Dia,
                     DATE_FORMAT(e.Fecha_Entrega, '%Y-%m-%d') as Fecha_Raw,
                     c.Nombre as Nombre_Cliente,
                     c.Telefono as Cliente_Telefono,
                     p.Descripcion as Nombre_Producto,
-                    SUM(e.Cantidad_Cajas) as Total_Cajas,
-                    SUM(e.Total) as Total_Monto,
-                    COUNT(e.ID_Entrega) as Num_Entregas,
-                    GROUP_CONCAT(DISTINCT s.Nombre_Sucursal ORDER BY s.Nombre_Sucursal SEPARATOR ', ') as Sucursales,
-                    GROUP_CONCAT(DISTINCT u.NombreUsuario ORDER BY u.NombreUsuario SEPARATOR ', ') as Usuarios,
-                    MAX(a.ID_Anticipo) as ID_Anticipo,
-                    c.Saldo_Anticipos as Cliente_Saldo_Actual
+                    s.Nombre_Sucursal,
+                    e.Cantidad_Cajas as Total_Cajas,
+                    u.NombreUsuario as Usuario,
+                    e.ID_Anticipo,
+                    a.Cantidad_Cajas as Total_Cajas_Anticipo,
+                    a.Cajas_Consumidas as Cajas_Consumidas_Anticipo,
+                    COALESCE(a.Cantidad_Cajas - a.Cajas_Consumidas, 0) as Cajas_Pendientes,
+                    CASE 
+                        WHEN a.Cantidad_Cajas > 0 THEN ROUND((a.Cajas_Consumidas / a.Cantidad_Cajas) * 100, 0)
+                        ELSE 100 
+                    END as Porcentaje_Consumo,
+                    a.Estado as Estado_Anticipo
                 FROM entregas e
                 INNER JOIN clientes c ON e.ID_Cliente = c.ID_Cliente
                 INNER JOIN productos p ON e.ID_Producto = p.ID_Producto
@@ -694,13 +718,15 @@ def admin_anticipo_entregas():
                 LEFT JOIN anticipos_clientes a ON e.ID_Anticipo = a.ID_Anticipo
                 LEFT JOIN usuarios u ON e.ID_Usuario = u.ID_Usuario
                 WHERE e.Usa_Anticipo = 1
-                GROUP BY DATE(e.Fecha_Entrega), DATE_FORMAT(e.Fecha_Entrega, '%d/%m/%Y'), DATE_FORMAT(e.Fecha_Entrega, '%Y-%m-%d'),
-                         c.ID_Cliente, c.Nombre, c.Telefono, c.Saldo_Anticipos,
-                         p.ID_Producto, p.Descripcion
-                ORDER BY DATE(e.Fecha_Entrega) DESC, c.Nombre
-                LIMIT 15
+                ORDER BY e.Fecha_Entrega DESC, e.ID_Entrega DESC
+                LIMIT 30
             """)
             entregas_recientes = cursor.fetchall()
+
+            # Asegurar formateo de fechas
+            for e in entregas_recientes:
+                if isinstance(e.get('Fecha_Dia'), (datetime, date)):
+                    e['Fecha_Dia'] = e['Fecha_Dia'].strftime('%d/%m/%Y')
             
             # 5. Estadísticas
             cursor.execute("""
@@ -768,13 +794,14 @@ def admin_anticipo_entregas():
 @admin_bp.route('/admin/ventas/anticipos/entregas/ticket/<int:id_anticipo>')
 @admin_required
 def ticket_entregas(id_anticipo):
-    """Generar ticket de entregas del anticipo (soporta entregas de hoy, entregas pasadas por fecha o historial completo)"""
+    """Generar ticket o factura consolidada de entregas del anticipo (soporta entrega actual, filtro por fecha o consolidado completo)"""
     try:
         from datetime import datetime
         
         fecha_param = request.args.get('fecha')
         id_entrega_param = request.args.get('id_entrega')
-        filtro_param = request.args.get('filtro')
+        ids_param = request.args.get('ids', '').strip()
+        filtro_param = request.args.get('filtro', '').strip().lower()
         
         with get_db_cursor(True) as cursor:
             # Obtener información del anticipo y cliente
@@ -789,6 +816,7 @@ def ticket_entregas(id_anticipo):
                     a.Monto_Pagado,
                     a.Saldo_Restante,
                     a.Fecha_Anticipo,
+                    a.Estado,
                     a.Notas as Anticipo_Notas,
                     c.Nombre as Nombre_Cliente,
                     c.Telefono,
@@ -808,91 +836,186 @@ def ticket_entregas(id_anticipo):
                 flash('Anticipo no encontrado', 'error')
                 return redirect(url_for('admin.admin_anticipo_entregas'))
             
-            base_sql = """
+            # Obtener TODAS las entregas registradas para este anticipo
+            cursor.execute("""
                 SELECT 
                     e.ID_Entrega,
                     e.Cantidad_Cajas,
+                    e.Precio_Unitario,
+                    e.Total,
                     e.Fecha_Entrega,
                     e.Notas,
                     s.Nombre_Sucursal,
                     s.Direccion as Direccion_Sucursal,
                     u.NombreUsuario as Registrado_Por,
-                    DATE_FORMAT(e.Fecha_Entrega, '%%d/%%m/%%Y') as Fecha_Entrega_Formato,
-                    DATE_FORMAT(e.Fecha_Entrega, '%%H:%%i') as Hora_Entrega
+                    DATE_FORMAT(e.Fecha_Entrega, '%d/%m/%Y') as Fecha_Entrega_Formato,
+                    DATE_FORMAT(e.Fecha_Entrega, '%H:%i') as Hora_Entrega
                 FROM entregas e
                 INNER JOIN sucursales s ON e.ID_Sucursal = s.ID_Sucursal
                 LEFT JOIN usuarios u ON e.ID_Usuario = u.ID_Usuario
                 WHERE e.ID_Anticipo = %s
-            """
+                ORDER BY e.Fecha_Entrega ASC, e.ID_Entrega ASC
+            """, (id_anticipo,))
+            todas_las_entregas = cursor.fetchall()
             
-            entregas_seleccionadas = []
-            titulo_rango = ""
-            
-            if id_entrega_param:
-                cursor.execute(base_sql + " AND e.ID_Entrega = %s ORDER BY e.Fecha_Entrega ASC", (id_anticipo, id_entrega_param))
-                entregas_seleccionadas = cursor.fetchall()
-                titulo_rango = f"Entrega #{id_entrega_param}"
-            elif fecha_param and fecha_param.lower() not in ['todas', 'historial', 'all']:
-                fecha_filtro = fecha_param
-                if '/' in fecha_param:
-                    try:
-                        partes = fecha_param.split('/')
-                        if len(partes) == 3:
-                            fecha_filtro = f"{partes[2]}-{partes[1]}-{partes[0]}"
-                    except Exception:
-                        pass
-                cursor.execute(base_sql + " AND (DATE(e.Fecha_Entrega) = %s OR DATE_FORMAT(e.Fecha_Entrega, '%%d/%%m/%%Y') = %s) ORDER BY e.Fecha_Entrega ASC", (id_anticipo, fecha_filtro, fecha_param))
-                entregas_seleccionadas = cursor.fetchall()
-                try:
-                    fecha_obj = datetime.strptime(fecha_filtro, '%Y-%m-%d')
-                    titulo_rango = f"Entregas del {fecha_obj.strftime('%d/%m/%Y')}"
-                except Exception:
-                    titulo_rango = f"Entregas del {fecha_param}"
-            elif (fecha_param and fecha_param.lower() in ['todas', 'historial', 'all']) or filtro_param == 'todas':
-                cursor.execute(base_sql + " ORDER BY e.Fecha_Entrega ASC", (id_anticipo,))
-                entregas_seleccionadas = cursor.fetchall()
-                titulo_rango = "Historial Completo de Entregas"
-            else:
-                # Intento inicial: entregas de hoy
-                cursor.execute(base_sql + " AND DATE(e.Fecha_Entrega) = CURDATE() ORDER BY e.Fecha_Entrega ASC", (id_anticipo,))
-                entregas_seleccionadas = cursor.fetchall()
-                if entregas_seleccionadas:
-                    titulo_rango = f"Hoy - {datetime.now().strftime('%d/%m/%Y')}"
-                else:
-                    # Si no hay entregas hoy, traer todas las entregas pasadas
-                    cursor.execute(base_sql + " ORDER BY e.Fecha_Entrega ASC", (id_anticipo,))
-                    entregas_seleccionadas = cursor.fetchall()
-                    titulo_rango = "Historial de Entregas Pasadas"
-            
-            if not entregas_seleccionadas:
+            if not todas_las_entregas:
                 flash('No hay entregas registradas para este anticipo', 'warning')
                 return redirect(url_for('admin.admin_anticipo_entregas'))
             
-            entregas_hoy = entregas_seleccionadas
+            # Asegurar formateo limpio de fechas y horas en Python
+            for e in todas_las_entregas:
+                if hasattr(e['Fecha_Entrega'], 'strftime'):
+                    e['Fecha_Entrega_Formato'] = e['Fecha_Entrega'].strftime('%d/%m/%Y')
+                    e['Hora_Entrega'] = e['Fecha_Entrega'].strftime('%H:%M')
+                elif isinstance(e['Fecha_Entrega'], str) and len(e['Fecha_Entrega']) >= 10:
+                    try:
+                        fe_obj = datetime.strptime(e['Fecha_Entrega'][:10], '%Y-%m-%d')
+                        e['Fecha_Entrega_Formato'] = fe_obj.strftime('%d/%m/%Y')
+                    except Exception:
+                        pass
             
-            # Agrupar entregas por fecha (para el detalle)
+            precio_unitario = float(anticipo['Precio_Unitario'])
+            
+            # Obtener lista única de sucursales
+            todas_las_sucursales_nombres = sorted(list(set(e['Nombre_Sucursal'] for e in todas_las_entregas)))
+            
+            # Helper para obtener fecha como objeto date
+            def obtener_fecha_date(val):
+                if hasattr(val, 'date'):
+                    return val.date()
+                if isinstance(val, str):
+                    try:
+                        return datetime.strptime(val[:10], '%Y-%m-%d').date()
+                    except Exception:
+                        pass
+                return datetime.now().date()
+            
+            # 1. Última fecha registrada de despacho
+            max_fecha = max(obtener_fecha_date(e['Fecha_Entrega']) for e in todas_las_entregas)
+            entregas_ultimo_despacho = [e for e in todas_las_entregas if obtener_fecha_date(e['Fecha_Entrega']) == max_fecha]
+            
+            # 2. Última entrega de CADA sucursal
+            ultimas_map = {}
+            for e in sorted(todas_las_entregas, key=lambda x: (x['Fecha_Entrega'], x['ID_Entrega'])):
+                ultimas_map[e['Nombre_Sucursal']] = e
+            entregas_ultimas_sucursales = sorted(list(ultimas_map.values()), key=lambda x: x['Fecha_Entrega'], reverse=True)
+            
+            # 3. Entregas de Hoy
+            hoy_date = datetime.now().date()
+            entregas_hoy = [e for e in todas_las_entregas if obtener_fecha_date(e['Fecha_Entrega']) == hoy_date]
+            
+            sucursal_param = request.args.get('sucursal', '').strip()
+            
+            # Determinar entregas seleccionadas y modo
+            entregas_seleccionadas = []
+            titulo_rango = ""
+            es_consolidado = False
+            
+            if sucursal_param:
+                entregas_seleccionadas = [e for e in todas_las_entregas if e['Nombre_Sucursal'] == sucursal_param]
+                titulo_rango = f"Entregas - {sucursal_param}"
+            elif ids_param:
+                try:
+                    ids_lista = [int(x.strip()) for x in ids_param.split(',') if x.strip().isdigit()]
+                    entregas_seleccionadas = [e for e in todas_las_entregas if e['ID_Entrega'] in ids_lista]
+                    if entregas_seleccionadas:
+                        titulo_rango = "Despacho de Entrega Actual"
+                except Exception:
+                    pass
+
+            if not entregas_seleccionadas and not sucursal_param and not ids_param:
+                if id_entrega_param:
+                    entregas_seleccionadas = [e for e in todas_las_entregas if str(e['ID_Entrega']) == str(id_entrega_param)]
+                    titulo_rango = f"Entrega #{id_entrega_param}"
+                elif filtro_param in ['todas', 'consolidado', 'historial', 'all']:
+                    entregas_seleccionadas = todas_las_entregas
+                    titulo_rango = "Factura Consolidada - Historial Completo"
+                    es_consolidado = True
+                elif filtro_param in ['ultimas_sucursales', 'sucursales']:
+                    entregas_seleccionadas = entregas_ultimas_sucursales
+                    titulo_rango = "Último Despacho de Cada Sucursal"
+                elif filtro_param == 'hoy':
+                    entregas_seleccionadas = entregas_hoy
+                    titulo_rango = f"Entregas de Hoy ({hoy_date.strftime('%d/%m/%Y')})"
+                elif filtro_param in ['actual', 'ultimo', 'ultimo_despacho']:
+                    entregas_seleccionadas = entregas_ultimo_despacho
+                    titulo_rango = f"Último Despacho ({max_fecha.strftime('%d/%m/%Y')})"
+                elif fecha_param and fecha_param.lower() not in ['todas', 'historial', 'all']:
+                    fecha_filtro = fecha_param
+                    if '/' in fecha_param:
+                        try:
+                            partes = fecha_param.split('/')
+                            if len(partes) == 3:
+                                fecha_filtro = f"{partes[2]}-{partes[1]}-{partes[0]}"
+                        except Exception:
+                            pass
+                    entregas_seleccionadas = [e for e in todas_las_entregas if (hasattr(e['Fecha_Entrega'], 'strftime') and e['Fecha_Entrega'].strftime('%Y-%m-%d') == fecha_filtro) or e['Fecha_Entrega_Formato'] == fecha_param]
+                    try:
+                        fecha_obj = datetime.strptime(fecha_filtro, '%Y-%m-%d')
+                        titulo_rango = f"Entregas del {fecha_obj.strftime('%d/%m/%Y')}"
+                    except Exception:
+                        titulo_rango = f"Entregas del {fecha_param}"
+                else:
+                    # Por defecto: el último despacho realizado
+                    entregas_seleccionadas = entregas_ultimo_despacho
+                    titulo_rango = f"Último Despacho ({max_fecha.strftime('%d/%m/%Y')})"
+            
+            # Si se pidió consolidado explícito
+            if filtro_param in ['todas', 'consolidado', 'historial', 'all']:
+                entregas_seleccionadas = todas_las_entregas
+                es_consolidado = True
+                titulo_rango = "Factura Consolidada - Historial Completo"
+            
+            # Agrupar entregas por fecha (para desglose)
             entregas_por_fecha = {}
-            for e in entregas_hoy:
+            for e in entregas_seleccionadas:
                 fecha = e['Fecha_Entrega_Formato']
                 if fecha not in entregas_por_fecha:
                     entregas_por_fecha[fecha] = []
                 entregas_por_fecha[fecha].append(e)
             
-            # Consolidar por sucursal
+            # Consolidar por sucursal de la selección actual con sus fechas
             sucursales_consolidadas = {}
-            for e in entregas_hoy:
+            for e in entregas_seleccionadas:
                 nombre_sucursal = e['Nombre_Sucursal']
                 if nombre_sucursal not in sucursales_consolidadas:
                     sucursales_consolidadas[nombre_sucursal] = {
                         'nombre': nombre_sucursal,
-                        'total': 0
+                        'total_cajas': 0,
+                        'total_monto': 0.0,
+                        'fechas_set': set(),
+                        'ultima_fecha': e['Fecha_Entrega_Formato']
                     }
-                sucursales_consolidadas[nombre_sucursal]['total'] += e['Cantidad_Cajas']
+                sucursales_consolidadas[nombre_sucursal]['total_cajas'] += e['Cantidad_Cajas']
+                sucursales_consolidadas[nombre_sucursal]['total_monto'] += float(e['Cantidad_Cajas'] * precio_unitario)
+                sucursales_consolidadas[nombre_sucursal]['fechas_set'].add(e['Fecha_Entrega_Formato'])
+                sucursales_consolidadas[nombre_sucursal]['ultima_fecha'] = e['Fecha_Entrega_Formato']
+            
+            for ns, data in sucursales_consolidadas.items():
+                data['fechas_str'] = ', '.join(sorted(list(data['fechas_set'])))
             
             sucursales_consolidadas = sorted(sucursales_consolidadas.values(), key=lambda x: x['nombre'])
             
-            total_cajas_hoy = sum(e['Cantidad_Cajas'] for e in entregas_hoy)
-            cajas_pendientes = anticipo['Total_Cajas_Anticipo'] - anticipo['Cajas_Consumidas']
+            # Totales del rango seleccionado
+            total_cajas_rango = sum(e['Cantidad_Cajas'] for e in entregas_seleccionadas)
+            total_monto_rango = total_cajas_rango * precio_unitario
+            
+            # Totales globales del anticipo
+            total_cajas_anticipo = anticipo['Total_Cajas_Anticipo']
+            total_cajas_consumidas = anticipo['Cajas_Consumidas']
+            cajas_pendientes = max(0, total_cajas_anticipo - total_cajas_consumidas)
+            saldo_restante_monto = max(0.0, float(anticipo['Saldo_Restante']))
+            anticipo_completado = (cajas_pendientes == 0) or (anticipo['Estado'] == 'COMPLETADO')
+            
+            # Consolidado global de TODAS las sucursales (histórico total)
+            sucursales_historico = {}
+            for e in todas_las_entregas:
+                ns = e['Nombre_Sucursal']
+                if ns not in sucursales_historico:
+                    sucursales_historico[ns] = {'nombre': ns, 'total_cajas': 0, 'total_monto': 0.0}
+                sucursales_historico[ns]['total_cajas'] += e['Cantidad_Cajas']
+                sucursales_historico[ns]['total_monto'] += float(e['Cantidad_Cajas'] * precio_unitario)
+            sucursales_historico = sorted(sucursales_historico.values(), key=lambda x: x['nombre'])
             
             # Obtener bodega
             bodega_nombre = None
@@ -917,20 +1040,30 @@ def ticket_entregas(id_anticipo):
             empresa = cursor.fetchone()
             
             # Notas combinadas
-            notas_entregas = ' | '.join([e['Notas'] for e in entregas_hoy if e['Notas']]) if entregas_hoy else None
+            notas_entregas = ' | '.join([e['Notas'] for e in entregas_seleccionadas if e['Notas']]) if entregas_seleccionadas else None
             
             return render_template('admin/ventas/anticipos/ticket_entregas.html',
                                  anticipo=anticipo,
-                                 entregas=entregas_hoy,
+                                 entregas=entregas_seleccionadas,
+                                 todas_las_entregas=todas_las_entregas,
                                  entregas_por_fecha=entregas_por_fecha,
                                  sucursales_consolidadas=sucursales_consolidadas,
-                                 total_cajas_rango=total_cajas_hoy,
+                                 sucursales_historico=sucursales_historico,
+                                 total_cajas_rango=total_cajas_rango,
+                                 total_monto_rango=total_monto_rango,
                                  cajas_pendientes=cajas_pendientes,
+                                 saldo_restante_monto=saldo_restante_monto,
+                                 anticipo_completado=anticipo_completado,
+                                 es_consolidado=es_consolidado,
                                  empresa=empresa,
                                  bodega_nombre=bodega_nombre,
                                  notas_entregas=notas_entregas,
                                  titulo_rango=titulo_rango,
-                                 mostrar_detalle=True if len(entregas_por_fecha) > 1 else False,
+                                 mostrar_detalle=True if (len(entregas_por_fecha) > 1 or es_consolidado) else False,
+                                 ids_param=ids_param,
+                                 filtro_param=filtro_param,
+                                 todas_las_sucursales_nombres=todas_las_sucursales_nombres,
+                                 sucursal_param=sucursal_param,
                                  fecha_actual=datetime.now())
                                  
     except Exception as e:
@@ -1073,6 +1206,11 @@ def proforma_anticipo_api(id_anticipo):
                 """, (id_anticipo,))
             
             entregas = cursor.fetchall()
+            
+            for e in entregas:
+                if hasattr(e['Fecha_Entrega'], 'strftime'):
+                    e['Fecha_Formato'] = e['Fecha_Entrega'].strftime('%d/%m/%Y')
+                    e['Hora_Entrega'] = e['Fecha_Entrega'].strftime('%H:%M')
             
             # 4. Calcular totales
             total_cajas_entregadas = sum(e['Cantidad_Cajas'] for e in entregas) if entregas else 0

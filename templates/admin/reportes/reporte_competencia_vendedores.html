@@ -1,0 +1,883 @@
+{% extends "layout.html" %}
+
+{% block title %}Competencia y Rendimiento de Vendedores - FerDel{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Estilos Premium para Reporte de Competencia */
+    .ranking-header {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #064e3b 100%);
+        color: white;
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.15);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .ranking-header::before {
+        content: "";
+        position: absolute;
+        top: -50px;
+        right: -50px;
+        width: 200px;
+        height: 200px;
+        background: radial-gradient(circle, rgba(16, 185, 129, 0.2) 0%, transparent 70%);
+        border-radius: 50%;
+    }
+
+    .stat-card-kpi {
+        background: white;
+        border-radius: 14px;
+        padding: 1.25rem;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03);
+        transition: transform 0.2s, box-shadow 0.2s;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+    .stat-card-kpi:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+    }
+
+    .kpi-icon-wrapper {
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.35rem;
+    }
+
+    /* Estilos del Podio Gamificado */
+    .podium-container {
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        gap: 16px;
+        padding: 1.5rem 0.5rem 0.5rem 0.5rem;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+    }
+
+    .podium-card {
+        background: white;
+        border-radius: 16px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+        text-align: center;
+        padding: 1.5rem 1rem 1rem 1rem;
+        position: relative;
+        flex: 1;
+        min-width: 240px;
+        max-width: 320px;
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .podium-card:hover {
+        transform: translateY(-6px);
+    }
+
+    .podium-card.first-place {
+        order: 2;
+        border: 2px solid #fbbf24;
+        background: linear-gradient(to bottom, #fffbeb, #ffffff);
+        box-shadow: 0 12px 30px rgba(245, 158, 11, 0.18);
+        transform: translateY(-10px);
+        z-index: 2;
+    }
+
+    .podium-card.second-place {
+        order: 1;
+        border: 2px solid #cbd5e1;
+        background: linear-gradient(to bottom, #f8fafc, #ffffff);
+    }
+
+    .podium-card.third-place {
+        order: 3;
+        border: 2px solid #fcd34d;
+        background: linear-gradient(to bottom, #fffdfa, #ffffff);
+    }
+
+    @media (max-width: 768px) {
+        .podium-container {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .podium-card.first-place {
+            order: 1;
+            transform: none;
+        }
+        .podium-card.second-place {
+            order: 2;
+        }
+        .podium-card.third-place {
+            order: 3;
+        }
+    }
+
+    .podium-badge {
+        position: absolute;
+        top: -16px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 1.1rem;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    }
+
+    .podium-badge.gold {
+        background: linear-gradient(135deg, #f59e0b, #d97706);
+        color: white;
+    }
+
+    .podium-badge.silver {
+        background: linear-gradient(135deg, #94a3b8, #64748b);
+        color: white;
+    }
+
+    .podium-badge.bronze {
+        background: linear-gradient(135deg, #d97706, #b45309);
+        color: white;
+    }
+
+    .podium-avatar {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        margin: 0.5rem auto 0.75rem auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.4rem;
+        font-weight: bold;
+        color: white;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Tabla de Competencia */
+    .table-leaderboard thead th {
+        background-color: #0f172a;
+        color: white;
+        font-size: 0.82rem;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        padding: 0.85rem 0.75rem;
+        border: none;
+    }
+
+    .table-leaderboard tbody tr {
+        transition: background-color 0.15s;
+    }
+
+    .table-leaderboard tbody tr:hover {
+        background-color: rgba(16, 185, 129, 0.04);
+    }
+
+    .rank-number {
+        font-size: 1.1rem;
+        font-weight: 800;
+        width: 38px;
+        height: 38px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        margin: 0 auto;
+    }
+
+    .rank-gold {
+        background: #fef3c7;
+        color: #b45309;
+        border: 1px solid #fde68a;
+    }
+
+    .rank-silver {
+        background: #f1f5f9;
+        color: #475569;
+        border: 1px solid #e2e8f0;
+    }
+
+    .rank-bronze {
+        background: #ffedd5;
+        color: #9a3412;
+        border: 1px solid #fed7aa;
+    }
+
+    .rank-normal {
+        background: #f8fafc;
+        color: #64748b;
+    }
+
+    /* Barra de Progreso Liquidez */
+    .progress-cash {
+        height: 6px;
+        border-radius: 4px;
+        background-color: #e2e8f0;
+        margin-top: 4px;
+        overflow: hidden;
+    }
+
+    .progress-cash-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #10b981, #059669);
+        border-radius: 4px;
+    }
+
+    /* Botones de Periodo Rápido */
+    .period-pill {
+        border-radius: 20px;
+        padding: 0.35rem 0.85rem;
+        font-size: 0.82rem;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-0">
+
+    <!-- Header Principal con Estilo Ejecutivo -->
+    <div class="ranking-header d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-warning text-dark px-2 py-1 rounded-pill fw-bold">
+                    <i class="bi bi-trophy-fill me-1"></i> Ranking Comercial
+                </span>
+                <span class="badge bg-success px-2 py-1 rounded-pill">
+                    <i class="bi bi-clock-history me-1"></i> En Tiempo Real
+                </span>
+            </div>
+            <h1 class="h2 mb-1 fw-bold text-white">Competencia y Rendimiento de Vendedores / Rutas</h1>
+            <p class="text-white-50 mb-0">
+                Auditoría comparativa de volumen de facturación, efectividad de cobranza y dinero líquido entregado.
+            </p>
+        </div>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <!-- Botones de Exportación -->
+            <div class="btn-group">
+                <a href="{{ url_for('admin.reporte_competencia_vendedores', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, ruta_id=ruta_id, ordenar_por=ordenar_por, formato='excel') }}"
+                    class="btn btn-sm btn-outline-light" title="Exportar a Excel">
+                    <i class="bi bi-file-earmark-excel me-1"></i> Excel
+                </a>
+                <a href="{{ url_for('admin.reporte_competencia_vendedores', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, ruta_id=ruta_id, ordenar_por=ordenar_por, formato='csv') }}"
+                    class="btn btn-sm btn-outline-light" title="Exportar a CSV">
+                    <i class="bi bi-file-earmark-spreadsheet me-1"></i> CSV
+                </a>
+            </div>
+            <button onclick="window.print()" class="btn btn-sm btn-outline-light" title="Imprimir Reporte">
+                <i class="bi bi-printer me-1"></i> Imprimir
+            </button>
+            <a href="{{ url_for('admin.reportes') }}" class="btn btn-sm btn-light fw-bold">
+                <i class="bi bi-arrow-left me-1"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <!-- Barra de Filtros y Períodos -->
+    <div class="card shadow-sm border-0 mb-4" style="border-radius: 14px;">
+        <div class="card-body p-3">
+            <form method="GET" action="{{ url_for('admin.reporte_competencia_vendedores') }}" id="filtroCompetenciaForm">
+                <div class="row g-3 align-items-center">
+                    
+                    <!-- Botones de Filtro Rápido -->
+                    <div class="col-12 col-xl-5">
+                        <label class="form-label small fw-bold text-muted mb-1 d-block">Período Rápido:</label>
+                        <div class="d-flex flex-wrap gap-1">
+                            <a href="{{ url_for('admin.reporte_competencia_vendedores', periodo='dia', ruta_id=ruta_id, ordenar_por=ordenar_por) }}" 
+                               class="btn btn-sm period-pill {% if periodo == 'dia' %}btn-primary text-white{% else %}btn-outline-secondary{% endif %}">
+                                <i class="bi bi-calendar-day me-1"></i> Hoy
+                            </a>
+                            <a href="{{ url_for('admin.reporte_competencia_vendedores', periodo='semana', ruta_id=ruta_id, ordenar_por=ordenar_por) }}" 
+                               class="btn btn-sm period-pill {% if periodo == 'semana' %}btn-primary text-white{% else %}btn-outline-secondary{% endif %}">
+                                <i class="bi bi-calendar-week me-1"></i> 7 Días
+                            </a>
+                            <a href="{{ url_for('admin.reporte_competencia_vendedores', periodo='mes', ruta_id=ruta_id, ordenar_por=ordenar_por) }}" 
+                               class="btn btn-sm period-pill {% if periodo == 'mes' %}btn-primary text-white{% else %}btn-outline-secondary{% endif %}">
+                                <i class="bi bi-calendar-month me-1"></i> Este Mes
+                            </a>
+                            <a href="{{ url_for('admin.reporte_competencia_vendedores', periodo='ano', ruta_id=ruta_id, ordenar_por=ordenar_por) }}" 
+                               class="btn btn-sm period-pill {% if periodo == 'ano' %}btn-primary text-white{% else %}btn-outline-secondary{% endif %}">
+                                <i class="bi bi-calendar3 me-1"></i> Este Año
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Fechas Manuales -->
+                    <div class="col-6 col-sm-3 col-xl-2">
+                        <label class="form-label small fw-bold text-muted mb-1">Desde:</label>
+                        <input type="date" name="fecha_inicio" class="form-control form-control-sm rounded-3" value="{{ fecha_inicio }}">
+                    </div>
+                    <div class="col-6 col-sm-3 col-xl-2">
+                        <label class="form-label small fw-bold text-muted mb-1">Hasta:</label>
+                        <input type="date" name="fecha_fin" class="form-control form-control-sm rounded-3" value="{{ fecha_fin }}">
+                    </div>
+
+                    <!-- Filtro por Ruta -->
+                    <div class="col-6 col-sm-3 col-xl-1">
+                        <label class="form-label small fw-bold text-muted mb-1">Ruta:</label>
+                        <select name="ruta_id" class="form-select form-select-sm rounded-3">
+                            <option value="">Todas</option>
+                            {% for r in rutas_lista %}
+                            <option value="{{ r.ID_Ruta }}" {% if ruta_id|string == r.ID_Ruta|string %}selected{% endif %}>
+                                {{ r.Nombre_Ruta }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Criterio de Ordenamiento -->
+                    <div class="col-6 col-sm-3 col-xl-2">
+                        <label class="form-label small fw-bold text-muted mb-1">Ordenar por:</label>
+                        <select name="ordenar_por" class="form-select form-select-sm rounded-3" onchange="this.form.submit()">
+                            <option value="ventas" {% if ordenar_por == 'ventas' %}selected{% endif %}>💰 Mayor Venta Total</option>
+                            <option value="efectivo" {% if ordenar_por == 'efectivo' %}selected{% endif %}>💵 Mayor Efectivo Traído</option>
+                            <option value="abonos" {% if ordenar_por == 'abonos' %}selected{% endif %}>📑 Mayor Cobro de Cartera</option>
+                            <option value="unidades" {% if ordenar_por == 'unidades' %}selected{% endif %}>📦 Más Unidades Vendidas</option>
+                            <option value="facturas" {% if ordenar_por == 'facturas' %}selected{% endif %}>🧾 Más Facturas Realizadas</option>
+                        </select>
+                    </div>
+
+                    <!-- Botón Aplicar -->
+                    <div class="col-12 text-end">
+                        <button type="submit" class="btn btn-sm btn-dark px-4 rounded-3">
+                            <i class="bi bi-filter me-1"></i> Aplicar Filtros
+                        </button>
+                    </div>
+
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tarjetas de Métricas Globales (KPIs) -->
+    <div class="row g-3 mb-4">
+        <!-- Total Ventas Facturadas -->
+        <div class="col-6 col-md-3">
+            <div class="stat-card-kpi">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <span class="text-muted small fw-bold text-uppercase">Venta Global</span>
+                        <h4 class="fw-bold text-dark mb-0 mt-1">C$ {{ "{:,.2f}".format(total_ventas_global) }}</h4>
+                    </div>
+                    <div class="kpi-icon-wrapper bg-primary bg-opacity-10 text-primary">
+                        <i class="bi bi-graph-up-arrow"></i>
+                    </div>
+                </div>
+                <div class="small text-muted d-flex justify-content-between pt-2 border-top">
+                    <span>Contado: <strong>C$ {{ "{:,.0f}".format(total_contado_global) }}</strong></span>
+                    <span>Crédito: <strong>C$ {{ "{:,.0f}".format(total_credito_global) }}</strong></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Efectivo Recaudado (Ventas Contado + Abonos) -->
+        <div class="col-6 col-md-3">
+            <div class="stat-card-kpi" style="border-left: 4px solid #10b981;">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <span class="text-success small fw-bold text-uppercase">Efectivo Total</span>
+                        <h4 class="fw-bold text-success mb-0 mt-1">C$ {{ "{:,.2f}".format(total_efectivo_global) }}</h4>
+                    </div>
+                    <div class="kpi-icon-wrapper bg-success bg-opacity-10 text-success">
+                        <i class="bi bi-cash-stack"></i>
+                    </div>
+                </div>
+                <div class="small text-muted d-flex justify-content-between pt-2 border-top">
+                    <span>Abonos: <strong>C$ {{ "{:,.0f}".format(total_abonos_global) }}</strong></span>
+                    <span class="text-success fw-bold">Liquidez Real</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Unidades y Facturas -->
+        <div class="col-6 col-md-3">
+            <div class="stat-card-kpi">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <span class="text-muted small fw-bold text-uppercase">Volumen Total</span>
+                        <h4 class="fw-bold text-dark mb-0 mt-1">{{ "{:,.0f}".format(total_unidades_global) }} <small class="text-muted fs-6">uds</small></h4>
+                    </div>
+                    <div class="kpi-icon-wrapper bg-warning bg-opacity-10 text-warning">
+                        <i class="bi bi-box-seam"></i>
+                    </div>
+                </div>
+                <div class="small text-muted d-flex justify-content-between pt-2 border-top">
+                    <span>Facturas: <strong>{{ total_facturas_global }}</strong></span>
+                    <span>Vendedores: <strong>{{ competidores|length }}</strong></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vendedor Líder -->
+        <div class="col-6 col-md-3">
+            <div class="stat-card-kpi" style="background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%); border-left: 4px solid #f59e0b;">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <span class="text-warning small fw-bold text-uppercase">Líder del Período</span>
+                        <h5 class="fw-bold text-dark mb-0 mt-1 text-truncate" style="max-width: 140px;">
+                            {{ lider_ventas.vendedor if lider_ventas else 'N/A' }}
+                        </h5>
+                    </div>
+                    <div class="kpi-icon-wrapper bg-warning text-white">
+                        <i class="bi bi-award-fill"></i>
+                    </div>
+                </div>
+                <div class="small text-muted pt-2 border-top">
+                    {% if lider_ventas %}
+                    <span>Ventas: <strong class="text-dark">C$ {{ "{:,.0f}".format(lider_ventas.total_ventas) }}</strong> ({{ lider_ventas.porcentaje_participacion }}%)</span>
+                    {% else %}
+                    <span>Sin registros en el rango</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- PODIO GAMIFICADO (TOP 3 VENDEDORES) -->
+    <!-- ======================================================== -->
+    {% if competidores and competidores|length > 0 %}
+    <div class="card shadow-sm border-0 mb-4" style="border-radius: 16px;">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center border-0">
+            <h5 class="m-0 fw-bold text-dark">
+                <i class="bi bi-trophy me-2 text-warning"></i> Podio de Honor Comercial
+            </h5>
+            <span class="text-muted small">Período: {{ fecha_inicio_formatted }} al {{ fecha_fin_formatted }}</span>
+        </div>
+        <div class="card-body pt-0 pb-4">
+            <div class="podium-container">
+                
+                <!-- 2º LUGAR (PLATA) -->
+                {% if podio|length >= 2 %}
+                {% set segundo = podio[1] %}
+                <div class="podium-card second-place">
+                    <div class="podium-badge silver">2</div>
+                    <div class="podium-avatar bg-secondary">
+                        {{ segundo.vendedor[0].upper() }}
+                    </div>
+                    <h5 class="fw-bold text-dark mb-1">{{ segundo.vendedor }}</h5>
+                    <p class="text-muted small mb-2"><i class="bi bi-geo-alt"></i> {{ segundo.rutas }}</p>
+                    
+                    <div class="bg-light p-2.5 rounded-3 mb-2">
+                        <div class="d-flex justify-content-between text-muted small mb-1">
+                            <span>Total Facturado:</span>
+                            <strong class="text-dark">C$ {{ "{:,.2f}".format(segundo.total_ventas) }}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between text-success small mb-1">
+                            <span>Efectivo Traído:</span>
+                            <strong>C$ {{ "{:,.2f}".format(segundo.efectivo_total) }}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between text-muted small">
+                            <span>Unidades / Facturas:</span>
+                            <span>{{ "{:,.0f}".format(segundo.unidades_vendidas) }} uds / {{ segundo.total_facturas }} fac</span>
+                        </div>
+                    </div>
+                    
+                    <span class="badge bg-secondary px-3 py-1 rounded-pill">
+                        🥈 2º Lugar ({{ segundo.porcentaje_participacion }}% cuota)
+                    </span>
+                </div>
+                {% endif %}
+
+                <!-- 1º LUGAR (ORO) -->
+                {% if podio|length >= 1 %}
+                {% set primero = podio[0] %}
+                <div class="podium-card first-place">
+                    <div class="podium-badge gold"><i class="bi bi-crown-fill"></i></div>
+                    <div class="podium-avatar bg-warning text-dark">
+                        {{ primero.vendedor[0].upper() }}
+                    </div>
+                    <h4 class="fw-bold text-dark mb-1">{{ primero.vendedor }}</h4>
+                    <p class="text-muted small mb-2"><i class="bi bi-geo-alt"></i> {{ primero.rutas }}</p>
+                    
+                    <div class="bg-warning bg-opacity-10 p-2.5 rounded-3 mb-2 border border-warning">
+                        <div class="d-flex justify-content-between text-dark small mb-1">
+                            <span>Total Facturado:</span>
+                            <strong class="fs-6 text-primary">C$ {{ "{:,.2f}".format(primero.total_ventas) }}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between text-success small mb-1">
+                            <span>Efectivo Traído:</span>
+                            <strong class="fs-6 text-success">C$ {{ "{:,.2f}".format(primero.efectivo_total) }}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between text-muted small">
+                            <span>Unidades / Facturas:</span>
+                            <span><strong>{{ "{:,.0f}".format(primero.unidades_vendidas) }}</strong> uds / <strong>{{ primero.total_facturas }}</strong> fac</span>
+                        </div>
+                    </div>
+                    
+                    <span class="badge bg-warning text-dark px-3 py-1.5 rounded-pill fw-bold shadow-sm">
+                        🏆 Campeón de Ventas ({{ primero.porcentaje_participacion }}% cuota)
+                    </span>
+                </div>
+                {% endif %}
+
+                <!-- 3º LUGAR (BRONCE) -->
+                {% if podio|length >= 3 %}
+                {% set tercero = podio[2] %}
+                <div class="podium-card third-place">
+                    <div class="podium-badge bronze">3</div>
+                    <div class="podium-avatar" style="background-color: #b45309;">
+                        {{ tercero.vendedor[0].upper() }}
+                    </div>
+                    <h5 class="fw-bold text-dark mb-1">{{ tercero.vendedor }}</h5>
+                    <p class="text-muted small mb-2"><i class="bi bi-geo-alt"></i> {{ tercero.rutas }}</p>
+                    
+                    <div class="bg-light p-2.5 rounded-3 mb-2">
+                        <div class="d-flex justify-content-between text-muted small mb-1">
+                            <span>Total Facturado:</span>
+                            <strong class="text-dark">C$ {{ "{:,.2f}".format(tercero.total_ventas) }}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between text-success small mb-1">
+                            <span>Efectivo Traído:</span>
+                            <strong>C$ {{ "{:,.2f}".format(tercero.efectivo_total) }}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between text-muted small">
+                            <span>Unidades / Facturas:</span>
+                            <span>{{ "{:,.0f}".format(tercero.unidades_vendidas) }} uds / {{ tercero.total_facturas }} fac</span>
+                        </div>
+                    </div>
+                    
+                    <span class="badge px-3 py-1 rounded-pill text-white" style="background-color: #b45309;">
+                        🥉 3º Lugar ({{ tercero.porcentaje_participacion }}% cuota)
+                    </span>
+                </div>
+                {% endif %}
+
+            </div>
+        </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- GRÁFICOS INTERACTIVOS (CHART.JS) -->
+    <!-- ======================================================== -->
+    <div class="row g-3 mb-4">
+        <!-- Gráfico 1: Ventas vs Efectivo por Vendedor -->
+        <div class="col-12 col-lg-8">
+            <div class="card shadow-sm border-0 h-100" style="border-radius: 16px;">
+                <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 fw-bold text-dark">
+                        <i class="bi bi-bar-chart-fill me-2 text-primary"></i> Comparativa: Total Vendido vs. Efectivo Traído
+                    </h6>
+                    <span class="badge bg-light text-dark">En Córdobas (C$)</span>
+                </div>
+                <div class="card-body">
+                    <div style="position: relative; height: 320px; width: 100%;">
+                        <canvas id="chartComparativaVendedores"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gráfico 2: Participación de Mercado (% Cuota) -->
+        <div class="col-12 col-lg-4">
+            <div class="card shadow-sm border-0 h-100" style="border-radius: 16px;">
+                <div class="card-header bg-white py-3 border-0">
+                    <h6 class="m-0 fw-bold text-dark">
+                        <i class="bi bi-pie-chart-fill me-2 text-success"></i> Cuota de Ventas (%)
+                    </h6>
+                </div>
+                <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                    <div style="position: relative; height: 260px; width: 100%;">
+                        <canvas id="chartParticipacion"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ======================================================== -->
+    <!-- TABLA COMPLETA DE POSICIONES (LEADERBOARD) -->
+    <!-- ======================================================== -->
+    <div class="card shadow-sm border-0 mb-4" style="border-radius: 16px;">
+        <div class="card-header bg-white py-3 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 border-0">
+            <div>
+                <h5 class="m-0 fw-bold text-dark">
+                    <i class="bi bi-list-ol me-2 text-primary"></i> Tabla de Posiciones y Desglose Comercial
+                </h5>
+                <span class="text-muted small">Haz clic en los encabezados para analizar el desempeño</span>
+            </div>
+            <div class="d-flex gap-2">
+                <input type="text" id="buscadorVendedor" class="form-control form-control-sm rounded-pill" placeholder="🔍 Buscar vendedor..." style="max-width: 200px;">
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-leaderboard align-middle mb-0" id="tablaCompetencia">
+                    <thead>
+                        <tr>
+                            <th class="text-center" style="width: 60px;">Pos</th>
+                            <th>Vendedor & Rutas</th>
+                            <th class="text-end">Ventas Contado</th>
+                            <th class="text-end">Ventas Crédito</th>
+                            <th class="text-end bg-primary bg-opacity-10 text-primary">Total Ventas</th>
+                            <th class="text-end bg-success bg-opacity-10 text-success">Efectivo Traído</th>
+                            <th class="text-end">Abonos Cartera</th>
+                            <th class="text-center">Uds</th>
+                            <th class="text-center">Facturas</th>
+                            <th class="text-end">Ticket Prom.</th>
+                            <th class="text-center">% Cuota</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if competidores and competidores|length > 0 %}
+                        {% for c in competidores %}
+                        <tr>
+                            <!-- Posición / Ranking -->
+                            <td class="text-center">
+                                <span class="rank-number {% if c.ranking == 1 %}rank-gold{% elif c.ranking == 2 %}rank-silver{% elif c.ranking == 3 %}rank-bronze{% else %}rank-normal{% endif %}">
+                                    {{ c.medalla }}
+                                </span>
+                            </td>
+
+                            <!-- Vendedor y Rutas -->
+                            <td>
+                                <div class="fw-bold text-dark fs-6">{{ c.vendedor }}</div>
+                                <small class="text-muted"><i class="bi bi-geo-alt-fill text-danger me-1"></i>{{ c.rutas }}</small>
+                            </td>
+
+                            <!-- Ventas Contado -->
+                            <td class="text-end text-muted">
+                                C$ {{ "{:,.2f}".format(c.ventas_contado) }}
+                            </td>
+
+                            <!-- Ventas Crédito -->
+                            <td class="text-end text-muted">
+                                C$ {{ "{:,.2f}".format(c.ventas_credito) }}
+                            </td>
+
+                            <!-- TOTAL VENTAS -->
+                            <td class="text-end bg-primary bg-opacity-10">
+                                <div class="fw-bold text-primary fs-6">
+                                    C$ {{ "{:,.2f}".format(c.total_ventas) }}
+                                </div>
+                                <div class="progress-cash">
+                                    <div class="progress-cash-fill" style="width: {{ c.porcentaje_participacion }}%; background: #3b82f6;"></div>
+                                </div>
+                            </td>
+
+                            <!-- EFECTIVO TOTAL RECAUDADO (Contado + Abonos Efectivo) -->
+                            <td class="text-end bg-success bg-opacity-10">
+                                <div class="fw-bold text-success fs-6">
+                                    C$ {{ "{:,.2f}".format(c.efectivo_total) }}
+                                </div>
+                                <div class="progress-cash" title="% Efectivo sobre Facturación: {{ '{:.1f}'.format(c.porcentaje_efectivo) }}%">
+                                    <div class="progress-cash-fill" style="width: {{ [c.porcentaje_efectivo, 100]|min }}%;"></div>
+                                </div>
+                            </td>
+
+                            <!-- Abonos de Cartera -->
+                            <td class="text-end">
+                                <span class="fw-semibold text-dark">C$ {{ "{:,.2f}".format(c.total_abonos) }}</span>
+                                {% if c.abonos_efectivo > 0 %}
+                                <div class="small text-success">Efe: C$ {{ "{:,.0f}".format(c.abonos_efectivo) }}</div>
+                                {% endif %}
+                            </td>
+
+                            <!-- Unidades Vendidas -->
+                            <td class="text-center fw-semibold text-dark">
+                                {{ "{:,.0f}".format(c.unidades_vendidas) }}
+                            </td>
+
+                            <!-- Facturas & Clientes -->
+                            <td class="text-center">
+                                <span class="badge bg-light text-dark px-2 py-1 border">
+                                    {{ c.total_facturas }} fac / {{ c.clientes_atendidos }} cli
+                                </span>
+                            </td>
+
+                            <!-- Ticket Promedio -->
+                            <td class="text-end text-muted small">
+                                C$ {{ "{:,.2f}".format(c.ticket_promedio) }}
+                            </td>
+
+                            <!-- % Participación de Mercado -->
+                            <td class="text-center">
+                                <span class="badge {% if c.ranking == 1 %}bg-success{% elif c.porcentaje_participacion >= 20 %}bg-primary{% else %}bg-secondary{% endif %} px-2 py-1 rounded-pill">
+                                    {{ c.porcentaje_participacion }}%
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="11" class="text-center py-5 text-muted">
+                                <i class="bi bi-inbox fs-1 d-block mb-2 text-muted opacity-50"></i>
+                                <h5>No se encontraron ventas ni movimientos registrados en este período</h5>
+                                <p class="small text-muted mb-0">Prueba cambiando el rango de fechas o seleccionando "Todas las Rutas".</p>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                    {% if competidores and competidores|length > 0 %}
+                    <tfoot class="bg-light fw-bold">
+                        <tr>
+                            <td colspan="2" class="text-uppercase text-dark ps-3">TOTALES CONSOLIDADOS:</td>
+                            <td class="text-end text-muted">C$ {{ "{:,.2f}".format(total_contado_global) }}</td>
+                            <td class="text-end text-muted">C$ {{ "{:,.2f}".format(total_credito_global) }}</td>
+                            <td class="text-end text-primary fs-6">C$ {{ "{:,.2f}".format(total_ventas_global) }}</td>
+                            <td class="text-end text-success fs-6">C$ {{ "{:,.2f}".format(total_efectivo_global) }}</td>
+                            <td class="text-end text-dark">C$ {{ "{:,.2f}".format(total_abonos_global) }}</td>
+                            <td class="text-center text-dark">{{ "{:,.0f}".format(total_unidades_global) }}</td>
+                            <td class="text-center text-dark">{{ total_facturas_global }}</td>
+                            <td class="text-end text-muted">-</td>
+                            <td class="text-center">100%</td>
+                        </tr>
+                    </tfoot>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Chart.js para visualizaciones interactivas -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Filtro buscador en tiempo real en la tabla
+    const inputBuscar = document.getElementById('buscadorVendedor');
+    if (inputBuscar) {
+        inputBuscar.addEventListener('keyup', function () {
+            const query = this.value.toLowerCase();
+            const filas = document.querySelectorAll('#tablaCompetencia tbody tr');
+            filas.forEach(fila => {
+                const texto = fila.textContent.toLowerCase();
+                fila.style.display = texto.includes(query) ? '' : 'none';
+            });
+        });
+    }
+
+    {% if competidores and competidores|length > 0 %}
+    // Datos para Chart.js
+    const nombresVendedores = {{ competidores|map(attribute='vendedor')|list|tojson }};
+    const ventasTotales = {{ competidores|map(attribute='total_ventas')|list|tojson }};
+    const efectivoTotales = {{ competidores|map(attribute='efectivo_total')|list|tojson }};
+    const cuotasMercado = {{ competidores|map(attribute='porcentaje_participacion')|list|tojson }};
+
+    // 1. Gráfico de Barras: Ventas vs Efectivo
+    const ctxBar = document.getElementById('chartComparativaVendedores');
+    if (ctxBar) {
+        new Chart(ctxBar, {
+            type: 'bar',
+            data: {
+                labels: nombresVendedores,
+                datasets: [
+                    {
+                        label: 'Total Ventas (C$)',
+                        data: ventasTotales,
+                        backgroundColor: 'rgba(59, 130, 246, 0.85)',
+                        borderColor: '#2563eb',
+                        borderWidth: 1,
+                        borderRadius: 6
+                    },
+                    {
+                        label: 'Efectivo Traído (C$)',
+                        data: efectivoTotales,
+                        backgroundColor: 'rgba(16, 185, 129, 0.85)',
+                        borderColor: '#059669',
+                        borderWidth: 1,
+                        borderRadius: 6
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            font: { family: "'Outfit', 'Inter', sans-serif", size: 12, weight: 600 }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function (context) {
+                                return ` ${context.dataset.label}: C$ ${Number(context.raw).toLocaleString('es-NI', { minimumFractionDigits: 2 })}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function (value) {
+                                return 'C$ ' + Number(value).toLocaleString('es-NI');
+                            }
+                        },
+                        grid: { color: '#f1f5f9' }
+                    },
+                    x: {
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+    }
+
+    // 2. Gráfico de Dona: Participación de Mercado (%)
+    const ctxPie = document.getElementById('chartParticipacion');
+    if (ctxPie) {
+        const coloresPaleta = [
+            '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', 
+            '#06b6d4', '#84cc16', '#64748b', '#f97316', '#14b8a6'
+        ];
+
+        new Chart(ctxPie, {
+            type: 'doughnut',
+            data: {
+                labels: nombresVendedores,
+                datasets: [{
+                    data: cuotasMercado,
+                    backgroundColor: coloresPaleta.slice(0, nombresVendedores.length),
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            boxWidth: 12,
+                            font: { family: "'Outfit', 'Inter', sans-serif", size: 11 }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function (context) {
+                                return ` ${context.label}: ${context.raw}% de cuota`;
+                            }
+                        }
+                    }
+                },
+                cutout: '65%'
+            }
+        });
+    }
+    {% endif %}
+});
+</script>
+{% endblock %}

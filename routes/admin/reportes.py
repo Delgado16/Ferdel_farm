@@ -2718,3 +2718,297 @@ def reporte_diario():
         ]
         
         return datos_exportar, 'admin/reportes/reporte_diario.html', context
+
+
+@admin_bp.route('/admin/reporte/competencia_vendedores')
+@admin_required
+@report_handler('reporte_competencia_vendedores')
+def reporte_competencia_vendedores():
+    """Reporte de competencia y ranking comercial entre vendedores y rutas"""
+    fecha_inicio, fecha_fin, periodo = get_period_date_range('mes')
+    ruta_id = request.args.get('ruta_id', '')
+    ordenar_por = request.args.get('ordenar_por', 'ventas')  # 'ventas', 'efectivo', 'unidades', 'facturas', 'abonos'
+    
+    with get_db_cursor() as cursor:
+        # 1. Obtener catálogo de rutas para filtros
+        cursor.execute("SELECT ID_Ruta, Nombre_Ruta FROM rutas WHERE Estado = 'ACTIVO' OR Estado = 'Activo' ORDER BY Nombre_Ruta")
+        rutas_lista = cursor.fetchall()
+        
+        # 2. Obtener lista de vendedores activos o que tienen asignaciones
+        filter_ruta_asig = ""
+        params_asig = []
+        if ruta_id:
+            filter_ruta_asig = " AND av.ID_Ruta = %s"
+            params_asig.append(ruta_id)
+            
+        cursor.execute(f"""
+            SELECT DISTINCT 
+                u.ID_Usuario, 
+                u.NombreUsuario,
+                COALESCE(GROUP_CONCAT(DISTINCT r.Nombre_Ruta SEPARATOR ', '), 'Sin Ruta Fija') AS Rutas_Asignadas
+            FROM usuarios u
+            INNER JOIN roles ro ON u.ID_Rol = ro.ID_Rol
+            LEFT JOIN asignacion_vendedores av ON u.ID_Usuario = av.ID_Usuario AND av.Estado IN ('Activa', 'Finalizada')
+            LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+            WHERE (ro.Nombre_Rol LIKE '%%Vendedor%%' OR u.ID_Usuario IN (
+                SELECT DISTINCT ID_Usuario_Creacion FROM facturacion WHERE DATE(Fecha_Creacion) BETWEEN %s AND %s AND Estado = 'Activa'
+                UNION
+                SELECT DISTINCT av2.ID_Usuario FROM facturacion_ruta fr2 JOIN asignacion_vendedores av2 ON fr2.ID_Asignacion = av2.ID_Asignacion WHERE DATE(fr2.Fecha_Creacion) BETWEEN %s AND %s AND fr2.Estado = 'Activa'
+            ))
+            {filter_ruta_asig}
+            GROUP BY u.ID_Usuario, u.NombreUsuario
+            ORDER BY u.NombreUsuario
+        """, [fecha_inicio, fecha_fin, fecha_inicio, fecha_fin] + params_asig)
+        vendedores_db = cursor.fetchall()
+        
+        # 3. Ventas por Vendedor (Oficina y Ruta)
+        cursor.execute("""
+            SELECT 
+                Vendedor_ID,
+                COALESCE(SUM(Total_Venta), 0) AS Total_Venta,
+                COALESCE(SUM(CASE WHEN Tipo_Venta = 'CONTADO' THEN Total_Venta ELSE 0 END), 0) AS Ventas_Contado,
+                COALESCE(SUM(CASE WHEN Tipo_Venta = 'CREDITO' THEN Total_Venta ELSE 0 END), 0) AS Ventas_Credito,
+                COUNT(DISTINCT Factura_Numero) AS Total_Facturas,
+                COUNT(DISTINCT ID_Cliente) AS Clientes_Atendidos,
+                COALESCE(SUM(Cantidad_Total), 0) AS Unidades_Vendidas
+            FROM (
+                -- Facturación Normal (Oficina)
+                SELECT 
+                    fac.ID_Usuario_Creacion AS Vendedor_ID,
+                    fac.IDCliente AS ID_Cliente,
+                    CAST(fac.ID_Factura AS CHAR) AS Factura_Numero,
+                    CASE WHEN fac.Credito_Contado = 0 THEN 'CONTADO' ELSE 'CREDITO' END AS Tipo_Venta,
+                    SUM(df.Cantidad) AS Cantidad_Total,
+                    SUM(df.Total) AS Total_Venta
+                FROM facturacion fac
+                INNER JOIN detalle_facturacion df ON fac.ID_Factura = df.ID_Factura
+                WHERE fac.Estado = 'Activa'
+                  AND DATE(fac.Fecha_Creacion) BETWEEN %s AND %s
+                GROUP BY fac.ID_Factura, fac.ID_Usuario_Creacion, fac.IDCliente, fac.Credito_Contado
+                
+                UNION ALL
+                
+                -- Facturación en Ruta
+                SELECT 
+                    av.ID_Usuario AS Vendedor_ID,
+                    fr.ID_Cliente AS ID_Cliente,
+                    CONCAT('R-', fr.ID_FacturaRuta) AS Factura_Numero,
+                    CASE WHEN fr.Credito_Contado = 1 THEN 'CONTADO' ELSE 'CREDITO' END AS Tipo_Venta,
+                    SUM(dfr.Cantidad) AS Cantidad_Total,
+                    SUM(dfr.Total) AS Total_Venta
+                FROM facturacion_ruta fr
+                INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                INNER JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
+                WHERE fr.Estado = 'Activa'
+                  AND DATE(fr.Fecha_Creacion) BETWEEN %s AND %s
+                GROUP BY fr.ID_FacturaRuta, av.ID_Usuario, fr.ID_Cliente, fr.Credito_Contado
+            ) AS ventas_consolidadas
+            GROUP BY Vendedor_ID
+        """, [fecha_inicio, fecha_fin, fecha_inicio, fecha_fin])
+        ventas_stats_db = {row['Vendedor_ID']: row for row in cursor.fetchall()}
+        
+        # 4. Cobros / Abonos recaudados por cada Vendedor
+        cursor.execute("""
+            SELECT 
+                Cobrador_ID,
+                COALESCE(SUM(Monto), 0) AS Total_Abonos,
+                COALESCE(SUM(CASE WHEN Es_Efectivo = 1 THEN Monto ELSE 0 END), 0) AS Abonos_Efectivo,
+                COALESCE(SUM(CASE WHEN Es_Efectivo = 0 THEN Monto ELSE 0 END), 0) AS Abonos_Otros
+            FROM (
+                -- Abonos de ruta
+                SELECT 
+                    ad.ID_Usuario AS Cobrador_ID,
+                    ad.Monto_Aplicado AS Monto,
+                    CASE WHEN mp.Nombre LIKE '%%Efectivo%%' OR mp.Nombre LIKE '%%CONTADO%%' OR ad.ID_MetodoPago IS NULL THEN 1 ELSE 0 END AS Es_Efectivo
+                FROM abonos_detalle ad
+                LEFT JOIN metodos_pago mp ON ad.ID_MetodoPago = mp.ID_MetodoPago
+                WHERE DATE(ad.Fecha) BETWEEN %s AND %s
+                
+                UNION ALL
+                
+                -- Abonos generales
+                SELECT 
+                    ag.ID_Usuario AS Cobrador_ID,
+                    ag.Monto_Aplicado AS Monto,
+                    CASE WHEN mp.Nombre LIKE '%%Efectivo%%' OR mp.Nombre LIKE '%%CONTADO%%' OR ag.ID_MetodoPago IS NULL THEN 1 ELSE 0 END AS Es_Efectivo
+                FROM abonos_general ag
+                LEFT JOIN metodos_pago mp ON ag.ID_MetodoPago = mp.ID_MetodoPago
+                WHERE DATE(ag.Fecha) BETWEEN %s AND %s
+                
+                UNION ALL
+                
+                -- Pagos directos de CxC
+                SELECT 
+                    pc.ID_Usuario_Creacion AS Cobrador_ID,
+                    pc.Monto AS Monto,
+                    CASE WHEN mp.Nombre LIKE '%%Efectivo%%' OR mp.Nombre LIKE '%%CONTADO%%' OR pc.ID_MetodoPago IS NULL THEN 1 ELSE 0 END AS Es_Efectivo
+                FROM pagos_cuentascobrar pc
+                LEFT JOIN metodos_pago mp ON pc.ID_MetodoPago = mp.ID_MetodoPago
+                JOIN cuentas_por_cobrar cxc ON pc.ID_Movimiento = cxc.ID_Movimiento
+                WHERE DATE(pc.Fecha) BETWEEN %s AND %s AND cxc.Estado != 'Anulada'
+            ) AS abonos_consolidados
+            WHERE Cobrador_ID IS NOT NULL
+            GROUP BY Cobrador_ID
+        """, [fecha_inicio, fecha_fin, fecha_inicio, fecha_fin, fecha_inicio, fecha_fin])
+        abonos_stats_db = {row['Cobrador_ID']: row for row in cursor.fetchall()}
+        
+        # 5. Consolidación de Competencia por Vendedor
+        competidores = []
+        total_ventas_global = 0.0
+        total_efectivo_global = 0.0
+        total_unidades_global = 0.0
+        total_facturas_global = 0
+        total_contado_global = 0.0
+        total_credito_global = 0.0
+        total_abonos_global = 0.0
+        
+        for v in vendedores_db:
+            vid = v['ID_Usuario']
+            v_stats = ventas_stats_db.get(vid, {
+                'Total_Venta': 0.0,
+                'Ventas_Contado': 0.0,
+                'Ventas_Credito': 0.0,
+                'Total_Facturas': 0,
+                'Clientes_Atendidos': 0,
+                'Unidades_Vendidas': 0.0
+            })
+            a_stats = abonos_stats_db.get(vid, {
+                'Total_Abonos': 0.0,
+                'Abonos_Efectivo': 0.0,
+                'Abonos_Otros': 0.0
+            })
+            
+            monto_venta = float(v_stats['Total_Venta'] or 0)
+            ventas_contado = float(v_stats['Ventas_Contado'] or 0)
+            ventas_credito = float(v_stats['Ventas_Credito'] or 0)
+            total_facturas = int(v_stats['Total_Facturas'] or 0)
+            clientes_atendidos = int(v_stats['Clientes_Atendidos'] or 0)
+            unidades_vendidas = float(v_stats['Unidades_Vendidas'] or 0)
+            
+            total_abonos = float(a_stats['Total_Abonos'] or 0)
+            abonos_efectivo = float(a_stats['Abonos_Efectivo'] or 0)
+            abonos_otros = float(a_stats['Abonos_Otros'] or 0)
+            
+            # Efectivo total recaudado y traído por el vendedor (Ventas Contado + Abonos Efectivo)
+            efectivo_total = ventas_contado + abonos_efectivo
+            
+            ticket_promedio = (monto_venta / total_facturas) if total_facturas > 0 else 0.0
+            
+            # Acumuladores globales
+            total_ventas_global += monto_venta
+            total_efectivo_global += efectivo_total
+            total_unidades_global += unidades_vendidas
+            total_facturas_global += total_facturas
+            total_contado_global += ventas_contado
+            total_credito_global += ventas_credito
+            total_abonos_global += total_abonos
+            
+            competidores.append({
+                'id_usuario': vid,
+                'vendedor': v['NombreUsuario'],
+                'rutas': v['Rutas_Asignadas'],
+                'total_ventas': monto_venta,
+                'ventas_contado': ventas_contado,
+                'ventas_credito': ventas_credito,
+                'total_facturas': total_facturas,
+                'clientes_atendidos': clientes_atendidos,
+                'unidades_vendidas': unidades_vendidas,
+                'total_abonos': total_abonos,
+                'abonos_efectivo': abonos_efectivo,
+                'abonos_otros': abonos_otros,
+                'efectivo_total': efectivo_total,
+                'ticket_promedio': ticket_promedio,
+                'porcentaje_participacion': 0.0,  # Se calcula a continuación
+                'porcentaje_efectivo': (efectivo_total / (monto_venta + abonos_efectivo) * 100) if (monto_venta + abonos_efectivo) > 0 else 0.0
+            })
+            
+        # Calcular porcentaje de participación de cada vendedor
+        for c in competidores:
+            if total_ventas_global > 0:
+                c['porcentaje_participacion'] = round((c['total_ventas'] / total_ventas_global) * 100, 2)
+            else:
+                c['porcentaje_participacion'] = 0.0
+                
+        # 6. Ordenar competidores según el criterio seleccionado
+        if ordenar_por == 'efectivo':
+            competidores.sort(key=lambda x: (x['efectivo_total'], x['total_ventas']), reverse=True)
+        elif ordenar_por == 'unidades':
+            competidores.sort(key=lambda x: (x['unidades_vendidas'], x['total_ventas']), reverse=True)
+        elif ordenar_por == 'facturas':
+            competidores.sort(key=lambda x: (x['total_facturas'], x['total_ventas']), reverse=True)
+        elif ordenar_por == 'abonos':
+            competidores.sort(key=lambda x: (x['total_abonos'], x['efectivo_total']), reverse=True)
+        else:  # Por defecto 'ventas'
+            competidores.sort(key=lambda x: (x['total_ventas'], x['efectivo_total']), reverse=True)
+            
+        # Asignar posición de ranking y medallas
+        for idx, c in enumerate(competidores, 1):
+            c['ranking'] = idx
+            if idx == 1:
+                c['medalla'] = '🥇'
+                c['badge_rank'] = 'bg-warning text-dark'
+            elif idx == 2:
+                c['medalla'] = '🥈'
+                c['badge_rank'] = 'bg-secondary text-white'
+            elif idx == 3:
+                c['medalla'] = '🥉'
+                c['badge_rank'] = 'bg-brown text-white'
+            else:
+                c['medalla'] = f"#{idx}"
+                c['badge_rank'] = 'bg-light text-dark'
+                
+        # 7. Identificar líderes en categorías clave
+        lider_ventas = max(competidores, key=lambda x: x['total_ventas']) if competidores and total_ventas_global > 0 else None
+        lider_efectivo = max(competidores, key=lambda x: x['efectivo_total']) if competidores and total_efectivo_global > 0 else None
+        lider_unidades = max(competidores, key=lambda x: x['unidades_vendidas']) if competidores and total_unidades_global > 0 else None
+        
+        # Podio (Top 3)
+        podio = competidores[:3] if len(competidores) >= 3 else competidores
+        
+        # Formato de fechas
+        fecha_inicio_formatted = datetime.strptime(fecha_inicio, '%Y-%m-%d').strftime('%d/%m/%Y')
+        fecha_fin_formatted = datetime.strptime(fecha_fin, '%Y-%m-%d').strftime('%d/%m/%Y')
+        
+        datos_exportar = [
+            {
+                'Ranking': c['ranking'],
+                'Vendedor': c['vendedor'],
+                'Rutas': c['rutas'],
+                'Total Ventas (C$)': c['total_ventas'],
+                'Ventas Contado (C$)': c['ventas_contado'],
+                'Ventas Crédito (C$)': c['ventas_credito'],
+                'Efectivo Recaudado (C$)': c['efectivo_total'],
+                'Abonos Cobrados (C$)': c['total_abonos'],
+                'Unidades Vendidas': c['unidades_vendidas'],
+                'Facturas': c['total_facturas'],
+                'Clientes Atendidos': c['clientes_atendidos'],
+                'Ticket Promedio (C$)': c['ticket_promedio'],
+                '% Participación': f"{c['porcentaje_participacion']}%"
+            }
+            for c in competidores
+        ]
+        
+        context = {
+            'competidores': competidores,
+            'podio': podio,
+            'lider_ventas': lider_ventas,
+            'lider_efectivo': lider_efectivo,
+            'lider_unidades': lider_unidades,
+            'total_ventas_global': total_ventas_global,
+            'total_efectivo_global': total_efectivo_global,
+            'total_unidades_global': total_unidades_global,
+            'total_facturas_global': total_facturas_global,
+            'total_contado_global': total_contado_global,
+            'total_credito_global': total_credito_global,
+            'total_abonos_global': total_abonos_global,
+            'rutas_lista': rutas_lista,
+            'ruta_id': ruta_id,
+            'ordenar_por': ordenar_por,
+            'periodo': periodo,
+            'fecha_inicio': fecha_inicio,
+            'fecha_fin': fecha_fin,
+            'fecha_inicio_formatted': fecha_inicio_formatted,
+            'fecha_fin_formatted': fecha_fin_formatted
+        }
+        
+        return datos_exportar, 'admin/reportes/reporte_competencia_vendedores.html', context
