@@ -382,30 +382,33 @@ def exportar_pdf_diario(context, nombre_archivo):
 
 
 def exportar_pdf_competencia_vendedores(context, nombre_archivo):
-    """Exportar el Reporte de Competencia y Rendimiento de Vendedores en PDF profesional apaisado"""
+    """Exportar el Reporte de Competencia y Rendimiento de Vendedores en PDF profesional apaisado con Logo y diseño ejecutivo"""
+    import os
     from reportlab.lib.pagesizes import letter, landscape
     from reportlab.lib import colors
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer,
         pagesize=landscape(letter),
-        rightMargin=28,
-        leftMargin=28,
-        topMargin=28,
-        bottomMargin=28
+        rightMargin=26,
+        leftMargin=26,
+        topMargin=24,
+        bottomMargin=24
     )
 
     story = []
     styles = getSampleStyleSheet()
 
+    # Estilos de encabezado y títulos
     titulo_style = ParagraphStyle(
         'TituloCompetencia',
         parent=styles['Heading1'],
         fontName='Helvetica-Bold',
-        fontSize=15,
+        fontSize=14,
+        leading=16,
         textColor=colors.HexColor('#0f172a'),
         spaceAfter=2
     )
@@ -414,36 +417,44 @@ def exportar_pdf_competencia_vendedores(context, nombre_archivo):
         'SubCompetencia',
         parent=styles['Normal'],
         fontName='Helvetica-Bold',
-        fontSize=9,
-        textColor=colors.HexColor('#10b981'),
-        spaceAfter=5
+        fontSize=8.5,
+        leading=11,
+        textColor=colors.HexColor('#059669'),
+        spaceAfter=3
     )
 
     meta_style = ParagraphStyle(
         'MetaCompetencia',
         parent=styles['Normal'],
         fontName='Helvetica',
-        fontSize=8,
-        textColor=colors.HexColor('#64748b'),
-        spaceAfter=8
+        fontSize=7.5,
+        leading=10,
+        textColor=colors.HexColor('#475569')
     )
 
     section_style = ParagraphStyle(
         'SecCompetencia',
         parent=styles['Heading2'],
         fontName='Helvetica-Bold',
-        fontSize=10,
+        fontSize=9.5,
+        leading=12,
         textColor=colors.HexColor('#1e293b'),
-        spaceBefore=7,
-        spaceAfter=4
+        spaceBefore=6,
+        spaceAfter=3
     )
 
-    body_style = ParagraphStyle('TBody', parent=styles['Normal'], fontName='Helvetica', fontSize=7.5, leading=9)
-    body_bold = ParagraphStyle('TBodyBold', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7.5, leading=9)
-    body_center = ParagraphStyle('TBodyCenter', parent=styles['Normal'], fontName='Helvetica', fontSize=7.5, leading=9, alignment=1)
-    body_center_bold = ParagraphStyle('TBodyCenterBold', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7.5, leading=9, alignment=1)
-    body_right = ParagraphStyle('TBodyRight', parent=styles['Normal'], fontName='Helvetica', fontSize=7.5, leading=9, alignment=2)
-    body_right_bold = ParagraphStyle('TBodyRightBold', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7.5, leading=9, alignment=2)
+    # Estilos para ENCABEZADOS DE TABLAS (Texto blanco nítido)
+    th_style = ParagraphStyle('THLeft', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7.5, leading=9, textColor=colors.white)
+    th_center = ParagraphStyle('THCenter', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7.5, leading=9, textColor=colors.white, alignment=1)
+    th_right = ParagraphStyle('THRight', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7.5, leading=9, textColor=colors.white, alignment=2)
+
+    # Estilos para el cuerpo de las tablas
+    body_style = ParagraphStyle('TBody', parent=styles['Normal'], fontName='Helvetica', fontSize=7.5, leading=9, textColor=colors.HexColor('#1e293b'))
+    body_bold = ParagraphStyle('TBodyBold', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7.5, leading=9, textColor=colors.HexColor('#0f172a'))
+    body_center = ParagraphStyle('TBodyCenter', parent=styles['Normal'], fontName='Helvetica', fontSize=7.5, leading=9, alignment=1, textColor=colors.HexColor('#1e293b'))
+    body_center_bold = ParagraphStyle('TBodyCenterBold', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7.5, leading=9, alignment=1, textColor=colors.HexColor('#0f172a'))
+    body_right = ParagraphStyle('TBodyRight', parent=styles['Normal'], fontName='Helvetica', fontSize=7.5, leading=9, alignment=2, textColor=colors.HexColor('#1e293b'))
+    body_right_bold = ParagraphStyle('TBodyRightBold', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7.5, leading=9, alignment=2, textColor=colors.HexColor('#0f172a'))
 
     def format_money(val):
         try:
@@ -457,7 +468,10 @@ def exportar_pdf_competencia_vendedores(context, nombre_archivo):
         except (ValueError, TypeError):
             return "0"
 
-    # Encabezado Principal
+    # Logo de la empresa
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    logo_path = os.path.join(base_dir, 'static', 'ferdel.png')
+
     f_inicio = context.get('fecha_inicio_formatted', context.get('fecha_inicio', ''))
     f_fin = context.get('fecha_fin_formatted', context.get('fecha_fin', ''))
     orden_txt = {
@@ -468,23 +482,50 @@ def exportar_pdf_competencia_vendedores(context, nombre_archivo):
         'facturas': 'Más Facturas Realizadas'
     }.get(context.get('ordenar_por', 'ventas'), 'Mayor Venta')
 
-    story.append(Paragraph("FERDEL - REPORTE DE COMPETENCIA Y RENDIMIENTO DE VENDEDORES", titulo_style))
-    story.append(Paragraph("AUDITORÍA DE FACTURACIÓN, EFECTIVIDAD DE COBRANZA Y LIQUIDEZ POR RUTA", subtitulo_style))
-    story.append(Paragraph(
-        f"<b>Período:</b> {f_inicio} al {f_fin} &nbsp;|&nbsp; <b>Criterio de Orden:</b> {orden_txt} &nbsp;|&nbsp; <b>Generado:</b> {datetime.now().strftime('%d/%m/%Y %I:%M %p')}",
-        meta_style
-    ))
-    story.append(Spacer(1, 3))
+    # Encabezado con Logo y Título
+    info_text = [
+        Paragraph("<b>FERDEL - REPORTE DE COMPETENCIA Y RENDIMIENTO DE VENDEDORES</b>", titulo_style),
+        Paragraph("AUDITORÍA DE FACTURACIÓN, EFECTIVIDAD DE COBRANZA Y LIQUIDEZ POR RUTA", subtitulo_style),
+        Paragraph(
+            f"<b>Período:</b> {f_inicio} al {f_fin} &nbsp;|&nbsp; <b>Criterio:</b> {orden_txt} &nbsp;|&nbsp; <b>Generado:</b> {datetime.now().strftime('%d/%m/%Y %I:%M %p')}",
+            meta_style
+        )
+    ]
 
-    # 1. RESUMEN DE INDICADORES GLOBALES (KPIs)
+    header_table_data = []
+    if os.path.exists(logo_path):
+        try:
+            img_logo = RLImage(logo_path, width=46, height=46)
+            header_table_data = [[img_logo, info_text]]
+            col_widths_hdr = [52, 688]
+        except Exception:
+            header_table_data = [[info_text]]
+            col_widths_hdr = [740]
+    else:
+        header_table_data = [[info_text]]
+        col_widths_hdr = [740]
+
+    t_header = Table(header_table_data, colWidths=col_widths_hdr)
+    t_header.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    story.append(t_header)
+    story.append(Spacer(1, 4))
+
+    # 1. RESUMEN DE INDICADORES GLOBALES (KPIs con encabezados blancos)
     kpi_headers = [
-        Paragraph("<b>VENTAS TOTALES</b>", body_center_bold),
-        Paragraph("<b>EFECTIVO TRAÍDO</b>", body_center_bold),
-        Paragraph("<b>VTAS. CONTADO</b>", body_center_bold),
-        Paragraph("<b>VTAS. CRÉDITO</b>", body_center_bold),
-        Paragraph("<b>ABONOS COBRADOS</b>", body_center_bold),
-        Paragraph("<b>UNIDADES</b>", body_center_bold),
-        Paragraph("<b>FACTURAS</b>", body_center_bold)
+        Paragraph("VENTAS TOTALES", th_center),
+        Paragraph("EFECTIVO TRAÍDO", th_center),
+        Paragraph("VTAS. CONTADO", th_center),
+        Paragraph("VTAS. CRÉDITO", th_center),
+        Paragraph("ABONOS COBRADOS", th_center),
+        Paragraph("UNIDADES", th_center),
+        Paragraph("FACTURAS", th_center)
     ]
     kpi_values = [
         Paragraph(f"<b>{format_money(context.get('total_ventas_global', 0))}</b>", body_center_bold),
@@ -496,20 +537,19 @@ def exportar_pdf_competencia_vendedores(context, nombre_archivo):
         Paragraph(f"{format_num(context.get('total_facturas_global', 0))}", body_center)
     ]
 
-    t_kpis = Table([kpi_headers, kpi_values], colWidths=[110, 110, 100, 100, 110, 106, 100])
+    t_kpis = Table([kpi_headers, kpi_values], colWidths=[110, 110, 100, 100, 110, 106, 104])
     t_kpis.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0f172a')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e293b')),
         ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor('#f8fafc')),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('TOPPADDING', (0, 0), (-1, -1), 3.5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3.5),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
     ]))
     story.append(t_kpis)
-    story.append(Spacer(1, 5))
+    story.append(Spacer(1, 4))
 
-    # 2. CUADRO DE HONOR / PODIO TOP 3
+    # 2. CUADRO DE HONOR / PODIO TOP 3 (Encabezados blancos nítidos y filas claras temáticas)
     podio = context.get('podio', [])
     if podio:
         podio_rows = []
@@ -527,23 +567,23 @@ def exportar_pdf_competencia_vendedores(context, nombre_archivo):
                 Paragraph(f"<b>{p.get('porcentaje_participacion', 0)}%</b>", body_center_bold)
             ])
         
-        t_podio = Table(
-            [[Paragraph("<b>Puesto</b>", body_center_bold),
-              Paragraph("<b>Vendedor</b>", body_style),
-              Paragraph("<b>Rutas</b>", body_style),
-              Paragraph("<b>Total Ventas</b>", body_right_bold),
-              Paragraph("<b>Efectivo Traído</b>", body_right_bold),
-              Paragraph("<b>Abonos Cobrados</b>", body_right),
-              Paragraph("<b>Volumen / Facturas</b>", body_center),
-              Paragraph("<b>% Mercado</b>", body_center_bold)]] + podio_rows,
-            colWidths=[80, 115, 95, 88, 92, 86, 110, 70]
-        )
+        podio_headers = [
+            Paragraph("Puesto", th_center),
+            Paragraph("Vendedor", th_style),
+            Paragraph("Rutas", th_style),
+            Paragraph("Total Ventas", th_right),
+            Paragraph("Efectivo Traído", th_right),
+            Paragraph("Abonos Cobrados", th_right),
+            Paragraph("Volumen / Facturas", th_center),
+            Paragraph("% Mercado", th_center)
+        ]
+
+        t_podio = Table([podio_headers] + podio_rows, colWidths=[80, 115, 95, 88, 92, 86, 114, 70])
         t_podio.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e293b')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor('#fef3c7')),
-            ('BACKGROUND', (0, 2), (-1, 2), colors.HexColor('#f1f5f9')),
-            ('BACKGROUND', (0, 3), (-1, 3), colors.HexColor('#ffedd5')),
+            ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor('#fef9c3')), # Oro suave y claro
+            ('BACKGROUND', (0, 2), (-1, 2), colors.HexColor('#f1f5f9')), # Plata clara
+            ('BACKGROUND', (0, 3), (-1, 3), colors.HexColor('#ffedd5')), # Bronce claro
             ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
             ('TOPPADDING', (0, 0), (-1, -1), 3),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
@@ -551,23 +591,23 @@ def exportar_pdf_competencia_vendedores(context, nombre_archivo):
         ]))
         story.append(Paragraph("🏆 Podio de Honor y Líderes", section_style))
         story.append(t_podio)
-        story.append(Spacer(1, 5))
+        story.append(Spacer(1, 4))
 
     # 3. TABLA GENERAL DE COMPETENCIA (LEADERBOARD COMPLETO)
     story.append(Paragraph("📊 Tabla General de Rendimiento y Liquidación", section_style))
 
     headers_tabla = [
-        Paragraph("<b>Pos</b>", body_center_bold),
-        Paragraph("<b>Vendedor</b>", body_bold),
-        Paragraph("<b>Rutas</b>", body_style),
-        Paragraph("<b>Vtas. Contado</b>", body_right),
-        Paragraph("<b>Vtas. Crédito</b>", body_right),
-        Paragraph("<b>Total Ventas</b>", body_right_bold),
-        Paragraph("<b>Abonos Cartera</b>", body_right),
-        Paragraph("<b>Efectivo Traído</b>", body_right_bold),
-        Paragraph("<b>Fact / Clts</b>", body_center),
-        Paragraph("<b>Unidades</b>", body_center),
-        Paragraph("<b>% Part.</b>", body_center_bold)
+        Paragraph("Pos", th_center),
+        Paragraph("Vendedor", th_style),
+        Paragraph("Rutas", th_style),
+        Paragraph("Vtas. Contado", th_right),
+        Paragraph("Vtas. Crédito", th_right),
+        Paragraph("Total Ventas", th_right),
+        Paragraph("Abonos Cartera", th_right),
+        Paragraph("Efectivo Traído", th_right),
+        Paragraph("Fact / Clts", th_center),
+        Paragraph("Unidades", th_center),
+        Paragraph("% Part.", th_center)
     ]
 
     tabla_filas = [headers_tabla]
@@ -605,26 +645,26 @@ def exportar_pdf_competencia_vendedores(context, nombre_archivo):
     ]
     tabla_filas.append(fila_totales)
 
-    col_widths = [32, 105, 75, 64, 64, 74, 70, 78, 54, 56, 64]
+    col_widths = [32, 105, 75, 64, 64, 74, 70, 78, 54, 56, 68]
     t_main = Table(tabla_filas, colWidths=col_widths)
     t_main.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0f172a')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e293b')),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING', (0, 0), (-1, -1), 3),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('TOPPADDING', (0, 0), (-1, -1), 2.8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2.8),
         ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#f8fafc')]),
         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#e2e8f0')),
     ]))
     story.append(t_main)
 
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 5))
     nota_style = ParagraphStyle(
         'NotaPDF',
         parent=styles['Normal'],
         fontName='Helvetica-Oblique',
-        fontSize=7,
+        fontSize=6.5,
+        leading=8,
         textColor=colors.HexColor('#64748b')
     )
     story.append(Paragraph(
@@ -640,5 +680,6 @@ def exportar_pdf_competencia_vendedores(context, nombre_archivo):
     response.headers['Content-Disposition'] = f'attachment; filename={nombre_archivo}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf'
     response.headers['Content-type'] = 'application/pdf'
     return response
+
 
 
