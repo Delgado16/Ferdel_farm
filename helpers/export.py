@@ -380,3 +380,265 @@ def exportar_pdf_diario(context, nombre_archivo):
     response.headers['Content-type'] = 'application/pdf'
     return response
 
+
+def exportar_pdf_competencia_vendedores(context, nombre_archivo):
+    """Exportar el Reporte de Competencia y Rendimiento de Vendedores en PDF profesional apaisado"""
+    from reportlab.lib.pagesizes import letter, landscape
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(letter),
+        rightMargin=28,
+        leftMargin=28,
+        topMargin=28,
+        bottomMargin=28
+    )
+
+    story = []
+    styles = getSampleStyleSheet()
+
+    titulo_style = ParagraphStyle(
+        'TituloCompetencia',
+        parent=styles['Heading1'],
+        fontName='Helvetica-Bold',
+        fontSize=15,
+        textColor=colors.HexColor('#0f172a'),
+        spaceAfter=2
+    )
+
+    subtitulo_style = ParagraphStyle(
+        'SubCompetencia',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=9,
+        textColor=colors.HexColor('#10b981'),
+        spaceAfter=5
+    )
+
+    meta_style = ParagraphStyle(
+        'MetaCompetencia',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=8,
+        textColor=colors.HexColor('#64748b'),
+        spaceAfter=8
+    )
+
+    section_style = ParagraphStyle(
+        'SecCompetencia',
+        parent=styles['Heading2'],
+        fontName='Helvetica-Bold',
+        fontSize=10,
+        textColor=colors.HexColor('#1e293b'),
+        spaceBefore=7,
+        spaceAfter=4
+    )
+
+    body_style = ParagraphStyle('TBody', parent=styles['Normal'], fontName='Helvetica', fontSize=7.5, leading=9)
+    body_bold = ParagraphStyle('TBodyBold', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7.5, leading=9)
+    body_center = ParagraphStyle('TBodyCenter', parent=styles['Normal'], fontName='Helvetica', fontSize=7.5, leading=9, alignment=1)
+    body_center_bold = ParagraphStyle('TBodyCenterBold', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7.5, leading=9, alignment=1)
+    body_right = ParagraphStyle('TBodyRight', parent=styles['Normal'], fontName='Helvetica', fontSize=7.5, leading=9, alignment=2)
+    body_right_bold = ParagraphStyle('TBodyRightBold', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=7.5, leading=9, alignment=2)
+
+    def format_money(val):
+        try:
+            return f"C${float(val):,.2f}"
+        except (ValueError, TypeError):
+            return "C$0.00"
+
+    def format_num(val):
+        try:
+            return f"{float(val):,.2f}" if float(val) % 1 != 0 else f"{int(val):,}"
+        except (ValueError, TypeError):
+            return "0"
+
+    # Encabezado Principal
+    f_inicio = context.get('fecha_inicio_formatted', context.get('fecha_inicio', ''))
+    f_fin = context.get('fecha_fin_formatted', context.get('fecha_fin', ''))
+    orden_txt = {
+        'ventas': 'Mayor Venta Total',
+        'efectivo': 'Mayor Efectivo Traído (Ventas Contado + Abonos)',
+        'abonos': 'Mayor Cobro de Cartera (Abonos)',
+        'unidades': 'Más Unidades Vendidas',
+        'facturas': 'Más Facturas Realizadas'
+    }.get(context.get('ordenar_por', 'ventas'), 'Mayor Venta')
+
+    story.append(Paragraph("FERDEL - REPORTE DE COMPETENCIA Y RENDIMIENTO DE VENDEDORES", titulo_style))
+    story.append(Paragraph("AUDITORÍA DE FACTURACIÓN, EFECTIVIDAD DE COBRANZA Y LIQUIDEZ POR RUTA", subtitulo_style))
+    story.append(Paragraph(
+        f"<b>Período:</b> {f_inicio} al {f_fin} &nbsp;|&nbsp; <b>Criterio de Orden:</b> {orden_txt} &nbsp;|&nbsp; <b>Generado:</b> {datetime.now().strftime('%d/%m/%Y %I:%M %p')}",
+        meta_style
+    ))
+    story.append(Spacer(1, 3))
+
+    # 1. RESUMEN DE INDICADORES GLOBALES (KPIs)
+    kpi_headers = [
+        Paragraph("<b>VENTAS TOTALES</b>", body_center_bold),
+        Paragraph("<b>EFECTIVO TRAÍDO</b>", body_center_bold),
+        Paragraph("<b>VTAS. CONTADO</b>", body_center_bold),
+        Paragraph("<b>VTAS. CRÉDITO</b>", body_center_bold),
+        Paragraph("<b>ABONOS COBRADOS</b>", body_center_bold),
+        Paragraph("<b>UNIDADES</b>", body_center_bold),
+        Paragraph("<b>FACTURAS</b>", body_center_bold)
+    ]
+    kpi_values = [
+        Paragraph(f"<b>{format_money(context.get('total_ventas_global', 0))}</b>", body_center_bold),
+        Paragraph(f"<b><font color='#059669'>{format_money(context.get('total_efectivo_global', 0))}</font></b>", body_center_bold),
+        Paragraph(f"{format_money(context.get('total_contado_global', 0))}", body_center),
+        Paragraph(f"{format_money(context.get('total_credito_global', 0))}", body_center),
+        Paragraph(f"<b><font color='#2563eb'>{format_money(context.get('total_abonos_global', 0))}</font></b>", body_center),
+        Paragraph(f"{format_num(context.get('total_unidades_global', 0))}", body_center),
+        Paragraph(f"{format_num(context.get('total_facturas_global', 0))}", body_center)
+    ]
+
+    t_kpis = Table([kpi_headers, kpi_values], colWidths=[110, 110, 100, 100, 110, 106, 100])
+    t_kpis.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0f172a')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor('#f8fafc')),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    story.append(t_kpis)
+    story.append(Spacer(1, 5))
+
+    # 2. CUADRO DE HONOR / PODIO TOP 3
+    podio = context.get('podio', [])
+    if podio:
+        podio_rows = []
+        medallas = ['1º LUGAR (ORO)', '2º LUGAR (PLATA)', '3º LUGAR (BRONCE)']
+        for idx, p in enumerate(podio[:3]):
+            med_txt = medallas[idx] if idx < len(medallas) else f"#{idx+1}"
+            podio_rows.append([
+                Paragraph(f"<b>{med_txt}</b>", body_center_bold),
+                Paragraph(f"<b>{p.get('vendedor', '')}</b>", body_bold),
+                Paragraph(f"{p.get('rutas', 'Sin ruta')}", body_style),
+                Paragraph(f"<b>{format_money(p.get('total_ventas', 0))}</b>", body_right_bold),
+                Paragraph(f"<b><font color='#059669'>{format_money(p.get('efectivo_total', 0))}</font></b>", body_right_bold),
+                Paragraph(f"{format_money(p.get('total_abonos', 0))}", body_right),
+                Paragraph(f"{format_num(p.get('unidades_vendidas', 0))} uds / {p.get('total_facturas', 0)} fact", body_center),
+                Paragraph(f"<b>{p.get('porcentaje_participacion', 0)}%</b>", body_center_bold)
+            ])
+        
+        t_podio = Table(
+            [[Paragraph("<b>Puesto</b>", body_center_bold),
+              Paragraph("<b>Vendedor</b>", body_style),
+              Paragraph("<b>Rutas</b>", body_style),
+              Paragraph("<b>Total Ventas</b>", body_right_bold),
+              Paragraph("<b>Efectivo Traído</b>", body_right_bold),
+              Paragraph("<b>Abonos Cobrados</b>", body_right),
+              Paragraph("<b>Volumen / Facturas</b>", body_center),
+              Paragraph("<b>% Mercado</b>", body_center_bold)]] + podio_rows,
+            colWidths=[80, 115, 95, 88, 92, 86, 110, 70]
+        )
+        t_podio.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e293b')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor('#fef3c7')),
+            ('BACKGROUND', (0, 2), (-1, 2), colors.HexColor('#f1f5f9')),
+            ('BACKGROUND', (0, 3), (-1, 3), colors.HexColor('#ffedd5')),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+            ('TOPPADDING', (0, 0), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        story.append(Paragraph("🏆 Podio de Honor y Líderes", section_style))
+        story.append(t_podio)
+        story.append(Spacer(1, 5))
+
+    # 3. TABLA GENERAL DE COMPETENCIA (LEADERBOARD COMPLETO)
+    story.append(Paragraph("📊 Tabla General de Rendimiento y Liquidación", section_style))
+
+    headers_tabla = [
+        Paragraph("<b>Pos</b>", body_center_bold),
+        Paragraph("<b>Vendedor</b>", body_bold),
+        Paragraph("<b>Rutas</b>", body_style),
+        Paragraph("<b>Vtas. Contado</b>", body_right),
+        Paragraph("<b>Vtas. Crédito</b>", body_right),
+        Paragraph("<b>Total Ventas</b>", body_right_bold),
+        Paragraph("<b>Abonos Cartera</b>", body_right),
+        Paragraph("<b>Efectivo Traído</b>", body_right_bold),
+        Paragraph("<b>Fact / Clts</b>", body_center),
+        Paragraph("<b>Unidades</b>", body_center),
+        Paragraph("<b>% Part.</b>", body_center_bold)
+    ]
+
+    tabla_filas = [headers_tabla]
+    competidores = context.get('competidores', [])
+
+    for c in competidores:
+        pos_str = f"#{c.get('ranking', '')}"
+        tabla_filas.append([
+            Paragraph(pos_str, body_center_bold),
+            Paragraph(f"<b>{c.get('vendedor', '')}</b>", body_style),
+            Paragraph(f"{c.get('rutas', 'N/A')[:20]}", body_style),
+            Paragraph(format_money(c.get('ventas_contado', 0)), body_right),
+            Paragraph(format_money(c.get('ventas_credito', 0)), body_right),
+            Paragraph(f"<b>{format_money(c.get('total_ventas', 0))}</b>", body_right_bold),
+            Paragraph(format_money(c.get('total_abonos', 0)), body_right),
+            Paragraph(f"<b><font color='#059669'>{format_money(c.get('efectivo_total', 0))}</font></b>", body_right_bold),
+            Paragraph(f"{c.get('total_facturas', 0)} / {c.get('clientes_atendidos', 0)}", body_center),
+            Paragraph(format_num(c.get('unidades_vendidas', 0)), body_center),
+            Paragraph(f"{c.get('porcentaje_participacion', 0)}%", body_center_bold)
+        ])
+
+    # Fila de Totales Globales
+    fila_totales = [
+        Paragraph("<b>TOTAL</b>", body_center_bold),
+        Paragraph(f"<b>{len(competidores)} Vendedores</b>", body_bold),
+        Paragraph("<b>-</b>", body_center),
+        Paragraph(f"<b>{format_money(context.get('total_contado_global', 0))}</b>", body_right_bold),
+        Paragraph(f"<b>{format_money(context.get('total_credito_global', 0))}</b>", body_right_bold),
+        Paragraph(f"<b>{format_money(context.get('total_ventas_global', 0))}</b>", body_right_bold),
+        Paragraph(f"<b>{format_money(context.get('total_abonos_global', 0))}</b>", body_right_bold),
+        Paragraph(f"<b><font color='#059669'>{format_money(context.get('total_efectivo_global', 0))}</font></b>", body_right_bold),
+        Paragraph(f"<b>{context.get('total_facturas_global', 0)}</b>", body_center_bold),
+        Paragraph(f"<b>{format_num(context.get('total_unidades_global', 0))}</b>", body_center_bold),
+        Paragraph("<b>100.0%</b>", body_center_bold)
+    ]
+    tabla_filas.append(fila_totales)
+
+    col_widths = [32, 105, 75, 64, 64, 74, 70, 78, 54, 56, 64]
+    t_main = Table(tabla_filas, colWidths=col_widths)
+    t_main.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0f172a')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#f8fafc')]),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#e2e8f0')),
+    ]))
+    story.append(t_main)
+
+    story.append(Spacer(1, 6))
+    nota_style = ParagraphStyle(
+        'NotaPDF',
+        parent=styles['Normal'],
+        fontName='Helvetica-Oblique',
+        fontSize=7,
+        textColor=colors.HexColor('#64748b')
+    )
+    story.append(Paragraph(
+        "* <b>Efectivo Traído</b> = Ventas de Contado + Abonos de Cartera cobrados en Efectivo. "
+        "Documento confidencial para uso administrativo y directivo de FERDEL.",
+        nota_style
+    ))
+
+    doc.build(story)
+    buffer.seek(0)
+
+    response = make_response(buffer.getvalue())
+    response.headers['Content-Disposition'] = f'attachment; filename={nombre_archivo}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf'
+    response.headers['Content-type'] = 'application/pdf'
+    return response
+
+

@@ -81,6 +81,9 @@ def report_handler(filename):
                             if filename == 'reporte_diario':
                                 from helpers.export import exportar_pdf_diario
                                 return exportar_pdf_diario(context, filename)
+                            elif filename == 'reporte_competencia_vendedores':
+                                from helpers.export import exportar_pdf_competencia_vendedores
+                                return exportar_pdf_competencia_vendedores(context, filename)
                             return exportar_pdf(datos, filename)
                     if 'now' not in context:
                         context['now'] = datetime.now()
