@@ -2236,17 +2236,20 @@ def reporte_diario():
             })
 
         # =========================================================
-        # 3. GASTOS DEL DÍA (OPERATIVOS)
+        # 3. GASTOS DEL DÍA (OFICINA Y RUTAS)
         # =========================================================
+        # Gastos Generales de Oficina
         cursor.execute("""
             SELECT 
-                'GASTO_DIRECTO' AS origen,
+                'GASTO_OFICINA' AS origen,
                 tg.Nombre AS tipo_gasto,
                 sg.Nombre AS subcategoria,
                 gg.Monto AS monto,
                 gg.N_Factura AS factura,
                 pr.Nombre AS proveedor,
-                v.Placa AS vehiculo
+                COALESCE(v.Placa, 'N/A') AS vehiculo,
+                gg.Fecha,
+                gg.Descripcion AS concepto
             FROM gastos_generales gg
             JOIN tipos_gasto tg ON gg.ID_Tipo_Gasto = tg.ID_Tipo_Gasto
             LEFT JOIN subcategorias_gasto sg ON gg.ID_Subcategoria = sg.ID_Subcategoria
@@ -2254,22 +2257,68 @@ def reporte_diario():
             LEFT JOIN vehiculos v ON gg.ID_Vehiculo = v.ID_Vehiculo
             WHERE gg.Estado = 'Activo' AND gg.ID_Empresa = %s AND DATE(gg.Fecha) = %s
         """, [id_empresa, fecha_str])
-        gastos_dia_db = cursor.fetchall()
+        gastos_oficina_db = cursor.fetchall()
+
+        # Gastos de Ruta (movimientos_caja_ruta con Tipo='GASTO')
+        cursor.execute("""
+            SELECT 
+                'GASTO_RUTA' AS origen,
+                'Gasto Operativo de Ruta' AS tipo_gasto,
+                r.Nombre_Ruta AS subcategoria,
+                mcr.Monto AS monto,
+                CONCAT('Ruta: ', r.Nombre_Ruta) AS factura,
+                CONCAT('Vendedor: ', u.NombreUsuario) AS proveedor,
+                COALESCE(veh.Placa, 'Ruta') AS vehiculo,
+                mcr.Fecha,
+                mcr.Concepto AS concepto,
+                u.NombreUsuario AS vendedor,
+                r.Nombre_Ruta AS ruta
+            FROM movimientos_caja_ruta mcr
+            JOIN asignacion_vendedores av ON mcr.ID_Asignacion = av.ID_Asignacion
+            JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+            JOIN usuarios u ON mcr.ID_Usuario = u.ID_Usuario
+            LEFT JOIN vehiculos veh ON av.ID_Vehiculo = veh.ID_Vehiculo
+            WHERE mcr.Tipo = 'GASTO'
+              AND mcr.Estado = 'ACTIVO'
+              AND DATE(mcr.Fecha) = %s
+        """, [fecha_str])
+        gastos_ruta_db = cursor.fetchall()
         
-        gastos_total = 0.0
+        gastos_oficina_total = 0.0
+        gastos_ruta_total = 0.0
         gastos_list = []
-        for g in gastos_dia_db:
+
+        for g in gastos_oficina_db:
             monto_val = float(g['monto'] or 0)
-            gastos_total += monto_val
+            gastos_oficina_total += monto_val
             gastos_list.append({
-                'origen': g['origen'],
+                'origen': 'Oficina / Central',
                 'tipo_gasto': g['tipo_gasto'],
-                'subcategoria': g['subcategoria'],
+                'subcategoria': g['subcategoria'] or 'General',
                 'monto': monto_val,
                 'factura': g['factura'] or 'N/A',
                 'proveedor': g['proveedor'] or 'N/A',
-                'vehiculo': g['vehiculo'] or 'N/A'
+                'vehiculo': g['vehiculo'] or 'N/A',
+                'concepto': g.get('concepto') or '',
+                'fecha': g['Fecha']
             })
+
+        for g in gastos_ruta_db:
+            monto_val = float(g['monto'] or 0)
+            gastos_ruta_total += monto_val
+            gastos_list.append({
+                'origen': 'Gasto en Ruta',
+                'tipo_gasto': 'Gasto de Ruta',
+                'subcategoria': g['subcategoria'] or 'Ruta',
+                'monto': monto_val,
+                'factura': g['factura'] or 'N/A',
+                'proveedor': g['proveedor'] or 'N/A',
+                'vehiculo': g['vehiculo'] or 'Ruta',
+                'concepto': g.get('concepto') or '',
+                'fecha': g['Fecha']
+            })
+
+        gastos_total = gastos_oficina_total + gastos_ruta_total
 
         # =========================================================
         # 4. COMPRAS DEL DÍA
@@ -2387,7 +2436,7 @@ def reporte_diario():
         if ventas_contado_ruta_monto > 0:
             caja_timeline.append({
                 'tipo': 'ENTRADA',
-                'descripcion': 'Liquidación de Ventas de Ruta al Contado (Efectivo)',
+                'descripcion': 'Ventas de Ruta al Contado (Efectivo Bruto)',
                 'monto': ventas_contado_ruta_monto,
                 'referencia': 'VENTAS-RUTA',
                 'fecha': f"{fecha_str} 17:00:00"
@@ -2418,14 +2467,23 @@ def reporte_diario():
                 'fecha': m['Fecha']
             })
 
-        # Restar egresos operativos pagados en efectivo
-        if gastos_total > 0:
+        # Restar egresos operativos pagados en efectivo (Oficina y Ruta)
+        if gastos_oficina_total > 0:
             caja_timeline.append({
                 'tipo': 'SALIDA',
-                'descripcion': 'Gastos Operativos del Día',
-                'monto': gastos_total,
-                'referencia': 'GASTOS-OP',
+                'descripcion': 'Gastos Operativos de Oficina / Central',
+                'monto': gastos_oficina_total,
+                'referencia': 'GASTOS-OFICINA',
                 'fecha': f"{fecha_str} 18:00:00"
+            })
+
+        if gastos_ruta_total > 0:
+            caja_timeline.append({
+                'tipo': 'SALIDA',
+                'descripcion': 'Gastos Operativos en Ruta (Combustible, Viáticos, etc.)',
+                'monto': gastos_ruta_total,
+                'referencia': 'GASTOS-RUTA',
+                'fecha': f"{fecha_str} 18:05:00"
             })
 
         if compras_contado > 0:
@@ -2562,6 +2620,7 @@ def reporte_diario():
         # =========================================================
         cursor.execute("""
             SELECT 
+                u.ID_Usuario,
                 u.NombreUsuario AS Vendedor,
                 COUNT(DISTINCT fr.ID_FacturaRuta) AS Facturas,
                 COALESCE(SUM(CASE WHEN fr.Credito_Contado = 1 THEN dfr.Total ELSE 0 END), 0) AS Ventas_Contado,
@@ -2576,17 +2635,68 @@ def reporte_diario():
             ORDER BY Total_Vendido DESC
         """, [fecha_str])
         vendedores_resumen_db = cursor.fetchall()
+
+        # Gastos por vendedor en ruta hoy
+        cursor.execute("""
+            SELECT 
+                mcr.ID_Usuario,
+                COALESCE(SUM(mcr.Monto), 0) AS Gastos_Ruta
+            FROM movimientos_caja_ruta mcr
+            WHERE mcr.Tipo = 'GASTO'
+              AND mcr.Estado = 'ACTIVO'
+              AND DATE(mcr.Fecha) = %s
+            GROUP BY mcr.ID_Usuario
+        """, [fecha_str])
+        gastos_vendedores_map = {row['ID_Usuario']: float(row['Gastos_Ruta']) for row in cursor.fetchall()}
+
+        # Abonos en efectivo cobrados por cada vendedor hoy
+        cursor.execute("""
+            SELECT 
+                Cobrador_ID,
+                COALESCE(SUM(Monto), 0) AS Abonos_Efectivo
+            FROM (
+                SELECT ad.ID_Usuario AS Cobrador_ID, ad.Monto_Aplicado AS Monto
+                FROM abonos_detalle ad
+                LEFT JOIN metodos_pago mp ON ad.ID_MetodoPago = mp.ID_MetodoPago
+                WHERE DATE(ad.Fecha) = %s AND (ad.ID_MetodoPago = 1 OR mp.Nombre LIKE '%%Efectivo%%' OR ad.ID_MetodoPago IS NULL)
+                
+                UNION ALL
+                
+                SELECT ag.ID_Usuario AS Cobrador_ID, ag.Monto_Aplicado AS Monto
+                FROM abonos_general ag
+                LEFT JOIN metodos_pago mp ON ag.ID_MetodoPago = mp.ID_MetodoPago
+                WHERE DATE(ag.Fecha) = %s AND (ag.ID_MetodoPago = 1 OR mp.Nombre LIKE '%%Efectivo%%' OR ag.ID_MetodoPago IS NULL)
+                
+                UNION ALL
+                
+                SELECT pc.ID_Usuario_Creacion AS Cobrador_ID, pc.Monto AS Monto
+                FROM pagos_cuentascobrar pc
+                LEFT JOIN metodos_pago mp ON pc.ID_MetodoPago = mp.ID_MetodoPago
+                WHERE DATE(pc.Fecha) = %s AND (pc.ID_MetodoPago = 1 OR mp.Nombre LIKE '%%Efectivo%%' OR pc.ID_MetodoPago IS NULL)
+            ) AS abonos
+            WHERE Cobrador_ID IS NOT NULL
+            GROUP BY Cobrador_ID
+        """, [fecha_str, fecha_str, fecha_str])
+        abonos_vendedores_map = {row['Cobrador_ID']: float(row['Abonos_Efectivo']) for row in cursor.fetchall()}
         
         vendedores_list = []
         for v in vendedores_resumen_db:
+            vid = v['ID_Usuario']
             v_contado = float(v['Ventas_Contado'])
             v_credito = float(v['Ventas_Credito'])
             v_total = float(v['Total_Vendido'])
+            v_gastos = gastos_vendedores_map.get(vid, 0.0)
+            v_abonos = abonos_vendedores_map.get(vid, 0.0)
+            v_efectivo_neto = v_contado + v_abonos - v_gastos
             vendedores_list.append({
+                'id_usuario': vid,
                 'vendedor': v['Vendedor'],
                 'facturas': v['Facturas'],
                 'ventas_contado': v_contado,
                 'ventas_credito': v_credito,
+                'abonos_efectivo': v_abonos,
+                'gastos_ruta': v_gastos,
+                'efectivo_neto': v_efectivo_neto,
                 'total_vendido': v_total
             })
 
@@ -2675,6 +2785,8 @@ def reporte_diario():
             'cobros_list': cobros_list,
             # Egresos
             'gastos_total': gastos_total,
+            'gastos_oficina_total': gastos_oficina_total,
+            'gastos_ruta_total': gastos_ruta_total,
             'gastos': gastos_list,
             'compras_total': compras_total,
             'compras_contado': compras_contado,
@@ -2716,7 +2828,9 @@ def reporte_diario():
             {'Metrica': 'COMPRAS TOTALES', 'Valor': compras_total},
             {'Metrica': ' - Compras Contado', 'Valor': compras_contado},
             {'Metrica': ' - Compras Crédito', 'Valor': compras_credito},
-            {'Metrica': 'GASTOS OPERATIVOS HOY', 'Valor': gastos_total},
+            {'Metrica': 'GASTOS OPERATIVOS TOTALES HOY', 'Valor': gastos_total},
+            {'Metrica': ' - Gastos de Oficina / Central', 'Valor': gastos_oficina_total},
+            {'Metrica': ' - Gastos Operativos de Ruta', 'Valor': gastos_ruta_total},
             {'Metrica': 'SALDO ESPERADO EN CAJA (EFECTIVO)', 'Valor': caja_saldo_efectivo_esperado}
         ]
         

@@ -253,17 +253,17 @@ def exportar_pdf_diario(context, nombre_archivo):
         return t
 
     # 1. RESUMEN EJECUTIVO (MÓDULOS PRINCIPALES)
-    story.append(Paragraph("1. Resumen Ejecutivo de Operaciones del Día", subtitulo_style))
+    story.append(Paragraph("1. Resumen Ejecutivo de Operaciones del Día (Enfoque en Efectivo Real)", subtitulo_style))
     resumen_datos = [
-        ["Ventas Totales", format_money(context.get('ventas_total', 0)), f"Contado: {format_money(context.get('ventas_contado', 0))} | Crédito: {format_money(context.get('ventas_credito', 0))} (Oficina: {format_money(context.get('ventas_normal', 0))} / Ruta: {format_money(context.get('ventas_ruta', 0))})"],
-        ["Cobranza y Abonos", format_money(context.get('cobros_total', 0)), f"Efectivo: {format_money(context.get('cobros_efectivo', 0))} | Bancos/Transferencias: {format_money(context.get('cobros_bancos', 0))}"],
-        ["Cierre de Caja (Efectivo)", format_money(context.get('caja_saldo_neto', 0)), f"Apertura: {format_money(context.get('caja_apertura', 0))} | Entradas: {format_money(context.get('caja_total_entradas', 0))} | Salidas: {format_money(context.get('caja_total_salidas', 0))}"],
+        ["Ventas en Efectivo (Contado)", format_money(context.get('ventas_contado', 0)), f"Efectivo de contado (Oficina: {format_money(context.get('ventas_normal', 0))} / Ruta: {format_money(context.get('ventas_ruta', 0))}) | Facturado Total: {format_money(context.get('ventas_total', 0))} (Crédito: {format_money(context.get('ventas_credito', 0))})"],
+        ["Cobranza en Efectivo (Abonos)", format_money(context.get('cobros_efectivo', 0)), f"Efectivo recaudado en mano | Bancos/Transf: {format_money(context.get('cobros_bancos', 0))} (Total Cobrado: {format_money(context.get('cobros_total', 0))})"],
+        ["Cierre de Caja (Efectivo Neto)", format_money(context.get('caja_saldo_neto', 0)), f"Apertura: {format_money(context.get('caja_apertura', 0))} | Entradas Efec: {format_money(context.get('caja_total_entradas', 0))} | Salidas Efec: {format_money(context.get('caja_total_salidas', 0))}"],
         ["Cartera Global (CxC)", format_money(context.get('cxc_saldo_total', 0)), f"Nuevos Créditos Hoy: {format_money(context.get('cxc_nuevos_creditos_hoy', 0))} | Abonos Recuperados: {format_money(context.get('cxc_abonos_recuperados_hoy', 0))}"],
         ["Compras a Proveedores", format_money(context.get('compras_total', 0)), f"Contado: {format_money(context.get('compras_contado', 0))} | Crédito: {format_money(context.get('compras_credito', 0))}"],
-        ["Gastos Operativos", format_money(context.get('gastos_total', 0)), f"Total de gastos operativos directos del día"],
+        ["Gastos Operativos", format_money(context.get('gastos_total', 0)), f"Oficina: {format_money(context.get('gastos_oficina_total', 0))} | Rutas: {format_money(context.get('gastos_ruta_total', 0))}"],
         ["Inventario Bodega", f"{context.get('inventario_total_productos', 0)} Items", f"Items con Stock Crítico: {len(context.get('bajo_stock', []))}"]
     ]
-    story.append(crear_tabla(["Módulo / Concepto", "Monto / Valor", "Desglose Operativo"], resumen_datos, [130, 110, 310]))
+    story.append(crear_tabla(["Módulo / Concepto", "Monto / Valor", "Desglose Operativo"], resumen_datos, [135, 110, 305]))
     story.append(Spacer(1, 8))
 
     # 2. CONCILIACIÓN Y FLUJO DE EFECTIVO EN CAJA
@@ -272,7 +272,7 @@ def exportar_pdf_diario(context, nombre_archivo):
         ["Apertura de Caja", "INICIAL", format_money(context.get('caja_apertura', 0))],
         ["(+) Ventas de Contado (Efectivo Oficina + Rutas)", "VENTAS-CONT", format_money(context.get('ventas_contado', 0))],
         ["(+) Abonos de Clientes Cobrados en Efectivo", "ABONOS-EFECT", format_money(context.get('cobros_efectivo', 0))],
-        ["(-) Gastos Operativos Pagados en Efectivo", "GASTOS-OP", f"- {format_money(context.get('gastos_total', 0))}"],
+        ["(-) Gastos Operativos Totales (Oficina y Rutas)", "GASTOS-OP", f"- {format_money(context.get('gastos_total', 0))}"],
         ["(-) Compras a Proveedores de Contado", "COMPRAS-CONT", f"- {format_money(context.get('compras_contado', 0))}"]
     ]
     story.append(crear_tabla(["Concepto de Flujo", "Referencia", "Monto"], conciliacion_datos, [260, 140, 150], header_bg='#059669'))
@@ -327,17 +327,20 @@ def exportar_pdf_diario(context, nombre_archivo):
 
     # 6. RENDIMIENTO DE VENDEDORES EN RUTA
     if context.get('vendedores'):
-        story.append(Paragraph("6. Rendimiento por Vendedor / Rutas", subtitulo_style))
+        story.append(Paragraph("6. Liquidación y Rendimiento de Vendedores en Ruta", subtitulo_style))
         vend_rows = []
         for vend in context.get('vendedores', []):
+            g_ruta = vend.get('gastos_ruta', 0)
+            g_ruta_str = f"-{format_money(g_ruta)}" if g_ruta > 0 else "C$0.00"
             vend_rows.append([
                 vend.get('vendedor', ''),
                 str(vend.get('facturas', 0)),
                 format_money(vend.get('ventas_contado', 0)),
-                format_money(vend.get('ventas_credito', 0)),
-                format_money(vend.get('total_vendido', 0))
+                format_money(vend.get('abonos_efectivo', 0)),
+                g_ruta_str,
+                format_money(vend.get('efectivo_neto', 0))
             ])
-        story.append(crear_tabla(["Vendedor", "Facturas", "Ventas Contado", "Ventas Crédito", "Total Vendido"], vend_rows, [150, 80, 110, 110, 100], header_bg='#0f172a'))
+        story.append(crear_tabla(["Vendedor", "Facturas", "Vtas Contado", "Abonos Efec.", "Gastos Ruta", "Efec. Neto Liquidar"], vend_rows, [120, 55, 90, 90, 85, 100], header_bg='#0f172a'))
         story.append(Spacer(1, 8))
 
     # 7. EGRESOS: COMPRAS Y GASTOS OPERATIVOS
@@ -345,16 +348,18 @@ def exportar_pdf_diario(context, nombre_archivo):
     egresos_rows = []
     for c in context.get('compras', []):
         egresos_rows.append([
-            "COMPRA PROVEEDOR",
+            "COMPRA PROV.",
             c.get('proveedor', '')[:25],
             f"Fact: {c.get('factura', 'N/A')} ({c.get('tipo_compra', 'CONTADO')})",
             format_money(c.get('total', 0))
         ])
     for g in context.get('gastos', []):
+        orig_tag = "[OFICINA]" if 'Oficina' in g.get('origen', '') else "[RUTA]"
+        desc_det = g.get('concepto') or g.get('subcategoria', '')
         egresos_rows.append([
-            f"GASTO: {g.get('tipo_gasto', '')[:18]}",
-            g.get('proveedor', 'N/A')[:25],
-            f"Ref: {g.get('factura', 'N/A')} - {g.get('subcategoria', '')[:15]}",
+            f"{orig_tag} {g.get('tipo_gasto', '')[:14]}",
+            g.get('proveedor', 'N/A')[:22],
+            f"{desc_det[:25]}",
             format_money(g.get('monto', 0))
         ])
     story.append(crear_tabla(["Tipo de Egreso", "Proveedor / Beneficiario", "Referencia / Detalle", "Monto"], egresos_rows, [140, 150, 160, 100], header_bg='#dc2626'))
