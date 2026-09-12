@@ -1202,14 +1202,14 @@
                 </div>
             </div>
 
-            <!-- Compras -->
-            <div class="has-submenu {% if 'compras' in request.endpoint or 'cuentas_por_pagar' in request.endpoint %}active{% endif %}"
-                data-tooltip="Compras">
+            <!-- Compras y Gastos -->
+            <div class="has-submenu {% if 'compras' in request.endpoint or 'cuentas_por_pagar' in request.endpoint or 'gastos' in request.endpoint %}active{% endif %}"
+                data-tooltip="Compras y Gastos">
                 <a class="nav-link submenu-toggle-btn" href="#compras-submenu">
-                    <i class="bi bi-tags"></i> <span>Compras</span>
+                    <i class="bi bi-tags"></i> <span>Compras y Gastos</span>
                     <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
                 </a>
-                <div class="submenu {% if 'compras' in request.endpoint or 'cuentas_por_pagar' in request.endpoint %}show{% endif %}"
+                <div class="submenu {% if 'compras' in request.endpoint or 'cuentas_por_pagar' in request.endpoint or 'gastos' in request.endpoint %}show{% endif %}"
                     id="compras-submenu">
                     <a class="nav-link {% if request.endpoint == 'admin.admin_compras_entradas' %}active{% endif %}"
                         href="{{ url_for('admin.admin_compras_entradas') }}">
@@ -1219,9 +1219,13 @@
                         href="{{ url_for('admin.admin_cuentas_por_pagar') }}">
                         <i class="bi bi-wallet2"></i> Cuentas por Pagar
                     </a>
-                    <a class="nav-link {% if request.endpoint == 'admin.admin_gastos_operativos' %}active{% endif %}"
+                    <a class="nav-link {% if request.endpoint in ['admin.admin_gastos_operativos', 'admin.registrar_gasto'] %}active{% endif %}"
                         href="{{ url_for('admin.admin_gastos_operativos') }}">
-                        <i class="bi bi-file-earmark-text"></i> Gastos
+                        <i class="bi bi-file-earmark-text"></i> Control de Gastos
+                    </a>
+                    <a class="nav-link {% if request.endpoint == 'admin.reporte_gastos_categorias' %}active{% endif %}"
+                        href="{{ url_for('admin.reporte_gastos_categorias') }}">
+                        <i class="bi bi-pie-chart-fill"></i> Reporte por Categorías
                     </a>
                 </div>
             </div>
@@ -1262,13 +1266,13 @@
             </div>
 
             <!-- Catálogos -->
-            <div class="has-submenu {% if request.endpoint in ['admin.admin_productos', 'admin.admin_categorias', 'admin.admin_unidades_medidas', 'admin.admin_clientes', 'admin.admin_proveedores', 'admin.admin_bodega', 'admin.admin_rutas', 'admin.admin_vehiculos', 'admin.admin_roles', 'admin.admin_usuarios', 'admin.admin_empresas', 'admin.admin_metodos_pago', 'admin.admin_tipos_gasto', 'admin.admin_movimientos_inventario'] %}active{% endif %}"
+            <div class="has-submenu {% if request.endpoint in ['admin.admin_productos', 'admin.admin_categorias', 'admin.admin_unidades_medidas', 'admin.admin_clientes', 'admin.admin_proveedores', 'admin.admin_bodega', 'admin.admin_rutas', 'admin.admin_vehiculos', 'admin.admin_roles', 'admin.admin_usuarios', 'admin.admin_empresas', 'admin.admin_metodos_pago', 'admin.admin_tipos_gasto', 'admin.admin_subcategorias', 'admin.admin_movimientos_inventario'] %}active{% endif %}"
                 data-tooltip="Catálogos">
                 <a class="nav-link submenu-toggle-btn" href="#catalogos-submenu">
                     <i class="bi bi-collection"></i> <span>Catálogos</span>
                     <i class="bi bi-chevron-right submenu-toggle ms-auto"></i>
                 </a>
-                <div class="submenu {% if request.endpoint in ['admin.admin_productos', 'admin.admin_categorias', 'admin.admin_unidades_medidas', 'admin.admin_clientes', 'admin.admin_proveedores', 'admin.admin_bodega', 'admin.admin_rutas', 'admin.admin_vehiculos', 'admin.admin_roles', 'admin.admin_usuarios', 'admin.admin_empresas', 'admin.admin_metodos_pago', 'admin.admin_tipos_gasto', 'admin.admin_movimientos_inventario'] %}show{% endif %}"
+                <div class="submenu {% if request.endpoint in ['admin.admin_productos', 'admin.admin_categorias', 'admin.admin_unidades_medidas', 'admin.admin_clientes', 'admin.admin_proveedores', 'admin.admin_bodega', 'admin.admin_rutas', 'admin.admin_vehiculos', 'admin.admin_roles', 'admin.admin_usuarios', 'admin.admin_empresas', 'admin.admin_metodos_pago', 'admin.admin_tipos_gasto', 'admin.admin_subcategorias', 'admin.admin_movimientos_inventario'] %}show{% endif %}"
                     id="catalogos-submenu">
                     <a class="nav-link {% if request.endpoint == 'admin.admin_productos' %}active{% endif %}"
                         href="{{ url_for('admin.admin_productos') }}">
@@ -1322,6 +1326,10 @@
                         href="{{ url_for('admin.admin_tipos_gasto') }}">
                         <i class="bi bi-list-ul"></i> Tipos de Gastos
                     </a>
+                    <a class="nav-link {% if request.endpoint == 'admin.admin_subcategorias' %}active{% endif %}"
+                        href="{{ url_for('admin.admin_subcategorias') }}">
+                        <i class="bi bi-tags-fill"></i> Subcategorías de Gastos
+                    </a>
                     <a class="nav-link {% if request.endpoint == 'admin.admin_movimientos_inventario' %}active{% endif %}"
                         href="{{ url_for('admin.admin_movimientos_inventario') }}">
                         <i class="bi bi-arrow-left-right"></i> Movimientos de Inventario
@@ -1357,6 +1365,10 @@
                     <a class="nav-link {% if request.endpoint == 'admin.reporte_categoria_ventas' %}active{% endif %}"
                         href="{{ url_for('admin.reporte_categoria_ventas') }}">
                         <i class="bi bi-cart-check"></i> Ventas por Categoría
+                    </a>
+                    <a class="nav-link {% if request.endpoint == 'admin.reporte_gastos_categorias' %}active{% endif %}"
+                        href="{{ url_for('admin.reporte_gastos_categorias') }}">
+                        <i class="bi bi-pie-chart-fill"></i> Gastos por Categoría
                     </a>
                     <a class="nav-link {% if request.endpoint == 'admin.reporte_utilidad_ventas' %}active{% endif %}"
                         href="{{ url_for('admin.reporte_utilidad_ventas') }}">

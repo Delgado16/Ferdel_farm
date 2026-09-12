@@ -303,11 +303,13 @@ def vendedor_gastos():
     # Para GET y POST necesitamos la asignación activa primero
     try:
         with get_db_cursor() as cursor:
-            # Obtener la asignación activa del vendedor (compatible con asignaciones continuas)
+            # Obtener la asignación activa del vendedor (compatible con asignaciones continuas y datos de vehículo)
             cursor.execute("""
-                SELECT av.ID_Asignacion, av.ID_Ruta, av.Fecha_Asignacion, r.Nombre_Ruta
+                SELECT av.ID_Asignacion, av.ID_Ruta, av.Fecha_Asignacion, r.Nombre_Ruta,
+                       av.ID_Vehiculo, v.Placa, v.Marca, v.Modelo, v.Tipo_Combustible, av.ID_Empresa
                 FROM asignacion_vendedores av
                 LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                LEFT JOIN vehiculos v ON av.ID_Vehiculo = v.ID_Vehiculo
                 WHERE av.ID_Usuario = %s 
                 AND av.Estado = 'Activa'
                 AND av.Fecha_Asignacion <= CURDATE()
@@ -328,7 +330,7 @@ def vendedor_gastos():
         flash(f'Error al verificar asignación: {str(e)}', 'error')
         return redirect(url_for('vendedor.vendedor_dashboard'))
     
-    # Procesar el formulario cuando es POST
+    # Procesar el formulario cuando es POST (Gasto General)
     if request.method == 'POST':
         concepto = request.form.get('concepto', '').strip()
         monto = request.form.get('monto', '').strip()
@@ -374,7 +376,7 @@ def vendedor_gastos():
                 # Calcular nuevo saldo (el gasto resta del saldo)
                 nuevo_saldo = saldo_anterior - monto
                 
-                # Insertar el nuevo gasto
+                # Insertar el nuevo gasto en movimientos_caja_ruta
                 cursor.execute("""
                     INSERT INTO movimientos_caja_ruta 
                     (ID_Asignacion, ID_Usuario, Tipo, Concepto, Monto, Tipo_Pago, Saldo_Acumulado, Estado, Fecha)
@@ -389,9 +391,20 @@ def vendedor_gastos():
         
         return redirect(url_for('vendedor.vendedor_gastos'))
     
-    # Para GET: obtener los gastos del día
+    # Para GET: obtener los gastos del día y lista de vehículos disponibles
     try:
         with get_db_cursor() as cursor:
+            # Obtener vehículos disponibles para el modal de combustible
+            id_empresa = asignacion.get('ID_Empresa') or 1
+            cursor.execute("""
+                SELECT ID_Vehiculo, Placa, Marca, Modelo, Tipo_Combustible,
+                       CONCAT(Placa, ' - ', Marca, ' ', Modelo) AS Descripcion
+                FROM vehiculos
+                WHERE ID_Empresa = %s AND Estado != 'Inactivo'
+                ORDER BY Placa
+            """, (id_empresa,))
+            vehiculos_disponibles = cursor.fetchall()
+
             # Obtener todos los gastos del día para esta asignación
             cursor.execute("""
                 SELECT m.ID_Movimiento, m.Concepto, m.Monto, m.Tipo_Pago, 
@@ -413,6 +426,9 @@ def vendedor_gastos():
                     gasto['Monto'] = float(gasto['Monto'])
                 if gasto.get('Saldo_Acumulado') is not None:
                     gasto['Saldo_Acumulado'] = float(gasto['Saldo_Acumulado'])
+                
+                # Identificar si es gasto de combustible
+                gasto['Es_Combustible'] = 'combustible' in (gasto.get('Concepto') or '').lower() or 'gasolina' in (gasto.get('Concepto') or '').lower() or 'diesel' in (gasto.get('Concepto') or '').lower()
                 
                 # Formatear Hora de forma robusta
                 fecha_val = gasto.get('Fecha')
@@ -468,6 +484,7 @@ def vendedor_gastos():
         gastos = []
         total_gastos = 0
         saldo_actual = 0
+        vehiculos_disponibles = []
         flash('Error al cargar los gastos', 'error')
     
     return render_template('vendedor/gastos/gastos.html', 
@@ -476,5 +493,120 @@ def vendedor_gastos():
                          saldo_actual=saldo_actual,
                          asignacion=asignacion,
                          ruta=nombre_ruta,
+                         vehiculos_disponibles=vehiculos_disponibles,
                          fecha_actual=datetime.now().strftime('%d/%m/%Y'))
+
+
+@vendedor_bp.route('/vendedor/gastos/combustible', methods=['POST'])
+@vendedor_required
+def vendedor_gastos_combustible():
+    """
+    Ruta especializada para registrar gasto de combustible con auditoría vehicular completa.
+    Actualiza:
+    1. movimientos_caja_ruta (Tipo = 'GASTO')
+    2. gastos_generales (Tipo: Vehículos, Subcategoría: Combustible)
+    3. gastos_vehiculo_detalle (Kilometraje, Taller/Gasolinera, Tipo_Mantenimiento = 'COMBUSTIBLE')
+    """
+    usuario_actual = current_user.id
+    
+    try:
+        with get_db_cursor() as cursor:
+            cursor.execute("""
+                SELECT av.ID_Asignacion, av.ID_Ruta, av.ID_Vehiculo, av.ID_Empresa,
+                       v.Placa, v.Marca, v.Modelo, v.Tipo_Combustible
+                FROM asignacion_vendedores av
+                LEFT JOIN vehiculos v ON av.ID_Vehiculo = v.ID_Vehiculo
+                WHERE av.ID_Usuario = %s 
+                  AND av.Estado = 'Activa'
+                  AND av.Fecha_Asignacion <= CURDATE()
+                  AND (av.Fecha_Finalizacion >= CURDATE() OR av.Fecha_Finalizacion IS NULL)
+                ORDER BY av.Fecha_Asignacion DESC 
+                LIMIT 1
+            """, (usuario_actual,))
+            asignacion = cursor.fetchone()
+            
+            if not asignacion:
+                flash('No tienes una ruta activa asignada para registrar combustible', 'warning')
+                return redirect(request.referrer or url_for('vendedor.vendedor_dashboard'))
+                
+            id_asignacion = asignacion['ID_Asignacion']
+            id_empresa = asignacion.get('ID_Empresa') or 1
+    except Exception as e:
+        flash(f'Error al verificar asignación: {str(e)}', 'error')
+        return redirect(request.referrer or url_for('vendedor.vendedor_dashboard'))
+        
+    # Extraer parámetros del formulario
+    monto = request.form.get('monto', '').strip()
+    id_vehiculo = request.form.get('id_vehiculo') or asignacion.get('ID_Vehiculo')
+    kilometraje = request.form.get('kilometraje', '').strip() or None
+    tipo_combustible = request.form.get('tipo_combustible', '').strip() or (asignacion.get('Tipo_Combustible') or 'Diesel')
+    
+    if not monto:
+        flash('El monto de combustible es obligatorio', 'error')
+        return redirect(request.referrer or url_for('vendedor.vendedor_gastos'))
+        
+    try:
+        monto = float(monto)
+        if monto <= 0:
+            flash('El monto debe ser mayor a cero', 'error')
+            return redirect(request.referrer or url_for('vendedor.vendedor_gastos'))
+    except ValueError:
+        flash('El monto debe ser un número válido', 'error')
+        return redirect(request.referrer or url_for('vendedor.vendedor_gastos'))
+        
+    km_num = None
+    if kilometraje:
+        try:
+            km_num = int(str(kilometraje).replace(',', '').replace('.', '').replace(' ', ''))
+        except ValueError:
+            km_num = None
+            
+    try:
+        with get_db_cursor(commit=True) as cursor:
+            # Obtener datos del vehículo seleccionado
+            placa_vehiculo = asignacion.get('Placa') or 'Vehículo'
+            if id_vehiculo:
+                cursor.execute("SELECT Placa, Marca, Modelo FROM vehiculos WHERE ID_Vehiculo = %s", (id_vehiculo,))
+                v_info = cursor.fetchone()
+                if v_info:
+                    placa_vehiculo = v_info['Placa']
+                    
+            # 1. Insertar en gastos_generales (ID_Tipo_Gasto = 2 [Vehículos], ID_Subcategoria = 1 [Combustible], Metodo_Pago = 'TRANSFERENCIA' por convenio)
+            detalles_txt = ["Estación de Servicio San José"]
+            if km_num:
+                detalles_txt.append(f"Odómetro: {km_num:,} km")
+            descripcion_gasto = f"Carga de combustible {tipo_combustible} para {placa_vehiculo} ({', '.join(detalles_txt)})"
+            
+            cursor.execute("""
+                INSERT INTO gastos_generales (
+                    ID_Tipo_Gasto, ID_Subcategoria, Fecha, Monto, Descripcion,
+                    N_Factura, ID_Proveedor, ID_Vehiculo, Metodo_Pago, 
+                    ID_Empresa, Estado, ID_Usuario_Registro
+                ) VALUES (
+                    2, 1, CURDATE(), %s, %s,
+                    NULL, NULL, %s, 'TRANSFERENCIA',
+                    %s, 'Activo', %s
+                )
+            """, (
+                monto, descripcion_gasto[:500],
+                id_vehiculo if id_vehiculo else None,
+                id_empresa, usuario_actual
+            ))
+            id_gasto_general = cursor.lastrowid
+            
+            # 2. Insertar en gastos_vehiculo_detalle para auditoría vehicular
+            if id_vehiculo:
+                cursor.execute("""
+                    INSERT INTO gastos_vehiculo_detalle (
+                        ID_Gasto, ID_Vehiculo, Kilometraje, Tipo_Mantenimiento, Taller
+                    ) VALUES (%s, %s, %s, 'COMBUSTIBLE', 'Estación de Servicio San José')
+                """, (id_gasto_general, id_vehiculo, km_num))
+                
+            flash(f'⛽ Carga de combustible registrada (Estación de Servicio San José) por C$ {monto:,.2f}', 'success')
+    except Exception as e:
+        flash(f'Error al registrar el gasto de combustible: {str(e)}', 'error')
+        print(f"Error en vendedor_gastos_combustible POST: {e}")
+        
+    return redirect(request.referrer or url_for('vendedor.vendedor_gastos'))
+
 

@@ -12,27 +12,48 @@ from helpers.bitacora import bitacora_decorator, registrar_bitacora
 from werkzeug.security import generate_password_hash, check_password_hash
 from .. import admin_bp
 
+logger = logging.getLogger(__name__)
+
 @admin_bp.route('/admin/gastos/tipos', methods=['GET'])
 @admin_required
 @bitacora_decorator("VER_TIPOS_GASTO")
 def admin_tipos_gasto():
-    """Listar todos los tipos de gasto"""
+    """Listar todos los tipos de gasto con estadísticas"""
     try:
         id_empresa = session.get('id_empresa', 1)
         
         with get_db_cursor(True) as cursor:
             cursor.execute("""
-                SELECT ID_Tipo_Gasto, Nombre, Descripcion, Origen, 
-                       ID_Categoria_Inventario, Estado
-                FROM tipos_gasto 
-                WHERE ID_Empresa = %s
-                ORDER BY Nombre
+                SELECT 
+                    tg.ID_Tipo_Gasto, 
+                    tg.Nombre, 
+                    tg.Descripcion, 
+                    tg.Origen, 
+                    tg.ID_Categoria_Inventario, 
+                    tg.Estado,
+                    cp.Descripcion AS Categoria_Inventario_Nombre,
+                    COUNT(DISTINCT sg.ID_Subcategoria) AS total_subcategorias,
+                    COUNT(DISTINCT gg.ID_Gasto) AS total_gastos,
+                    COALESCE(SUM(CASE WHEN gg.Estado = 'Activo' THEN gg.Monto ELSE 0 END), 0) AS total_monto
+                FROM tipos_gasto tg
+                LEFT JOIN categorias_producto cp ON tg.ID_Categoria_Inventario = cp.ID_Categoria
+                LEFT JOIN subcategorias_gasto sg ON tg.ID_Tipo_Gasto = sg.ID_Tipo_Gasto
+                LEFT JOIN gastos_generales gg ON tg.ID_Tipo_Gasto = gg.ID_Tipo_Gasto AND gg.ID_Empresa = tg.ID_Empresa
+                WHERE tg.ID_Empresa = %s
+                GROUP BY tg.ID_Tipo_Gasto, tg.Nombre, tg.Descripcion, tg.Origen, tg.ID_Categoria_Inventario, tg.Estado, cp.Descripcion
+                ORDER BY tg.Nombre
             """, [id_empresa])
             tipos_gasto = cursor.fetchall()
+            
+            # Resumen general de tipos
+            total_tipos_activos = sum(1 for t in tipos_gasto if t['Estado'] == 'Activo')
+            total_gastos_acumulados = sum(float(t['total_monto'] or 0) for t in tipos_gasto)
             
         return render_template(
             'admin/catalog/gastos/tipos_gasto.html',
             tipos_gasto=tipos_gasto,
+            total_tipos_activos=total_tipos_activos,
+            total_gastos_acumulados=total_gastos_acumulados,
             titulo="Tipos de Gastos"
         )
         
@@ -215,17 +236,25 @@ def eliminar_tipo_gasto(id_tipo):
 @admin_required
 @bitacora_decorator("VER_SUBCATEGORIAS")
 def admin_subcategorias():
-    """Listar todas las subcategorías"""
+    """Listar todas las subcategorías con métricas"""
     try:
         id_empresa = session.get('id_empresa', 1)
         tipo_filtro = request.args.get('tipo', '')
         
         with get_db_cursor(True) as cursor:
             query = """
-                SELECT sg.ID_Subcategoria, sg.Nombre, sg.Descripcion, sg.Estado,
-                       tg.Nombre as tipo_gasto_nombre, tg.ID_Tipo_Gasto
+                SELECT 
+                    sg.ID_Subcategoria, 
+                    sg.Nombre, 
+                    sg.Descripcion, 
+                    sg.Estado,
+                    tg.Nombre as tipo_gasto_nombre, 
+                    tg.ID_Tipo_Gasto,
+                    COUNT(DISTINCT gg.ID_Gasto) AS total_gastos,
+                    COALESCE(SUM(CASE WHEN gg.Estado = 'Activo' THEN gg.Monto ELSE 0 END), 0) AS total_monto
                 FROM subcategorias_gasto sg
                 INNER JOIN tipos_gasto tg ON sg.ID_Tipo_Gasto = tg.ID_Tipo_Gasto
+                LEFT JOIN gastos_generales gg ON sg.ID_Subcategoria = gg.ID_Subcategoria AND gg.ID_Empresa = tg.ID_Empresa
                 WHERE tg.ID_Empresa = %s
             """
             params = [id_empresa]
@@ -234,7 +263,7 @@ def admin_subcategorias():
                 query += " AND tg.ID_Tipo_Gasto = %s"
                 params.append(tipo_filtro)
             
-            query += " ORDER BY tg.Nombre, sg.Nombre"
+            query += " GROUP BY sg.ID_Subcategoria, sg.Nombre, sg.Descripcion, sg.Estado, tg.Nombre, tg.ID_Tipo_Gasto ORDER BY tg.Nombre, sg.Nombre"
             
             cursor.execute(query, params)
             subcategorias = cursor.fetchall()
@@ -248,11 +277,14 @@ def admin_subcategorias():
             """, [id_empresa])
             tipos_gasto = cursor.fetchall()
             
+            total_subcategorias_activas = sum(1 for s in subcategorias if s['Estado'] == 'Activo')
+            
         return render_template(
             'admin/catalog/gastos/subcategorias.html',
             subcategorias=subcategorias,
             tipos_gasto=tipos_gasto,
             tipo_filtro=tipo_filtro,
+            total_subcategorias_activas=total_subcategorias_activas,
             titulo="Subcategorías de Gastos"
         )
         

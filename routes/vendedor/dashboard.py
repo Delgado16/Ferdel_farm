@@ -24,7 +24,7 @@ def vendedor_dashboard():
         cursor.execute("""
             SELECT av.ID_Asignacion, av.ID_Ruta, r.Nombre_Ruta, av.Fecha_Asignacion,
                    av.Estado, av.Hora_Inicio, av.Hora_Fin, av.ID_Vehiculo,
-                   v.Placa, v.Marca, v.Modelo
+                   v.Placa, v.Marca, v.Modelo, v.Tipo_Combustible
             FROM asignacion_vendedores av
             JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
             LEFT JOIN vehiculos v ON av.ID_Vehiculo = v.ID_Vehiculo
@@ -42,7 +42,7 @@ def vendedor_dashboard():
             cursor.execute("""
                 SELECT av.ID_Asignacion, av.ID_Ruta, r.Nombre_Ruta, av.Fecha_Asignacion,
                        av.Estado, av.Hora_Inicio, av.Hora_Fin, av.ID_Vehiculo,
-                       v.Placa, v.Marca, v.Modelo
+                       v.Placa, v.Marca, v.Modelo, v.Tipo_Combustible
                 FROM asignacion_vendedores av
                 JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
                 LEFT JOIN vehiculos v ON av.ID_Vehiculo = v.ID_Vehiculo
@@ -70,7 +70,7 @@ def vendedor_dashboard():
         if asignacion_activa or ultima_asignacion_pasada:
             current_vehiculo_id = asignacion_activa['ID_Vehiculo'] if asignacion_activa else ultima_asignacion_pasada['ID_Vehiculo']
             cursor.execute("""
-                SELECT ID_Vehiculo, Placa, Marca, Modelo,
+                SELECT ID_Vehiculo, Placa, Marca, Modelo, Tipo_Combustible,
                        CONCAT(Placa, ' - ', Marca, ' ', Modelo) AS Descripcion
                 FROM vehiculos
                 WHERE ID_Empresa = %s

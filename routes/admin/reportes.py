@@ -3129,3 +3129,311 @@ def reporte_competencia_vendedores():
         }
         
         return datos_exportar, 'admin/reportes/reporte_competencia_vendedores.html', context
+
+
+@admin_bp.route('/admin/reporte/gastos_categorias')
+@admin_required
+@report_handler('reporte_gastos_categorias')
+def reporte_gastos_categorias():
+    """Reporte Ejecutivo de Gastos clasificados por Categorías y Subcategorías"""
+    from datetime import datetime, timedelta
+    from collections import defaultdict
+    import json
+    
+    fecha_inicio, fecha_fin, periodo = get_period_date_range('mes')
+    tipo_id = request.args.get('tipo_id', '')
+    subcategoria_id = request.args.get('subcategoria_id', '')
+    origen_filtro = request.args.get('origen', 'TODOS')
+    metodo_pago_filtro = request.args.get('metodo_pago', 'TODOS')
+    id_empresa = request.args.get('id_empresa', 1)
+    
+    with get_db_cursor() as cursor:
+        # 1. Catálogos para filtros
+        cursor.execute("""
+            SELECT ID_Tipo_Gasto, Nombre, Origen 
+            FROM tipos_gasto 
+            WHERE ID_Empresa = %s AND Estado = 'Activo'
+            ORDER BY Nombre
+        """, [id_empresa])
+        tipos_gasto_lista = cursor.fetchall()
+        
+        cursor.execute("""
+            SELECT sg.ID_Subcategoria, sg.Nombre, sg.ID_Tipo_Gasto, tg.Nombre AS Tipo_Nombre
+            FROM subcategorias_gasto sg
+            INNER JOIN tipos_gasto tg ON sg.ID_Tipo_Gasto = tg.ID_Tipo_Gasto
+            WHERE tg.ID_Empresa = %s AND sg.Estado = 'Activo'
+            ORDER BY tg.Nombre, sg.Nombre
+        """, [id_empresa])
+        subcategorias_lista = cursor.fetchall()
+        
+        # 2. Consultar Gastos Directos
+        gastos_directos = []
+        if origen_filtro in ['TODOS', 'GASTO_DIRECTO']:
+            query_gd = """
+                SELECT 
+                    gg.ID_Gasto,
+                    DATE(gg.Fecha) AS Fecha,
+                    CAST(gg.Monto AS DECIMAL(12,2)) AS Monto,
+                    gg.Descripcion,
+                    COALESCE(gg.N_Factura, 'S/F') AS Factura,
+                    gg.Metodo_Pago,
+                    gg.Estado,
+                    tg.ID_Tipo_Gasto,
+                    tg.Nombre AS Tipo_Gasto,
+                    sg.ID_Subcategoria,
+                    COALESCE(sg.Nombre, 'Sin Subcategoría') AS Subcategoria,
+                    pr.ID_Proveedor,
+                    COALESCE(pr.Nombre, 'Gasto General / No especificado') AS Proveedor,
+                    v.ID_Vehiculo,
+                    v.Placa AS Vehiculo_Placa,
+                    u.NombreUsuario AS Usuario_Registro,
+                    'GASTO_DIRECTO' AS Origen
+                FROM gastos_generales gg
+                INNER JOIN tipos_gasto tg ON gg.ID_Tipo_Gasto = tg.ID_Tipo_Gasto
+                LEFT JOIN subcategorias_gasto sg ON gg.ID_Subcategoria = sg.ID_Subcategoria
+                LEFT JOIN proveedores pr ON gg.ID_Proveedor = pr.ID_Proveedor
+                LEFT JOIN vehiculos v ON gg.ID_Vehiculo = v.ID_Vehiculo
+                LEFT JOIN usuarios u ON gg.ID_Usuario_Registro = u.ID_Usuario
+                WHERE gg.Estado = 'Activo' AND gg.ID_Empresa = %s
+                  AND gg.Fecha BETWEEN %s AND %s
+            """
+            params_gd = [id_empresa, fecha_inicio, fecha_fin]
+            
+            if tipo_id and tipo_id.isdigit():
+                query_gd += " AND tg.ID_Tipo_Gasto = %s"
+                params_gd.append(int(tipo_id))
+                
+            if subcategoria_id and subcategoria_id.isdigit():
+                query_gd += " AND sg.ID_Subcategoria = %s"
+                params_gd.append(int(subcategoria_id))
+                
+            if metodo_pago_filtro != 'TODOS':
+                query_gd += " AND gg.Metodo_Pago = %s"
+                params_gd.append(metodo_pago_filtro)
+                
+            cursor.execute(query_gd, params_gd)
+            gastos_directos = cursor.fetchall()
+            
+        # 3. Consultar Compras de Inventario (si no se filtró subcategoría ni método de pago incompatible)
+        compras_inventario = []
+        if origen_filtro in ['TODOS', 'INVENTARIO'] and not subcategoria_id and metodo_pago_filtro in ['TODOS', 'TRANSFERENCIA', 'EFECTIVO']:
+            query_inv = """
+                SELECT 
+                    mi.ID_Movimiento AS ID_Gasto,
+                    DATE(mi.Fecha) AS Fecha,
+                    CAST(COALESCE(SUM(dmi.Cantidad * dmi.Costo_Unitario), 0) AS DECIMAL(12,2)) AS Monto,
+                    CONCAT('Recepción de Inventario: ', COALESCE(mi.Observacion, 'Stock fábrica')) AS Descripcion,
+                    COALESCE(mi.N_Factura_Externa, CONCAT('MOV-', mi.ID_Movimiento)) AS Factura,
+                    'TRANSFERENCIA' AS Metodo_Pago,
+                    mi.Estado,
+                    cp.ID_Categoria AS ID_Tipo_Gasto,
+                    CONCAT('Inv: ', cp.Descripcion) AS Tipo_Gasto,
+                    NULL AS ID_Subcategoria,
+                    'Compras de Inventario' AS Subcategoria,
+                    pr.ID_Proveedor,
+                    COALESCE(pr.Nombre, 'Proveedor de Fábrica') AS Proveedor,
+                    NULL AS ID_Vehiculo,
+                    NULL AS Vehiculo_Placa,
+                    u.NombreUsuario AS Usuario_Registro,
+                    'INVENTARIO' AS Origen
+                FROM movimientos_inventario mi
+                INNER JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
+                INNER JOIN productos p ON dmi.ID_Producto = p.ID_Producto
+                INNER JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
+                LEFT JOIN proveedores pr ON mi.ID_Proveedor = pr.ID_Proveedor
+                LEFT JOIN usuarios u ON mi.ID_Usuario_Creacion = u.ID_Usuario
+                WHERE mi.ID_TipoMovimiento = 1 AND mi.Estado = 'Activa' AND mi.ID_Empresa = %s
+                  AND mi.Fecha BETWEEN %s AND %s
+            """
+            params_inv = [id_empresa, fecha_inicio, fecha_fin]
+            
+            # Si se filtró por un tipo de gasto de inventario específico
+            if tipo_id and tipo_id.isdigit():
+                # Comprobar si ese tipo_id mapea a categoría de inventario
+                cursor.execute("SELECT ID_Categoria_Inventario FROM tipos_gasto WHERE ID_Tipo_Gasto = %s", [tipo_id])
+                tipo_row = cursor.fetchone()
+                if tipo_row and tipo_row['ID_Categoria_Inventario']:
+                    query_inv += " AND cp.ID_Categoria = %s"
+                    params_inv.append(tipo_row['ID_Categoria_Inventario'])
+                else:
+                    query_inv += " AND 1=0"  # No coincide con inventario
+                    
+            query_inv += " GROUP BY mi.ID_Movimiento, mi.Fecha, mi.Observacion, mi.N_Factura_Externa, cp.ID_Categoria, cp.Descripcion, pr.ID_Proveedor, pr.Nombre, u.NombreUsuario"
+            
+            cursor.execute(query_inv, params_inv)
+            compras_inventario = cursor.fetchall()
+            
+        # 4. Unificar registros
+        todos_los_gastos = []
+        for g in gastos_directos:
+            todos_los_gastos.append({
+                'id_gasto': g['ID_Gasto'],
+                'fecha': g['Fecha'].strftime('%Y-%m-%d') if hasattr(g['Fecha'], 'strftime') else str(g['Fecha']),
+                'fecha_formatted': g['Fecha'].strftime('%d/%m/%Y') if hasattr(g['Fecha'], 'strftime') else str(g['Fecha']),
+                'monto': float(g['Monto'] or 0),
+                'descripcion': g['Descripcion'] or '',
+                'factura': g['Factura'] or 'S/F',
+                'metodo_pago': g['Metodo_Pago'] or 'EFECTIVO',
+                'tipo_gasto': g['Tipo_Gasto'] or 'Sin Categoría',
+                'subcategoria': g['Subcategoria'] or 'General',
+                'proveedor': g['Proveedor'] or 'N/A',
+                'vehiculo': g['Vehiculo_Placa'] or '-',
+                'usuario': g['Usuario_Registro'] or 'Admin',
+                'origen': g['Origen']
+            })
+            
+        for g in compras_inventario:
+            todos_los_gastos.append({
+                'id_gasto': g['ID_Gasto'],
+                'fecha': g['Fecha'].strftime('%Y-%m-%d') if hasattr(g['Fecha'], 'strftime') else str(g['Fecha']),
+                'fecha_formatted': g['Fecha'].strftime('%d/%m/%Y') if hasattr(g['Fecha'], 'strftime') else str(g['Fecha']),
+                'monto': float(g['Monto'] or 0),
+                'descripcion': g['Descripcion'] or '',
+                'factura': g['Factura'] or 'S/F',
+                'metodo_pago': g['Metodo_Pago'] or 'TRANSFERENCIA',
+                'tipo_gasto': g['Tipo_Gasto'] or 'Inventario',
+                'subcategoria': g['Subcategoria'] or 'Compras',
+                'proveedor': g['Proveedor'] or 'Fábrica',
+                'vehiculo': '-',
+                'usuario': g['Usuario_Registro'] or 'Bodega',
+                'origen': g['Origen']
+            })
+            
+        # Ordenar por fecha descendente
+        todos_los_gastos.sort(key=lambda x: x['fecha'], reverse=True)
+        
+        # 5. Métricas Globales
+        total_gastos = sum(g['monto'] for g in todos_los_gastos)
+        total_directos = sum(g['monto'] for g in todos_los_gastos if g['origen'] == 'GASTO_DIRECTO')
+        total_inventario = sum(g['monto'] for g in todos_los_gastos if g['origen'] == 'INVENTARIO')
+        cantidad_transacciones = len(todos_los_gastos)
+        promedio_transaccion = (total_gastos / cantidad_transacciones) if cantidad_transacciones > 0 else 0.0
+        
+        # 6. Agrupación por Categoría / Tipo de Gasto
+        categorias_dict = {}
+        for g in todos_los_gastos:
+            cat_name = g['tipo_gasto']
+            sub_name = g['subcategoria']
+            monto = g['monto']
+            
+            if cat_name not in categorias_dict:
+                categorias_dict[cat_name] = {
+                    'nombre': cat_name,
+                    'origen': g['origen'],
+                    'total': 0.0,
+                    'cantidad': 0,
+                    'porcentaje': 0.0,
+                    'subcategorias': {}
+                }
+                
+            categorias_dict[cat_name]['total'] += monto
+            categorias_dict[cat_name]['cantidad'] += 1
+            
+            if sub_name not in categorias_dict[cat_name]['subcategorias']:
+                categorias_dict[cat_name]['subcategorias'][sub_name] = {
+                    'nombre': sub_name,
+                    'total': 0.0,
+                    'cantidad': 0,
+                    'porcentaje_en_categoria': 0.0
+                }
+            categorias_dict[cat_name]['subcategorias'][sub_name]['total'] += monto
+            categorias_dict[cat_name]['subcategorias'][sub_name]['cantidad'] += 1
+            
+        # Calcular porcentajes
+        categorias_lista = []
+        for cat_name, cat_data in categorias_dict.items():
+            cat_data['porcentaje'] = round((cat_data['total'] / total_gastos * 100), 2) if total_gastos > 0 else 0.0
+            
+            # Subcategorías list
+            sub_list = []
+            for sub_name, sub_data in cat_data['subcategorias'].items():
+                sub_data['porcentaje_en_categoria'] = round((sub_data['total'] / cat_data['total'] * 100), 2) if cat_data['total'] > 0 else 0.0
+                sub_list.append(sub_data)
+                
+            sub_list.sort(key=lambda x: x['total'], reverse=True)
+            cat_data['subcategorias_lista'] = sub_list
+            categorias_lista.append(cat_data)
+            
+        categorias_lista.sort(key=lambda x: x['total'], reverse=True)
+        categoria_top = categorias_lista[0] if categorias_lista else None
+        
+        # 7. Agrupación por Método de Pago
+        metodos_dict = defaultdict(lambda: {'total': 0.0, 'cantidad': 0, 'porcentaje': 0.0})
+        for g in todos_los_gastos:
+            mp = g['metodo_pago'] or 'EFECTIVO'
+            metodos_dict[mp]['total'] += g['monto']
+            metodos_dict[mp]['cantidad'] += 1
+            
+        metodos_pago_lista = []
+        for mp, mdata in metodos_dict.items():
+            mdata['nombre'] = mp
+            mdata['porcentaje'] = round((mdata['total'] / total_gastos * 100), 2) if total_gastos > 0 else 0.0
+            metodos_pago_lista.append(mdata)
+        metodos_pago_lista.sort(key=lambda x: x['total'], reverse=True)
+        
+        # 8. Evolución Temporal Diaria (para gráfico)
+        fechas_dict = defaultdict(float)
+        for g in todos_los_gastos:
+            fechas_dict[g['fecha']] += g['monto']
+            
+        fechas_sorted = sorted(fechas_dict.keys())
+        chart_labels = [datetime.strptime(f, '%Y-%m-%d').strftime('%d/%m') for f in fechas_sorted]
+        chart_values = [round(fechas_dict[f], 2) for f in fechas_sorted]
+        
+        # Gráfico de Dona por Categorías
+        chart_cat_labels = [c['nombre'] for c in categorias_lista[:8]]
+        chart_cat_values = [round(c['total'], 2) for c in categorias_lista[:8]]
+        
+        # Si hay más de 8 categorías, agrupar resto en "Otras"
+        if len(categorias_lista) > 8:
+            otras_total = sum(c['total'] for c in categorias_lista[8:])
+            chart_cat_labels.append('Otras Categorías')
+            chart_cat_values.append(round(otras_total, 2))
+            
+        # 9. Datos para Exportar (CSV/Excel/PDF)
+        datos_exportar = [
+            {
+                'Fecha': g['fecha_formatted'],
+                'Categoría (Tipo)': g['tipo_gasto'],
+                'Subcategoría': g['subcategoria'],
+                'Descripción': g['descripcion'],
+                'Factura': g['factura'],
+                'Método Pago': g['metodo_pago'],
+                'Proveedor / Taller': g['proveedor'],
+                'Vehículo': g['vehiculo'],
+                'Usuario': g['usuario'],
+                'Origen': g['origen'],
+                'Monto (C$)': g['monto']
+            }
+            for g in todos_los_gastos
+        ]
+        
+        context = {
+            'gastos': todos_los_gastos,
+            'categorias_lista': categorias_lista,
+            'metodos_pago_lista': metodos_pago_lista,
+            'total_gastos': total_gastos,
+            'total_directos': total_directos,
+            'total_inventario': total_inventario,
+            'cantidad_transacciones': cantidad_transacciones,
+            'promedio_transaccion': promedio_transaccion,
+            'categoria_top': categoria_top,
+            'tipos_gasto_lista': tipos_gasto_lista,
+            'subcategorias_lista': subcategorias_lista,
+            'tipo_id': tipo_id,
+            'subcategoria_id': subcategoria_id,
+            'origen_filtro': origen_filtro,
+            'metodo_pago_filtro': metodo_pago_filtro,
+            'periodo': periodo,
+            'fecha_inicio': fecha_inicio,
+            'fecha_fin': fecha_fin,
+            'fecha_inicio_formatted': datetime.strptime(fecha_inicio, '%Y-%m-%d').strftime('%d/%m/%Y'),
+            'fecha_fin_formatted': datetime.strptime(fecha_fin, '%Y-%m-%d').strftime('%d/%m/%Y'),
+            'chart_labels': json.dumps(chart_labels),
+            'chart_values': json.dumps(chart_values),
+            'chart_cat_labels': json.dumps(chart_cat_labels),
+            'chart_cat_values': json.dumps(chart_cat_values),
+            'titulo': "Reporte de Gastos por Categorías"
+        }
+        
+        return datos_exportar, 'admin/reportes/reporte_gastos_categorias.html', context

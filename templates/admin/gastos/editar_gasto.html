@@ -1,6 +1,6 @@
-<!-- templates/admin/gastos/registrar_gastos.html -->
+<!-- templates/admin/gastos/editar_gasto.html -->
 {% extends "layout.html" %}
-{% block title %}Registrar Gasto - FerDel Sistema{% endblock %}
+{% block title %}Editar Gasto #{{ gasto.ID_Gasto }} - FerDel Sistema{% endblock %}
 
 {% block extra_css %}
 <!-- Select2 y Tema Bootstrap 5 -->
@@ -23,13 +23,13 @@
     <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <div>
             <h3 class="fw-bold text-slate-800 mb-1">
-                <i class="bi bi-plus-circle text-success me-2"></i>Registrar Nuevo Gasto Operativo
+                <i class="bi bi-pencil-square text-primary me-2"></i>Modificar Gasto Operativo #{{ gasto.ID_Gasto }}
             </h3>
-            <p class="text-muted small mb-0">Completar la información contable para ingresar un nuevo egreso de la empresa</p>
+            <p class="text-muted small mb-0">Actualizar la información contable, categoría, vehículo o comprobante del egreso</p>
         </div>
         <div class="d-flex gap-2">
-            <a href="{{ url_for('admin.reporte_gastos_categorias') }}" class="btn btn-outline-info btn-sm px-3 py-2 rounded-3">
-                <i class="bi bi-pie-chart me-1"></i> Reporte por Categorías
+            <a href="{{ url_for('admin.ver_gasto', id_gasto=gasto.ID_Gasto) }}" class="btn btn-outline-info btn-sm px-3 py-2 rounded-3">
+                <i class="bi bi-eye me-1"></i> Ver Detalle
             </a>
             <a href="{{ url_for('admin.admin_gastos_operativos') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
                 <i class="bi bi-arrow-left me-1"></i> Volver a Gastos
@@ -40,13 +40,16 @@
     <div class="row justify-content-center">
         <div class="col-lg-10">
             <div class="card-premium-section mb-4 shadow-sm border-0 rounded-4 bg-white">
-                <div class="card-header bg-white border-bottom p-4">
+                <div class="card-header bg-white border-bottom p-4 d-flex justify-content-between align-items-center">
                     <h5 class="fw-bold text-slate-800 mb-0">
-                        <i class="bi bi-receipt text-primary me-2"></i>Formulario de Registro de Egreso
+                        <i class="bi bi-receipt text-primary me-2"></i>Edición de Registro de Egreso
                     </h5>
+                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-3 py-1.5 fw-bold">
+                        Gasto Activo
+                    </span>
                 </div>
                 <div class="card-body p-4">
-                    <form method="POST" id="formGasto" enctype="multipart/form-data" autocomplete="off">
+                    <form method="POST" id="formEditarGasto" enctype="multipart/form-data" autocomplete="off">
                         <div class="row g-3">
                             <!-- Tipo de Gasto / Categoría -->
                             <div class="col-md-6">
@@ -56,7 +59,9 @@
                                 <select name="id_tipo_gasto" id="id_tipo_gasto" class="form-select form-select-premium select2-field" required>
                                     <option value="">Seleccione tipo de gasto...</option>
                                     {% for tipo in tipos_gasto %}
-                                    <option value="{{ tipo.ID_Tipo_Gasto }}" data-nombre="{{ tipo.Nombre }}">{{ tipo.Nombre }}</option>
+                                    <option value="{{ tipo.ID_Tipo_Gasto }}" data-nombre="{{ tipo.Nombre }}" {% if gasto.ID_Tipo_Gasto == tipo.ID_Tipo_Gasto %}selected{% endif %}>
+                                        {{ tipo.Nombre }}
+                                    </option>
                                     {% endfor %}
                                 </select>
                                 <div class="form-text small text-muted">Categoría contable principal asignada al egreso.</div>
@@ -68,7 +73,12 @@
                                     <i class="bi bi-layers text-primary me-1"></i> Subcategoría
                                 </label>
                                 <select name="id_subcategoria" id="id_subcategoria" class="form-select form-select-premium select2-field">
-                                    <option value="">Seleccione primero un tipo de gasto...</option>
+                                    <option value="">Seleccione subcategoría (opcional)...</option>
+                                    {% for sub in subcategorias %}
+                                    <option value="{{ sub.ID_Subcategoria }}" {% if gasto.ID_Subcategoria == sub.ID_Subcategoria %}selected{% endif %}>
+                                        {{ sub.Nombre }}
+                                    </option>
+                                    {% endfor %}
                                 </select>
                                 <div class="form-text small text-muted" id="subcat_help">Subcategoría específica vinculada al tipo seleccionado.</div>
                             </div>
@@ -78,7 +88,7 @@
                                 <label class="form-label-premium fw-bold mb-1">
                                     <i class="bi bi-calendar3 text-primary me-1"></i> Fecha del Gasto <span class="text-danger">*</span>
                                 </label>
-                                <input type="date" name="fecha" class="form-control form-control-premium" value="{{ hoy }}" required>
+                                <input type="date" name="fecha" class="form-control form-control-premium" value="{{ gasto.Fecha.strftime('%Y-%m-%d') if gasto.Fecha else '' }}" required>
                             </div>
                             
                             <!-- Monto -->
@@ -88,7 +98,7 @@
                                 </label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light fw-bold text-success border-end-0">C$</span>
-                                    <input type="number" step="0.01" min="0.01" name="monto" id="input_monto" class="form-control form-control-premium fw-bold text-success fs-5" placeholder="0.00" required>
+                                    <input type="number" step="0.01" min="0.01" name="monto" id="input_monto" class="form-control form-control-premium fw-bold text-success fs-5" value="{{ '%.2f'|format(gasto.Monto|float) }}" required>
                                 </div>
                             </div>
                             
@@ -98,10 +108,10 @@
                                     <i class="bi bi-credit-card text-primary me-1"></i> Método de Pago <span class="text-danger">*</span>
                                 </label>
                                 <select name="metodo_pago" class="form-select form-select-premium" required>
-                                    <option value="EFECTIVO" selected>Efectivo</option>
-                                    <option value="TRANSFERENCIA">Transferencia Bancaria</option>
-                                    <option value="TARJETA">Tarjeta Débito/Crédito</option>
-                                    <option value="CHEQUE">Cheque</option>
+                                    <option value="EFECTIVO" {% if gasto.Metodo_Pago == 'EFECTIVO' %}selected{% endif %}>Efectivo</option>
+                                    <option value="TRANSFERENCIA" {% if gasto.Metodo_Pago == 'TRANSFERENCIA' %}selected{% endif %}>Transferencia Bancaria</option>
+                                    <option value="TARJETA" {% if gasto.Metodo_Pago == 'TARJETA' %}selected{% endif %}>Tarjeta Débito/Crédito</option>
+                                    <option value="CHEQUE" {% if gasto.Metodo_Pago == 'CHEQUE' %}selected{% endif %}>Cheque</option>
                                 </select>
                             </div>
                             
@@ -110,7 +120,7 @@
                                 <label class="form-label-premium fw-bold mb-1">
                                     <i class="bi bi-file-earmark-text text-primary me-1"></i> N° Factura / Recibo / Comprobante
                                 </label>
-                                <input type="text" name="n_factura" class="form-control form-control-premium font-monospace" placeholder="Ej: FAC-10293, Recibo #44">
+                                <input type="text" name="n_factura" class="form-control form-control-premium font-monospace" value="{{ gasto.N_Factura or '' }}" placeholder="Ej: FAC-10293, Recibo #44">
                             </div>
                             
                             <!-- Proveedor / Establecimiento -->
@@ -121,13 +131,15 @@
                                 <select name="id_proveedor" class="form-select form-select-premium select2-field">
                                     <option value="">Seleccione proveedor (opcional)...</option>
                                     {% for prov in proveedores %}
-                                    <option value="{{ prov.ID_Proveedor }}">{{ prov.Nombre }}</option>
+                                    <option value="{{ prov.ID_Proveedor }}" {% if gasto.ID_Proveedor == prov.ID_Proveedor %}selected{% endif %}>
+                                        {{ prov.Nombre }}
+                                    </option>
                                     {% endfor %}
                                 </select>
                             </div>
                             
                             <!-- Sección Dinámica: Vehículo Asociado -->
-                            <div class="col-12" id="div_vehiculo_container" style="display: none;">
+                            <div class="col-12" id="div_vehiculo_container" style="{% if not gasto.ID_Vehiculo and not (gasto.tipo_gasto_nombre and ('vehic' in gasto.tipo_gasto_nombre.lower() or 'transporte' in gasto.tipo_gasto_nombre.lower() or 'combustible' in gasto.tipo_gasto_nombre.lower())) %}display: none;{% endif %}">
                                 <div class="card border border-warning bg-warning bg-opacity-10 rounded-4 p-3 mb-2">
                                     <h6 class="fw-bold text-dark mb-3">
                                         <i class="bi bi-truck text-warning me-2"></i>Información Detallada de Flota / Vehículo
@@ -138,40 +150,52 @@
                                             <select name="id_vehiculo" id="id_vehiculo" class="form-select form-select-premium bg-white">
                                                 <option value="">Seleccione vehículo...</option>
                                                 {% for veh in vehiculos %}
-                                                <option value="{{ veh.ID_Vehiculo }}">{{ veh.Placa }} - {{ veh.Marca }} {{ veh.Modelo }}</option>
+                                                <option value="{{ veh.ID_Vehiculo }}" {% if gasto.ID_Vehiculo == veh.ID_Vehiculo %}selected{% endif %}>
+                                                    {{ veh.Placa }} - {{ veh.Marca }} {{ veh.Modelo }}
+                                                </option>
                                                 {% endfor %}
                                             </select>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label-premium fw-bold mb-1">Kilometraje Actual</label>
-                                            <input type="number" name="kilometraje" class="form-control form-control-premium bg-white" placeholder="Ej: 145200">
+                                            <input type="number" name="kilometraje" class="form-control form-control-premium bg-white" value="{{ detalle_vehiculo.Kilometraje if detalle_vehiculo and detalle_vehiculo.Kilometraje else '' }}" placeholder="Ej: 145200">
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label-premium fw-bold mb-1">Tipo de Mantenimiento / Servicio</label>
                                             <select name="tipo_mantenimiento" class="form-select form-select-premium bg-white">
                                                 <option value="">Seleccione tipo...</option>
-                                                <option value="PREVENTIVO">Preventivo (Aceite, Filtros)</option>
-                                                <option value="CORRECTIVO">Correctivo (Avería)</option>
-                                                <option value="REPARACION">Reparación Mayor</option>
-                                                <option value="LLANTAS">Cambio / Parche Llantas</option>
-                                                <option value="COMBUSTIBLE">Combustible</option>
+                                                <option value="PREVENTIVO" {% if detalle_vehiculo and detalle_vehiculo.Tipo_Mantenimiento == 'PREVENTIVO' %}selected{% endif %}>Preventivo (Aceite, Filtros)</option>
+                                                <option value="CORRECTIVO" {% if detalle_vehiculo and detalle_vehiculo.Tipo_Mantenimiento == 'CORRECTIVO' %}selected{% endif %}>Correctivo (Avería)</option>
+                                                <option value="REPARACION" {% if detalle_vehiculo and detalle_vehiculo.Tipo_Mantenimiento == 'REPARACION' %}selected{% endif %}>Reparación Mayor</option>
+                                                <option value="LLANTAS" {% if detalle_vehiculo and detalle_vehiculo.Tipo_Mantenimiento == 'LLANTAS' %}selected{% endif %}>Cambio / Parche Llantas</option>
+                                                <option value="COMBUSTIBLE" {% if detalle_vehiculo and detalle_vehiculo.Tipo_Mantenimiento == 'COMBUSTIBLE' %}selected{% endif %}>Combustible</option>
                                             </select>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label-premium fw-bold mb-1">Taller / Estación de Servicio</label>
-                                            <input type="text" name="taller" class="form-control form-control-premium bg-white" placeholder="Nombre del taller o gasolinera">
+                                            <input type="text" name="taller" class="form-control form-control-premium bg-white" value="{{ detalle_vehiculo.Taller if detalle_vehiculo and detalle_vehiculo.Taller else '' }}" placeholder="Nombre del taller o gasolinera">
                                         </div>
                                     </div>
                                 </div>
                             </div>
                             
-                            <!-- Comprobante / Factura Digital -->
+                            <!-- Comprobante / Recibo Adjunto -->
                             <div class="col-md-12">
                                 <label class="form-label-premium fw-bold mb-1">
                                     <i class="bi bi-paperclip text-primary me-1"></i> Comprobante / Factura Digital (Foto o PDF)
                                 </label>
                                 <input type="file" name="comprobante" class="form-control form-control-premium" accept=".png,.jpg,.jpeg,.pdf,.webp">
+                                {% if gasto.Comprobante %}
+                                <div class="mt-2 small text-muted">
+                                    <i class="bi bi-check-circle text-success me-1"></i> Comprobante actual: 
+                                    <a href="{{ url_for('static', filename='uploads/gastos/' + gasto.Comprobante) }}" target="_blank" class="fw-bold text-primary text-decoration-none">
+                                        {{ gasto.Comprobante }}
+                                    </a> 
+                                    <span class="text-muted">(subir un nuevo archivo reemplazará el actual)</span>
+                                </div>
+                                {% else %}
                                 <div class="form-text small text-muted">Opcional. Formatos permitidos: JPG, PNG, PDF, WEBP.</div>
+                                {% endif %}
                             </div>
                             
                             <!-- Descripción / Justificación -->
@@ -179,16 +203,16 @@
                                 <label class="form-label-premium fw-bold mb-1">
                                     <i class="bi bi-text-paragraph text-primary me-1"></i> Descripción / Concepto del Gasto
                                 </label>
-                                <textarea name="descripcion" class="form-control form-control-premium" rows="3" placeholder="Detalle el motivo, justificación u observaciones del egreso..."></textarea>
+                                <textarea name="descripcion" class="form-control form-control-premium" rows="3" placeholder="Detalle el motivo, justificación u observaciones del egreso...">{{ gasto.Descripcion or '' }}</textarea>
                             </div>
                         </div>
                         
                         <div class="mt-4 pt-3 border-top d-flex justify-content-between align-items-center">
-                            <a href="{{ url_for('admin.admin_gastos_operativos') }}" class="btn btn-outline-secondary px-4 py-2 rounded-3">
+                            <a href="{{ url_for('admin.ver_gasto', id_gasto=gasto.ID_Gasto) }}" class="btn btn-outline-secondary px-4 py-2 rounded-3">
                                 <i class="bi bi-x-circle me-1"></i> Cancelar
                             </a>
-                            <button type="submit" class="btn btn-success px-4 py-2 rounded-3 shadow-sm fw-bold">
-                                <i class="bi bi-check-circle me-1"></i> Guardar Gasto Operativo
+                            <button type="submit" class="btn btn-primary px-4 py-2 rounded-3 shadow-sm fw-bold">
+                                <i class="bi bi-check-circle me-1"></i> Actualizar Gasto
                             </button>
                         </div>
                     </form>
@@ -212,7 +236,7 @@ $(document).ready(function() {
         });
     }
 
-    // Cargar subcategorías dinámicamente al seleccionar tipo de gasto
+    // Cargar subcategorías dinámicamente al cambiar tipo de gasto
     $('#id_tipo_gasto').change(function() {
         var id_tipo = $(this).val();
         var selectedOption = $(this).find('option:selected');
@@ -265,7 +289,7 @@ $(document).ready(function() {
     });
 
     // Validación al enviar formulario
-    $('#formGasto').on('submit', function(e) {
+    $('#formEditarGasto').on('submit', function(e) {
         var monto = parseFloat($('#input_monto').val());
         if (isNaN(monto) || monto <= 0) {
             e.preventDefault();
