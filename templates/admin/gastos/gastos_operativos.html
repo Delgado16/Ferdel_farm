@@ -521,6 +521,9 @@
                         <button type="submit" name="filtro_periodo" value="mes" class="btn btn-periodo-pill {% if filtro_periodo == 'mes' %}active{% endif %}">
                             <i class="bi bi-calendar-month me-1"></i> Por Mes
                         </button>
+                        <button type="submit" name="filtro_periodo" value="personalizado" class="btn btn-periodo-pill {% if filtro_periodo == 'personalizado' %}active{% endif %}">
+                            <i class="bi bi-calendar-range me-1"></i> Personalizado
+                        </button>
                         <button type="submit" name="filtro_periodo" value="acumulado" class="btn btn-periodo-pill {% if filtro_periodo == 'acumulado' %}active{% endif %}">
                             <i class="bi bi-calendar-range me-1"></i> Acumulado Año
                         </button>
@@ -541,6 +544,7 @@
                             <option value="dia" {% if filtro_periodo == 'dia' %}selected{% endif %}>Día Específico</option>
                             <option value="semana" {% if filtro_periodo == 'semana' %}selected{% endif %}>Semana</option>
                             <option value="mes" {% if filtro_periodo == 'mes' %}selected{% endif %}>Mes</option>
+                            <option value="personalizado" {% if filtro_periodo == 'personalizado' %}selected{% endif %}>Rango Personalizado</option>
                             <option value="acumulado" {% if filtro_periodo == 'acumulado' %}selected{% endif %}>Acumulado Año</option>
                             <option value="anual" {% if filtro_periodo == 'anual' %}selected{% endif %}>Año Completo</option>
                             <option value="todo" {% if filtro_periodo == 'todo' %}selected{% endif %}>Histórico Completo</option>
@@ -548,7 +552,16 @@
                     </div>
 
                     <!-- Campos dependientes del período -->
-                    {% if filtro_periodo == 'dia' %}
+                    {% if filtro_periodo == 'personalizado' %}
+                    <div class="col-md-3 col-lg-2">
+                        <label class="form-label-premium">Fecha Desde:</label>
+                        <input type="date" name="fecha_inicio" value="{{ fecha_inicio }}" class="form-control form-control-premium" onchange="this.form.submit()">
+                    </div>
+                    <div class="col-md-3 col-lg-2">
+                        <label class="form-label-premium">Fecha Hasta:</label>
+                        <input type="date" name="fecha_fin" value="{{ fecha_fin }}" class="form-control form-control-premium" onchange="this.form.submit()">
+                    </div>
+                    {% elif filtro_periodo == 'dia' %}
                     <div class="col-md-3 col-lg-2">
                         <label class="form-label-premium">Fecha:</label>
                         <input type="date" name="fecha" value="{{ fecha_especifica }}" class="form-control form-control-premium" onchange="this.form.submit()">

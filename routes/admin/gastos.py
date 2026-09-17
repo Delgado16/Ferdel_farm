@@ -28,10 +28,15 @@ def admin_gastos_operativos():
         # ========== PARÁMETROS DE FILTRO ==========
         filtro_periodo = request.args.get('filtro_periodo', 'mes')
         fecha_especifica = request.args.get('fecha', datetime.now().strftime('%Y-%m-%d'))
+        fecha_inicio = request.args.get('fecha_inicio', '').strip()
+        fecha_fin = request.args.get('fecha_fin', '').strip()
         semana_num = request.args.get('semana', str(datetime.now().isocalendar()[1]))
         anio_semana = request.args.get('anio_semana', datetime.now().strftime('%Y'))
         mes_filtro = request.args.get('mes', datetime.now().strftime('%Y-%m'))
         anio_filtro = request.args.get('anio', datetime.now().strftime('%Y'))
+        
+        if (fecha_inicio and fecha_fin and not request.args.get('filtro_periodo')) or filtro_periodo == 'personalizado':
+            filtro_periodo = 'personalizado'
         
         # Filtros adicionales
         tipo_gasto_id = request.args.get('tipo_gasto', '')
@@ -72,7 +77,21 @@ def admin_gastos_operativos():
             fecha_fin_semana = None
             
             # Filtro de período
-            if filtro_periodo == 'dia':
+            if filtro_periodo == 'personalizado':
+                if not fecha_inicio:
+                    fecha_inicio = datetime.now().strftime('%Y-%m-01')
+                if not fecha_fin:
+                    fecha_fin = datetime.now().strftime('%Y-%m-%d')
+                query_base += " AND fecha BETWEEN %s AND %s"
+                params.extend([fecha_inicio, fecha_fin])
+                try:
+                    f_ini_fmt = datetime.strptime(fecha_inicio, '%Y-%m-%d').strftime('%d/%m/%Y')
+                    f_fin_fmt = datetime.strptime(fecha_fin, '%Y-%m-%d').strftime('%d/%m/%Y')
+                    titulo_periodo = f"Gastos del {f_ini_fmt} al {f_fin_fmt}"
+                except Exception:
+                    titulo_periodo = f"Gastos del {fecha_inicio} al {fecha_fin}"
+                
+            elif filtro_periodo == 'dia':
                 query_base += " AND fecha = %s"
                 params.append(fecha_especifica)
                 titulo_periodo = f"Gastos del día {datetime.strptime(fecha_especifica, '%Y-%m-%d').strftime('%d/%m/%Y')}"
@@ -197,6 +216,8 @@ def admin_gastos_operativos():
                 # Filtros actuales
                 filtro_periodo=filtro_periodo,
                 fecha_especifica=fecha_especifica,
+                fecha_inicio=fecha_inicio,
+                fecha_fin=fecha_fin,
                 semana_num=semana_num,
                 anio_semana=anio_semana,
                 mes_filtro=mes_filtro,

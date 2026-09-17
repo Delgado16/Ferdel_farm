@@ -1,26 +1,26 @@
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath('.'))
 
-from flask import Flask
+from app import create_app
 from config.database import get_db_cursor
+import json
 
-app = Flask(__name__)
-app.config.from_pyfile('config/settings.py', silent=True) # or configure manually
-
-# Let's run a test query
+app = create_app()
 with app.app_context():
     with get_db_cursor() as cursor:
-        # Active assignments
-        cursor.execute("SELECT * FROM asignacion_vendedores WHERE Estado = 'Activa'")
-        active = cursor.fetchall()
-        print("ACTIVE ASSIGNMENTS:")
-        for r in active:
-            print(dict(r))
-            
-        # Let's query recent movements_caja_ruta
-        cursor.execute("SELECT * FROM movimientos_caja_ruta ORDER BY ID_Movimiento DESC LIMIT 10")
-        recent_caja = cursor.fetchall()
-        print("\nRECENT CAJA MOVEMENTS:")
-        for r in recent_caja:
-            print(dict(r))
+        print("=== TABLAS Y REGISTROS ===")
+        cursor.execute("SELECT COUNT(*) as c FROM gastos_generales")
+        print("gastos_generales count:", cursor.fetchone()['c'])
+        
+        cursor.execute("SELECT COUNT(*) as c FROM movimientos_inventario")
+        print("movimientos_inventario count:", cursor.fetchone()['c'])
+        
+        cursor.execute("SELECT COUNT(*) as c FROM movimientos_caja_ruta")
+        print("movimientos_caja_ruta count:", cursor.fetchone()['c'])
+        
+        cursor.execute("SELECT * FROM tipos_gasto")
+        print("tipos_gasto:", cursor.fetchall())
+        
+        cursor.execute("SELECT * FROM subcategorias_gasto")
+        print("subcategorias_gasto:", cursor.fetchall())

@@ -1,4 +1,4 @@
-from flask import render_template, redirect, url_for, request, flash, jsonify
+from flask import render_template, redirect, url_for, request, flash, jsonify, session
 from flask_login import current_user
 from datetime import datetime
 from config.database import get_db_cursor
@@ -28,26 +28,55 @@ def get_corte_filter():
     return request.args.get('fecha_corte', datetime.now().strftime('%Y-%m-%d'))
 
 def get_period_date_range(default_period='mes'):
-    """Retorna fecha_inicio, fecha_fin y periodo según los filtros rápidos"""
+    """Retorna fecha_inicio, fecha_fin y periodo según los filtros rápidos o personalizados"""
     from datetime import timedelta
-    periodo = request.args.get('periodo', default_period)
     today = datetime.now()
     
-    if periodo == 'dia':
+    periodo = (request.args.get('periodo') or '').strip()
+    fecha_inicio_arg = (request.args.get('fecha_inicio') or '').strip()
+    fecha_fin_arg = (request.args.get('fecha_fin') or '').strip()
+    
+    # Si se especificaron fechas explícitas (desde el formulario o URL) y el período es personalizado o vacío
+    if fecha_inicio_arg and fecha_fin_arg and (not periodo or periodo == 'personalizado'):
+        return fecha_inicio_arg, fecha_fin_arg, 'personalizado'
+    
+    # Si no se pasó período, verificar si hay fechas o usar el default
+    if not periodo:
+        if fecha_inicio_arg and fecha_fin_arg:
+            return fecha_inicio_arg, fecha_fin_arg, 'personalizado'
+        periodo = default_period
+        
+    if periodo in ['dia', 'hoy']:
         fecha_inicio = today.strftime('%Y-%m-%d')
         fecha_fin = today.strftime('%Y-%m-%d')
+        periodo = 'dia'
+    elif periodo == 'ayer':
+        ayer = today - timedelta(days=1)
+        fecha_inicio = ayer.strftime('%Y-%m-%d')
+        fecha_fin = ayer.strftime('%Y-%m-%d')
+        periodo = 'ayer'
     elif periodo == 'semana':
         fecha_inicio = (today - timedelta(days=6)).strftime('%Y-%m-%d')
         fecha_fin = today.strftime('%Y-%m-%d')
     elif periodo == 'mes':
         fecha_inicio = today.strftime('%Y-%m-01')
         fecha_fin = today.strftime('%Y-%m-%d')
+    elif periodo in ['mes_anterior', 'mes_pasado']:
+        primer_dia_mes_actual = today.replace(day=1)
+        ultimo_dia_mes_anterior = primer_dia_mes_actual - timedelta(days=1)
+        primer_dia_mes_anterior = ultimo_dia_mes_anterior.replace(day=1)
+        fecha_inicio = primer_dia_mes_anterior.strftime('%Y-%m-%d')
+        fecha_fin = ultimo_dia_mes_anterior.strftime('%Y-%m-%d')
+        periodo = 'mes_anterior'
     elif periodo == 'ano':
         fecha_inicio = today.strftime('%Y-01-01')
         fecha_fin = today.strftime('%Y-%m-%d')
+    elif periodo == 'todo':
+        fecha_inicio = '2020-01-01'
+        fecha_fin = today.strftime('%Y-%m-%d')
     else:
-        fecha_inicio = request.args.get('fecha_inicio', today.strftime('%Y-%m-01'))
-        fecha_fin = request.args.get('fecha_fin', today.strftime('%Y-%m-%d'))
+        fecha_inicio = fecha_inicio_arg or today.strftime('%Y-%m-01')
+        fecha_fin = fecha_fin_arg or today.strftime('%Y-%m-%d')
         periodo = 'personalizado'
         
     return fecha_inicio, fecha_fin, periodo
@@ -3145,7 +3174,7 @@ def reporte_gastos_categorias():
     subcategoria_id = request.args.get('subcategoria_id', '')
     origen_filtro = request.args.get('origen', 'TODOS')
     metodo_pago_filtro = request.args.get('metodo_pago', 'TODOS')
-    id_empresa = request.args.get('id_empresa', 1)
+    id_empresa = request.args.get('id_empresa') or session.get('id_empresa', 1)
     
     with get_db_cursor() as cursor:
         # 1. Catálogos para filtros
@@ -3195,7 +3224,7 @@ def reporte_gastos_categorias():
                 LEFT JOIN vehiculos v ON gg.ID_Vehiculo = v.ID_Vehiculo
                 LEFT JOIN usuarios u ON gg.ID_Usuario_Registro = u.ID_Usuario
                 WHERE gg.Estado = 'Activo' AND gg.ID_Empresa = %s
-                  AND gg.Fecha BETWEEN %s AND %s
+                  AND DATE(gg.Fecha) BETWEEN %s AND %s
             """
             params_gd = [id_empresa, fecha_inicio, fecha_fin]
             
@@ -3243,7 +3272,7 @@ def reporte_gastos_categorias():
                 LEFT JOIN proveedores pr ON mi.ID_Proveedor = pr.ID_Proveedor
                 LEFT JOIN usuarios u ON mi.ID_Usuario_Creacion = u.ID_Usuario
                 WHERE mi.ID_TipoMovimiento = 1 AND mi.Estado = 'Activa' AND mi.ID_Empresa = %s
-                  AND mi.Fecha BETWEEN %s AND %s
+                  AND DATE(mi.Fecha) BETWEEN %s AND %s
             """
             params_inv = [id_empresa, fecha_inicio, fecha_fin]
             
@@ -3427,8 +3456,8 @@ def reporte_gastos_categorias():
             'periodo': periodo,
             'fecha_inicio': fecha_inicio,
             'fecha_fin': fecha_fin,
-            'fecha_inicio_formatted': datetime.strptime(fecha_inicio, '%Y-%m-%d').strftime('%d/%m/%Y'),
-            'fecha_fin_formatted': datetime.strptime(fecha_fin, '%Y-%m-%d').strftime('%d/%m/%Y'),
+            'fecha_inicio_formatted': datetime.strptime(fecha_inicio, '%Y-%m-%d').strftime('%d/%m/%Y') if fecha_inicio else '',
+            'fecha_fin_formatted': datetime.strptime(fecha_fin, '%Y-%m-%d').strftime('%d/%m/%Y') if fecha_fin else '',
             'chart_labels': json.dumps(chart_labels),
             'chart_values': json.dumps(chart_values),
             'chart_cat_labels': json.dumps(chart_cat_labels),

@@ -10,102 +10,89 @@
                 <i class="fas fa-chart-pie text-primary me-2"></i>Reporte de Gastos por Categorías
             </h3>
             <p class="text-muted small mb-0">
-                Auditoría y análisis estructural de egresos clasificados por tipo y subcategoría ({{ fecha_inicio_formatted }} al {{ fecha_fin_formatted }})
+                Auditoría y análisis estructural de egresos clasificados por tipo y subcategoría ({{
+                fecha_inicio_formatted }} al {{ fecha_fin_formatted }})
             </p>
         </div>
         <div class="d-flex gap-2 flex-wrap">
             <a href="{{ url_for('admin.reportes') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
                 <i class="fas fa-arrow-left me-1"></i> Panel Reportes
             </a>
-            <a href="{{ url_for('admin.admin_gastos_operativos') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+            <a href="{{ url_for('admin.admin_gastos_operativos') }}"
+                class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
                 <i class="fas fa-wallet me-1"></i> Control Gastos
             </a>
             <div class="btn-group">
-                <button type="button" class="btn btn-outline-primary btn-sm dropdown-toggle px-3 py-2 rounded-3" data-bs-toggle="dropdown" aria-expanded="false">
+                <button type="button" class="btn btn-outline-primary btn-sm dropdown-toggle px-3 py-2 rounded-3"
+                    data-bs-toggle="dropdown" aria-expanded="false">
                     <i class="fas fa-download me-1"></i> Exportar
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end shadow-sm">
-                    <li><a class="dropdown-item" href="{{ url_for('admin.reporte_gastos_categorias', formato='pdf', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, periodo=periodo, tipo_id=tipo_id, subcategoria_id=subcategoria_id, origen=origen_filtro, metodo_pago=metodo_pago_filtro) }}"><i class="fas fa-file-pdf text-danger me-2"></i> Exportar PDF</a></li>
-                    <li><a class="dropdown-item" href="{{ url_for('admin.reporte_gastos_categorias', formato='excel', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, periodo=periodo, tipo_id=tipo_id, subcategoria_id=subcategoria_id, origen=origen_filtro, metodo_pago=metodo_pago_filtro) }}"><i class="fas fa-file-excel text-success me-2"></i> Exportar Excel</a></li>
-                    <li><a class="dropdown-item" href="{{ url_for('admin.reporte_gastos_categorias', formato='csv', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, periodo=periodo, tipo_id=tipo_id, subcategoria_id=subcategoria_id, origen=origen_filtro, metodo_pago=metodo_pago_filtro) }}"><i class="fas fa-file-csv text-primary me-2"></i> Exportar CSV</a></li>
+                    <li><a class="dropdown-item"
+                            href="{{ url_for('admin.reporte_gastos_categorias', formato='pdf', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, periodo=periodo, tipo_id=tipo_id, subcategoria_id=subcategoria_id, origen=origen_filtro, metodo_pago=metodo_pago_filtro) }}"><i
+                                class="fas fa-file-pdf text-danger me-2"></i> Exportar PDF</a></li>
                 </ul>
             </div>
-            <button class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3" onclick="window.print()">
-                <i class="fas fa-print me-1"></i> Imprimir
-            </button>
         </div>
     </div>
 
     <!-- Filtros de Búsqueda -->
     <div class="card shadow-sm border-0 rounded-4 bg-white mb-4 p-3">
-        <form method="GET" action="{{ url_for('admin.reporte_gastos_categorias') }}" id="filtroGastosForm" class="row g-3 align-items-end">
-            <!-- Periodos Rápidos -->
-            <div class="col-12 mb-1">
-                <div class="btn-group btn-group-sm w-100 flex-wrap" role="group">
-                    <a href="{{ url_for('admin.reporte_gastos_categorias', periodo='dia', tipo_id=tipo_id, subcategoria_id=subcategoria_id, origen=origen_filtro, metodo_pago=metodo_pago_filtro) }}" 
-                       class="btn btn-outline-primary {% if periodo == 'dia' %}active text-white{% endif %} py-1.5">
+        <form method="GET" action="{{ url_for('admin.reporte_gastos_categorias') }}" id="filtroGastosForm">
+
+            <!-- Botones Rápidos de Período -->
+            <div class="mb-3">
+                <label class="form-label small fw-bold text-muted mb-2">Selección de Período:</label>
+                <div class="d-flex flex-wrap gap-2">
+                    <button type="submit" name="periodo" value="dia"
+                        class="btn btn-sm {% if periodo == 'dia' %}btn-primary{% else %}btn-outline-primary{% endif %} rounded-pill px-3">
                         <i class="fas fa-calendar-day me-1"></i> Hoy
-                    </a>
-                    <a href="{{ url_for('admin.reporte_gastos_categorias', periodo='semana', tipo_id=tipo_id, subcategoria_id=subcategoria_id, origen=origen_filtro, metodo_pago=metodo_pago_filtro) }}" 
-                       class="btn btn-outline-primary {% if periodo == 'semana' %}active text-white{% endif %} py-1.5">
-                        <i class="fas fa-calendar-week me-1"></i> Esta Semana
-                    </a>
-                    <a href="{{ url_for('admin.reporte_gastos_categorias', periodo='mes', tipo_id=tipo_id, subcategoria_id=subcategoria_id, origen=origen_filtro, metodo_pago=metodo_pago_filtro) }}" 
-                       class="btn btn-outline-primary {% if periodo == 'mes' %}active text-white{% endif %} py-1.5">
-                        <i class="fas fa-calendar-alt me-1"></i> Este Mes
-                    </a>
-                    <a href="{{ url_for('admin.reporte_gastos_categorias', periodo='ano', tipo_id=tipo_id, subcategoria_id=subcategoria_id, origen=origen_filtro, metodo_pago=metodo_pago_filtro) }}" 
-                       class="btn btn-outline-primary {% if periodo == 'ano' %}active text-white{% endif %} py-1.5">
-                        <i class="fas fa-calendar me-1"></i> Este Año
+                    </button>
+                    <button type="submit" name="periodo" value="ayer"
+                        class="btn btn-sm {% if periodo == 'ayer' %}btn-primary{% else %}btn-outline-primary{% endif %} rounded-pill px-3">
+                        <i class="fas fa-calendar-minus me-1"></i> Ayer
+                    </button>
+                    <button type="submit" name="periodo" value="mes"
+                        class="btn btn-sm {% if periodo == 'mes' %}btn-primary{% else %}btn-outline-primary{% endif %} rounded-pill px-3">
+                        <i class="fas fa-calendar-alt me-1"></i> Mes
+                    </button>
+                    <button type="submit" name="periodo" value="anual"
+                        class="btn btn-sm {% if periodo == 'anual' %}btn-primary{% else %}btn-outline-primary{% endif %} rounded-pill px-3">
+                        <i class="fas fa-calendar me-1"></i> Año
+                    </button>
+                    <button type="button"
+                        class="btn btn-sm {% if periodo == 'personalizado' %}btn-primary{% else %}btn-outline-primary{% endif %} rounded-pill px-3"
+                        data-bs-toggle="collapse" data-bs-target="#collapseFiltroPersonalizado">
+                        <i class="fas fa-calendar-week me-1"></i> Personalizado
+                    </button>
+                    <a href="{{ url_for('admin.reporte_gastos_categorias') }}"
+                        class="btn btn-sm btn-outline-secondary rounded-pill px-3" title="Limpiar Filtros">
+                        <i class="fas fa-redo me-1"></i> Limpiar
                     </a>
                 </div>
             </div>
 
-            <!-- Rango de Fechas Personalizado -->
-            <div class="col-sm-6 col-md-3">
-                <label class="form-label small fw-bold text-muted mb-1">Fecha Desde</label>
-                <input type="date" name="fecha_inicio" class="form-control form-control-sm rounded-3" value="{{ fecha_inicio }}">
-            </div>
-            <div class="col-sm-6 col-md-3">
-                <label class="form-label small fw-bold text-muted mb-1">Fecha Hasta</label>
-                <input type="date" name="fecha_fin" class="form-control form-control-sm rounded-3" value="{{ fecha_fin }}">
-            </div>
-
-            <!-- Tipo de Gasto / Categoría -->
-            <div class="col-sm-6 col-md-2">
-                <label class="form-label small fw-bold text-muted mb-1">Categoría / Tipo</label>
-                <select name="tipo_id" id="filtro_tipo_id" class="form-select form-select-sm rounded-3">
-                    <option value="">Todas las categorías</option>
-                    {% for t in tipos_gasto_lista %}
-                    <option value="{{ t.ID_Tipo_Gasto }}" {% if tipo_id == t.ID_Tipo_Gasto|string %}selected{% endif %}>
-                        {{ t.Nombre }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <!-- Subcategoría -->
-            <div class="col-sm-6 col-md-2">
-                <label class="form-label small fw-bold text-muted mb-1">Subcategoría</label>
-                <select name="subcategoria_id" id="filtro_subcategoria_id" class="form-select form-select-sm rounded-3">
-                    <option value="">Todas las subcategorías</option>
-                    {% for s in subcategorias_lista %}
-                    <option value="{{ s.ID_Subcategoria }}" data-tipo="{{ s.ID_Tipo_Gasto }}" {% if subcategoria_id == s.ID_Subcategoria|string %}selected{% endif %}>
-                        {{ s.Tipo_Nombre }} - {{ s.Nombre }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <!-- Botón Filtrar -->
-            <div class="col-sm-12 col-md-2 d-flex gap-1">
-                <input type="hidden" name="periodo" value="{{ periodo }}">
-                <button type="submit" class="btn btn-primary btn-sm w-100 rounded-3">
-                    <i class="fas fa-filter me-1"></i> Filtrar
-                </button>
-                <a href="{{ url_for('admin.reporte_gastos_categorias') }}" class="btn btn-outline-secondary btn-sm rounded-3" title="Limpiar Filtros">
-                    <i class="fas fa-redo"></i>
-                </a>
+            <!-- Filtro Personalizado Colapsable -->
+            <div class="collapse {% if periodo == 'personalizado' %}show{% endif %} mt-3 bg-light p-3 rounded-3 border"
+                id="collapseFiltroPersonalizado">
+                <div class="row g-3 align-items-end">
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label small fw-bold text-muted mb-1">Fecha Desde</label>
+                        <input type="date" name="fecha_inicio" id="fecha_inicio"
+                            class="form-control form-control-sm rounded-3" value="{{ fecha_inicio }}">
+                    </div>
+                    <div class="col-sm-6 col-md-3">
+                        <label class="form-label small fw-bold text-muted mb-1">Fecha Hasta</label>
+                        <input type="date" name="fecha_fin" id="fecha_fin"
+                            class="form-control form-control-sm rounded-3" value="{{ fecha_fin }}">
+                    </div>
+                    <div class="col-sm-12 col-md-2">
+                        <button type="submit" name="periodo" value="personalizado"
+                            class="btn btn-primary btn-sm w-100 rounded-3 shadow-sm">
+                            <i class="fas fa-filter me-1"></i> Aplicar Rango
+                        </button>
+                    </div>
+                </div>
             </div>
         </form>
     </div>
@@ -139,7 +126,8 @@
                 </div>
                 <h3 class="fw-bold text-success mb-0">C$ {{ "{:,.2f}".format(total_directos) }}</h3>
                 <span class="text-muted small mt-1">
-                    {% if total_gastos > 0 %}{{ "{:.1f}".format((total_directos / total_gastos) * 100) }}% del total{% else %}0%{% endif %}
+                    {% if total_gastos > 0 %}{{ "{:.1f}".format((total_directos / total_gastos) * 100) }}% del total{%
+                    else %}0%{% endif %}
                 </span>
             </div>
         </div>
@@ -153,11 +141,13 @@
                         <i class="fas fa-trophy fs-5"></i>
                     </div>
                 </div>
-                <h5 class="fw-bold text-slate-800 mb-0 text-truncate" title="{{ categoria_top.nombre if categoria_top else 'Sin datos' }}">
+                <h5 class="fw-bold text-slate-800 mb-0 text-truncate"
+                    title="{{ categoria_top.nombre if categoria_top else 'Sin datos' }}">
                     {{ categoria_top.nombre if categoria_top else 'Sin gastos' }}
                 </h5>
                 <span class="text-muted small mt-1">
-                    {% if categoria_top %}C$ {{ "{:,.2f}".format(categoria_top.total) }} ({{ categoria_top.porcentaje }}%){% else %}N/A{% endif %}
+                    {% if categoria_top %}C$ {{ "{:,.2f}".format(categoria_top.total) }} ({{ categoria_top.porcentaje
+                    }}%){% else %}N/A{% endif %}
                 </span>
             </div>
         </div>
@@ -192,7 +182,8 @@
                 </div>
                 <div id="containerChartCategorias" style="position: relative; height: 280px;">
                     <canvas id="chartCategorias"></canvas>
-                    <div id="emptyChartCategorias" class="d-none h-100 flex-column justify-content-center align-items-center text-muted">
+                    <div id="emptyChartCategorias"
+                        class="d-none h-100 flex-column justify-content-center align-items-center text-muted">
                         <i class="fas fa-chart-pie fa-2x mb-2 text-secondary opacity-50"></i>
                         <span class="small">Sin datos en el período seleccionado</span>
                     </div>
@@ -211,7 +202,8 @@
                 </div>
                 <div id="containerChartEvolucion" style="position: relative; height: 280px;">
                     <canvas id="chartEvolucion"></canvas>
-                    <div id="emptyChartEvolucion" class="d-none h-100 flex-column justify-content-center align-items-center text-muted">
+                    <div id="emptyChartEvolucion"
+                        class="d-none h-100 flex-column justify-content-center align-items-center text-muted">
                         <i class="fas fa-chart-bar fa-2x mb-2 text-secondary opacity-50"></i>
                         <span class="small">Sin datos en el período seleccionado</span>
                     </div>
@@ -246,27 +238,35 @@
                         {% for cat in categorias_lista %}
                         <tr class="table-group-header bg-light bg-opacity-50">
                             <td>
-                                <button class="btn btn-sm btn-link text-decoration-none text-slate-800 fw-bold p-0 d-flex align-items-center gap-2" 
-                                        type="button" data-bs-toggle="collapse" data-bs-target="#collapseCat{{ loop.index }}" aria-expanded="true">
+                                <button
+                                    class="btn btn-sm btn-link text-decoration-none text-slate-800 fw-bold p-0 d-flex align-items-center gap-2"
+                                    type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#collapseCat{{ loop.index }}" aria-expanded="true">
                                     <i class="fas fa-chevron-down text-primary small"></i>
                                     <span class="fs-6">{{ cat.nombre }}</span>
                                     {% if cat.origen == 'INVENTARIO' %}
-                                    <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 rounded-pill px-2 py-0.5 small">Inventario</span>
+                                    <span
+                                        class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 rounded-pill px-2 py-0.5 small">Inventario</span>
                                     {% else %}
-                                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-2 py-0.5 small">Gasto Directo</span>
+                                    <span
+                                        class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-2 py-0.5 small">Gasto
+                                        Directo</span>
                                     {% endif %}
                                 </button>
                             </td>
                             <td>
                                 <div class="d-flex align-items-center gap-2">
                                     <div class="progress flex-grow-1" style="height: 8px;">
-                                        <div class="progress-bar bg-primary rounded-pill" role="progressbar" style="width: {{ cat.porcentaje }}%;" aria-valuenow="{{ cat.porcentaje }}" aria-valuemin="0" aria-valuemax="100"></div>
+                                        <div class="progress-bar bg-primary rounded-pill" role="progressbar"
+                                            style="width: {{ cat.porcentaje }}%;" aria-valuenow="{{ cat.porcentaje }}"
+                                            aria-valuemin="0" aria-valuemax="100"></div>
                                     </div>
                                     <span class="small fw-bold text-muted">{{ cat.porcentaje }}%</span>
                                 </div>
                             </td>
                             <td class="text-center">
-                                <span class="badge bg-light text-dark border rounded-pill px-2.5 py-1">{{ cat.cantidad }} reg.</span>
+                                <span class="badge bg-light text-dark border rounded-pill px-2.5 py-1">{{ cat.cantidad
+                                    }} reg.</span>
                             </td>
                             <td class="text-end fw-bold text-slate-800 fs-6">
                                 C$ {{ "{:,.2f}".format(cat.total) }}
@@ -285,15 +285,19 @@
                                             <td style="width: 25%;">
                                                 <div class="d-flex align-items-center gap-2">
                                                     <div class="progress flex-grow-1" style="height: 5px;">
-                                                        <div class="progress-bar bg-info bg-opacity-75 rounded-pill" role="progressbar" style="width: {{ sub.porcentaje_en_categoria }}%;"></div>
+                                                        <div class="progress-bar bg-info bg-opacity-75 rounded-pill"
+                                                            role="progressbar"
+                                                            style="width: {{ sub.porcentaje_en_categoria }}%;"></div>
                                                     </div>
-                                                    <span class="small text-muted" style="font-size: 0.75rem;">{{ sub.porcentaje_en_categoria }}% de cat.</span>
+                                                    <span class="small text-muted" style="font-size: 0.75rem;">{{
+                                                        sub.porcentaje_en_categoria }}% de cat.</span>
                                                 </div>
                                             </td>
                                             <td class="text-center text-muted small" style="width: 15%;">
                                                 {{ sub.cantidad }} egreso(s)
                                             </td>
-                                            <td class="text-end text-muted small fw-medium" style="width: 25%; padding-right: 1.5rem;">
+                                            <td class="text-end text-muted small fw-medium"
+                                                style="width: 25%; padding-right: 1.5rem;">
                                                 C$ {{ "{:,.2f}".format(sub.total) }}
                                             </td>
                                         </tr>
@@ -310,7 +314,8 @@
                             <td>
                                 <div class="d-flex align-items-center gap-2">
                                     <div class="progress flex-grow-1" style="height: 8px;">
-                                        <div class="progress-bar bg-success rounded-pill" role="progressbar" style="width: 100%;"></div>
+                                        <div class="progress-bar bg-success rounded-pill" role="progressbar"
+                                            style="width: 100%;"></div>
                                     </div>
                                     <span class="small fw-bold">100%</span>
                                 </div>
@@ -364,7 +369,8 @@
                                 <span class="fw-medium text-dark">{{ g.fecha_formatted }}</span>
                             </td>
                             <td>
-                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-2.5 py-1 fw-bold">
+                                <span
+                                    class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-2.5 py-1 fw-bold">
                                     {{ g.tipo_gasto }}
                                 </span>
                             </td>
@@ -380,14 +386,16 @@
                                 <span class="badge bg-light text-secondary border font-monospace">{{ g.factura }}</span>
                             </td>
                             <td>
-                                <span class="badge bg-secondary bg-opacity-10 text-dark border rounded-pill px-2 py-1 small">
+                                <span
+                                    class="badge bg-secondary bg-opacity-10 text-dark border rounded-pill px-2 py-1 small">
                                     {{ g.metodo_pago }}
                                 </span>
                             </td>
                             <td class="text-slate-800 small">{{ g.proveedor }}</td>
                             <td>
                                 {% if g.vehiculo != '-' %}
-                                <span class="badge bg-warning bg-opacity-10 text-dark border border-warning border-opacity-25 rounded-pill px-2 py-0.5 small">
+                                <span
+                                    class="badge bg-warning bg-opacity-10 text-dark border border-warning border-opacity-25 rounded-pill px-2 py-0.5 small">
                                     <i class="fas fa-car me-1"></i>{{ g.vehiculo }}
                                 </span>
                                 {% else %}
@@ -422,175 +430,177 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 
 <script>
-(function() {
-    // 1. Inicializar DataTable con seguridad
-    try {
-        if (window.jQuery && $.fn && $.fn.DataTable && $('#tablaDetalleGastos').length) {
-            $('#tablaDetalleGastos').DataTable({
-                language: {
-                    url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json'
-                },
-                order: [[0, 'desc']],
-                pageLength: 25,
-                responsive: true
+    (function () {
+        // 1. Inicializar DataTable con seguridad
+        try {
+            if (window.jQuery && $.fn && $.fn.DataTable && $('#tablaDetalleGastos').length) {
+                $('#tablaDetalleGastos').DataTable({
+                    language: {
+                        url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json'
+                    },
+                    order: [[0, 'desc']],
+                    pageLength: 25,
+                    responsive: true
+                });
+            }
+        } catch (e) {
+            console.warn('DataTable no pudo ser inicializado:', e);
+        }
+
+        // 2. Filtro interactivo de subcategorías dependiente del tipo seleccionado
+        if (window.jQuery) {
+            $('#filtro_tipo_id').on('change', function () {
+                var tipoId = $(this).val();
+                if (tipoId) {
+                    $('#filtro_subcategoria_id option').each(function () {
+                        var itemTipo = $(this).data('tipo');
+                        if (!itemTipo || itemTipo == tipoId) {
+                            $(this).show();
+                        } else {
+                            $(this).hide();
+                        }
+                    });
+                } else {
+                    $('#filtro_subcategoria_id option').show();
+                }
             });
         }
-    } catch(e) {
-        console.warn('DataTable no pudo ser inicializado:', e);
-    }
 
-    // 2. Filtro interactivo de subcategorías dependiente del tipo seleccionado
-    if (window.jQuery) {
-        $('#filtro_tipo_id').on('change', function() {
-            var tipoId = $(this).val();
-            if (tipoId) {
-                $('#filtro_subcategoria_id option').each(function() {
-                    var itemTipo = $(this).data('tipo');
-                    if (!itemTipo || itemTipo == tipoId) {
-                        $(this).show();
-                    } else {
-                        $(this).hide();
-                    }
-                });
-            } else {
-                $('#filtro_subcategoria_id option').show();
+        // 3. Inicializar Gráficos con Chart.js
+        function initCharts() {
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js no está cargado');
+                return;
             }
-        });
-    }
 
-    // 3. Inicializar Gráficos con Chart.js
-    function initCharts() {
-        if (typeof Chart === 'undefined') {
-            console.error('Chart.js no está cargado');
-            return;
+            // Datos desde Jinja2
+            var catLabels = {{ chart_cat_labels | safe
         }
+    };
+    var catValues = {{ chart_cat_values| safe }};
+    var evoLabels = {{ chart_labels| safe }};
+    var evoValues = {{ chart_values| safe }};
 
-        // Datos desde Jinja2
-        var catLabels = {{ chart_cat_labels|safe }};
-        var catValues = {{ chart_cat_values|safe }};
-        var evoLabels = {{ chart_labels|safe }};
-        var evoValues = {{ chart_values|safe }};
+    // --- Gráfico de Categorías (Dona) ---
+    var canvasCat = document.getElementById('chartCategorias');
+    var emptyCat = document.getElementById('emptyChartCategorias');
 
-        // --- Gráfico de Categorías (Dona) ---
-        var canvasCat = document.getElementById('chartCategorias');
-        var emptyCat = document.getElementById('emptyChartCategorias');
-        
-        if (canvasCat) {
-            if (catLabels && catLabels.length > 0 && catValues && catValues.some(function(v) { return v > 0; })) {
-                if (emptyCat) emptyCat.classList.add('d-none');
-                canvasCat.style.display = 'block';
+    if (canvasCat) {
+        if (catLabels && catLabels.length > 0 && catValues && catValues.some(function (v) { return v > 0; })) {
+            if (emptyCat) emptyCat.classList.add('d-none');
+            canvasCat.style.display = 'block';
 
-                new Chart(canvasCat.getContext('2d'), {
-                    type: 'doughnut',
-                    data: {
-                        labels: catLabels,
-                        datasets: [{
-                            data: catValues,
-                            backgroundColor: [
-                                '#4f46e5', '#10b981', '#f59e0b', '#ef4444', 
-                                '#06b6d4', '#8b5cf6', '#ec4899', '#64748b', 
-                                '#14b8a6', '#f97316', '#84cc16'
-                            ],
-                            borderWidth: 2,
-                            borderColor: '#ffffff'
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                position: 'right',
-                                labels: {
-                                    boxWidth: 12,
-                                    font: { family: "'Outfit', 'Inter', sans-serif", size: 11, weight: '500' }
-                                }
-                            },
-                            tooltip: {
-                                padding: 10,
-                                cornerRadius: 8,
-                                callbacks: {
-                                    label: function(context) {
-                                        var value = context.raw || 0;
-                                        return ' ' + context.label + ': C$ ' + Number(value).toLocaleString('en-US', {minimumFractionDigits: 2});
-                                    }
-                                }
+            new Chart(canvasCat.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: catLabels,
+                    datasets: [{
+                        data: catValues,
+                        backgroundColor: [
+                            '#4f46e5', '#10b981', '#f59e0b', '#ef4444',
+                            '#06b6d4', '#8b5cf6', '#ec4899', '#64748b',
+                            '#14b8a6', '#f97316', '#84cc16'
+                        ],
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                boxWidth: 12,
+                                font: { family: "'Outfit', 'Inter', sans-serif", size: 11, weight: '500' }
                             }
                         },
-                        cutout: '62%'
-                    }
-                });
-            } else {
-                canvasCat.style.display = 'none';
-                if (emptyCat) {
-                    emptyCat.classList.remove('d-none');
-                    emptyCat.classList.add('d-flex');
+                        tooltip: {
+                            padding: 10,
+                            cornerRadius: 8,
+                            callbacks: {
+                                label: function (context) {
+                                    var value = context.raw || 0;
+                                    return ' ' + context.label + ': C$ ' + Number(value).toLocaleString('en-US', { minimumFractionDigits: 2 });
+                                }
+                            }
+                        }
+                    },
+                    cutout: '62%'
                 }
+            });
+        } else {
+            canvasCat.style.display = 'none';
+            if (emptyCat) {
+                emptyCat.classList.remove('d-none');
+                emptyCat.classList.add('d-flex');
             }
         }
+    }
 
-        // --- Gráfico de Evolución Diaria (Barras) ---
-        var canvasEvo = document.getElementById('chartEvolucion');
-        var emptyEvo = document.getElementById('emptyChartEvolucion');
+    // --- Gráfico de Evolución Diaria (Barras) ---
+    var canvasEvo = document.getElementById('chartEvolucion');
+    var emptyEvo = document.getElementById('emptyChartEvolucion');
 
-        if (canvasEvo) {
-            if (evoLabels && evoLabels.length > 0 && evoValues && evoValues.some(function(v) { return v > 0; })) {
-                if (emptyEvo) emptyEvo.classList.add('d-none');
-                canvasEvo.style.display = 'block';
+    if (canvasEvo) {
+        if (evoLabels && evoLabels.length > 0 && evoValues && evoValues.some(function (v) { return v > 0; })) {
+            if (emptyEvo) emptyEvo.classList.add('d-none');
+            canvasEvo.style.display = 'block';
 
-                new Chart(canvasEvo.getContext('2d'), {
-                    type: 'bar',
-                    data: {
-                        labels: evoLabels,
-                        datasets: [{
-                            label: 'Gasto Diario',
-                            data: evoValues,
-                            backgroundColor: 'rgba(79, 70, 229, 0.8)',
-                            hoverBackgroundColor: '#4f46e5',
-                            borderRadius: 6
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                ticks: {
-                                    font: { family: "'Outfit', 'Inter', sans-serif", size: 11 },
-                                    callback: function(value) {
-                                        return 'C$ ' + Number(value).toLocaleString('en-US');
-                                    }
-                                },
-                                grid: { color: '#f1f5f9' }
+            new Chart(canvasEvo.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: evoLabels,
+                    datasets: [{
+                        label: 'Gasto Diario',
+                        data: evoValues,
+                        backgroundColor: 'rgba(79, 70, 229, 0.8)',
+                        hoverBackgroundColor: '#4f46e5',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                font: { family: "'Outfit', 'Inter', sans-serif", size: 11 },
+                                callback: function (value) {
+                                    return 'C$ ' + Number(value).toLocaleString('en-US');
+                                }
                             },
-                            x: {
-                                ticks: { font: { family: "'Outfit', 'Inter', sans-serif", size: 11 } },
-                                grid: { display: false }
-                            }
+                            grid: { color: '#f1f5f9' }
                         },
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                padding: 10,
-                                cornerRadius: 8,
-                                callbacks: {
-                                    label: function(context) {
-                                        return ' Total: C$ ' + Number(context.raw).toLocaleString('en-US', {minimumFractionDigits: 2});
-                                    }
+                        x: {
+                            ticks: { font: { family: "'Outfit', 'Inter', sans-serif", size: 11 } },
+                            grid: { display: false }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            padding: 10,
+                            cornerRadius: 8,
+                            callbacks: {
+                                label: function (context) {
+                                    return ' Total: C$ ' + Number(context.raw).toLocaleString('en-US', { minimumFractionDigits: 2 });
                                 }
                             }
                         }
                     }
-                });
-            } else {
-                canvasEvo.style.display = 'none';
-                if (emptyEvo) {
-                    emptyEvo.classList.remove('d-none');
-                    emptyEvo.classList.add('d-flex');
                 }
+            });
+        } else {
+            canvasEvo.style.display = 'none';
+            if (emptyEvo) {
+                emptyEvo.classList.remove('d-none');
+                emptyEvo.classList.add('d-flex');
             }
         }
+    }
     }
 
     if (document.readyState === 'loading') {
@@ -598,6 +608,6 @@
     } else {
         initCharts();
     }
-})();
+}) ();
 </script>
 {% endblock %}
