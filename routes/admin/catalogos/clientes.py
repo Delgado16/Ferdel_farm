@@ -30,6 +30,10 @@ def admin_clientes():
         page = request.args.get("page", 1, type=int)
         search_query = request.args.get("q", "").strip()
         ruta_id = request.args.get("ruta", "").strip()
+        estado = request.args.get("estado", "ACTIVO").strip().upper()
+        if estado not in ['ACTIVO', 'INACTIVO', 'TODOS']:
+            estado = 'ACTIVO'
+        
         id_empresa = session.get('id_empresa', 1)
         
         with get_db_cursor() as cursor:
@@ -78,11 +82,14 @@ def admin_clientes():
                 LEFT JOIN rutas r ON c.ID_Ruta = r.ID_Ruta
                 LEFT JOIN productos p ON c.Producto_Anticipado = p.ID_Producto
                 LEFT JOIN proveedores pv ON c.ID_Proveedor_Vinculado = pv.ID_Proveedor
-                WHERE c.Estado = 'ACTIVO' 
-                AND c.ID_Empresa = %s
+                WHERE c.ID_Empresa = %s
                 AND e.Estado = 'Activo'
             """
             params = [id_empresa]
+            
+            if estado != 'TODOS':
+                base_query += " AND c.Estado = %s"
+                params.append(estado)
             
             if search_query:
                 base_query += " AND (c.Nombre LIKE %s OR c.Telefono LIKE %s)"
@@ -98,11 +105,14 @@ def admin_clientes():
                 SELECT COUNT(*) as total 
                 FROM clientes c
                 INNER JOIN empresa e ON c.ID_Empresa = e.ID_Empresa
-                WHERE c.Estado = 'ACTIVO' 
-                AND c.ID_Empresa = %s
+                WHERE c.ID_Empresa = %s
                 AND e.Estado = 'Activo'
             """
             count_params = [id_empresa]
+            
+            if estado != 'TODOS':
+                count_query += " AND c.Estado = %s"
+                count_params.append(estado)
             
             if search_query:
                 count_query += " AND (c.Nombre LIKE %s OR c.Telefono LIKE %s)"
@@ -146,7 +156,8 @@ def admin_clientes():
                         total=total,
                         total_pages=total_pages,
                         search=search_query,
-                        ruta_seleccionada=ruta_id)
+                        ruta_seleccionada=ruta_id,
+                        estado_seleccionado=estado)
 
 
 @admin_bp.route('/admin/catalog/client/crear-cliente', methods=['POST'])

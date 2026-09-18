@@ -244,7 +244,12 @@
                 <div class="row mt-4">
                     <div class="col-12">
                         <hr class="my-4">
-                        <h6 class="fw-bold text-slate-800 mb-3"><i class="fas fa-warehouse text-primary me-2"></i>Inventario por Bodega</h6>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="fw-bold text-slate-800 mb-0"><i class="fas fa-warehouse text-primary me-2"></i>Inventario por Bodega</h6>
+                            <button type="button" class="btn btn-sm btn-outline-primary rounded-3" data-bs-toggle="modal" data-bs-target="#modalTransferirStock">
+                                <i class="fas fa-exchange-alt me-1"></i> Transferir Stock
+                            </button>
+                        </div>
                         <div class="table-responsive">
                             <table class="table table-hover table-modern align-middle mb-0">
                                 <thead>
@@ -279,7 +284,13 @@
                 {% else %}
                 <div class="row mt-4">
                     <div class="col-12">
-                        <div class="alert alert-warning border-0 small rounded-3 mt-3">
+                        <div class="d-flex justify-content-between align-items-center mt-3 mb-2">
+                            <div></div>
+                            <button type="button" class="btn btn-sm btn-outline-success rounded-3" data-bs-toggle="modal" data-bs-target="#modalAsignarBodega">
+                                <i class="fas fa-plus me-1"></i> Asignar a Bodega
+                            </button>
+                        </div>
+                        <div class="alert alert-warning border-0 small rounded-3 mb-0">
                             <i class="fas fa-exclamation-triangle me-2"></i>
                             Este producto no tiene existencias registradas en ninguna bodega.
                         </div>
@@ -330,6 +341,89 @@
                             </button>
                         </div>
                     </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Transferir Stock -->
+<div class="modal fade" id="modalTransferirStock" tabindex="-1" aria-labelledby="modalTransferirStockLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTransferirStockLabel"><i class="fas fa-exchange-alt text-primary me-2"></i>Transferir Stock</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin.admin_transferir_producto_bodega', id_producto=producto['ID_Producto']) }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label required-star">Bodega Origen</label>
+                        <select class="form-select" name="id_bodega_origen" required>
+                            <option value="">Seleccione bodega origen...</option>
+                            {% for inv in inventario_bodegas %}
+                                <option value="{{ inv['ID_Bodega'] }}">{{ inv['Nombre_Bodega'] }} (Disp: {{ "%.2f"|format(inv['Existencias']) }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label required-star">Bodega Destino</label>
+                        <select class="form-select" name="id_bodega_destino" required>
+                            <option value="">Seleccione bodega destino...</option>
+                            {% for inv in todas_bodegas %}
+                                <option value="{{ inv['ID_Bodega'] }}">{{ inv['Nombre_Bodega'] }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label required-star">Cantidad a Transferir ({{ producto['Abreviatura'] }})</label>
+                        <input type="number" class="form-control" name="cantidad" step="0.01" min="0.01" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Observación (Opcional)</label>
+                        <textarea class="form-control" name="observacion" rows="2" placeholder="Motivo del traslado..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-check me-1"></i> Confirmar Transferencia</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Asignar a Bodega -->
+<div class="modal fade" id="modalAsignarBodega" tabindex="-1" aria-labelledby="modalAsignarBodegaLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalAsignarBodegaLabel"><i class="fas fa-plus text-success me-2"></i>Asignar a Bodega</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin.admin_asignar_bodega_producto', id_producto=producto['ID_Producto']) }}">
+                <div class="modal-body">
+                    <div class="alert alert-info small mb-3">
+                        <i class="fas fa-info-circle me-1"></i> Use esta opción para vincular el producto a una bodega con stock inicial.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label required-star">Seleccionar Bodega</label>
+                        <select class="form-select" name="id_bodega" required>
+                            <option value="">Seleccione bodega...</option>
+                            {% for inv in todas_bodegas %}
+                                <option value="{{ inv['ID_Bodega'] }}">{{ inv['Nombre_Bodega'] }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label required-star">Cantidad Inicial ({{ producto['Abreviatura'] }})</label>
+                        <input type="number" class="form-control" name="cantidad" step="0.01" min="0" value="0" required>
+                        <div class="form-text">Puede ser 0 si solo desea asignar la bodega.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success"><i class="fas fa-check me-1"></i> Confirmar Asignación</button>
                 </div>
             </form>
         </div>

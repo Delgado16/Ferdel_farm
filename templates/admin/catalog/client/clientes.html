@@ -33,7 +33,18 @@
     <div class="card-form mb-4 p-3 shadow-sm border" style="background-color: #ffffff; border-color: #cbd5e1 !important;">
         <form method="get" class="mb-0">
             <div class="row g-3 align-items-end">
-                <div class="col-md-4">
+                <div class="col-md-3">
+                    <label for="filtroEstado" class="form-label fw-bold text-dark mb-1">Estado</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light text-dark"><i class="bi bi-funnel-fill text-info"></i></span>
+                        <select name="estado" class="form-select text-dark fw-semibold" id="filtroEstado">
+                            <option value="ACTIVO" {% if estado_seleccionado == 'ACTIVO' %}selected{% endif %}>Activos</option>
+                            <option value="INACTIVO" {% if estado_seleccionado == 'INACTIVO' %}selected{% endif %}>Inactivos</option>
+                            <option value="TODOS" {% if estado_seleccionado == 'TODOS' %}selected{% endif %}>Todos</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-3">
                     <label for="filtroRuta" class="form-label fw-bold text-dark mb-1">Filtrar por Ruta</label>
                     <div class="input-group">
                         <span class="input-group-text bg-light text-dark"><i class="bi bi-geo-alt-fill text-success"></i></span>
@@ -49,7 +60,7 @@
                         </select>
                     </div>
                 </div>
-                <div class="col-md-5">
+                <div class="col-md-4">
                     <label for="buscador" class="form-label fw-bold text-dark mb-1">Buscar Cliente</label>
                     <div class="input-group">
                         <span class="input-group-text bg-light text-dark"><i class="bi bi-search text-primary"></i></span>
@@ -57,12 +68,12 @@
                                value="{{ search }}">
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <div class="d-flex w-100 gap-2">
                         <button class="btn btn-success w-100 d-flex align-items-center justify-content-center fw-bold shadow-sm" type="submit" style="background-color: var(--primary-color); border-color: var(--primary-color);">
                             <i class="bi bi-search me-1.5"></i> Buscar
                         </button>
-                        {% if search or ruta_seleccionada %}
+                        {% if search or ruta_seleccionada or estado_seleccionado != 'ACTIVO' %}
                         <a href="{{ url_for('admin.admin_clientes') }}" class="btn btn-outline-secondary d-flex align-items-center justify-content-center px-3 fw-bold" title="Limpiar filtros">
                             <i class="bi bi-arrow-clockwise"></i>
                         </a>
@@ -242,7 +253,7 @@
         <ul class="pagination justify-content-center">
             {% if page > 1 %}
             <li class="page-item">
-                <a class="page-link rounded-3 border bg-light text-dark fw-bold px-3 py-2 mx-1" href="{{ url_for('admin.admin_clientes', page=page-1, q=search, ruta=ruta_seleccionada) }}" aria-label="Anterior">
+                <a class="page-link rounded-3 border bg-light text-dark fw-bold px-3 py-2 mx-1" href="{{ url_for('admin.admin_clientes', page=page-1, q=search, ruta=ruta_seleccionada, estado=estado_seleccionado) }}" aria-label="Anterior">
                     <span aria-hidden="true">&laquo;</span>
                 </a>
             </li>
@@ -251,14 +262,14 @@
             {% for p in range(1, total_pages + 1) %}
                 {% if p >= page - 2 and p <= page + 2 %}
                 <li class="page-item">
-                    <a class="page-link rounded-3 border px-3 py-2 mx-1 fw-bold {% if p == page %}bg-success text-white border-success{% else %}bg-light text-dark{% endif %}" href="{{ url_for('admin.admin_clientes', page=p, q=search, ruta=ruta_seleccionada) }}">{{ p }}</a>
+                    <a class="page-link rounded-3 border px-3 py-2 mx-1 fw-bold {% if p == page %}bg-success text-white border-success{% else %}bg-light text-dark{% endif %}" href="{{ url_for('admin.admin_clientes', page=p, q=search, ruta=ruta_seleccionada, estado=estado_seleccionado) }}">{{ p }}</a>
                 </li>
                 {% endif %}
             {% endfor %}
             
             {% if page < total_pages %}
             <li class="page-item">
-                <a class="page-link rounded-3 border bg-light text-dark fw-bold px-3 py-2 mx-1" href="{{ url_for('admin.admin_clientes', page=page+1, q=search, ruta=ruta_seleccionada) }}" aria-label="Siguiente">
+                <a class="page-link rounded-3 border bg-light text-dark fw-bold px-3 py-2 mx-1" href="{{ url_for('admin.admin_clientes', page=page+1, q=search, ruta=ruta_seleccionada, estado=estado_seleccionado) }}" aria-label="Siguiente">
                     <span aria-hidden="true">&raquo;</span>
                 </a>
             </li>
