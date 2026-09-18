@@ -474,133 +474,131 @@
             }
 
             // Datos desde Jinja2
-            var catLabels = {{ chart_cat_labels | safe
-        }
-    };
-    var catValues = {{ chart_cat_values| safe }};
-    var evoLabels = {{ chart_labels| safe }};
-    var evoValues = {{ chart_values| safe }};
+            var catLabels = {{ chart_cat_labels | safe }};
+            var catValues = {{ chart_cat_values | safe }};
+            var evoLabels = {{ chart_labels | safe }};
+            var evoValues = {{ chart_values | safe }};
 
-    // --- Gráfico de Categorías (Dona) ---
-    var canvasCat = document.getElementById('chartCategorias');
-    var emptyCat = document.getElementById('emptyChartCategorias');
+        // --- Gráfico de Categorías (Dona) ---
+        var canvasCat = document.getElementById('chartCategorias');
+        var emptyCat = document.getElementById('emptyChartCategorias');
 
-    if (canvasCat) {
-        if (catLabels && catLabels.length > 0 && catValues && catValues.some(function (v) { return v > 0; })) {
-            if (emptyCat) emptyCat.classList.add('d-none');
-            canvasCat.style.display = 'block';
+        if (canvasCat) {
+            if (catLabels && catLabels.length > 0 && catValues && catValues.some(function (v) { return v > 0; })) {
+                if (emptyCat) emptyCat.classList.add('d-none');
+                canvasCat.style.display = 'block';
 
-            new Chart(canvasCat.getContext('2d'), {
-                type: 'doughnut',
-                data: {
-                    labels: catLabels,
-                    datasets: [{
-                        data: catValues,
-                        backgroundColor: [
-                            '#4f46e5', '#10b981', '#f59e0b', '#ef4444',
-                            '#06b6d4', '#8b5cf6', '#ec4899', '#64748b',
-                            '#14b8a6', '#f97316', '#84cc16'
-                        ],
-                        borderWidth: 2,
-                        borderColor: '#ffffff'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'right',
-                            labels: {
-                                boxWidth: 12,
-                                font: { family: "'Outfit', 'Inter', sans-serif", size: 11, weight: '500' }
-                            }
-                        },
-                        tooltip: {
-                            padding: 10,
-                            cornerRadius: 8,
-                            callbacks: {
-                                label: function (context) {
-                                    var value = context.raw || 0;
-                                    return ' ' + context.label + ': C$ ' + Number(value).toLocaleString('en-US', { minimumFractionDigits: 2 });
-                                }
-                            }
-                        }
+                new Chart(canvasCat.getContext('2d'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: catLabels,
+                        datasets: [{
+                            data: catValues,
+                            backgroundColor: [
+                                '#4f46e5', '#10b981', '#f59e0b', '#ef4444',
+                                '#06b6d4', '#8b5cf6', '#ec4899', '#64748b',
+                                '#14b8a6', '#f97316', '#84cc16'
+                            ],
+                            borderWidth: 2,
+                            borderColor: '#ffffff'
+                        }]
                     },
-                    cutout: '62%'
-                }
-            });
-        } else {
-            canvasCat.style.display = 'none';
-            if (emptyCat) {
-                emptyCat.classList.remove('d-none');
-                emptyCat.classList.add('d-flex');
-            }
-        }
-    }
-
-    // --- Gráfico de Evolución Diaria (Barras) ---
-    var canvasEvo = document.getElementById('chartEvolucion');
-    var emptyEvo = document.getElementById('emptyChartEvolucion');
-
-    if (canvasEvo) {
-        if (evoLabels && evoLabels.length > 0 && evoValues && evoValues.some(function (v) { return v > 0; })) {
-            if (emptyEvo) emptyEvo.classList.add('d-none');
-            canvasEvo.style.display = 'block';
-
-            new Chart(canvasEvo.getContext('2d'), {
-                type: 'bar',
-                data: {
-                    labels: evoLabels,
-                    datasets: [{
-                        label: 'Gasto Diario',
-                        data: evoValues,
-                        backgroundColor: 'rgba(79, 70, 229, 0.8)',
-                        hoverBackgroundColor: '#4f46e5',
-                        borderRadius: 6
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                font: { family: "'Outfit', 'Inter', sans-serif", size: 11 },
-                                callback: function (value) {
-                                    return 'C$ ' + Number(value).toLocaleString('en-US');
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'right',
+                                labels: {
+                                    boxWidth: 12,
+                                    font: { family: "'Outfit', 'Inter', sans-serif", size: 11, weight: '500' }
                                 }
                             },
-                            grid: { color: '#f1f5f9' }
+                            tooltip: {
+                                padding: 10,
+                                cornerRadius: 8,
+                                callbacks: {
+                                    label: function (context) {
+                                        var value = context.raw || 0;
+                                        return ' ' + context.label + ': C$ ' + Number(value).toLocaleString('en-US', { minimumFractionDigits: 2 });
+                                    }
+                                }
+                            }
                         },
-                        x: {
-                            ticks: { font: { family: "'Outfit', 'Inter', sans-serif", size: 11 } },
-                            grid: { display: false }
-                        }
+                        cutout: '62%'
+                    }
+                });
+            } else {
+                canvasCat.style.display = 'none';
+                if (emptyCat) {
+                    emptyCat.classList.remove('d-none');
+                    emptyCat.classList.add('d-flex');
+                }
+            }
+        }
+
+        // --- Gráfico de Evolución Diaria (Barras) ---
+        var canvasEvo = document.getElementById('chartEvolucion');
+        var emptyEvo = document.getElementById('emptyChartEvolucion');
+
+        if (canvasEvo) {
+            if (evoLabels && evoLabels.length > 0 && evoValues && evoValues.some(function (v) { return v > 0; })) {
+                if (emptyEvo) emptyEvo.classList.add('d-none');
+                canvasEvo.style.display = 'block';
+
+                new Chart(canvasEvo.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: evoLabels,
+                        datasets: [{
+                            label: 'Gasto Diario',
+                            data: evoValues,
+                            backgroundColor: 'rgba(79, 70, 229, 0.8)',
+                            hoverBackgroundColor: '#4f46e5',
+                            borderRadius: 6
+                        }]
                     },
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            padding: 10,
-                            cornerRadius: 8,
-                            callbacks: {
-                                label: function (context) {
-                                    return ' Total: C$ ' + Number(context.raw).toLocaleString('en-US', { minimumFractionDigits: 2 });
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    font: { family: "'Outfit', 'Inter', sans-serif", size: 11 },
+                                    callback: function (value) {
+                                        return 'C$ ' + Number(value).toLocaleString('en-US');
+                                    }
+                                },
+                                grid: { color: '#f1f5f9' }
+                            },
+                            x: {
+                                ticks: { font: { family: "'Outfit', 'Inter', sans-serif", size: 11 } },
+                                grid: { display: false }
+                            }
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                padding: 10,
+                                cornerRadius: 8,
+                                callbacks: {
+                                    label: function (context) {
+                                        return ' Total: C$ ' + Number(context.raw).toLocaleString('en-US', { minimumFractionDigits: 2 });
+                                    }
                                 }
                             }
                         }
                     }
+                });
+            } else {
+                canvasEvo.style.display = 'none';
+                if (emptyEvo) {
+                    emptyEvo.classList.remove('d-none');
+                    emptyEvo.classList.add('d-flex');
                 }
-            });
-        } else {
-            canvasEvo.style.display = 'none';
-            if (emptyEvo) {
-                emptyEvo.classList.remove('d-none');
-                emptyEvo.classList.add('d-flex');
             }
         }
-    }
     }
 
     if (document.readyState === 'loading') {
@@ -608,6 +606,6 @@
     } else {
         initCharts();
     }
-}) ();
+})();
 </script>
 {% endblock %}
