@@ -44,9 +44,9 @@
                             </p>
                         </div>
                         <div class="col-md-6">
-                            <p class="mb-2"><strong class="text-secondary small fw-bold d-inline-block" style="width: 150px;">Monto Total:</strong> <span class="text-slate-800 fw-bold font-monospace">C${{ "%.2f"|format(cuenta_info.Monto_Movimiento) }}</span></p>
+                            <p class="mb-2"><strong class="text-secondary small fw-bold d-inline-block" style="width: 150px;">Monto Total:</strong> <span class="text-slate-800 fw-bold font-monospace">C${{ cuenta_info.Monto_Movimiento | cantidad }}</span></p>
                             <p class="mb-2"><strong class="text-secondary small fw-bold d-inline-block" style="width: 150px;">Saldo Pendiente:</strong> 
-                                <span class="text-danger fw-bold font-monospace" style="font-size: 1.20rem;">C${{ "%.2f"|format(cuenta_info.Saldo_Pendiente) }}</span>
+                                <span class="text-danger fw-bold font-monospace" style="font-size: 1.20rem;">C${{ cuenta_info.Saldo_Pendiente | cantidad }}</span>
                             </p>
                         </div>
                     </div>
@@ -57,7 +57,7 @@
                             {% set porcentaje = ((cuenta_info.Monto_Movimiento - cuenta_info.Saldo_Pendiente) / cuenta_info.Monto_Movimiento * 100) if cuenta_info.Monto_Movimiento > 0 else 0 %}
                             <div class="d-flex justify-content-between mb-1">
                                 <small class="text-muted small fw-bold">Progreso de Pago</small>
-                                <small class="text-muted small"><strong>{{ "%.1f"|format(porcentaje) }}% Pagado</strong></small>
+                                <small class="text-muted small"><strong>{{ porcentaje | cantidad }}% Pagado</strong></small>
                             </div>
                             <div class="progress" style="height: 10px; border-radius: 5px;">
                                 <div class="progress-bar bg-success" role="progressbar" 
@@ -66,8 +66,8 @@
                                 </div>
                             </div>
                             <div class="d-flex justify-content-between mt-1 text-muted small">
-                                <span>Pagado: C${{ "%.2f"|format(cuenta_info.Monto_Movimiento - cuenta_info.Saldo_Pendiente) }}</span>
-                                <span>Total: C${{ "%.2f"|format(cuenta_info.Monto_Movimiento) }}</span>
+                                <span>Pagado: C${{ (cuenta_info.Monto_Movimiento - cuenta_info.Saldo_Pendiente) | cantidad }}</span>
+                                <span>Total: C${{ cuenta_info.Monto_Movimiento | cantidad }}</span>
                             </div>
                         </div>
                     </div>
@@ -88,11 +88,11 @@
                         <div class="mb-3">
                             <label for="monto_pago" class="form-label-premium fw-bold mb-1">Monto del Pago *</label>
                             <input type="number" class="form-control form-control-premium" id="monto_pago" name="monto_pago" 
-                                   step="0.01" min="0.01" max="{{ "%.2f"|format(cuenta_info.Saldo_Pendiente) }}" 
+                                   step="0.01" min="0.01" max="{{ cuenta_info.Saldo_Pendiente | cantidad }}" 
                                    required placeholder="0.00" style="font-size: 1.2rem;"
                                    value="{{ "%.2f"|format(cuenta_info.Saldo_Pendiente) if cuenta_info.Saldo_Pendiente > 0 else '' }}">
                             <small class="form-text text-muted">
-                                Saldo pendiente: <span class="fw-bold text-danger">C${{ "%.2f"|format(cuenta_info.Saldo_Pendiente) }}</span>
+                                Saldo pendiente: <span class="fw-bold text-danger">C${{ cuenta_info.Saldo_Pendiente | cantidad }}</span>
                             </small>
                         </div>
 
@@ -174,16 +174,16 @@
                         <table class="table table-sm table-borderless align-middle mb-0">
                             <tr>
                                 <td class="text-secondary small">Monto Total:</td>
-                                <td class="text-end fw-bold text-slate-800 font-monospace">C${{ "%.2f"|format(cuenta_info.Monto_Movimiento) }}</td>
+                                <td class="text-end fw-bold text-slate-800 font-monospace">C${{ cuenta_info.Monto_Movimiento | cantidad }}</td>
                             </tr>
                             <tr>
                                 <td class="text-secondary small">Saldo Pendiente:</td>
-                                <td class="text-end fw-bold text-danger font-monospace">C${{ "%.2f"|format(cuenta_info.Saldo_Pendiente) }}</td>
+                                <td class="text-end fw-bold text-danger font-monospace">C${{ cuenta_info.Saldo_Pendiente | cantidad }}</td>
                             </tr>
                             <tr>
                                 <td class="text-secondary small">Pagado:</td>
                                 <td class="text-end fw-bold text-success font-monospace">
-                                    C${{ "%.2f"|format(cuenta_info.Monto_Movimiento - cuenta_info.Saldo_Pendiente) }}
+                                    C${{ (cuenta_info.Monto_Movimiento - cuenta_info.Saldo_Pendiente) | cantidad }}
                                 </td>
                             </tr>
                         </table>
@@ -195,7 +195,7 @@
                         <div id="simulacionSaldo" class="p-3 bg-light bg-opacity-50 border rounded-3">
                             <p class="mb-2 d-flex justify-content-between">
                                 <strong class="small text-secondary">Nuevo saldo:</strong> 
-                                <span id="nuevoSaldo" class="fw-bold font-monospace">C${{ "%.2f"|format(cuenta_info.Saldo_Pendiente) }}</span>
+                                <span id="nuevoSaldo" class="fw-bold font-monospace">C${{ cuenta_info.Saldo_Pendiente | cantidad }}</span>
                             </p>
                             <p class="mb-0 d-flex justify-content-between align-items-center">
                                 <strong class="small text-secondary">Estado:</strong> 
@@ -675,21 +675,21 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (monto <= 0) {
             e.preventDefault();
-            alert('❌ Por favor ingrese un monto válido (mayor a cero)');
+            Swal.fire('❌ Por favor ingrese un monto válido (mayor a cero, '', 'info')');
             montoInput.focus();
             return false;
         }
         
         if (monto > saldoMaximo) {
             e.preventDefault();
-            alert('❌ El monto no puede ser mayor al saldo pendiente (C$' + saldoMaximo.toFixed(2) + ')');
+            Swal.fire('❌ El monto no puede ser mayor al saldo pendiente (C$' + saldoMaximo.toFixed(2, '', 'info') + ')');
             montoInput.focus();
             return false;
         }
         
         if (!metodoPago) {
             e.preventDefault();
-            alert('❌ Por favor seleccione un método de pago');
+            Swal.fire('❌ Por favor seleccione un método de pago', '', 'info');
             metodoSelect.focus();
             return false;
         }
@@ -702,13 +702,13 @@ document.addEventListener('DOMContentLoaded', function() {
             const entregado = parseFloat(document.getElementById('efectivo_entregado')?.value) || 0;
             if (!entregado || entregado <= 0) {
                 e.preventDefault();
-                alert('❌ Debe ingresar la cantidad entregada');
+                Swal.fire('❌ Debe ingresar la cantidad entregada', '', 'info');
                 document.getElementById('efectivo_entregado').focus();
                 return false;
             }
             if (entregado < monto) {
                 e.preventDefault();
-                alert('❌ La cantidad entregada no puede ser menor al monto del pago');
+                Swal.fire('❌ La cantidad entregada no puede ser menor al monto del pago', '', 'info');
                 document.getElementById('efectivo_entregado').focus();
                 return false;
             }
@@ -718,7 +718,7 @@ document.addEventListener('DOMContentLoaded', function() {
                           document.getElementById('deposito_numero')?.value;
             if (!numero || numero.trim() === '') {
                 e.preventDefault();
-                alert('❌ Debe ingresar el número de transacción o referencia');
+                Swal.fire('❌ Debe ingresar el número de transacción o referencia', '', 'info');
                 const input = document.getElementById('transferencia_numero') || 
                              document.getElementById('deposito_numero');
                 input?.focus();
@@ -730,13 +730,13 @@ document.addEventListener('DOMContentLoaded', function() {
             const banco = document.getElementById('cheque_banco')?.value;
             if (!numero || numero.trim() === '') {
                 e.preventDefault();
-                alert('❌ Debe ingresar el número de cheque');
+                Swal.fire('❌ Debe ingresar el número de cheque', '', 'info');
                 document.getElementById('cheque_numero').focus();
                 return false;
             }
             if (!banco || banco.trim() === '') {
                 e.preventDefault();
-                alert('❌ Debe ingresar el nombre del banco');
+                Swal.fire('❌ Debe ingresar el nombre del banco', '', 'info');
                 document.getElementById('cheque_banco').focus();
                 return false;
             }
@@ -745,7 +745,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const numero = document.getElementById('tarjeta_numero')?.value;
             if (!numero || numero.trim() === '' || numero.length !== 4) {
                 e.preventDefault();
-                alert('❌ Debe ingresar los últimos 4 dígitos de la tarjeta');
+                Swal.fire('❌ Debe ingresar los últimos 4 dígitos de la tarjeta', '', 'info');
                 document.getElementById('tarjeta_numero').focus();
                 return false;
             }

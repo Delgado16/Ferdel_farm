@@ -457,7 +457,7 @@ def admin_crear_compra():
                     id_bodega,
                     id_usuario,
                     id_usuario,
-                    1  # Estado activo/completado
+                    'Activa'  # Estado activo/completado
                 ))
                 
                 id_movimiento = cursor.lastrowid

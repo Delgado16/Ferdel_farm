@@ -457,7 +457,7 @@ function seleccionarProducto(productoId) {
     if (!producto) return;
     
     if (obtenerProductosAgregados().includes(productoId.toString())) {
-        alert('Producto ya agregado');
+        Swal.fire('Producto ya agregado', '', 'info');
         return;
     }
     
@@ -467,7 +467,7 @@ function seleccionarProducto(productoId) {
 function agregarProducto(producto = null) {
     if (!producto) {
         if (!document.getElementById('select-bodega-origen').value) {
-            alert('Primero seleccione una bodega origen');
+            Swal.fire('Primero seleccione una bodega origen', '', 'info');
             return;
         }
         document.getElementById('buscar-producto-bodega').focus();
@@ -562,7 +562,7 @@ function recalcularCantidadCajilla(uniqueId) {
         total = Math.round(total * 100) / 100;
         
         if (total > stock) {
-            alert(`La cantidad total (${total}) excede el stock disponible (${stock.toFixed(2)})`);
+            Swal.fire(`La cantidad total (${total}, '', 'info') excede el stock disponible (${stock.toFixed(2)})`);
             inputCajillas.value = Math.floor(stock);
             inputUnidades.value = Math.round((stock - Math.floor(stock)) * 30);
             total = stock;
@@ -589,7 +589,7 @@ function validarCantidad(uniqueId) {
     const stock = parseFloat(tr.dataset.stock) || 0;
     
     if (cantidad > stock) {
-        alert(`Cantidad excedida. Stock máximo disponible: ${stock.toFixed(2)}`);
+        Swal.fire(`Cantidad excedida. Stock máximo disponible: ${stock.toFixed(2, '', 'info')}`);
         input.value = stock;
         cantidad = stock;
     }
@@ -717,7 +717,7 @@ function depurarDatos() {
     console.log('Destino:', document.getElementById('select-bodega-destino').value);
     console.log('Productos en Transferencia:', productosTransferencia);
     console.log('JSON value:', document.getElementById('productos-json').value);
-    alert('Información depurada en la consola del desarrollador (F12)');
+    Swal.fire('Información depurada en la consola del desarrollador (F12, '', 'info')');
 }
 
 document.getElementById('formTransferencia').addEventListener('submit', function(e) {
@@ -726,13 +726,13 @@ document.getElementById('formTransferencia').addEventListener('submit', function
     
     if (data.length === 0) {
         e.preventDefault();
-        alert('Debe agregar al menos un producto a transferir');
+        Swal.fire('Debe agregar al menos un producto a transferir', '', 'info');
         return false;
     }
     
     if (!validarBodegas()) {
         e.preventDefault();
-        alert('La bodega de origen y destino deben ser distintas');
+        Swal.fire('La bodega de origen y destino deben ser distintas', '', 'info');
         return false;
     }
     

@@ -153,23 +153,23 @@
                                     <td>{{ loop.index }}</td>
                                     <td class="fw-bold text-slate-800">{{ detalle.COD_Producto or 'N/A' }}</td>
                                     <td>{{ detalle.Producto_Desc or 'N/A' }}</td>
-                                    <td class="text-center text-slate-800 fw-bold">{{ "%.2f"|format(detalle.Cantidad) }}</td>
+                                    <td class="text-center text-slate-800 fw-bold">{{ detalle.Cantidad | cantidad }}</td>
                                     <td class="text-center"><span class="badge bg-light text-dark border">{{ detalle.Unidad_Medida or detalle.Simbolo_Medida or 'UNIDAD' }}</span></td>
-                                    <td class="text-end">C$ {{ "%.2f"|format(detalle.Costo_Unitario) }}</td>
-                                    <td class="text-end">C$ {{ "%.2f"|format(detalle.Precio_Unitario) }}</td>
-                                    <td class="text-end text-slate-800">{{ "%.2f"|format(detalle.Existencias_Actuales) }}</td>
-                                    <td class="text-end fw-bold text-success">C$ {{ "%.2f"|format(detalle.Subtotal) }}</td>
+                                    <td class="text-end">C$ {{ detalle.Costo_Unitario | cantidad }}</td>
+                                    <td class="text-end">C$ {{ detalle.Precio_Unitario | cantidad }}</td>
+                                    <td class="text-end text-slate-800">{{ detalle.Existencias_Actuales | cantidad }}</td>
+                                    <td class="text-end fw-bold text-success">C$ {{ detalle.Subtotal | cantidad }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
                             <tfoot class="table-light border-top">
                                 <tr>
                                     <th colspan="8" class="text-end fw-bold">TOTAL COMPRA:</th>
-                                    <th class="text-end fw-bold text-success" style="font-size: 1.15rem;">C$ {{ "%.2f"|format(total_compra) }}</th>
+                                    <th class="text-end fw-bold text-success" style="font-size: 1.15rem;">C$ {{ total_compra | cantidad }}</th>
                                 </tr>
                                 <tr>
                                     <th colspan="8" class="text-end text-muted small">CANTIDAD TOTAL:</th>
-                                    <th class="text-end text-muted small">{{ "%.2f"|format(total_cantidad) }} unidades</th>
+                                    <th class="text-end text-muted small">{{ total_cantidad | cantidad }} unidades</th>
                                 </tr>
                             </tfoot>
                         </table>
@@ -193,7 +193,7 @@
                                 <tbody>
                                     <tr>
                                         <th width="50%" class="text-secondary small fw-bold py-2">Monto Total:</th>
-                                        <td class="text-end fw-bold text-slate-800 font-monospace small">C$ {{ "%.2f"|format(cuenta_por_pagar.Monto_Movimiento) }}</td>
+                                        <td class="text-end fw-bold text-slate-800 font-monospace small">C$ {{ cuenta_por_pagar.Monto_Movimiento | cantidad }}</td>
                                     </tr>
                                     <tr>
                                         <th class="text-secondary small fw-bold py-2">Fecha Vencimiento:</th>
@@ -215,13 +215,13 @@
                                     <tr style="background-color: rgba(245, 158, 11, 0.03);">
                                         <th class="text-secondary small fw-bold py-2">Saldo Pendiente:</th>
                                         <td class="text-end text-danger fw-bold font-monospace small py-2">
-                                            C$ {{ "%.2f"|format(cuenta_por_pagar.Saldo_Pendiente) }}
+                                            C$ {{ cuenta_por_pagar.Saldo_Pendiente | cantidad }}
                                         </td>
                                     </tr>
                                     <tr style="background-color: rgba(16, 185, 129, 0.03);">
                                         <th class="text-secondary small fw-bold py-2">Total Pagado:</th>
                                         <td class="text-end text-success fw-bold font-monospace small py-2">
-                                            C$ {{ "%.2f"|format(total_pagado) }}
+                                            C$ {{ total_pagado | cantidad }}
                                         </td>
                                     </tr>
                                 </tbody>
@@ -231,7 +231,7 @@
                         {% if cuenta_por_pagar.Saldo_Pendiente > 0 %}
                         <div class="alert alert-warning mt-3 mb-0 bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 py-2 px-3 small rounded-3">
                             <i class="fas fa-exclamation-triangle me-2"></i>
-                            <strong>Pendiente de pago:</strong> C$ {{ "%.2f"|format(cuenta_por_pagar.Saldo_Pendiente) }}
+                            <strong>Pendiente de pago:</strong> C$ {{ cuenta_por_pagar.Saldo_Pendiente | cantidad }}
                         </div>
                         {% else %}
                         <div class="alert alert-success mt-3 mb-0 bg-success bg-opacity-10 text-success border border-success border-opacity-25 py-2 px-3 small rounded-3">
@@ -246,7 +246,7 @@
                             <strong>Compra de Contado</strong> - No hay cuentas por pagar pendientes.
                             <hr class="my-2">
                             <div class="text-center fw-bold">
-                                Total pagado: <span class="text-success font-monospace">C$ {{ "%.2f"|format(total_pagado) }}</span>
+                                Total pagado: <span class="text-success font-monospace">C$ {{ total_pagado | cantidad }}</span>
                             </div>
                         </div>
                     {% endif %}
@@ -313,15 +313,15 @@ function anularCompra(idMovimiento) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                alert(data.message);
+                Swal.fire(data.message, '', 'info');
                 location.reload();
             } else {
-                alert('Error: ' + (data.error || 'Error desconocido'));
+                Swal.fire('Error: ' + (data.error || 'Error desconocido', '', 'info'));
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('Error al anular la compra');
+            Swal.fire('Error al anular la compra', '', 'info');
         });
     }
 }

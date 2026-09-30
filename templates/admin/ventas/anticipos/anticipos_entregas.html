@@ -786,18 +786,17 @@
 
     // ========== VALIDACIÓN ==========
     function validarFormulario(e) {
+        e.preventDefault();
         const idAnticipo = document.getElementById('id_anticipo').value;
         const idBodega = document.getElementById('id_bodega').value;
         const rows = document.querySelectorAll('.entrega-item');
 
         if (!idAnticipo) {
-            e.preventDefault();
             mostrarNotificacion('Seleccione un anticipo', 'danger');
             return false;
         }
 
         if (!idBodega) {
-            e.preventDefault();
             mostrarNotificacion('Seleccione una bodega', 'danger');
             return false;
         }
@@ -837,31 +836,45 @@
         });
 
         if (tieneError) {
-            e.preventDefault();
             return false;
         }
 
         if (totalCajas === 0) {
-            e.preventDefault();
             mostrarNotificacion('Agregue al menos una entrega', 'danger');
             return false;
         }
 
         if (cajasDisponiblesActual > 0 && totalCajas > cajasDisponiblesActual) {
-            e.preventDefault();
             mostrarNotificacion(`Total cajas (${totalCajas}) excede disponible (${cajasDisponiblesActual})`, 'danger');
             return false;
         }
 
-        const confirmMsg = `Confirmar entrega:\nCliente: ${document.getElementById('info_cliente').textContent}\nCajas: ${totalCajas}\nRestantes: ${cajasDisponiblesActual - totalCajas}\nSucursales: ${rows.length}`;
+        const confirmHtml = `
+            <div class="text-start fs-6">
+                <p class="mb-2"><strong>Cliente:</strong> ${document.getElementById('info_cliente').textContent}</p>
+                <p class="mb-2"><strong>Cajas a entregar:</strong> ${totalCajas}</p>
+                <p class="mb-2"><strong>Cajas restantes:</strong> ${cajasDisponiblesActual - totalCajas}</p>
+                <p class="mb-0"><strong>Sucursales:</strong> ${rows.length}</p>
+            </div>
+        `;
 
-        if (!confirm(confirmMsg)) {
-            e.preventDefault();
-            return false;
-        }
+        Swal.fire({
+            title: '¿Confirmar entrega?',
+            html: confirmHtml,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#10b981', // Success color
+            cancelButtonColor: '#6c757d', // Secondary color
+            confirmButtonText: '<i class="bi bi-check-circle me-1"></i> Sí, procesar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                document.getElementById('spinnerOverlay').classList.add('active');
+                document.getElementById('formEntrega').submit();
+            }
+        });
 
-        document.getElementById('spinnerOverlay').classList.add('active');
-        return true;
+        return false;
     }
 
     // ========== INICIALIZACIÓN ==========

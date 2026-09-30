@@ -715,7 +715,7 @@ def vendedor_movimiento_merma():
                 # ============================================
                 # 2. DEFINIR TIPO DE MOVIMIENTO (Merma)
                 # ============================================
-                ID_TIPO_MERMA = 7  # Merma
+                ID_TIPO_MERMA = 6  # Merma (Ajuste Negativo)
                 
                 # ============================================
                 # 3. VALIDAR STOCK Y CALCULAR TOTALES

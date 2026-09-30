@@ -47,13 +47,13 @@
                         <div class="col-md-6">
                             <div class="p-3 bg-light rounded-3 border">
                                 <small class="text-muted d-block mb-1">Monto Vendido hoy</small>
-                                <h4 class="fw-bold text-slate-800 font-monospace mb-0">C$ {{ "%.2f"|format(total_vendido) }}</h4>
+                                <h4 class="fw-bold text-slate-800 font-monospace mb-0">C$ {{ total_vendido | cantidad }}</h4>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="p-3 rounded-3 border" style="background: rgba(37, 99, 235, 0.03); border-color: rgba(37, 99, 235, 0.15) !important;">
                                 <small class="text-primary d-block mb-1 fw-bold">Efectivo en Caja a Entregar</small>
-                                <h4 class="fw-bold text-primary font-monospace mb-0">C$ {{ "%.2f"|format(saldo_caja) }}</h4>
+                                <h4 class="fw-bold text-primary font-monospace mb-0">C$ {{ saldo_caja | cantidad }}</h4>
                             </div>
                         </div>
                     </div>
@@ -82,7 +82,7 @@
                                     <td><code class="font-monospace bg-light text-dark border px-2 py-1 rounded small">{{ item.COD_Producto }}</code></td>
                                     <td><strong class="text-slate-800">{{ item.Producto }}</strong></td>
                                     <td class="text-center text-muted small">{{ item.Unidad_Medida }}</td>
-                                    <td class="text-end fw-bold text-danger font-monospace fs-6">{{ item.Cantidad|int }}</td>
+                                    <td class="text-end fw-bold text-danger font-monospace fs-6">{{ item.Cantidad | cantidad }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -102,7 +102,7 @@
                             <a href="{{ url_for('vendedor.vendedor_dashboard') }}" class="btn btn-light px-4 py-2.5 rounded-3 fw-bold border">
                                 <i class="fas fa-times me-1"></i> Cancelar
                             </a>
-                            <button type="submit" class="btn btn-danger px-4 py-2.5 rounded-3 fw-bold shadow-sm" onclick="return confirm('¿Está seguro de que desea liquidar la jornada? Esta acción devolverá todos los productos a la bodega y cerrará su sesión de ventas.');">
+                            <button type="submit" class="btn btn-danger px-4 py-2.5 rounded-3 fw-bold shadow-sm" onclick="event.preventDefault(); Swal.fire({title: '¿Está seguro de que desea liquidar la jornada? Esta acción devolverá todos los productos a la bodega y cerrará su sesión de ventas.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí', cancelButtonText: 'No'}).then((result) => { if (result.isConfirmed) { if (this.tagName === 'BUTTON' || this.tagName === 'INPUT') { const form = this.closest('form'); if (form) { form.submit(); } } else { window.location.href = this.href || this.closest('a').href; } } });">
                                 <i class="fas fa-check-circle me-1"></i> Confirmar Liquidación y Cierre
                             </button>
                         </div>

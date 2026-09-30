@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ticket de Venta #{{ ticket.id_factura }}</title>
-    
+
     <!-- FAVICON - Logo en la pestaña del navegador -->
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='ferdel.png') }}">
     <link rel="shortcut icon" type="image/png" href="{{ url_for('static', filename='ferdel.png') }}">
@@ -478,22 +478,12 @@
 
             <div class="info-row">
                 <span class="info-label">RUC/Cédula:</span>
-                <span class="info-value">{{ ticket.ruc_cliente }}</span>
-            </div>
-
-            <div class="info-row">
-                <span class="info-label">Teléfono:</span>
-                <span class="info-value">{{ ticket.cliente_detalles.telefono or 'N/A' }}</span>
+                <span class="info-value">{{ ticket.ruc_cliente or 'Consumidor Final' }}</span>
             </div>
 
             <div class="info-row">
                 <span class="info-label">Dirección:</span>
                 <span class="info-value">{{ ticket.cliente_detalles.direccion or 'N/A' }}</span>
-            </div>
-
-            <div class="info-row">
-                <span class="info-label">Perfil:</span>
-                <span class="info-value">{{ ticket.perfil_cliente if ticket.perfil_cliente else 'No definido' }}</span>
             </div>
 
             <div class="info-row">
@@ -517,12 +507,6 @@
             </div>
             {% endif %}
 
-            {% if ticket.observacion %}
-            <div class="info-row">
-                <span class="info-label">Observaciones:</span>
-                <span class="info-value">{{ ticket.observacion }}</span>
-            </div>
-            {% endif %}
         </section>
 
         <div class="divider"></div>
@@ -762,7 +746,7 @@
 
             const element = document.querySelector('.ticket-container');
             if (!element) {
-                alert("Error: No se encontró el contenedor del ticket.");
+                Swal.fire("Error: No se encontró el contenedor del ticket.", '', 'info');
                 if (btn) {
                     btn.disabled = false;
                     btn.innerHTML = originalText;
@@ -841,7 +825,7 @@
                 window.location.href = url;
             }).catch(err => {
                 console.error("Error al capturar ticket:", err);
-                alert("Error al generar imagen de ticket para Bluetooth: " + err.message);
+                Swal.fire("Error al generar imagen de ticket para Bluetooth: " + err.message, '', 'info');
                 if (btn) {
                     btn.disabled = false;
                     btn.innerHTML = originalText;

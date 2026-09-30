@@ -220,6 +220,29 @@ def api_procesar_abono():
                 monto_aplicar = min(monto_restante, saldo_total_cliente)
                 nuevo_saldo_cliente = saldo_total_cliente - monto_aplicar
                 
+                try:
+                    cursor.execute("""
+                        INSERT INTO abonos_detalle
+                        (ID_Movimiento_Caja, ID_Asignacion, ID_Usuario, ID_Cliente, 
+                         ID_CuentaCobrar, Monto_Aplicado, Saldo_Anterior, Saldo_Nuevo,
+                         ID_MetodoPago)
+                        VALUES (%s, %s, %s, %s, NULL, %s, %s, %s, %s)
+                    """, (
+                        id_movimiento_caja,
+                        asignacion['ID_Asignacion'],
+                        id_vendedor,
+                        int(id_cliente),
+                        monto_aplicar,
+                        saldo_total_cliente,
+                        nuevo_saldo_cliente,
+                        id_metodo_pago
+                    ))
+                    ultimo_id_abono = cursor.lastrowid
+                except Exception as e:
+                    print(f"❌ Error al insertar en abonos_detalle (saldo manual): {e}")
+                    if not ultimo_id_abono:
+                        ultimo_id_abono = id_movimiento_caja if id_movimiento_caja else 0
+                
                 detalle_abono.append({
                     'factura': 'Saldo Inicial/Manual',
                     'monto': monto_aplicar,

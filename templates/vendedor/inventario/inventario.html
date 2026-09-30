@@ -156,7 +156,7 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <h6 class="mb-0 small">Unidades</h6>
-                            <h4 class="mt-1 mt-md-2 mb-0 h5 h4-md">{{ "%.2f"|format(totales.total_unidades) }}</h4>
+                            <h4 class="mt-1 mt-md-2 mb-0 h5 h4-md">{{ totales.total_unidades | cantidad }}</h4>
                         </div>
                         <i class="fas fa-cubes fa-2x fa-md-3x opacity-50"></i>
                     </div>
@@ -169,7 +169,7 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <h6 class="mb-0 small">Valor Total</h6>
-                            <h4 class="mt-1 mt-md-2 mb-0 h5 h4-md">C${{ "%.2f"|format(totales.total_valor) }}</h4>
+                            <h4 class="mt-1 mt-md-2 mb-0 h5 h4-md">C${{ totales.total_valor | cantidad }}</h4>
                         </div>
                         <i class="fas fa-dollar-sign fa-2x fa-md-3x opacity-50"></i>
                     </div>
@@ -182,7 +182,7 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <h6 class="mb-0 small">Vendido Hoy</h6>
-                            <h4 class="mt-1 mt-md-2 mb-0 h5 h4-md">C${{ "%.2f"|format(totales.vendido_hoy) }}</h4>
+                            <h4 class="mt-1 mt-md-2 mb-0 h5 h4-md">C${{ totales.vendido_hoy | cantidad }}</h4>
                             <small class="d-none d-md-block">{{ totales.ventas_hoy }} ventas</small>
                         </div>
                         <i class="fas fa-chart-line fa-2x fa-md-3x opacity-50"></i>
@@ -223,14 +223,14 @@
                                 <small class="text-muted">Cód: {{ item.COD_Producto }}</small>
                             </div>
                             <span class="badge bg-primary">
-                                {{ "%.2f"|format(item.Cantidad) }} {{ item.Unidad_Abrev or 'UN' }}
+                                {{ item.Cantidad | cantidad }} {{ item.Unidad_Abrev or 'UN' }}
                             </span>
                         </div>
                         
                         <div class="row g-2 mb-2">
                             <div class="col-6">
                                 <small class="text-muted d-block">Precio</small>
-                                <span class="fw-bold">C${{ "%.2f"|format(item.Precio_Venta) }}</span>
+                                <span class="fw-bold">C${{ item.Precio_Venta | cantidad }}</span>
                             </div>
                             <div class="col-6">
                                 <small class="text-muted d-block">Categoría</small>
@@ -281,10 +281,10 @@
                             </td>
                             <td>{{ item.COD_Producto }}</td>
                             <td class="d-none d-lg-table-cell">{{ item.Categoria|truncate(15) or 'N/A' }}</td>
-                            <td class="text-end fw-bold">C${{ "%.2f"|format(item.Precio_Venta) }}</td>
+                            <td class="text-end fw-bold">C${{ item.Precio_Venta | cantidad }}</td>
                             <td class="text-center">
                                 <span class="badge bg-primary p-2">
-                                    {{ "%.2f"|format(item.Cantidad) }}
+                                    {{ item.Cantidad | cantidad }}
                                 </span>
                             </td>
                             <td class="d-none d-lg-table-cell text-center">{{ item.Unidad_Abrev or 'UN' }}</td>
@@ -404,12 +404,12 @@ function refrescarInventario() {
         if (data.success) {
             location.reload();
         } else {
-            alert('Error: ' + data.message);
+            Swal.fire('Error: ' + data.message, '', 'info');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Error al refrescar el inventario');
+        Swal.fire('Error al refrescar el inventario', '', 'info');
     });
 }
 

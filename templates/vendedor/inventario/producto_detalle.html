@@ -70,7 +70,7 @@
                             <div class="col-6">
                                 <div class="bg-light p-2 rounded">
                                     <small class="text-muted d-block">Precio Venta</small>
-                                    <strong class="small text-success">C${{ "%.2f"|format(producto.Precio_Venta) }}</strong>
+                                    <strong class="small text-success">C${{ producto.Precio_Venta | cantidad }}</strong>
                                 </div>
                             </div>
                         </div>
@@ -96,7 +96,7 @@
                         </tr>
                         <tr>
                             <td class="text-muted">Precio Venta:</td>
-                            <td class="fw-bold text-success">C${{ "%.2f"|format(producto.Precio_Venta) }}</td>
+                            <td class="fw-bold text-success">C${{ producto.Precio_Venta | cantidad }}</td>
                         </tr>
                     </table>
                 </div>
@@ -115,7 +115,7 @@
                 <div class="card-body p-2 p-md-3 text-center">
                     <div class="my-2 my-md-4">
                         <span class="h1 h1-md display-4 fw-bold {% if producto.Stock_Actual|float <= producto.Stock_Minimo|float %}text-danger{% else %}text-success{% endif %}">
-                            {{ "%.2f"|format(producto.Stock_Actual) }}
+                            {{ producto.Stock_Actual | cantidad }}
                         </span>
                         <span class="h6 text-muted">{{ producto.Unidad_Abrev or 'UN' }}</span>
                     </div>
@@ -125,7 +125,7 @@
                         {% set porcentaje = (producto.Stock_Actual / producto.Stock_Minimo * 100) if producto.Stock_Minimo > 0 else 100 %}
                         <div class="progress-bar {% if porcentaje <= 100 %}bg-danger{% else %}bg-success{% endif %}" 
                              style="width: {{ porcentaje if porcentaje <= 100 else 100 }}%">
-                            <span class="d-none d-md-inline">{{ "%.0f"|format(porcentaje) }}%</span>
+                            <span class="d-none d-md-inline">{{ porcentaje | cantidad }}%</span>
                         </div>
                     </div>
                     
@@ -135,7 +135,7 @@
                             <div class="col-6">
                                 <div class="bg-light p-1 rounded">
                                     <small class="text-muted d-block">Stock Mínimo</small>
-                                    <strong>{{ "%.2f"|format(producto.Stock_Minimo) }}</strong>
+                                    <strong>{{ producto.Stock_Minimo | cantidad }}</strong>
                                 </div>
                             </div>
                             <div class="col-6">
@@ -151,7 +151,7 @@
                     <table class="table table-sm table-borderless d-none d-md-table">
                         <tr>
                             <td class="text-muted">Stock Mínimo:</td>
-                            <td class="text-end">{{ "%.2f"|format(producto.Stock_Minimo) }}</td>
+                            <td class="text-end">{{ producto.Stock_Minimo | cantidad }}</td>
                         </tr>
                         <tr>
                             <td class="text-muted">Última Actualización:</td>
@@ -210,7 +210,7 @@
                                 </span>
                                 <small class="text-muted d-block">{{ mov.Fecha_Movimiento.strftime('%d/%m/%Y %H:%M') }}</small>
                             </div>
-                            <span class="badge bg-dark">{{ "%.2f"|format(mov.Cantidad) }}</span>
+                            <span class="badge bg-dark">{{ mov.Cantidad | cantidad }}</span>
                         </div>
                         
                         <div class="row g-1">
@@ -220,11 +220,11 @@
                             </div>
                             <div class="col-3">
                                 <small class="text-muted d-block">Precio</small>
-                                <span class="small">C${{ "%.2f"|format(mov.Precio_Unitario) }}</span>
+                                <span class="small">C${{ mov.Precio_Unitario | cantidad }}</span>
                             </div>
                             <div class="col-3">
                                 <small class="text-muted d-block">Subtotal</small>
-                                <span class="small fw-bold">C${{ "%.2f"|format(mov.Subtotal) }}</span>
+                                <span class="small fw-bold">C${{ mov.Subtotal | cantidad }}</span>
                             </div>
                         </div>
                     </div>
@@ -256,10 +256,10 @@
                             </td>
                             <td class="small">{{ mov.Documento_Numero or 'N/A' }}</td>
                             <td class="text-center">
-                                <span class="badge bg-dark">{{ "%.2f"|format(mov.Cantidad) }}</span>
+                                <span class="badge bg-dark">{{ mov.Cantidad | cantidad }}</span>
                             </td>
-                            <td class="text-end">C${{ "%.2f"|format(mov.Precio_Unitario) }}</td>
-                            <td class="text-end fw-bold">C${{ "%.2f"|format(mov.Subtotal) }}</td>
+                            <td class="text-end">C${{ mov.Precio_Unitario | cantidad }}</td>
+                            <td class="text-end fw-bold">C${{ mov.Subtotal | cantidad }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>

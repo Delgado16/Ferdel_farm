@@ -64,7 +64,8 @@ def admin_detalle_inventario_bodega(id_bodega):
                     p.Descripcion,
                     p.Stock_Minimo,
                     p.Precio_Mercado,
-                    ib.Existencias
+                    ib.Existencias,
+                    p.Unidad_Medida
                 FROM inventario_bodega ib
                 INNER JOIN productos p ON ib.ID_Producto = p.ID_Producto
                 WHERE ib.ID_Bodega = %s 
@@ -73,12 +74,52 @@ def admin_detalle_inventario_bodega(id_bodega):
                 ORDER BY p.COD_Producto ASC
             """, (id_bodega,))
             
-            inventario = cursor.fetchall()
+            inventario_raw = cursor.fetchall()
+            
+            inventario = []
+            for item in inventario_raw:
+                if isinstance(item, dict):
+                    # Make a copy to avoid mutating a potentially immutable row object
+                    new_item = dict(item)
+                    es_caja = new_item.get('Unidad_Medida') == 1
+                    existencias_raw = float(new_item.get('Existencias', 0))
+                    
+                    if es_caja:
+                        cajillas = int(existencias_raw)
+                        unidades = int(round((existencias_raw - cajillas) * 100))
+                        existencias_str = f"{cajillas}.{unidades:02d}"
+                    else:
+                        existencias_str = f"{existencias_raw:g}"
+                        
+                    new_item['Existencias_Display'] = existencias_str
+                    new_item['Existencias'] = existencias_raw
+                    inventario.append(new_item)
+                else:
+                    es_caja = item[6] == 1 if len(item) > 6 else False
+                    existencias_raw = float(item[5]) if len(item) > 5 else 0
+                    
+                    if es_caja:
+                        cajillas = int(existencias_raw)
+                        unidades = int(round((existencias_raw - cajillas) * 100))
+                        existencias_str = f"{cajillas}.{unidades:02d}"
+                    else:
+                        existencias_str = f"{existencias_raw:g}"
+                        
+                    inv_item = {
+                        'ID_Producto': item[0],
+                        'COD_Producto': item[1],
+                        'Descripcion': item[2],
+                        'Stock_Minimo': item[3],
+                        'Precio_Mercado': item[4],
+                        'Existencias': existencias_raw,
+                        'Existencias_Display': existencias_str
+                    }
+                    inventario.append(inv_item)
             
             # Calcular estadísticas
             total_productos = len(inventario)
-            total_unidades = sum(item['Existencias'] for item in inventario) if inventario else 0
-            valor_total = sum(item['Existencias'] * (item['Precio_Mercado'] or 0) for item in inventario) if inventario else 0
+            total_unidades = sum(float(item['Existencias']) for item in inventario) if inventario else 0
+            valor_total = sum(float(item['Existencias']) * float(item['Precio_Mercado'] or 0) for item in inventario) if inventario else 0
             
             return render_template('admin/bodega/detalle_inventario.html',
                                  bodega=bodega,

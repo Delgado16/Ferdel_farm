@@ -365,7 +365,7 @@ function agregarProductoSeleccionado(producto) {
         .find(input => input.value == producto.ID_Producto);
     
     if (existente) {
-        alert(`El producto "${producto.Descripcion}" ya está en la lista`);
+        Swal.fire(`El producto "${producto.Descripcion}" ya está en la lista`, '', 'info');
         return;
     }
     
@@ -480,12 +480,12 @@ function agregarProductoSeleccionado(producto) {
 
 function mostrarSelectorProducto() {
     if (!productosDisponibles || productosDisponibles.length === 0) {
-        alert('⚠️ No hay productos disponibles. Primero seleccione una bodega con stock.');
+        Swal.fire('⚠️ No hay productos disponibles. Primero seleccione una bodega con stock.', '', 'info');
         return;
     }
     
     if (!getTipoMovimiento()) {
-        alert('⚠️ Primero debe seleccionar un tipo de movimiento');
+        Swal.fire('⚠️ Primero debe seleccionar un tipo de movimiento', '', 'info');
         return;
     }
     
@@ -498,7 +498,7 @@ function mostrarSelectorProducto() {
         }, 1200);
     }
     
-    alert(`📦 Haga clic en un producto de la lista de stock disponible (derecha) para agregarlo.`);
+    Swal.fire(`📦 Haga clic en un producto de la lista de stock disponible (derecha, '', 'info') para agregarlo.`);
 }
 
 function cargarProductosBodega() {
@@ -575,13 +575,13 @@ function renderizarProductosBodega(listaProductos) {
         item.onclick = (e) => {
             e.preventDefault();
             if (!getTipoMovimiento()) {
-                alert('⚠️ Seleccione el tipo de movimiento antes de agregar productos.');
+                Swal.fire('⚠️ Seleccione el tipo de movimiento antes de agregar productos.', '', 'info');
                 return;
             }
             const existente = Array.from(document.querySelectorAll('.id-producto'))
                 .find(input => input.value == p.ID_Producto);
             if (existente) {
-                alert(`El producto "${p.Descripcion}" ya está en la lista`);
+                Swal.fire(`El producto "${p.Descripcion}" ya está en la lista`, '', 'info');
                 return;
             }
             agregarProductoSeleccionado(p);
@@ -631,7 +631,7 @@ function recalcularCantidadCajilla(index) {
         total = Math.round(total * 100) / 100;
         
         if (total > maxStock) {
-            alert(`La cantidad total (${total}) excede el stock disponible (${maxStock.toFixed(2)})`);
+            Swal.fire(`La cantidad total (${total}, '', 'info') excede el stock disponible (${maxStock.toFixed(2)})`);
             inputCajillas.value = Math.floor(maxStock);
             inputUnidades.value = Math.round((maxStock - Math.floor(maxStock)) * 30);
             total = maxStock;
@@ -803,7 +803,7 @@ document.getElementById('formSalida').addEventListener('submit', function(e) {
     const productosData = JSON.parse(document.getElementById('productos-json').value || '[]');
     if (productosData.length === 0) {
         e.preventDefault();
-        alert('Debe agregar al menos un producto');
+        Swal.fire('Debe agregar al menos un producto', '', 'info');
         return false;
     }
     
@@ -821,7 +821,7 @@ document.getElementById('formSalida').addEventListener('submit', function(e) {
     
     if (stockExcedido) {
         e.preventDefault();
-        alert('Error: Algunos productos exceden la cantidad disponible en bodega.');
+        Swal.fire('Error: Algunos productos exceden la cantidad disponible en bodega.', '', 'info');
         return false;
     }
     

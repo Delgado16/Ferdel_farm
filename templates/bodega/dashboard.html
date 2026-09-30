@@ -515,7 +515,7 @@ body {
                                                 {% endif %}
                                             </td>
                                             <td class="text-end font-monospace fw-bold fs-6 {% if mov.Tipo == 'ENTRADA' %}text-success{% else %}text-danger{% endif %}">
-                                                {% if mov.Tipo == 'ENTRADA' %}+{% else %}-{% endif %}{{ "%.2f"|format(mov.Cantidad|float) }}
+                                                {% if mov.Tipo == 'ENTRADA' %}+{% else %}-{% endif %}{{ mov.Cantidad|float | cantidad }}
                                             </td>
                                         </tr>
                                         {% endfor %}
@@ -548,8 +548,8 @@ body {
                                         <tr>
                                             <td><div class="fw-bold text-dark">{{ prod.Producto }}</div></td>
                                             <td><span class="text-muted">{{ prod.Bodega }}</span></td>
-                                            <td><span class="badge bg-primary bg-opacity-10 text-primary badge-modern border border-primary border-opacity-25">{{ "%.2f"|format(prod.Existencias|float) }}</span></td>
-                                            <td><span class="badge bg-warning text-dark badge-modern fw-bold">{{ "%.1f"|format((prod.Existencias / prod.Promedio_Diario)|float) }} días</span></td>
+                                            <td><span class="badge bg-primary bg-opacity-10 text-primary badge-modern border border-primary border-opacity-25">{{ prod.Existencias|float | cantidad }}</span></td>
+                                            <td><span class="badge bg-warning text-dark badge-modern fw-bold">{{ (prod.Existencias / prod.Promedio_Diario)|float | cantidad }} días</span></td>
                                         </tr>
                                         {% endfor %}
                                         {% else %}
@@ -582,7 +582,7 @@ body {
                                             <td><div class="fw-bold font-monospace text-muted">{{ prod.COD_Producto }}</div></td>
                                             <td><div class="fw-bold text-dark">{{ prod.Producto }}</div></td>
                                             <td><span class="text-muted">{{ prod.Bodega }}</span></td>
-                                            <td><span class="badge bg-danger bg-opacity-10 text-danger badge-modern border border-danger border-opacity-25">{{ "%.2f"|format(prod.Existencias|float) }}</span></td>
+                                            <td><span class="badge bg-danger bg-opacity-10 text-danger badge-modern border border-danger border-opacity-25">{{ prod.Existencias|float | cantidad }}</span></td>
                                         </tr>
                                         {% endfor %}
                                         {% else %}
@@ -619,7 +619,7 @@ body {
                                             <td><div class="fw-bold text-dark">{{ mov.Producto }}</div></td>
                                             <td><span class="badge bg-secondary bg-opacity-10 text-secondary badge-modern border border-secondary border-opacity-25">{{ mov.Tipo_Ajuste }}</span></td>
                                             <td class="text-end font-monospace fw-bold fs-6 {% if mov.Adicion == 'SUMA' or mov.Adicion == '+' %}text-success{% else %}text-danger{% endif %}">
-                                                {% if mov.Adicion == 'SUMA' or mov.Adicion == '+' %}+{% else %}-{% endif %}{{ "%.2f"|format(mov.Cantidad|float) }}
+                                                {% if mov.Adicion == 'SUMA' or mov.Adicion == '+' %}+{% else %}-{% endif %}{{ mov.Cantidad|float | cantidad }}
                                             </td>
                                         </tr>
                                         {% endfor %}
@@ -661,9 +661,9 @@ body {
                                     </div>
                                     <div class="text-end ms-2">
                                         <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill px-2 py-1 fs-7 mb-1 d-block">
-                                            {{ "%.0f"|format(ruta.Unidades_Totales|float) }} un.
+                                            {{ ruta.Unidades_Totales|float | cantidad }} un.
                                         </span>
-                                        <small class="text-success fw-bold">C$ {{ "%.2f"|format(ruta.Valor_Total|float) }}</small>
+                                        <small class="text-success fw-bold">C$ {{ ruta.Valor_Total|float | cantidad }}</small>
                                     </div>
                                 </div>
                             </div>
@@ -700,7 +700,7 @@ body {
                                 </div>
                                 <div>
                                     <h6 class="mb-0 fw-bold text-dark">{{ op.NombreUsuario }}</h6>
-                                    <small class="text-muted">{{ "%.2f"|format(op.Volumen_Procesado|float) }} un. movidas</small>
+                                    <small class="text-muted">{{ op.Volumen_Procesado|float | cantidad }} un. movidas</small>
                                 </div>
                             </div>
                             <span class="badge bg-success bg-opacity-10 text-success badge-modern">{{ op.Total_Movimientos }} trx</span>
@@ -740,7 +740,7 @@ body {
                                         </div>
                                         <div class="text-muted small mt-1">
                                             <i class="fas fa-warehouse me-1 text-primary opacity-50"></i>{{ prod.Bodega }}
-                                            <span class="text-secondary ms-1">• Mín: <strong class="text-dark">{{ "%.2f"|format(prod.Stock_Minimo|float) }}</strong> {{ prod.Unidad }}</span>
+                                            <span class="text-secondary ms-1">• Mín: <strong class="text-dark">{{ prod.Stock_Minimo|float | cantidad }}</strong> {{ prod.Unidad }}</span>
                                         </div>
                                         {% if prod.Bodegas_Detalle and ' | ' in prod.Bodegas_Detalle %}
                                         <div class="text-muted mt-1" style="font-size: 0.75rem;">
@@ -1205,11 +1205,11 @@ function abrirKardexModal(productoId, productoNombre) {
                         </tr>`;
                     }).join('') : `<tr><td colspan="4" class="text-center text-muted py-4 bg-light rounded-3">Sin movimientos registrados recientemente.</td></tr>`;
             } else {
-                alert(data.message || 'Error al cargar los datos.');
+                Swal.fire(data.message || 'Error al cargar los datos.', '', 'info');
             }
         }).catch(err => {
             document.getElementById('modalKardexLoading').style.display = 'none';
-            alert('Error al consultar kardex');
+            Swal.fire('Error al consultar kardex', '', 'info');
         });
 }
 </script>

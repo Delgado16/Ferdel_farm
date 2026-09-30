@@ -551,12 +551,12 @@
                                     <span class="badge badge-secondary">{{ p.COD_Producto }}</span>
                                 </td>
                                 <td class="align-middle">
-                                    <span class="badge badge-info">C${{ "%.2f"|format(p.Precio_Venta) }}</span>
+                                    <span class="badge badge-info">C${{ p.Precio_Venta | cantidad }}</span>
                                 </td>
                                 <td class="align-middle">
                                     <span class="badge badge-primary stock-badge" id="stock-{{ p.ID_Producto }}" 
                                           style="font-size: 0.85rem;">
-                                        {{ "%.2f"|format(p.Cantidad_Total) }}
+                                        {{ p.Cantidad_Total | cantidad }}
                                     </span>
                                 </td>
                                 
@@ -585,7 +585,7 @@
                                         0.00
                                     </span>
                                     <br>
-                                    <small class="text-muted">/ {{ "%.2f"|format(p.Cantidad_Total) }}</small>
+                                    <small class="text-muted">/ {{ p.Cantidad_Total | cantidad }}</small>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -776,7 +776,7 @@ function distribuirTodo() {
     const totalVendedores = {{ vendedores|length }};
     
     if (totalVendedores === 0) {
-        alert('No hay vendedores disponibles');
+        Swal.fire('No hay vendedores disponibles', '', 'info');
         return;
     }
     
@@ -869,7 +869,7 @@ function verificarStock() {
     }
     
     if (mensaje) {
-        alert(mensaje);
+        Swal.fire(mensaje, '', 'info');
     } else {
         showToast('success', 'Verificación completada', '✅ Todo correcto! El stock está completamente distribuido.');
     }
@@ -926,13 +926,13 @@ document.getElementById('formDistribucion').addEventListener('submit', function(
     
     if (errores.length > 0) {
         e.preventDefault();
-        alert('❌ Errores encontrados:\n' + errores.join('\n'));
+        Swal.fire('❌ Errores encontrados:\n' + errores.join('\n', '', 'info'));
         return;
     }
     
     if (!hayAsignacion) {
         e.preventDefault();
-        alert('⚠️ Debe asignar al menos un producto a algún vendedor');
+        Swal.fire('⚠️ Debe asignar al menos un producto a algún vendedor', '', 'info');
         return;
     }
     

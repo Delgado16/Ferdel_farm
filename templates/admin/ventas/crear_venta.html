@@ -798,7 +798,9 @@
         </h1>
     </div>
 
-    <div class="card border-0 shadow-sm">
+    
+<div class="card border-0 shadow-sm">
+
         <div class="card-body p-4">
 
             {% if bodega_principal %}
@@ -856,13 +858,11 @@
                                             {% set saldo_favor = cliente.Saldo_Anticipos|float %}
                                             {% if saldo_favor > 0 %}
                                             <span class="text-success me-2" title="Saldo a Favor (Anticipo)"><i
-                                                    class="bi bi-piggy-bank me-1"></i>C$ {{ "%.2f"|format(saldo_favor)
-                                                }}</span>
+                                                    class="bi bi-piggy-bank me-1"></i>C$ {{ saldo_favor | cantidad }}</span>
                                             {% endif %}
                                             {% if saldo_deuda > 0 %}
                                             <span class="text-danger" title="Saldo Pendiente (Deuda)"><i
-                                                    class="bi bi-graph-up me-1"></i>C$ {{ "%.2f"|format(saldo_deuda)
-                                                }}</span>
+                                                    class="bi bi-graph-up me-1"></i>C$ {{ saldo_deuda | cantidad }}</span>
                                             {% endif %}
                                             {% if saldo_favor <= 0 and saldo_deuda <=0 %} <span class="text-muted">C$
                                                 0.00</span>
@@ -924,6 +924,20 @@
 
                         <input type="hidden" id="id_bodega" name="id_bodega"
                             value="{{ bodega_principal.ID_Bodega if bodega_principal else 1 }}">
+                        
+                        <div class="col-md-12 mt-3">
+                            <label class="form-label">Filtrar Bodegas (Opcional)</label>
+                            <div class="d-flex flex-wrap gap-2">
+                                {% for bodega in todas_bodegas %}
+                                <div class="form-check">
+                                    <input class="form-check-input filtro-bodega-cb" type="checkbox" value="{{ bodega.ID_Bodega }}" id="bodega_{{ bodega.ID_Bodega }}" checked>
+                                    <label class="form-check-label" for="bodega_{{ bodega.ID_Bodega }}">
+                                        {{ bodega.Nombre }}
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
 
                         <div class="col-md-8" style="display: none;">
                             <label for="filtro_categoria" class="form-label">Filtrar Productos por Categoría</label>
@@ -2007,6 +2021,21 @@
 
             if (data.success && data.productos) {
                 productosFiltradosPorCliente = data.productos;
+                
+                // Actualizar checkboxes de bodegas automáticamente
+                const bodegasPermitidas = new Set(data.productos.map(p => String(p.ID_Bodega || '1')));
+                document.querySelectorAll('.filtro-bodega-cb').forEach(cb => {
+                    if (bodegasPermitidas.has(cb.value)) {
+                        cb.checked = true;
+                        cb.disabled = false;
+                        cb.closest('.form-check').style.opacity = '1';
+                    } else {
+                        cb.checked = false;
+                        cb.disabled = true;
+                        cb.closest('.form-check').style.opacity = '0.5';
+                    }
+                });
+                
             } else {
                 throw new Error(data.error || 'Error al cargar productos');
             }
@@ -2018,6 +2047,14 @@
                 const response = await fetch('/admin/ventas/todos-productos');
                 const data = await response.json();
                 productosFiltradosPorCliente = Array.isArray(data) ? data : (data.productos || []);
+                
+                // Habilitar todas las bodegas en caso de fallback
+                document.querySelectorAll('.filtro-bodega-cb').forEach(cb => {
+                    cb.checked = true;
+                    cb.disabled = false;
+                    cb.closest('.form-check').style.opacity = '1';
+                });
+                
                 actualizarTodosLosSelectsProductosConPerfil();
                 actualizarPreciosProductosPorPerfil();
             } catch (e) {
@@ -2050,6 +2087,14 @@
             productosAMostrar = productosAMostrar.filter(p => (p.ID_Categoria || p.id_categoria) == filtroCategoriaActual);
         }
 
+        // Aplicar filtro de bodegas seleccionadas
+        const bodegasSeleccionadas = Array.from(document.querySelectorAll('.filtro-bodega-cb:checked')).map(cb => cb.value);
+        if (bodegasSeleccionadas.length > 0) {
+            productosAMostrar = productosAMostrar.filter(p => bodegasSeleccionadas.includes(String(p.ID_Bodega || '1')));
+        } else {
+            productosAMostrar = []; // Si no hay ninguna bodega seleccionada, no mostrar nada
+        }
+
         if (productosAMostrar.length === 0) {
             const opcion = document.createElement('option');
             opcion.value = ""; opcion.disabled = true; opcion.selected = true;
@@ -2066,28 +2111,37 @@
         opcionDefault.textContent = "Seleccionar producto...";
         select.appendChild(opcionDefault);
 
-        const productosPorCategoria = {};
+        const productosPorBodega = {};
         productosAMostrar.forEach(producto => {
-            const categoria = producto.Categoria || producto.categoria || 'Sin categoría';
-            if (!productosPorCategoria[categoria]) productosPorCategoria[categoria] = [];
-            productosPorCategoria[categoria].push(producto);
+            const bodega = producto.BodegaNombre || 'Sin bodega';
+            if (!productosPorBodega[bodega]) productosPorBodega[bodega] = [];
+            productosPorBodega[bodega].push(producto);
         });
 
-        Object.keys(productosPorCategoria).sort().forEach(categoria => {
+        Object.keys(productosPorBodega).sort().forEach(bodega => {
             const optgroup = document.createElement('optgroup');
-            optgroup.label = categoria;
-            productosPorCategoria[categoria]
+            optgroup.label = bodega;
+            productosPorBodega[bodega]
                 .sort((a, b) => (a.Descripcion || '').localeCompare(b.Descripcion || ''))
                 .forEach(producto => {
                     const option = document.createElement('option');
                     const precioPerfil = obtenerPrecioPorPerfil(producto, perfilClienteActual);
                     const prodId = producto.ID_Producto || producto.id;
-                    option.value = prodId;
-                    option.textContent = `${producto.Descripcion || 'Sin descripción'} (${producto.COD_Producto || 'S/C'}) - Stock: ${producto.Existencias || 0}`;
+                    const bodegaId = producto.ID_Bodega || '1';
+                    const optionValue = `${prodId}_${bodegaId}`;
+                    option.value = optionValue;
+                    
+                    let text = `${producto.Descripcion || 'Sin descripción'} (${producto.COD_Producto || 'S/C'})`;
+                    text += ` - Stock: ${producto.Existencias || 0}`;
+                    
+                    option.textContent = text;
                     option.dataset.precio = precioPerfil;
                     option.dataset.existencia = producto.Existencias || 0;
                     option.dataset.categoria = producto.ID_Categoria || '';
-                    if (valorGuardado && valorGuardado == prodId) {
+                    option.dataset.productoId = prodId;
+                    option.dataset.bodegaId = bodegaId;
+                    
+                    if (valorGuardado && valorGuardado == optionValue) {
                         option.selected = true;
                     }
                     optgroup.appendChild(option);
@@ -2109,15 +2163,24 @@
         });
     }
 
-    async function obtenerStockActual(idProducto) {
+    async function obtenerStockActual(selectValue) {
         try {
-            const response = await fetch(`/admin/ventas/verificar-stock/${idProducto}`);
+            if (!selectValue) return { local: 0, total: 0 };
+            const partes = String(selectValue).split('_');
+            const idProducto = partes[0];
+            const idBodega = partes.length > 1 ? partes[1] : '';
+            const url = `/admin/ventas/verificar-stock/${idProducto}` + (idBodega ? `?bodega_id=${idBodega}` : '');
+            
+            const response = await fetch(url);
             if (!response.ok) throw new Error('Error al verificar stock');
             const data = await response.json();
-            return data.success ? data.existencias : 0;
+            return data.success ? { 
+                local: parseFloat(data.existencias) || 0, 
+                total: parseFloat(data.existencias_totales) || parseFloat(data.existencias) || 0 
+            } : { local: 0, total: 0 };
         } catch (error) {
             console.error('Error verificando stock:', error);
-            return 0;
+            return { local: 0, total: 0 };
         }
     }
 
@@ -2168,27 +2231,34 @@
             return;
         }
 
-        const productosPorCategoria = {};
+        const productosPorBodega = {};
         productosDeCategoria.forEach(producto => {
-            const categoria = producto.Categoria || producto.categoria || 'Sin categoría';
-            if (!productosPorCategoria[categoria]) productosPorCategoria[categoria] = [];
-            productosPorCategoria[categoria].push(producto);
+            const bodega = producto.BodegaNombre || 'Sin bodega';
+            if (!productosPorBodega[bodega]) productosPorBodega[bodega] = [];
+            productosPorBodega[bodega].push(producto);
         });
 
-        Object.keys(productosPorCategoria).sort().forEach(categoria => {
+        Object.keys(productosPorBodega).sort().forEach(bodega => {
             const optgroup = document.createElement('optgroup');
-            optgroup.label = categoria;
-            productosPorCategoria[categoria]
+            optgroup.label = bodega;
+            productosPorBodega[bodega]
                 .sort((a, b) => (a.Descripcion || '').localeCompare(b.Descripcion || ''))
                 .forEach(producto => {
                     const option = document.createElement('option');
                     const precioPerfil = obtenerPrecioPorPerfil(producto, perfilClienteActual);
                     const prodId = producto.ID_Producto || producto.id;
-                    option.value = prodId;
-                    option.textContent = `${producto.Descripcion || 'Sin descripción'} (${producto.COD_Producto || 'S/C'}) - Stock: ${producto.Existencias || 0}`;
+                    const bodegaId = producto.ID_Bodega || '1';
+                    option.value = `${prodId}_${bodegaId}`;
+                    
+                    let text = `${producto.Descripcion || 'Sin descripción'} (${producto.COD_Producto || 'S/C'})`;
+                    text += ` - Stock: ${producto.Existencias || 0}`;
+                    
+                    option.textContent = text;
                     option.dataset.precio = precioPerfil;
                     option.dataset.existencia = producto.Existencias || 0;
                     option.dataset.categoria = producto.ID_Categoria || '';
+                    option.dataset.productoId = prodId;
+                    option.dataset.bodegaId = bodegaId;
                     optgroup.appendChild(option);
                 });
             prodSelect.appendChild(optgroup);
@@ -2288,7 +2358,7 @@
                     <label class="form-label">Subtotal</label>
                     <div class="input-group">
                         <span class="input-group-text">C$</span>
-                        <input type="text" class="form-control subtotal" value="0.00" readonly style="background: #f8f9fa;">
+                        <input type="text" class="form-control subtotal" value="0.00" readonly style="background: #eef2f5;">
                     </div>
                 </div>
             </div>
@@ -2350,7 +2420,7 @@
                     <label class="form-label">Subtotal</label>
                     <div class="input-group">
                         <span class="input-group-text">C$</span>
-                        <input type="text" class="form-control subtotal" value="0.00" readonly style="background: #f8f9fa;">
+                        <input type="text" class="form-control subtotal" value="0.00" readonly style="background: #eef2f5;">
                     </div>
                 </div>
             </div>
@@ -2396,14 +2466,14 @@
                     <label class="form-label">Precio</label>
                     <div class="input-group">
                         <span class="input-group-text">C$</span>
-                        <input type="number" class="form-control precio" name="precio[]" value="0.00" readonly style="background: #f8f9fa;">
+                        <input type="number" class="form-control precio" name="precio[]" value="0.00" readonly style="background: #eef2f5;">
                     </div>
                 </div>
                 <div>
                     <label class="form-label">Subtotal</label>
                     <div class="input-group">
                         <span class="input-group-text">C$</span>
-                        <input type="text" class="form-control subtotal" value="0.00" readonly style="background: #f8f9fa;">
+                        <input type="text" class="form-control subtotal" value="0.00" readonly style="background: #eef2f5;">
                     </div>
                 </div>
             </div>
@@ -2441,15 +2511,22 @@
 
         if (select.value && select.selectedOptions[0] && select.selectedOptions[0].dataset) {
             const dataset = select.selectedOptions[0].dataset;
-            const stockActual = await obtenerStockActual(select.value);
+            const stockData = await obtenerStockActual(select.value);
+            const stockActual = stockData.local;
+            const stockTotal = stockData.total;
             const precioSugerido = esBonif ? 0.0 : (parseFloat(dataset.precio) || 0);
             const idCategoria = parseInt(dataset.categoria) || 0;
 
             actualizarLayoutCantidad(id, idCategoria);
 
-            let stockClass = 'stock-good', stockIcon = '✅', stockText = `Stock disponible: ${stockActual} unidades`;
-            if (stockActual <= 5) { stockClass = 'stock-danger'; stockIcon = '⚠️'; stockText = `¡Stock crítico! ${stockActual} unidades`; }
-            else if (stockActual <= 15) { stockClass = 'stock-low'; stockIcon = '📊'; stockText = `Stock bajo: ${stockActual} unidades`; }
+            let stockClass = 'stock-good', stockIcon = '✅';
+            let stockText = `Stock: ${stockActual} unidades`;
+            if (stockTotal > stockActual) {
+                stockText += ` <br><small class="text-muted">(Total disp: ${stockTotal} und - Se auto-completará si es necesario)</small>`;
+            }
+
+            if (stockActual <= 5) { stockClass = 'stock-danger'; stockIcon = '⚠️'; }
+            else if (stockActual <= 15) { stockClass = 'stock-low'; stockIcon = '📊'; }
 
             stockInfo.innerHTML = `<span class="${stockClass}">${stockIcon} ${stockText}</span>`;
             stockInfo.style.display = 'block';
@@ -2506,7 +2583,7 @@
             }
 
             const cantidadActual = parseFloat(cantidadInput?.value) || 0;
-            validarCantidadVsStock(cantidadInput, cantidadActual, stockActual, stockInfo);
+            validarCantidadVsStock(cantidadInput, cantidadActual, stockTotal, stockInfo);
             calcularSubtotal(id);
         } else {
             stockInfo.style.display = 'none';
@@ -2529,22 +2606,23 @@
         const sueltosInput = tarjeta.querySelector('.sueltos');
         const stockInfo = document.getElementById(`stock-info-${id}`);
         if (select && select.value && cantidadInput) {
-            const stockActual = await obtenerStockActual(select.value);
+            const stockData = await obtenerStockActual(select.value);
+            const stockTotal = stockData.total;
             const isHuevos = select.selectedOptions[0]?.dataset.categoria == '1';
             const cajillas = parseFloat(cantidadInput.value) || 0;
             const sueltos = parseFloat(sueltosInput?.value) || 0;
             const cantidadRequerida = isHuevos ? (cajillas + sueltos / 30.0) : cajillas;
-            validarCantidadVsStock(cantidadInput, cantidadRequerida, stockActual, stockInfo);
+            validarCantidadVsStock(cantidadInput, cantidadRequerida, stockTotal, stockInfo);
         }
     };
 
-    function validarCantidadVsStock(cantidadInput, cantidadRequerida, stockActual, stockInfo) {
+    function validarCantidadVsStock(cantidadInput, cantidadRequerida, stockTotal, stockInfo) {
         if (!cantidadInput) return;
-        if (cantidadRequerida > stockActual) {
+        if (cantidadRequerida > stockTotal) {
             cantidadInput.classList.add('is-invalid');
             if (stockInfo) {
                 const currentContent = stockInfo.innerHTML.split('<br>')[0];
-                stockInfo.innerHTML = currentContent + '<br><small class="text-danger">⚠️ Cantidad excede stock disponible</small>';
+                stockInfo.innerHTML = currentContent + '<br><small class="text-danger">⚠️ Cantidad excede el stock TOTAL disponible en todas las bodegas</small>';
             }
         } else {
             cantidadInput.classList.remove('is-invalid');
@@ -2568,9 +2646,14 @@
 
         let cantidad = 0;
         if (isHuevos) {
-            const cajillas = parseFloat(tarjeta.querySelector('.cantidad')?.value) || 0;
+            const raw_cajillas = parseFloat(tarjeta.querySelector('.cantidad')?.value) || 0;
             const sueltos = parseFloat(tarjeta.querySelector('.sueltos')?.value) || 0;
-            cantidad = cajillas + (sueltos / 30.0);
+            
+            let calc_cajillas = Math.floor(raw_cajillas);
+            // Handle decimal part appropriately as units / 30
+            let calc_unidades = Math.round((raw_cajillas - calc_cajillas) * 100);
+            
+            cantidad = calc_cajillas + (calc_unidades / 30.0) + (sueltos / 30.0);
         } else {
             cantidad = parseFloat(tarjeta.querySelector('.cantidad')?.value) || 0;
         }
@@ -3185,7 +3268,15 @@
             const sueltosVal = parseFloat(sueltos) || 0;
 
             if (select && select.value && (qtyVal > 0 || sueltosVal > 0)) {
-                formData.append('producto_id[]', select.value);
+                const partes = String(select.value).split('_');
+                const idProducto = partes[0];
+                const idBodega = partes.length > 1 ? partes[1] : '';
+                
+                formData.append('producto_id[]', idProducto);
+                if (idBodega) {
+                    formData.append('bodega_id[]', idBodega);
+                }
+                
                 formData.append('cantidad[]', qtyVal.toFixed(2));
                 formData.append('precio[]', (parseFloat(precio?.value) || 0).toFixed(2));
                 formData.append('es_extra[]', esExtra);
@@ -3394,6 +3485,20 @@
         cargarClientesEnMemoria();
         inicializarProductosBase();
         manejarCambioTipoVenta(document.getElementById('tipo_venta').value);
+        
+        // Agregar listener a checkboxes de bodega
+        document.querySelectorAll('.filtro-bodega-cb').forEach(cb => {
+            cb.addEventListener('change', () => {
+                actualizarTodosLosSelectsProductosConPerfil();
+            });
+        });
     });
-</script>
+
+    
+
+
+    
+
+
+    </script>
 {% endblock %}

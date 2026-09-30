@@ -104,7 +104,7 @@
                             <span class="text-muted text-uppercase fw-bold" style="font-size: 0.75rem;">Total Productos Activos</span>
                             <h3 class="fw-bold text-slate-800 mb-1 mt-1">{{ resumen.total_productos or 0 }}</h3>
                             <small class="text-primary fw-semibold">
-                                <i class="fas fa-cubes me-1"></i>{{ "%.1f"|format(resumen.total_unidades_inventario or 0) }} un. en stock
+                                <i class="fas fa-cubes me-1"></i>{{ resumen.total_unidades_inventario or 0 | cantidad }} un. en stock
                             </small>
                         </div>
                         <div class="bg-primary bg-opacity-10 text-primary p-3 rounded-circle">
@@ -122,9 +122,9 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <span class="text-muted text-uppercase fw-bold" style="font-size: 0.75rem;">Valor Comercial Inventario</span>
-                            <h3 class="fw-bold text-success mb-1 mt-1">C$ {{ "%.2f"|format(resumen.valor_inventario_venta or 0) }}</h3>
+                            <h3 class="fw-bold text-success mb-1 mt-1">C$ {{ resumen.valor_inventario_venta or 0 | cantidad }}</h3>
                             <small class="text-muted">
-                                Costo Base: C$ {{ "%.2f"|format(resumen.valor_inventario_costo or 0) }}
+                                Costo Base: C$ {{ resumen.valor_inventario_costo or 0 | cantidad }}
                             </small>
                         </div>
                         <div class="bg-success bg-opacity-10 text-success p-3 rounded-circle">
@@ -142,9 +142,9 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <span class="text-muted text-uppercase fw-bold" style="font-size: 0.75rem;">Ventas Período Seleccionado</span>
-                            <h3 class="fw-bold text-info mb-1 mt-1">C$ {{ "%.2f"|format(total_ingresos_periodo or 0) }}</h3>
+                            <h3 class="fw-bold text-info mb-1 mt-1">C$ {{ total_ingresos_periodo or 0 | cantidad }}</h3>
                             <small class="text-muted">
-                                <i class="fas fa-shipping-fast me-1"></i>{{ "%.1f"|format(total_unidades_vendidas_periodo or 0) }} un. comercializadas
+                                <i class="fas fa-shipping-fast me-1"></i>{{ total_unidades_vendidas_periodo or 0 | cantidad }} un. comercializadas
                             </small>
                         </div>
                         <div class="bg-info bg-opacity-10 text-info p-3 rounded-circle">
@@ -307,12 +307,12 @@
                                         <td><small class="text-muted font-monospace">{{ item.Bodega or 'Sin existencias' }}</small></td>
                                         <td class="text-center font-monospace">
                                             <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">
-                                                {{ "%.2f"|format(item.Stock_Actual or 0) }} {{ item.Unidad_Medida }}
+                                                {{ item.Stock_Actual or 0 | cantidad }} {{ item.Unidad_Medida }}
                                             </span>
                                         </td>
-                                        <td class="text-end font-monospace text-muted small">C$ {{ "%.2f"|format(item.Ultimo_Costo or 0) }}</td>
-                                        <td class="text-end font-monospace text-slate-800 fw-semibold">C$ {{ "%.2f"|format(item.Precio_Venta or 0) }}</td>
-                                        <td class="text-end font-monospace text-success fw-bold">C$ {{ "%.2f"|format(item.Valor_Total_Venta or 0) }}</td>
+                                        <td class="text-end font-monospace text-muted small">C$ {{ item.Ultimo_Costo or 0 | cantidad }}</td>
+                                        <td class="text-end font-monospace text-slate-800 fw-semibold">C$ {{ item.Precio_Venta or 0 | cantidad }}</td>
+                                        <td class="text-end font-monospace text-success fw-bold">C$ {{ item.Valor_Total_Venta or 0 | cantidad }}</td>
                                         <td class="text-center">
                                             {% if item.Estado_Stock == 'AGOTADO' %}
                                             <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">AGOTADO</span>
@@ -383,9 +383,9 @@
                                                 <td><strong class="text-slate-800">{{ item.Producto }}</strong></td>
                                                 <td><span class="badge bg-light text-dark border">{{ item.Categoria }}</span></td>
                                                 <td class="text-end font-monospace text-slate-800 fw-bold">
-                                                    {{ "%.2f"|format(item.Total_Vendido or 0) }} {{ item.Unidad_Medida }}
+                                                    {{ item.Total_Vendido or 0 | cantidad }} {{ item.Unidad_Medida }}
                                                 </td>
-                                                <td class="text-end font-monospace text-primary fw-bold">C$ {{ "%.2f"|format(item.Total_Ingresos or 0) }}</td>
+                                                <td class="text-end font-monospace text-primary fw-bold">C$ {{ item.Total_Ingresos or 0 | cantidad }}</td>
                                                 <td class="text-center font-monospace">
                                                     <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-2 py-1">
                                                         {{ item.Total_Ventas }} ventas
@@ -465,11 +465,11 @@
                                         <td><small class="text-muted font-monospace">{{ item.Bodega or 'Sin stock' }}</small></td>
                                         <td class="text-center font-monospace">
                                             <span class="badge {% if item.Stock_Actual == 0 %}bg-danger{% else %}bg-warning text-dark{% endif %} bg-opacity-10 border {% if item.Stock_Actual == 0 %}border-danger text-danger{% else %}border-warning{% endif %} rounded-pill px-2.5 py-1.5 fw-bold">
-                                                {{ "%.2f"|format(item.Stock_Actual or 0) }} {{ item.Unidad_Medida }}
+                                                {{ item.Stock_Actual or 0 | cantidad }} {{ item.Unidad_Medida }}
                                             </span>
                                         </td>
                                         <td class="text-center font-monospace text-muted">{{ item.Stock_Minimo }}</td>
-                                        <td class="text-center font-monospace text-danger fw-bold">+{{ "%.2f"|format(item.Faltante_Sugerido or 0) }}</td>
+                                        <td class="text-center font-monospace text-danger fw-bold">+{{ item.Faltante_Sugerido or 0 | cantidad }}</td>
                                         <td>
                                             {% set porcentaje = item.Porcentaje_Stock|float %}
                                             {% set ancho_barra = porcentaje if porcentaje <= 100 else 100 %}
@@ -480,7 +480,7 @@
                                                      aria-valuenow="{{ porcentaje }}" 
                                                      aria-valuemin="0" 
                                                      aria-valuemax="100">
-                                                    {{ "%.1f"|format(porcentaje) }}%
+                                                    {{ porcentaje | cantidad }}%
                                                 </div>
                                             </div>
                                         </td>
@@ -526,10 +526,10 @@
                         </div>
                         <div class="d-flex gap-2">
                             <span class="badge bg-success bg-opacity-10 text-success border border-success px-3 py-2 rounded-3 fw-bold">
-                                Total Contado: C$ {{ "%.2f"|format(total_contado_monto) }}
+                                Total Contado: C$ {{ total_contado_monto | cantidad }}
                             </span>
                             <span class="badge bg-info bg-opacity-10 text-info border border-info px-3 py-2 rounded-3 fw-bold">
-                                Total Crédito: C$ {{ "%.2f"|format(total_credito_monto) }}
+                                Total Crédito: C$ {{ total_credito_monto | cantidad }}
                             </span>
                         </div>
                     </div>
@@ -564,9 +564,9 @@
                                             {% endif %}
                                         </td>
                                         <td class="text-end font-monospace text-slate-800 fw-semibold">
-                                            {{ "%.2f"|format(item.Cantidad_Vendida or 0) }} {{ item.Unidad_Medida }}
+                                            {{ item.Cantidad_Vendida or 0 | cantidad }} {{ item.Unidad_Medida }}
                                         </td>
-                                        <td class="text-end font-monospace text-primary fw-bold">C$ {{ "%.2f"|format(item.Total_Venta or 0) }}</td>
+                                        <td class="text-end font-monospace text-primary fw-bold">C$ {{ item.Total_Venta or 0 | cantidad }}</td>
                                         <td>
                                             {% if item.Detalle_Ventas %}
                                             <small class="text-muted font-monospace d-inline-block text-truncate" style="max-width: 250px;" title="{{ item.Detalle_Ventas }}">
@@ -645,9 +645,9 @@
                                                 <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">Nunca</span>
                                             {% endif %}
                                         </td>
-                                        <td class="text-center font-monospace text-slate-800 fw-bold">{{ "%.2f"|format(item.Stock_Actual or 0) }} {{ item.Unidad_Medida }}</td>
-                                        <td class="text-end font-monospace text-slate-800">C$ {{ "%.2f"|format(item.Precio_Venta or 0) }}</td>
-                                        <td class="text-end font-monospace text-danger fw-bold">C$ {{ "%.2f"|format(item.Valor_Inmovilizado or 0) }}</td>
+                                        <td class="text-center font-monospace text-slate-800 fw-bold">{{ item.Stock_Actual or 0 | cantidad }} {{ item.Unidad_Medida }}</td>
+                                        <td class="text-end font-monospace text-slate-800">C$ {{ item.Precio_Venta or 0 | cantidad }}</td>
+                                        <td class="text-end font-monospace text-danger fw-bold">C$ {{ item.Valor_Inmovilizado or 0 | cantidad }}</td>
                                         <td class="text-center">
                                             <button type="button" class="btn btn-sm btn-outline-primary rounded-3 px-2.5 py-1 btn-kardex" 
                                                     data-id="{{ item.ID_Producto }}"
@@ -1101,20 +1101,20 @@ function abrirKardexModal(elem, nombreFallback) {
                     movBody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4"><i class="fas fa-info-circle me-1"></i>No hay movimientos registrados para este producto.</td></tr>`;
                 }
             } else {
-                alert(data.message || 'No se pudo cargar la información del producto.');
+                Swal.fire(data.message || 'No se pudo cargar la información del producto.', '', 'info');
             }
         })
         .catch(err => {
             console.error('Error al cargar kardex:', err);
             document.getElementById('modalKardexLoading').style.display = 'none';
-            alert('Error de comunicación con el servidor al consultar el kardex.');
+            Swal.fire('Error de comunicación con el servidor al consultar el kardex.', '', 'info');
         });
 }
 
 // Exportar tabla activa a Excel
 function exportarExcel() {
     if (typeof XLSX === 'undefined') {
-        alert('Librería de Excel no disponible.');
+        Swal.fire('Librería de Excel no disponible.', '', 'info');
         return;
     }
 
@@ -1130,7 +1130,7 @@ function exportarExcel() {
         const fecha = new Date().toISOString().split('T')[0];
         XLSX.writeFile(wb, `Reporte_Inventario_FerDel_${tabName}_${fecha}.xlsx`);
     } else {
-        alert('No se encontró tabla para exportar.');
+        Swal.fire('No se encontró tabla para exportar.', '', 'info');
     }
 }
 </script>

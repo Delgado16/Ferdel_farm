@@ -2023,7 +2023,7 @@ def admin_procesar_venta_pedido(id_pedido):
                         Observacion, ID_Empresa, ID_Usuario_Creacion, Estado,
                         ID_Factura_Venta
                     )
-                    VALUES (%s, %s, CURDATE(), %s, %s, %s, %s, 1, %s)
+                    VALUES (%s, %s, CURDATE(), %s, %s, %s, %s, 'Activa', %s)
                 """, (
                     id_tipo_movimiento,
                     id_bodega_principal,

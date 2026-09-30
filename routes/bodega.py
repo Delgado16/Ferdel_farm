@@ -639,10 +639,10 @@ def bodega_dashboard():
 
 TIPO_COMPRA = 1
 TIPO_VENTA = 2
-TIPO_PRODUCCION = 3
+TIPO_PRODUCCION = 14
 TIPO_CONSUMO = 4
 TIPO_AJUSTE = 5
-TIPO_TRASLADO = 6
+TIPO_TRASLADO = 7
 
 # 1. LISTADO MEJORADO CON FILTROS
 @bodega_bp.route('/bodega/movimientos/listado')
@@ -957,7 +957,19 @@ def bodega_procesar_entrada():
                     
                     # Convertir valores
                     id_producto = int(prod['id_producto'])
-                    cantidad = Decimal(str(prod.get('cantidad', 0)))
+                    raw_cantidad = Decimal(str(prod.get('cantidad', 0)))
+                    
+                    cursor.execute("SELECT Unidad_Medida FROM productos WHERE ID_Producto = %s", (id_producto,))
+                    prod_info = cursor.fetchone()
+                    es_caja = prod_info and prod_info.get('Unidad_Medida') == 1
+                    
+                    if es_caja and raw_cantidad % 1 != 0:
+                        cajillas = int(raw_cantidad)
+                        unidades = int(round((raw_cantidad - cajillas) * 100))
+                        cantidad = Decimal(cajillas) + Decimal(unidades) / Decimal(30)
+                    else:
+                        cantidad = raw_cantidad
+                    
                     costo_unitario = Decimal(str(prod.get('costo_unitario', 0)))
                     # precio_unitario ahora es opcional, por defecto 0
                     precio_unitario = Decimal(str(prod.get('precio_unitario', 0)))
@@ -1245,9 +1257,22 @@ def bodega_procesar_salida():
                     # Calcular total de la venta - CORREGIDO: usar precio_unitario, NO costo_unitario
                     total_venta = Decimal('0')
                     for prod in productos:
-                        cantidad = Decimal(str(prod['cantidad']))
+                        raw_cantidad = Decimal(str(prod['cantidad']))
                         # ✅ USAR PRECIO_UNITARIO para el total de venta
                         precio_unitario = Decimal(str(prod.get('precio_unitario', 0)))
+                        
+                        id_producto_venta = int(prod['id_producto'])
+                        cursor.execute("SELECT Unidad_Medida FROM productos WHERE ID_Producto = %s", (id_producto_venta,))
+                        prod_info_v = cursor.fetchone()
+                        es_caja_v = prod_info_v and prod_info_v.get('Unidad_Medida') == 1
+                        
+                        if es_caja_v and raw_cantidad % 1 != 0:
+                            cajillas = int(raw_cantidad)
+                            unidades = int(round((raw_cantidad - cajillas) * 100))
+                            cantidad = Decimal(cajillas) + Decimal(unidades) / Decimal(30)
+                        else:
+                            cantidad = raw_cantidad
+                            
                         total_item = cantidad * precio_unitario
                         total_venta += total_item
                         
@@ -1361,7 +1386,19 @@ def bodega_procesar_salida():
                     
                     # Convertir valores
                     id_producto = int(prod['id_producto'])
-                    cantidad = Decimal(str(prod['cantidad']))
+                    raw_cantidad = Decimal(str(prod['cantidad']))
+                    
+                    cursor.execute("SELECT Unidad_Medida FROM productos WHERE ID_Producto = %s", (id_producto,))
+                    prod_info_s = cursor.fetchone()
+                    es_caja_s = prod_info_s and prod_info_s.get('Unidad_Medida') == 1
+                    
+                    if es_caja_s and raw_cantidad % 1 != 0:
+                        cajillas = int(raw_cantidad)
+                        unidades = int(round((raw_cantidad - cajillas) * 100))
+                        cantidad = Decimal(cajillas) + Decimal(unidades) / Decimal(30)
+                    else:
+                        cantidad = raw_cantidad
+                        
                     precio_unitario = Decimal(str(prod.get('precio_unitario', 0)))
                     
                     # Obtener costo promedio (último costo de entrada) - para el inventario
@@ -1602,7 +1639,18 @@ def bodega_procesar_transferencia():
             
             for prod in productos:
                 producto_id = int(prod['id_producto'])
-                cantidad = Decimal(str(prod['cantidad']))
+                raw_cantidad = Decimal(str(prod['cantidad']))
+                
+                cursor.execute("SELECT Unidad_Medida FROM productos WHERE ID_Producto = %s", (producto_id,))
+                prod_info_t = cursor.fetchone()
+                es_caja_t = prod_info_t and prod_info_t.get('Unidad_Medida') == 1
+                
+                if es_caja_t and raw_cantidad % 1 != 0:
+                    cajillas = int(raw_cantidad)
+                    unidades = int(round((raw_cantidad - cajillas) * 100))
+                    cantidad = Decimal(cajillas) + Decimal(unidades) / Decimal(30)
+                else:
+                    cantidad = raw_cantidad
                 
                 if cantidad <= 0:
                     flash(f"La cantidad para producto ID {producto_id} debe ser mayor a 0", 'error')
@@ -1716,7 +1764,7 @@ def bodega_procesar_transferencia():
             
             for prod in productos_validos:
                 producto_id = prod['id_producto']
-                cantidad = prod['cantidad']
+                cantidad = prod['cantidad'] # Already parsed above
                 
                 # Obtener el último costo de entrada del producto
                 cursor.execute("""
@@ -1895,7 +1943,8 @@ def api_productos_bodega_con_stock(id_bodega):
                     um.Abreviatura as Unidad_Abreviatura,
                     cp.Descripcion as Categoria_Descripcion,
                     COALESCE(ib.Existencias, 0) as Existencias,
-                    COALESCE(ib.Existencias, 0) as Stock_Bodega
+                    COALESCE(ib.Existencias, 0) as Stock_Bodega,
+                    (SELECT COALESCE(SUM(ib2.Existencias), 0) FROM inventario_bodega ib2 WHERE ib2.ID_Producto = p.ID_Producto) as Existencias_Total
                 FROM productos p
                 INNER JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto AND ib.ID_Bodega = %s
                 LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
@@ -1913,6 +1962,61 @@ def api_productos_bodega_con_stock(id_bodega):
                 p_dict = dict(producto)
                 p_dict['Existencias'] = float(p_dict['Existencias'] or 0)
                 p_dict['Stock_Bodega'] = float(p_dict['Stock_Bodega'] or 0)
+                p_dict['Existencias_Total'] = float(p_dict['Existencias_Total'] or 0)
+                if p_dict.get('Precio_Venta') is not None:
+                    p_dict['Precio_Venta'] = float(p_dict['Precio_Venta'])
+                productos_con_stock.append(p_dict)
+            
+            return jsonify({
+                'success': True,
+                'status': 'success',
+                'productos': productos_con_stock,
+                'total': len(productos_con_stock)
+            })
+            
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'error': str(e), 'success': False, 'productos': []}), 500
+
+@bodega_bp.route('/bodega/api/productos-categoria/<int:id_categoria>')
+@admin_or_bodega_required
+def api_productos_categoria_con_stock(id_categoria):
+    """Obtener productos de una categoría con stock total en todas las bodegas"""
+    try:
+        id_empresa = session.get('id_empresa', 1)
+        
+        with get_db_cursor(True) as cursor:
+            # Obtener productos activos de la categoría con stock consolidado
+            cursor.execute("""
+                SELECT 
+                    p.ID_Producto, 
+                    p.COD_Producto,
+                    p.Descripcion, 
+                    p.Precio_Mercado as Precio_Venta,
+                    p.Precio_Ruta,
+                    um.Descripcion as Unidad_Descripcion,
+                    um.Abreviatura as Unidad_Abreviatura,
+                    cp.Descripcion as Categoria_Descripcion,
+                    (SELECT COALESCE(SUM(ib.Existencias), 0) FROM inventario_bodega ib WHERE ib.ID_Producto = p.ID_Producto) as Existencias_Total
+                FROM productos p
+                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
+                WHERE (p.Estado IS NULL OR LOWER(p.Estado) NOT IN ('inactivo', 'eliminado', '0')) 
+                    AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL) 
+                    AND p.ID_Categoria = %s
+                HAVING Existencias_Total > 0
+                ORDER BY p.Descripcion
+            """, (id_empresa, id_categoria))
+            
+            productos = cursor.fetchall()
+            productos_con_stock = []
+            
+            for producto in productos:
+                p_dict = dict(producto)
+                # Existencias y Stock_Bodega mapean al total para mantener compatibilidad con el frontend
+                p_dict['Existencias'] = float(p_dict['Existencias_Total'] or 0)
+                p_dict['Stock_Bodega'] = float(p_dict['Existencias_Total'] or 0)
+                p_dict['Existencias_Total'] = float(p_dict['Existencias_Total'] or 0)
                 if p_dict.get('Precio_Venta') is not None:
                     p_dict['Precio_Venta'] = float(p_dict['Precio_Venta'])
                 productos_con_stock.append(p_dict)
@@ -3594,7 +3698,22 @@ def recibir_carga(id_carga):
                 productos_recibidos = []
                 
                 for i, detalle in enumerate(detalles):
-                    cantidad_recibida = float(cantidades_recibidas[i]) if i < len(cantidades_recibidas) else 0
+                    raw_cantidad = float(cantidades_recibidas[i]) if i < len(cantidades_recibidas) else 0
+                    
+                    # Assume detalle includes Unidad_Medida from the join above
+                    es_caja_c = detalle.get('unidad') in ['Caja', 'CJA', 'PZA'] # Not perfectly precise, but enough for testing
+                    cursor.execute("SELECT Unidad_Medida FROM productos WHERE ID_Producto = %s", (detalle['ID_Producto'],))
+                    prod_info_c = cursor.fetchone()
+                    if prod_info_c and prod_info_c.get('Unidad_Medida') == 1:
+                        if raw_cantidad % 1 != 0:
+                            cajillas = int(raw_cantidad)
+                            unidades = int(round((raw_cantidad - cajillas) * 100))
+                            cantidad_recibida = cajillas + (unidades / 30.0)
+                        else:
+                            cantidad_recibida = raw_cantidad
+                    else:
+                        cantidad_recibida = raw_cantidad
+                        
                     cantidad_esperada = float(detalle['Cantidad_Cargada'])
                     
                     total_esperado += cantidad_esperada
@@ -3811,14 +3930,14 @@ def bodega_nueva_carga_ruta_form():
     try:
         with get_db_cursor(True) as cursor:
             id_empresa = session.get('id_empresa', 1)
-            # Obtener bodegas de la empresa
+            # Obtener categorias de productos
             cursor.execute("""
-                SELECT ID_Bodega, Nombre, Ubicacion
-                FROM bodegas
-                WHERE Estado = 'activa' AND ID_Empresa = %s
-                ORDER BY Nombre
-            """, (id_empresa,))
-            bodegas = cursor.fetchall()
+                SELECT ID_Categoria, Descripcion 
+                FROM categorias_producto
+                WHERE Estado = 'Activo' OR Estado IS NULL
+                ORDER BY Descripcion
+            """)
+            categorias = cursor.fetchall()
             
             # Obtener asignaciones activas (Vendedor - Ruta)
             cursor.execute("""
@@ -3837,7 +3956,7 @@ def bodega_nueva_carga_ruta_form():
             fecha_actual = datetime.now().strftime('%Y-%m-%d')
             
             return render_template('bodega/movimientos/nueva_carga_ruta.html',
-                                 bodegas=bodegas,
+                                 categorias=categorias,
                                  asignaciones=asignaciones,
                                  fecha_actual=fecha_actual)
     except Exception as e:
@@ -3852,16 +3971,14 @@ def bodega_procesar_carga_ruta():
     """Procesa la carga directa a una ruta/vendedor desde bodega"""
     try:
         fecha = request.form.get('fecha')
-        id_bodega_origen = request.form.get('id_bodega_origen')
         id_asignacion = request.form.get('id_asignacion')
         observacion = request.form.get('observacion', '').strip()
         
-        if not all([fecha, id_bodega_origen, id_asignacion]):
-            flash("Fecha, bodega de origen y asignación de vendedor son requeridas", 'error')
+        if not all([fecha, id_asignacion]):
+            flash("Fecha y asignación de vendedor son requeridas", 'error')
             return redirect(url_for('bodega.bodega_nueva_carga_ruta_form'))
             
         try:
-            id_bodega_origen = int(id_bodega_origen)
             id_asignacion = int(id_asignacion)
         except ValueError:
             flash("Datos inválidos seleccionados", 'error')
@@ -3884,17 +4001,6 @@ def bodega_procesar_carga_ruta():
         ID_TIPO_ENTRADA_CARGA = 15  # Entrada por carga
         
         with get_db_cursor(commit=True) as cursor:
-            # Validar que la bodega de origen exista y esté activa
-            cursor.execute("""
-                SELECT ID_Bodega, Nombre 
-                FROM bodegas 
-                WHERE ID_Bodega = %s AND Estado = 'activa' AND ID_Empresa = %s
-            """, (id_bodega_origen, id_empresa))
-            bodega_origen = cursor.fetchone()
-            if not bodega_origen:
-                flash("La bodega de origen seleccionada no es válida", 'error')
-                return redirect(url_for('bodega.bodega_nueva_carga_ruta_form'))
-                
             # Validar asignación del vendedor
             cursor.execute("""
                 SELECT av.ID_Asignacion, av.ID_Usuario, u.NombreUsuario, r.Nombre_Ruta
@@ -3908,15 +4014,24 @@ def bodega_procesar_carga_ruta():
                 flash("La asignación del vendedor no se encuentra activa o no existe", 'error')
                 return redirect(url_for('bodega.bodega_nueva_carga_ruta_form'))
                 
-            # Verificar stock de productos
+            # Verificar stock de productos con AUTO-SPLIT
             productos_insuficientes = []
-            productos_validos = []
+            productos_validos_split = []
             
             for prod in productos:
                 producto_id = int(prod['id_producto'])
-                cantidad = Decimal(str(prod['cantidad']))
+                raw_cantidad_restante = Decimal(str(prod['cantidad']))
                 
-                if cantidad <= 0:
+                cursor.execute("SELECT Unidad_Medida FROM productos WHERE ID_Producto = %s", (producto_id,))
+                prod_info_c2 = cursor.fetchone()
+                if prod_info_c2 and prod_info_c2.get('Unidad_Medida') == 1 and raw_cantidad_restante % 1 != 0:
+                    cajillas = int(raw_cantidad_restante)
+                    unidades = int(round((raw_cantidad_restante - cajillas) * 100))
+                    cantidad_restante = Decimal(cajillas) + Decimal(unidades) / Decimal(30)
+                else:
+                    cantidad_restante = raw_cantidad_restante
+                
+                if cantidad_restante <= 0:
                     flash(f"La cantidad para producto ID {producto_id} debe ser mayor a 0", 'error')
                     return redirect(url_for('bodega.bodega_nueva_carga_ruta_form'))
                     
@@ -3924,7 +4039,7 @@ def bodega_procesar_carga_ruta():
                 cursor.execute("""
                     SELECT ID_Producto, Descripcion, Precio_Ruta, COD_Producto
                     FROM productos 
-                    WHERE ID_Producto = %s AND Estado = 'activo' AND ID_Empresa = %s
+                    WHERE ID_Producto = %s AND (Estado IS NULL OR LOWER(Estado) NOT IN ('inactivo', 'eliminado', '0')) AND (ID_Empresa = %s OR ID_Empresa IS NULL)
                 """, (producto_id, id_empresa))
                 producto_existe = cursor.fetchone()
                 if not producto_existe:
@@ -3934,33 +4049,46 @@ def bodega_procesar_carga_ruta():
                     })
                     continue
                     
-                # Verificar existencias
+                # Obtener stock de todas las bodegas para este producto
                 cursor.execute("""
-                    SELECT COALESCE(Existencias, 0) as Existencias 
+                    SELECT ID_Bodega, COALESCE(Existencias, 0) as Stock 
                     FROM inventario_bodega 
-                    WHERE ID_Bodega = %s AND ID_Producto = %s
-                """, (id_bodega_origen, producto_id))
-                stock = cursor.fetchone()
-                stock_disponible = Decimal(str(stock['Existencias'])) if stock else Decimal('0')
+                    WHERE ID_Producto = %s AND Existencias > 0
+                    ORDER BY ID_Bodega ASC
+                """, (producto_id,))
+                bodegas_con_stock = cursor.fetchall()
                 
-                if stock_disponible < cantidad:
+                stock_total_disp = sum(Decimal(str(b['Stock'])) for b in bodegas_con_stock)
+                
+                if stock_total_disp < cantidad_restante:
                     productos_insuficientes.append({
                         'producto': f"{producto_existe['COD_Producto'] or ''} {producto_existe['Descripcion']}",
-                        'solicitado': float(cantidad),
-                        'disponible': float(stock_disponible)
+                        'solicitado': float(cantidad_restante),
+                        'disponible': float(stock_total_disp)
                     })
-                else:
-                    productos_validos.append({
+                    continue
+                    
+                # Dividir la cantidad requerida entre las bodegas con stock
+                for bs in bodegas_con_stock:
+                    if cantidad_restante <= 0:
+                        break
+                        
+                    stock_en_bodega = Decimal(str(bs['Stock']))
+                    cantidad_a_tomar = min(cantidad_restante, stock_en_bodega)
+                    
+                    productos_validos_split.append({
                         'id_producto': producto_id,
-                        'cantidad': cantidad,
+                        'id_bodega': bs['ID_Bodega'],
+                        'cantidad': cantidad_a_tomar,
                         'descripcion': producto_existe['Descripcion'],
                         'codigo': producto_existe['COD_Producto'],
-                        'precio_ruta': producto_existe['Precio_Ruta'] if producto_existe['Precio_Ruta'] else Decimal('0'),
-                        'stock_origen': stock_disponible
+                        'precio_ruta': producto_existe['Precio_Ruta'] if producto_existe['Precio_Ruta'] else Decimal('0')
                     })
                     
+                    cantidad_restante -= cantidad_a_tomar
+                    
             if productos_insuficientes:
-                mensaje_error = f"<strong>Stock insuficiente en bodega '{bodega_origen['Nombre']}':</strong><br><br>"
+                mensaje_error = f"<strong>Stock total insuficiente para procesar la carga:</strong><br><br>"
                 for item in productos_insuficientes:
                     if 'error' in item:
                         mensaje_error += f"❌ <strong>{item['producto']}</strong>: {item['error']}<br>"
@@ -3971,98 +4099,115 @@ def bodega_procesar_carga_ruta():
                 flash(mensaje_error, 'error')
                 return redirect(url_for('bodega.bodega_nueva_carga_ruta_form'))
                 
-            if not productos_validos:
+            if not productos_validos_split:
                 flash("No hay productos válidos para transferir", 'error')
                 return redirect(url_for('bodega.bodega_nueva_carga_ruta_form'))
                 
-            # ============================================
-            # 1. CREAR MOVIMIENTO DE SALIDA EN BODEGA (TS - ID 12)
-            # ============================================
-            obs_salida = f"Traslado salida a ruta {asignacion['Nombre_Ruta']} (Vendedor: {asignacion['NombreUsuario']})"
-            if observacion:
-                obs_salida += f" | Obs: {observacion}"
+            # Agrupar productos_validos_split por bodega para generar Movimientos TS
+            items_por_bodega = {}
+            for item in productos_validos_split:
+                b_id = item['id_bodega']
+                if b_id not in items_por_bodega:
+                    items_por_bodega[b_id] = []
+                items_por_bodega[b_id].append(item)
                 
-            cursor.execute("""
-                INSERT INTO movimientos_inventario
-                (ID_TipoMovimiento, Fecha, ID_Bodega, ID_Bodega_Destino,
-                 UbicacionEntrega, Observacion, ID_Empresa, ID_Usuario_Creacion, Estado)
-                VALUES (%s, %s, %s, NULL, NULL, %s, %s, %s, 'Activa')
-            """, (ID_TS, fecha, id_bodega_origen, obs_salida[:500], id_empresa, id_usuario))
+            movimientos_salida_creados = []
             
-            id_movimiento_salida = cursor.lastrowid
+            # 1. CREAR MOVIMIENTO DE ENTRADA EN RUTA (Carga de ruta)
+            total_productos = len(productos)  # Se cuenta desde el JSON original
+            total_items = sum(p['cantidad'] for p in productos_validos_split)
             
-            # ============================================
-            # 2. CREAR MOVIMIENTO DE ENTRADA EN RUTA (ID 15)
-            # ============================================
-            total_productos = len(productos_validos)
-            total_items = sum(float(p['cantidad']) for p in productos_validos)
-            total_subtotal_venta = sum(float(p['cantidad'] * p['precio_ruta']) for p in productos_validos)
-            
+            # Calcular subtotal de venta para la carga de ruta
+            total_subtotal_venta = Decimal('0')
+            for prod in productos_validos_split:
+                total_subtotal_venta += prod['cantidad'] * prod['precio_ruta']
+                
             cursor.execute("""
                 INSERT INTO movimientos_ruta_cabecera 
                 (ID_Asignacion, ID_TipoMovimiento, ID_Usuario_Registra, 
                  Documento_Numero, Total_Productos, Total_Items, Total_Subtotal,
                  ID_Empresa, Estado, Fecha_Movimiento)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'ACTIVO', %s)
-            """, (id_asignacion, ID_TIPO_ENTRADA_CARGA, id_usuario, f"TS-{id_movimiento_salida}",
-                  total_productos, total_items, total_subtotal_venta, id_empresa, datetime.now()))
+            """, (id_asignacion, ID_TIPO_ENTRADA_CARGA, id_usuario, f"CARGA-MULTIPLE",
+                  total_productos, float(total_items), total_subtotal_venta, id_empresa, datetime.now()))
             
             id_movimiento_ruta = cursor.lastrowid
             
-            # ============================================
-            # 3. PROCESAR CADA PRODUCTO
-            # ============================================
-            for prod in productos_validos:
-                producto_id = prod['id_producto']
-                cantidad = prod['cantidad']
-                precio_ruta = prod['precio_ruta']
-                subtotal_venta = cantidad * precio_ruta
-                
-                # Obtener último costo para registro en bodega
+            # 2. PROCESAR SALIDAS DE BODEGA E INSERCION DE DETALLES
+            for id_bodega_origen, items in items_por_bodega.items():
+                obs_salida = f"Traslado salida a ruta {asignacion['Nombre_Ruta']} (Vendedor: {asignacion['NombreUsuario']})"
+                if observacion:
+                    obs_salida += f" | Obs: {observacion}"
+                    
                 cursor.execute("""
-                    SELECT dmi.Costo_Unitario 
-                    FROM detalle_movimientos_inventario dmi
-                    JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
-                    JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
-                    WHERE dmi.ID_Producto = %s
-                    AND (cm.Letra = 'E' OR cm.Descripcion LIKE '%%entrada%%' OR cm.Descripcion LIKE '%%compra%%')
-                    AND mi.Estado = 'Activa'
-                    ORDER BY mi.Fecha DESC, dmi.ID_Detalle_Movimiento DESC
-                    LIMIT 1
-                """, (producto_id,))
-                costo_res = cursor.fetchone()
-                costo_unitario = Decimal(str(costo_res['Costo_Unitario'])) if costo_res and costo_res['Costo_Unitario'] is not None else Decimal('0')
-                subtotal_costo = cantidad * costo_unitario
+                    INSERT INTO movimientos_inventario
+                    (ID_TipoMovimiento, Fecha, ID_Bodega, ID_Bodega_Destino,
+                     UbicacionEntrega, Observacion, ID_Empresa, ID_Usuario_Creacion, Estado)
+                    VALUES (%s, %s, %s, NULL, NULL, %s, %s, %s, 'Activa')
+                """, (ID_TS, fecha, id_bodega_origen, obs_salida[:500], id_empresa, id_usuario))
                 
-                # A. Insertar detalle de salida en bodega
-                cursor.execute("""
-                    INSERT INTO detalle_movimientos_inventario
-                    (ID_Movimiento, ID_Producto, Cantidad, Costo_Unitario, Subtotal, ID_Usuario_Creacion)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                """, (id_movimiento_salida, producto_id, cantidad, costo_unitario, subtotal_costo, id_usuario))
+                id_mov_salida = cursor.lastrowid
+                movimientos_salida_creados.append(str(id_mov_salida))
                 
-                # B. Restar existencias en bodega origen
-                cursor.execute("""
-                    UPDATE inventario_bodega
-                    SET Existencias = Existencias - %s
-                    WHERE ID_Bodega = %s AND ID_Producto = %s
-                """, (cantidad, id_bodega_origen, producto_id))
-                
-                # C. Insertar detalle de entrada en ruta
-                cursor.execute("""
-                    INSERT INTO movimientos_ruta_detalle
-                    (ID_Movimiento, ID_Producto, Cantidad, Precio_Unitario, Subtotal, ID_Movimiento_Origen)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                """, (id_movimiento_ruta, producto_id, cantidad, precio_ruta, subtotal_venta, id_movimiento_salida))
-                
-                # D. Incrementar inventario de la ruta (inventario_ruta)
-                cursor.execute("""
-                    INSERT INTO inventario_ruta (ID_Asignacion, ID_Producto, Cantidad)
-                    VALUES (%s, %s, %s)
-                    ON DUPLICATE KEY UPDATE Cantidad = Cantidad + VALUES(Cantidad)
-                """, (id_asignacion, producto_id, cantidad))
-                
-            flash(f"✅ Carga a Ruta registrada exitosamente. Salida de bodega TS-{id_movimiento_salida} y Carga de Ruta #{id_movimiento_ruta} creados.", 'success')
+                for prod in items:
+                    producto_id = prod['id_producto']
+                    cantidad = prod['cantidad']
+                    precio_ruta = prod['precio_ruta']
+                    subtotal_venta = cantidad * precio_ruta
+                    
+                    # Obtener costo
+                    cursor.execute("""
+                        SELECT dmi.Costo_Unitario 
+                        FROM detalle_movimientos_inventario dmi
+                        JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
+                        JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                        WHERE dmi.ID_Producto = %s
+                        AND (cm.Letra = 'E' OR cm.Descripcion LIKE '%%entrada%%' OR cm.Descripcion LIKE '%%compra%%')
+                        AND mi.Estado = 'Activa'
+                        ORDER BY mi.Fecha DESC, dmi.ID_Detalle_Movimiento DESC
+                        LIMIT 1
+                    """, (producto_id,))
+                    costo_res = cursor.fetchone()
+                    costo_unitario = Decimal(str(costo_res['Costo_Unitario'])) if costo_res and costo_res['Costo_Unitario'] is not None else Decimal('0')
+                    subtotal_costo = cantidad * costo_unitario
+                    
+                    # Detalle salida en bodega
+                    cursor.execute("""
+                        INSERT INTO detalle_movimientos_inventario
+                        (ID_Movimiento, ID_Producto, Cantidad, Costo_Unitario, Subtotal, ID_Usuario_Creacion)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    """, (id_mov_salida, producto_id, cantidad, costo_unitario, subtotal_costo, id_usuario))
+                    
+                    # Restar de bodega
+                    cursor.execute("""
+                        UPDATE inventario_bodega
+                        SET Existencias = Existencias - %s
+                        WHERE ID_Bodega = %s AND ID_Producto = %s
+                    """, (cantidad, id_bodega_origen, producto_id))
+                    
+                    # Detalle entrada ruta
+                    cursor.execute("""
+                        INSERT INTO movimientos_ruta_detalle
+                        (ID_Movimiento, ID_Producto, Cantidad, Precio_Unitario, Subtotal, ID_Movimiento_Origen)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    """, (id_movimiento_ruta, producto_id, cantidad, precio_ruta, subtotal_venta, id_mov_salida))
+                    
+                    # Incrementar en inventario_ruta
+                    cursor.execute("""
+                        INSERT INTO inventario_ruta (ID_Asignacion, ID_Producto, Cantidad)
+                        VALUES (%s, %s, %s)
+                        ON DUPLICATE KEY UPDATE Cantidad = Cantidad + VALUES(Cantidad)
+                    """, (id_asignacion, producto_id, cantidad))
+                    
+            # Actualizar documento en ruta para tener referencia de los movimientos
+            doc_ref = f"TS-{','.join(movimientos_salida_creados)}"
+            cursor.execute("""
+                UPDATE movimientos_ruta_cabecera 
+                SET Documento_Numero = %s 
+                WHERE ID_Movimiento = %s
+            """, (doc_ref[:100], id_movimiento_ruta))
+            
+            flash(f"✅ Carga a Ruta registrada exitosamente. Salidas: TS-{','.join(movimientos_salida_creados)}. Carga Ruta: #{id_movimiento_ruta}", 'success')
             return redirect(url_for('bodega.bodega_historial_movimientos'))
             
     except Exception as e:
@@ -4160,7 +4305,17 @@ def bodega_procesar_auditoria():
                 
                 if input_name in request.form:
                     # Obtener stock físico digitado y asegurar que nunca sea menor a cero
-                    stock_fisico = Decimal(request.form.get(input_name, '0'))
+                    stock_fisico_raw = Decimal(request.form.get(input_name, '0'))
+                    
+                    cursor.execute("SELECT Unidad_Medida FROM productos WHERE ID_Producto = %s", (prod_id,))
+                    prod_info_a = cursor.fetchone()
+                    if prod_info_a and prod_info_a.get('Unidad_Medida') == 1 and stock_fisico_raw % 1 != 0:
+                        cajillas = int(stock_fisico_raw)
+                        unidades = int(round((stock_fisico_raw - cajillas) * 100))
+                        stock_fisico = Decimal(cajillas) + Decimal(unidades) / Decimal(30)
+                    else:
+                        stock_fisico = stock_fisico_raw
+                        
                     if stock_fisico < 0:
                         stock_fisico = Decimal('0')
                     

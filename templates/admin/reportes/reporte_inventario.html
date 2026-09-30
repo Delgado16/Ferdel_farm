@@ -140,14 +140,14 @@
                                 {% for b_s in item.Bodegas_Stock.split('; ') %}
                                     {% set b_parts = b_s.split(': ') %}
                                     <span class="badge bg-secondary text-white mb-1" style="font-size: 0.85em;">
-                                        {{ b_parts[0] }}: <strong class="text-warning">{{ "%.0f"|format(b_parts[1]|float) }}</strong>
+                                        {{ b_parts[0] }}: <strong class="text-warning">{{ b_parts[1]|float | cantidad }}</strong>
                                     </span>
                                 {% endfor %}
                             {% else %}
                                 <span class="text-muted small">Sin bodega asignada</span>
                             {% endif %}
                         </td>
-                        <td>{{ "%.0f"|format(item.Stock_Minimo) }}</td>
+                        <td>{{ item.Stock_Minimo | cantidad }}</td>
                         <td>
                             <span class="badge {% if item.Estado_Stock == 'STOCK BAJO' %}bg-danger{% elif item.Estado_Stock == 'STOCK MINIMO' %}bg-warning{% else %}bg-success{% endif %}">
                                 {{ item.Estado_Stock }}
@@ -155,7 +155,7 @@
                         </td>
                         <td>
                             {% if item.Vendido_Ultimo_Mes > 0 %}
-                                {{ "%.0f"|format(item.Vendido_Ultimo_Mes) }} unidades
+                                {{ item.Vendido_Ultimo_Mes | cantidad }} unidades
                             {% else %}
                                 <span class="text-muted">Sin ventas</span>
                             {% endif %}

@@ -686,5 +686,111 @@ def exportar_pdf_competencia_vendedores(context, nombre_archivo):
     response.headers['Content-type'] = 'application/pdf'
     return response
 
-
+def exportar_pdf_existencias_por_bodega(datos_por_bodega, nombre_archivo):
+    """Exportar existencias separadas por bodega a un PDF"""
+    if not datos_por_bodega:
+        return "No hay datos para exportar", 400
+        
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, 
+        pagesize=letter,
+        rightMargin=36, 
+        leftMargin=36, 
+        topMargin=36, 
+        bottomMargin=36
+    )
+    
+    story = []
+    styles = getSampleStyleSheet()
+    
+    # Título del reporte
+    titulo_style = ParagraphStyle(
+        'TituloReporte',
+        parent=styles['Heading1'],
+        fontName='Helvetica-Bold',
+        fontSize=18,
+        textColor=colors.HexColor('#2c5e2e'),
+        spaceAfter=15
+    )
+    
+    fecha_style = ParagraphStyle(
+        'FechaReporte',
+        parent=styles['Normal'],
+        fontName='Helvetica-Oblique',
+        fontSize=9,
+        textColor=colors.HexColor('#64748b'),
+        spaceAfter=20
+    )
+    
+    bodega_style = ParagraphStyle(
+        'BodegaTitulo',
+        parent=styles['Heading2'],
+        fontName='Helvetica-Bold',
+        fontSize=14,
+        textColor=colors.HexColor('#1e293b'),
+        spaceBefore=15,
+        spaceAfter=10
+    )
+    
+    # Formatear el nombre del archivo para el título
+    titulo_limpio = nombre_archivo.replace('_', ' ').replace('-', ' ').title()
+    story.append(Paragraph(f"Reporte de {titulo_limpio}", titulo_style))
+    story.append(Paragraph(f"Generado el: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", fecha_style))
+    
+    body_style = ParagraphStyle(
+        'TableBody',
+        parent=styles['Normal'],
+        fontName='Helvetica',
+        fontSize=8,
+        leading=10
+    )
+    
+    headers = ['Código', 'Producto', 'Unidad', 'Existencias']
+    
+    for bodega, items in datos_por_bodega.items():
+        story.append(Paragraph(f"Bodega: {bodega}", bodega_style))
+        
+        table_data = [headers]
+        for item in items:
+            row_cells = []
+            for h in headers:
+                val_str = str(item.get(h, ''))
+                row_cells.append(Paragraph(val_str, body_style))
+            table_data.append(row_cells)
+            
+        # Ajustar ancho de las columnas proporcionalmente
+        # Total width = doc.width
+        col_widths = [doc.width * 0.15, doc.width * 0.55, doc.width * 0.15, doc.width * 0.15]
+        t = Table(table_data, colWidths=col_widths)
+        
+        # Estilo de tabla
+        t_style = TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#2c5e2e')),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+            ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('BOTTOMPADDING', (0,0), (-1,0), 8),
+            ('TOPPADDING', (0,0), (-1,0), 8),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e2e8f0')),
+            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#f8fafc')]),
+            ('TOPPADDING', (0,1), (-1,-1), 6),
+            ('BOTTOMPADDING', (0,1), (-1,-1), 6),
+        ])
+        t.setStyle(t_style)
+        story.append(t)
+        story.append(Spacer(1, 15))
+        
+    doc.build(story)
+    buffer.seek(0)
+    
+    response = make_response(buffer.getvalue())
+    response.headers['Content-Disposition'] = f'attachment; filename={nombre_archivo}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf'
+    response.headers['Content-type'] = 'application/pdf'
+    return response
 

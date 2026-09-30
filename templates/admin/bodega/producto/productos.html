@@ -109,6 +109,9 @@
                 <i class="fas fa-eye-slash me-1"></i> Ver Inactivos ({{ stats.total_inactivos|default(0) }})
             </a>
             {% endif %}
+            <button type="button" class="btn btn-outline-danger btn-sm px-3 py-2 rounded-3 fw-bold" data-bs-toggle="modal" data-bs-target="#modalReportePDF" title="Generar PDF de Existencias">
+                <i class="fas fa-file-pdf me-1"></i> PDF Existencias
+            </button>
             <button type="button" class="btn btn-primary btn-sm px-3 py-2 rounded-3 fw-bold" data-bs-toggle="modal"
                 data-bs-target="#modalCrearProducto">
                 <i class="fas fa-plus-circle me-1"></i> Nuevo Producto
@@ -150,7 +153,7 @@
                 <div class="stats-icon text-success bg-success bg-opacity-10 mb-2">
                     <i class="fas fa-cubes"></i>
                 </div>
-                <div class="stats-number text-success">{{ "%.0f"|format(stats.total_stock|default(0)) }}</div>
+                <div class="stats-number text-success">{{ stats.total_stock|default(0) | cantidad }}</div>
                 <div class="stats-label">Total Unidades</div>
             </div>
         </div>
@@ -311,11 +314,17 @@
                                 {% if prod.stock == 0 %}
                                 <span class="badge-stock badge-out"><i class="fas fa-times-circle me-1"></i>Sin Stock</span>
                                 {% elif prod.stock <= prod.stock_minimo %}
-                                <span class="badge-stock badge-critical"><i class="fas fa-exclamation-triangle me-1"></i>Crítico ({{ "%.0f" |format(prod.stock) }})</span>
+                                <span class="badge-stock badge-critical" title="{{ prod.desglose_bodegas }}"><i class="fas fa-exclamation-triangle me-1"></i>Crítico ({{ prod.stock_display }})</span>
                                 {% elif prod.stock <= prod.stock_minimo * 2 %}
-                                <span class="badge-stock badge-low"><i class="fas fa-exclamation-circle me-1"></i>Bajo ({{ "%.0f" |format(prod.stock) }})</span>
+                                <span class="badge-stock badge-low" title="{{ prod.desglose_bodegas }}"><i class="fas fa-exclamation-circle me-1"></i>Bajo ({{ prod.stock_display }})</span>
                                 {% else %}
-                                <span class="badge-stock badge-normal"><i class="fas fa-check-circle me-1"></i>Normal ({{ "%.0f" |format(prod.stock) }})</span>
+                                <span class="badge-stock badge-normal" title="{{ prod.desglose_bodegas }}"><i class="fas fa-check-circle me-1"></i>Normal ({{ prod.stock_display }})</span>
+                                {% endif %}
+                                
+                                {% if prod.desglose_bodegas %}
+                                <div class="small text-muted mt-1" style="font-size: 0.75rem;">
+                                    <i class="fas fa-boxes me-1 text-primary"></i> {{ prod.desglose_bodegas }}
+                                </div>
                                 {% endif %}
                             </td>
                             <td class="text-center">
@@ -329,10 +338,10 @@
                                 </span>
                                 {% endif %}
                             </td>
-                            <td><span class="fw-bold text-slate-800">C${{ "%.2f"|format(prod.precio_mercado) }}</span></td>
+                            <td><span class="fw-bold text-slate-800">C${{ prod.precio_mercado | cantidad }}</span></td>
                             <td>{{ prod.categoria }}</td>
                             <td>{{ prod.empresa }}</td>
-                            <td class="text-center">{{ "%.0f"|format(prod.stock_minimo) }}</td>
+                            <td class="text-center">{{ prod.stock_minimo | cantidad }}</td>
                             <td class="text-center">
                                 <div class="btn-group btn-group-sm" role="group">
                                     <a href="{{ url_for('admin.admin_editar_producto', id_producto=prod.id) }}"
@@ -342,7 +351,7 @@
                                     {% if prod.estado == 'activo' %}
                                     <form method="POST"
                                         action="{{ url_for('admin.admin_desactivar_producto', id_producto=prod.id) }}"
-                                        class="d-inline" onsubmit="return confirm('¿Desactivar este producto?')">
+                                        class="d-inline" onsubmit="event.preventDefault(); Swal.fire({title: '¿Desactivar este producto?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí', cancelButtonText: 'No'}).then((result) => { if (result.isConfirmed) { this.submit(); } });">
                                         <button type="submit" class="btn btn-outline-danger" title="Desactivar">
                                             <i class="fas fa-ban"></i>
                                         </button>
@@ -350,7 +359,7 @@
                                     {% else %}
                                     <form method="POST"
                                         action="{{ url_for('admin.admin_activar_producto', id_producto=prod.id) }}"
-                                        class="d-inline" onsubmit="return confirm('¿Activar este producto?')">
+                                        class="d-inline" onsubmit="event.preventDefault(); Swal.fire({title: '¿Activar este producto?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí', cancelButtonText: 'No'}).then((result) => { if (result.isConfirmed) { this.submit(); } });">
                                         <button type="submit" class="btn btn-outline-success" title="Activar">
                                             <i class="fas fa-check"></i>
                                         </button>
@@ -488,6 +497,78 @@
         </div>
     </div>
 </div>
+<!-- Modal Reporte PDF -->
+<div class="modal fade" id="modalReportePDF" tabindex="-1" aria-labelledby="modalReportePDFLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-danger text-white border-0">
+                <h5 class="modal-title fw-bold" id="modalReportePDFLabel">
+                    <i class="fas fa-file-pdf me-2"></i>Generar Reporte de Existencias
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="GET" action="{{ url_for('admin.admin_productos_pdf_existencias') }}" target="_blank">
+                <div class="modal-body bg-light p-4">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label-premium">Bodega</label>
+                            <select name="bodega" class="form-select form-select-premium">
+                                <option value="todas" {% if bodega_seleccionada == 'todas' %}selected{% endif %}>Todas las Bodegas</option>
+                                {% for bod in bodegas %}
+                                <option value="{{ bod.id }}" {% if bodega_seleccionada|string == bod.id|string %}selected{% endif %}>{{ bod.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label-premium">Categoría</label>
+                            <select name="categoria" class="form-select form-select-premium">
+                                <option value="todos" {% if categoria_seleccionada == 'todos' %}selected{% endif %}>Todas las Categorías</option>
+                                {% for cat in categorias %}
+                                <option value="{{ cat.id }}" {% if categoria_seleccionada|string == cat.id|string %}selected{% endif %}>{{ cat.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label-premium">Empresa</label>
+                            <select name="empresa" class="form-select form-select-premium">
+                                <option value="todas" {% if empresa_seleccionada == 'todas' %}selected{% endif %}>Todas las Empresas</option>
+                                {% for emp in empresas %}
+                                <option value="{{ emp.id }}" {% if empresa_seleccionada|string == emp.id|string %}selected{% endif %}>{{ emp.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label-premium">Estado de Stock</label>
+                            <select name="stock" class="form-select form-select-premium">
+                                <option value="todos" {% if stock_seleccionado == 'todos' %}selected{% endif %}>Todos</option>
+                                <option value="critico" {% if stock_seleccionado == 'critico' %}selected{% endif %}>🔴 Crítico</option>
+                                <option value="bajo" {% if stock_seleccionado == 'bajo' %}selected{% endif %}>🟡 Bajo</option>
+                                <option value="normal" {% if stock_seleccionado == 'normal' %}selected{% endif %}>🟢 Normal</option>
+                                <option value="sin_stock" {% if stock_seleccionado == 'sin_stock' %}selected{% endif %}>⚪ Sin Stock</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label-premium">Estado del Producto</label>
+                            <select name="estado" class="form-select form-select-premium">
+                                <option value="activo" {% if estado_seleccionado == 'activo' %}selected{% endif %}>Activos</option>
+                                <option value="inactivo" {% if estado_seleccionado == 'inactivo' %}selected{% endif %}>Inactivos</option>
+                                <option value="todos" {% if estado_seleccionado == 'todos' %}selected{% endif %}>Todos</option>
+                            </select>
+                        </div>
+                        <input type="hidden" name="search" value="{{ search_term }}">
+                    </div>
+                </div>
+                <div class="modal-footer border-0 bg-light">
+                    <button type="button" class="btn btn-secondary px-4 fw-bold rounded-3" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger px-4 fw-bold rounded-3">
+                        <i class="fas fa-download me-2"></i>Generar PDF
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -558,42 +639,42 @@
 
         if (!descripcion.value.trim()) {
             e.preventDefault();
-            alert('La descripción es obligatoria');
+            Swal.fire('La descripción es obligatoria', '', 'info');
             descripcion.focus();
             return false;
         }
 
         if (!unidad.value) {
             e.preventDefault();
-            alert('La unidad de medida es obligatoria');
+            Swal.fire('La unidad de medida es obligatoria', '', 'info');
             unidad.focus();
             return false;
         }
 
         if (!categoria.value) {
             e.preventDefault();
-            alert('La categoría es obligatoria');
+            Swal.fire('La categoría es obligatoria', '', 'info');
             categoria.focus();
             return false;
         }
 
         if (!empresa.value) {
             e.preventDefault();
-            alert('La empresa es obligatoria');
+            Swal.fire('La empresa es obligatoria', '', 'info');
             empresa.focus();
             return false;
         }
 
         if (!bodega.value || bodega.disabled) {
             e.preventDefault();
-            alert('Debe seleccionar una bodega válida');
+            Swal.fire('Debe seleccionar una bodega válida', '', 'info');
             bodega.focus();
             return false;
         }
 
         if (precioMercado <= 0 && precioMayorista <= 0 && precioRuta <= 0) {
             e.preventDefault();
-            alert('Debe ingresar al menos un precio mayor a 0');
+            Swal.fire('Debe ingresar al menos un precio mayor a 0', '', 'info');
             this.querySelector('input[name="Precio_Mercado"]').focus();
             return false;
         }

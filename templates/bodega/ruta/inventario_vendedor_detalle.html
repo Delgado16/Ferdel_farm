@@ -105,7 +105,7 @@
                 <div class="card-body p-3 text-center">
                     <i class="fas fa-wallet text-info fa-2x mb-2 opacity-75"></i>
                     <h6 class="text-muted small mb-1">Valor Inventario</h6>
-                    <h3 class="fw-bold text-slate-800 mb-0 font-monospace">C$ {{ "%.2f"|format(resumen.Valor_Inventario|default(0)) }}</h3>
+                    <h3 class="fw-bold text-slate-800 mb-0 font-monospace">C$ {{ resumen.Valor_Inventario|default(0) | cantidad }}</h3>
                 </div>
             </div>
         </div>
@@ -163,8 +163,8 @@
                                 <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">{{ item.Total_Cargado|int if item.Total_Cargado % 1 == 0 else "%.2f"|format(item.Total_Cargado) }}</span>
                             </td>
                             <td class="font-monospace text-slate-800">{{ item.Stock_Minimo|int }}</td>
-                            <td class="font-monospace text-slate-800">C$ {{ "%.2f"|format(item.Precio_Venta) }}</td>
-                            <td><strong class="text-primary font-monospace">C$ {{ "%.2f"|format(item.Valor_Total) }}</strong></td>
+                            <td class="font-monospace text-slate-800">C$ {{ item.Precio_Venta | cantidad }}</td>
+                            <td><strong class="text-primary font-monospace">C$ {{ item.Valor_Total | cantidad }}</strong></td>
                             <td class="font-monospace small text-muted">
                                 {{ item.Fecha_Actualizacion.strftime('%d/%m/%Y %H:%M') if item.Fecha_Actualizacion else 'N/A' }}
                             </td>
@@ -187,7 +187,7 @@
                             <td class="text-info">{{ inventario|sum(attribute='Total_Cargado')|int if inventario|sum(attribute='Total_Cargado') % 1 == 0 else "%.2f"|format(inventario|sum(attribute='Total_Cargado')) }}</td>
                             <td></td>
                             <td></td>
-                            <td class="text-primary font-monospace">C$ {{ "%.2f"|format(inventario|sum(attribute='Valor_Total')) }}</td>
+                            <td class="text-primary font-monospace">C$ {{ inventario|sum(attribute='Valor_Total') | cantidad }}</td>
                             <td colspan="2"></td>
                         </tr>
                     </tfoot>

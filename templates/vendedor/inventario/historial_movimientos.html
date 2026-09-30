@@ -57,7 +57,7 @@
                     <small class="text-muted">movimientos</small>
                     <div class="mt-1">
                         <small class="text-muted">
-                            <i class="fas fa-boxes me-1"></i>{{ "%.0f"|format(resumen.Total_Productos) }} productos
+                            <i class="fas fa-boxes me-1"></i>{{ resumen.Total_Productos | cantidad }} productos
                         </small>
                     </div>
                 </div>
@@ -166,9 +166,9 @@
                             <small class="text-muted d-block">Productos</small>
                             <span class="small fw-bold">
                                 {% if mov.Total_Items > 0 %}
-                                    {{ "%.0f"|format(mov.Total_Items) }} productos
+                                    {{ mov.Total_Items | cantidad }} productos
                                 {% else %}
-                                    {{ "%.0f"|format(mov.Total_Productos) }} und.
+                                    {{ mov.Total_Productos | cantidad }} und.
                                 {% endif %}
                             </span>
                         </div>
@@ -177,7 +177,7 @@
                     <div class="row g-2 mb-2">
                         <div class="col-12">
                             <small class="text-muted d-block">Total</small>
-                            <span class="fw-bold text-info">C${{ "%.2f"|format(mov.Total_Subtotal|float if mov.Total_Subtotal else 0) }}</span>
+                            <span class="fw-bold text-info">C${{ mov.Total_Subtotal|float if mov.Total_Subtotal else 0 | cantidad }}</span>
                         </div>
                     </div>
                     
@@ -249,15 +249,15 @@
                             <td class="text-center fw-bold">
                                 {% if mov.Total_Items > 0 %}
                                     <span class="badge bg-info">
-                                        {{ "%.0f"|format(mov.Total_Items) }} productos
+                                        {{ mov.Total_Items | cantidad }} productos
                                     </span>
                                 {% else %}
                                     <span class="badge bg-secondary">
-                                        {{ "%.0f"|format(mov.Total_Productos) }} und.
+                                        {{ mov.Total_Productos | cantidad }} und.
                                     </span>
                                 {% endif %}
                             </td>
-                            <td class="fw-bold text-end text-info">C${{ "%.2f"|format(mov.Total_Subtotal|float if mov.Total_Subtotal else 0) }}</td>
+                            <td class="fw-bold text-end text-info">C${{ mov.Total_Subtotal|float if mov.Total_Subtotal else 0 | cantidad }}</td>
                             <td class="small">{{ mov.Usuario_Registra or 'N/A' }}</td>
                             <td class="text-center">
                                 <div class="btn-group btn-group-sm">
@@ -627,7 +627,7 @@ function cambiarPagina(direccion) {
 
 function exportarExcel() {
     if (movimientosFiltrados.length === 0) { 
-        alert('No hay movimientos para exportar'); 
+        Swal.fire('No hay movimientos para exportar', '', 'info'); 
         return; 
     }
     

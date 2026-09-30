@@ -91,9 +91,9 @@
                                     <td class="text-center">
                                         <span class="badge bg-light text-dark border cant-devuelta-badge">0</span>
                                     </td>
-                                    <td class="text-end fw-semibold text-slate-700">C$ {{ "%.2f"|format(det.Costo) }}</td>
+                                    <td class="text-end fw-semibold text-slate-700">C$ {{ det.Costo | cantidad }}</td>
                                     <td class="text-end fw-bold text-slate-800 subtotal-celda">
-                                        C$ {{ "%.2f"|format(det.Total) }}
+                                        C$ {{ det.Total | cantidad }}
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -189,7 +189,7 @@
                     <div class="bg-light border mb-4 p-3 rounded-3">
                         <div class="d-flex justify-content-between mb-2 small text-slate-600">
                             <span>Total Facturado:</span>
-                            <span class="fw-bold text-slate-800">C$ {{ "%.2f"|format(factura.Total or 0) }}</span>
+                            <span class="fw-bold text-slate-800">C$ {{ factura.Total or 0 | cantidad }}</span>
                         </div>
                         <div class="d-flex justify-content-between mb-2 border-bottom pb-2 small text-slate-600">
                             <span>Total Devolución:</span>
@@ -197,7 +197,7 @@
                         </div>
                         <div class="d-flex justify-content-between align-items-center pt-1">
                             <span class="fw-bold text-slate-800" style="font-size: 0.85rem;">TOTAL FINAL:</span>
-                            <h4 class="mb-0 text-success fw-bold font-monospace" id="resumenTotalFinal">C$ {{ "%.2f"|format(factura.Total or 0) }}</h4>
+                            <h4 class="mb-0 text-success fw-bold font-monospace" id="resumenTotalFinal">C$ {{ factura.Total or 0 | cantidad }}</h4>
                         </div>
                     </div>
 
@@ -383,7 +383,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             const diff = Math.abs(pagado - totalFinal);
             if (diff > 0.01) {
-                alert(`Error: La suma de los métodos de pago (C$ ${pagado.toFixed(2)}) debe coincidir exactamente con el TOTAL FINAL de la venta (C$ ${totalFinal.toFixed(2)}).`);
+                Swal.fire(`Error: La suma de los métodos de pago (C$ ${pagado.toFixed(2, '', 'info')}) debe coincidir exactamente con el TOTAL FINAL de la venta (C$ ${totalFinal.toFixed(2)}).`);
                 return;
             }
         }
@@ -407,14 +407,14 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.success) {
                 window.location.href = data.redirect_url;
             } else {
-                alert('Error al confirmar: ' + data.error);
+                Swal.fire('Error al confirmar: ' + data.error, '', 'info');
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-check-circle me-1"></i> Confirmar Entrega';
             }
         })
         .catch(err => {
             console.error(err);
-            alert('Ocurrió un error en el servidor al enviar la solicitud.');
+            Swal.fire('Ocurrió un error en el servidor al enviar la solicitud.', '', 'info');
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-check-circle me-1"></i> Confirmar Entrega';
         });

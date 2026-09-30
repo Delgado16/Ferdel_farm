@@ -227,15 +227,15 @@
                             <td>
                                 <div>
                                     <span class="fw-bold {% if mov.Impacto == '+' %}text-success{% else %}text-danger{% endif %}">
-                                        {{ mov.Impacto or '' }}{{ mov.Cantidad|int if mov.Cantidad else 0 }}
+                                        {{ mov.Impacto or '' }}{{ mov.Cantidad | cantidad if mov.Cantidad else 0 }}
                                     </span>
                                     <small class="text-muted d-block small font-monospace">{{ mov.Unidad_Medida or '' }}</small>
                                 </div>
                             </td>
-                            <td><strong class="text-slate-800 font-monospace">C$ {{ "%.2f"|format(mov.Precio_Unitario|float if mov.Precio_Unitario else 0) }}</strong></td>
-                            <td class="font-monospace text-slate-800">C$ {{ "%.2f"|format(mov.Subtotal|float if mov.Subtotal else 0) }}</td>
+                            <td><strong class="text-slate-800 font-monospace">C$ {{ mov.Precio_Unitario|float if mov.Precio_Unitario else 0 | cantidad }}</strong></td>
+                            <td class="font-monospace text-slate-800">C$ {{ mov.Subtotal|float if mov.Subtotal else 0 | cantidad }}</td>
                             <td>
-                                <strong class="text-primary font-monospace">C$ {{ "%.2f"|format(mov.Total_Venta|float if mov.Total_Venta else 0) }}</strong>
+                                <strong class="text-primary font-monospace">C$ {{ mov.Total_Venta|float if mov.Total_Venta else 0 | cantidad }}</strong>
                             </td>
                             <td class="small text-slate-800">
                                 <i class="fas fa-user-check me-1 text-muted"></i>
@@ -248,7 +248,7 @@
                         <tr>
                             <th colspan="8" class="text-end fw-bold text-slate-800">Totales:</th>
                             <th colspan="2" class="font-monospace fw-bold text-slate-800">
-                                C$ {{ "%.2f"|format(movimientos|sum(attribute='Total_Venta')|default(0)) }}
+                                C$ {{ movimientos|sum(attribute='Total_Venta')|default(0) | cantidad }}
                             </th>
                         </tr>
                     </tfoot>
@@ -312,11 +312,11 @@ function exportToCSV() {
     const cliente = '{{ mov.Nombre_Cliente or "" }}'.replace(/,/g, ';').replace(/"/g, '""');
     const producto = '{{ mov.Producto or "" }}'.replace(/,/g, ';').replace(/"/g, '""');
     const codigo = '{{ mov.COD_Producto or "" }}';
-    const cantidad = '{{ mov.Impacto or "" }}{{ mov.Cantidad|int if mov.Cantidad else 0 }}';
+    const cantidad = '{{ mov.Impacto or "" }}{{ mov.Cantidad | cantidad if mov.Cantidad else 0 }}';
     const unidad = '{{ mov.Unidad_Medida or "" }}';
-    const precio = '{{ "%.2f"|format(mov.Precio_Unitario|float if mov.Precio_Unitario else 0) }}';
-    const subtotal = '{{ "%.2f"|format(mov.Subtotal|float if mov.Subtotal else 0) }}';
-    const total = '{{ "%.2f"|format(mov.Total_Venta|float if mov.Total_Venta else 0) }}';
+    const precio = '{{ mov.Precio_Unitario|float if mov.Precio_Unitario else 0 | cantidad }}';
+    const subtotal = '{{ mov.Subtotal|float if mov.Subtotal else 0 | cantidad }}';
+    const total = '{{ mov.Total_Venta|float if mov.Total_Venta else 0 | cantidad }}';
     const registrado = '{{ mov.Registrado_Por or "" }}';
     
     const row = [fecha, hora, tipo, documento, cliente, producto, codigo, cantidad, unidad, precio, subtotal, total, registrado];

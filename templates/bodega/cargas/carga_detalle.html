@@ -222,22 +222,22 @@
                                         <span class="badge bg-light text-dark border font-monospace">{{ detalle.codigo or '-' }}</span>
                                     </td>
                                     <td><span class="badge bg-secondary opacity-75">{{ detalle.unidad }}</span></td>
-                                    <td class="text-end fw-bold text-slate-700">{{ "%.2f"|format(detalle.Cantidad_Cargada) }}</td>
+                                    <td class="text-end fw-bold text-slate-700">{{ detalle.Cantidad_Cargada | cantidad }}</td>
                                     <td class="text-end">
                                         <span class="fw-bold {% if detalle.Cantidad_Recibida == detalle.Cantidad_Cargada %}text-success{% elif detalle.Cantidad_Recibida > 0 %}text-warning{% else %}text-danger{% endif %}">
-                                            {{ "%.2f"|format(detalle.Cantidad_Recibida) }}
+                                            {{ detalle.Cantidad_Recibida | cantidad }}
                                         </span>
                                     </td>
                                     <td class="text-end">
                                         {% if detalle.pendiente > 0 %}
-                                            <span class="badge bg-danger bg-opacity-10 text-danger fw-bold">{{ "%.2f"|format(detalle.pendiente) }}</span>
+                                            <span class="badge bg-danger bg-opacity-10 text-danger fw-bold">{{ detalle.pendiente | cantidad }}</span>
                                         {% else %}
                                             <span class="text-muted">0.00</span>
                                         {% endif %}
                                     </td>
-                                    <td class="text-end text-muted">C$ {{ "%.2f"|format(detalle.Costo_Unitario) }}</td>
+                                    <td class="text-end text-muted">C$ {{ detalle.Costo_Unitario | cantidad }}</td>
                                     <td class="text-end fw-bold text-slate-800">
-                                        C$ {{ "%.2f"|format(detalle.Cantidad_Recibida * detalle.Costo_Unitario) }}
+                                        C$ {{ detalle.Cantidad_Recibida * detalle.Costo_Unitario | cantidad }}
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -250,22 +250,22 @@
                         <div class="row align-items-center g-3">
                             <div class="col-6 col-md-3">
                                 <span class="text-slate-400 small d-block uppercase fw-bold">Total Cargado:</span>
-                                <span class="fs-5 fw-bold text-light">{{ "%.2f"|format(detalles|sum(attribute='Cantidad_Cargada')) }}</span>
+                                <span class="fs-5 fw-bold text-light">{{ detalles|sum(attribute='Cantidad_Cargada') | cantidad }}</span>
                             </div>
                             <div class="col-6 col-md-3">
                                 <span class="text-slate-400 small d-block uppercase fw-bold">Total Recibido:</span>
-                                <span class="fs-5 fw-bold text-success">{{ "%.2f"|format(detalles|sum(attribute='Cantidad_Recibida')) }}</span>
+                                <span class="fs-5 fw-bold text-success">{{ detalles|sum(attribute='Cantidad_Recibida') | cantidad }}</span>
                             </div>
                             <div class="col-6 col-md-3">
                                 <span class="text-slate-400 small d-block uppercase fw-bold">Total Faltante:</span>
                                 <span class="fs-5 fw-bold {% if detalles|sum(attribute='pendiente') > 0 %}text-danger{% else %}text-light{% endif %}">
-                                    {{ "%.2f"|format(detalles|sum(attribute='pendiente')) }}
+                                    {{ detalles|sum(attribute='pendiente') | cantidad }}
                                 </span>
                             </div>
                             <div class="col-6 col-md-3 text-md-end">
                                 <span class="text-slate-400 small d-block uppercase fw-bold">Monto Total Recibido:</span>
                                 <span class="fs-4 fw-bold text-info">
-                                    C$ {{ "%.2f"|format(detalles|sum(attribute='Cantidad_Recibida') * (detalles[0]['Costo_Unitario'] if detalles else 0)) }}
+                                    C$ {{ detalles|sum(attribute='Cantidad_Recibida') * (detalles[0]['Costo_Unitario'] if detalles else 0) | cantidad }}
                                 </span>
                             </div>
                         </div>

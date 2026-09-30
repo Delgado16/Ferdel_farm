@@ -30,13 +30,18 @@ def admin_productos():
                     p.Descripcion,
                     COALESCE(um.Abreviatura, 'Und') as Unidad,
                     COALESCE(SUM(ib.Existencias), 0) as Stock,
+                    (SELECT GROUP_CONCAT(CONCAT(b.Nombre, ': ', CAST(COALESCE(ib2.Existencias, 0) AS UNSIGNED)) SEPARATOR ' | ')
+                     FROM inventario_bodega ib2
+                     INNER JOIN bodegas b ON ib2.ID_Bodega = b.ID_Bodega
+                     WHERE ib2.ID_Producto = p.ID_Producto AND ib2.Existencias > 0) as Desglose_Bodegas,
                     p.Estado,
                     COALESCE(cp.Descripcion, 'Sin categoría') as Categoria,
                     COALESCE(p.Precio_Mercado, 0) as Precio_Mercado,
                     COALESCE(p.Precio_Mayorista, 0) as Precio_Mayorista,
                     COALESCE(p.Precio_Ruta, 0) as Precio_Ruta,
                     COALESCE(e.Nombre_Empresa, 'Sin empresa') as Empresa,
-                    COALESCE(p.Stock_Minimo, 5) as Stock_Minimo
+                    COALESCE(p.Stock_Minimo, 5) as Stock_Minimo,
+                    p.Unidad_Medida
                 FROM productos p
                 LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
                 LEFT JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
@@ -73,7 +78,7 @@ def admin_productos():
             query += """
                 GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, um.Abreviatura, 
                          p.Estado, cp.Descripcion, p.Precio_Mercado, p.Precio_Mayorista, 
-                         p.Precio_Ruta, e.Nombre_Empresa, p.Stock_Minimo
+                         p.Precio_Ruta, e.Nombre_Empresa, p.Stock_Minimo, p.Unidad_Medida
                 ORDER BY p.ID_Producto DESC
             """
             
@@ -100,6 +105,16 @@ def admin_productos():
                     stock_minimo = producto.get('Stock_Minimo')
                     if stock_minimo is None:
                         stock_minimo = 5
+                        
+                    unidad_medida = producto.get('Unidad_Medida')
+                    es_caja = unidad_medida == 1
+                    
+                    if es_caja:
+                        cajillas = int(float(stock_val))
+                        unidades = int(round((float(stock_val) - cajillas) * 100))
+                        stock_display = f"{cajillas}.{unidades:02d}"
+                    else:
+                        stock_display = f"{float(stock_val):g}"
                     
                     prod_dict = {
                         'id': producto.get('ID_Producto'),
@@ -107,6 +122,8 @@ def admin_productos():
                         'nombre': producto.get('Descripcion', ''),
                         'unidad': producto.get('Unidad', 'Und'),
                         'stock': float(stock_val),
+                        'stock_display': stock_display,
+                        'desglose_bodegas': producto.get('Desglose_Bodegas', ''),
                         'estado': producto.get('Estado', 'activo'),
                         'categoria': producto.get('Categoria', 'Sin categoría'),
                         'precio_mercado': float(precio_mercado),
@@ -131,20 +148,33 @@ def admin_productos():
                         return str(val)
                     
                     codigo = producto[1] if producto[1] is not None else 'N/A'
+                    stock_raw = safe_float(producto[4], 0)
+                    
+                    unidad_medida = producto[13] if len(producto) > 13 else None
+                    es_caja = unidad_medida == 1
+                    
+                    if es_caja:
+                        cajillas = int(stock_raw)
+                        unidades = int(round((stock_raw - cajillas) * 100))
+                        stock_display = f"{cajillas}.{unidades:02d}"
+                    else:
+                        stock_display = f"{stock_raw:g}"
                     
                     prod_dict = {
                         'id': producto[0],
                         'codigo': codigo,
                         'nombre': safe_str(producto[2]),
                         'unidad': safe_str(producto[3], 'Und'),
-                        'stock': safe_float(producto[4], 0),
-                        'estado': safe_str(producto[5], 'activo'),
-                        'categoria': safe_str(producto[6], 'Sin categoría'),
-                        'precio_mercado': safe_float(producto[7], 0),
-                        'precio_mayorista': safe_float(producto[8], 0),
-                        'precio_ruta': safe_float(producto[9], 0),
-                        'empresa': safe_str(producto[10], 'Sin empresa'),
-                        'stock_minimo': safe_float(producto[11], 5)
+                        'stock': stock_raw,
+                        'stock_display': stock_display,
+                        'desglose_bodegas': safe_str(producto[5], ''),
+                        'estado': safe_str(producto[6], 'activo'),
+                        'categoria': safe_str(producto[7], 'Sin categoría'),
+                        'precio_mercado': safe_float(producto[8], 0),
+                        'precio_mayorista': safe_float(producto[9], 0),
+                        'precio_ruta': safe_float(producto[10], 0),
+                        'empresa': safe_str(producto[11], 'Sin empresa'),
+                        'stock_minimo': safe_float(producto[12], 5)
                     }
                 
                 # Aplicar filtro de stock
@@ -314,7 +344,13 @@ def admin_crear_producto():
 
         # Validar y convertir valores
         try:
-            cantidad_inicial = float(cantidad_inicial) if cantidad_inicial else 0
+            raw_cantidad_inicial = float(cantidad_inicial) if cantidad_inicial else 0
+            if str(id_unidad_medida) == "1" and raw_cantidad_inicial % 1 != 0:
+                cajillas = int(raw_cantidad_inicial)
+                unidades = int(round((raw_cantidad_inicial - cajillas) * 100))
+                cantidad_inicial = cajillas + (unidades / 30.0)
+            else:
+                cantidad_inicial = raw_cantidad_inicial
         except (ValueError, TypeError):
             cantidad_inicial = 0
             
@@ -783,12 +819,25 @@ def admin_transferir_producto_bodega(id_producto):
         ID_TE = 13
         
         with get_db_cursor(commit=True) as cursor:
-            cursor.execute("SELECT Descripcion, Precio_Mercado FROM productos WHERE ID_Producto = %s AND Estado = 'activo'", (id_producto,))
+            cursor.execute("SELECT Descripcion, Precio_Mercado, Unidad_Medida FROM productos WHERE ID_Producto = %s AND Estado = 'activo'", (id_producto,))
             prod_info = cursor.fetchone()
             if not prod_info:
                 flash("Producto no encontrado o inactivo", "error")
                 return redirect(url_for('admin.admin_editar_producto', id_producto=id_producto))
                 
+            es_caja = False
+            if isinstance(prod_info, dict):
+                es_caja = prod_info.get('Unidad_Medida') == 1
+            else:
+                es_caja = prod_info[2] == 1 if len(prod_info) > 2 else False
+
+            # Lógica base 30
+            raw_cantidad = float(cantidad)
+            if es_caja and raw_cantidad % 1 != 0:
+                cajillas = int(raw_cantidad)
+                unidades = int(round((raw_cantidad - cajillas) * 100))
+                cantidad = Decimal(str(cajillas + (unidades / 30.0)))
+            
             cursor.execute("SELECT COALESCE(Existencias, 0) as Existencias FROM inventario_bodega WHERE ID_Bodega = %s AND ID_Producto = %s", (id_bodega_origen, id_producto))
             stock_info = cursor.fetchone()
             if isinstance(stock_info, dict):
@@ -908,10 +957,22 @@ def admin_asignar_bodega_producto(id_producto):
             
         with get_db_cursor(commit=True) as cursor:
             # Check product
-            cursor.execute("SELECT ID_Producto FROM productos WHERE ID_Producto = %s AND Estado = 'activo'", (id_producto,))
-            if not cursor.fetchone():
+            cursor.execute("SELECT ID_Producto, Unidad_Medida FROM productos WHERE ID_Producto = %s AND Estado = 'activo'", (id_producto,))
+            prod_info = cursor.fetchone()
+            if not prod_info:
                 flash("Producto no encontrado o inactivo", "error")
                 return redirect(url_for('admin.admin_editar_producto', id_producto=id_producto))
+                
+            es_caja = False
+            if isinstance(prod_info, dict):
+                es_caja = prod_info.get('Unidad_Medida') == 1
+            else:
+                es_caja = prod_info[1] == 1 if len(prod_info) > 1 else False
+
+            if es_caja and cantidad % 1 != 0:
+                cajillas = int(cantidad)
+                unidades = int(round((cantidad - cajillas) * 100))
+                cantidad = cajillas + (unidades / 30.0)
                 
             cursor.execute("""
                 INSERT INTO inventario_bodega (ID_Bodega, ID_Producto, Existencias)
@@ -927,3 +988,126 @@ def admin_asignar_bodega_producto(id_producto):
         traceback.print_exc()
         
     return redirect(url_for('admin.admin_editar_producto', id_producto=id_producto))
+
+@admin_bp.route('/admin/bodega/productos/pdf_existencias', methods=['GET'])
+@admin_required
+@bitacora_decorator("PDF_EXISTENCIAS_PRODUCTOS")
+def admin_productos_pdf_existencias():
+    try:
+        categoria_filtro = request.args.get('categoria', 'todos')
+        bodega_filtro = request.args.get('bodega', 'todas')
+        empresa_filtro = request.args.get('empresa', 'todas')
+        estado_filtro = request.args.get('estado', 'activo')
+        stock_filtro = request.args.get('stock', 'todos')
+        search_term = request.args.get('search', '')
+
+        with get_db_cursor() as cursor:
+            # Query for products, grouped by Bodega
+            query = """
+                SELECT 
+                    b.Nombre as 'Bodega',
+                    p.COD_Producto as 'Código',
+                    p.Descripcion as 'Producto',
+                    COALESCE(um.Abreviatura, 'Und') as 'Unidad',
+                    CAST(ib.Existencias AS DECIMAL(10,2)) as 'Existencias',
+                    p.Unidad_Medida,
+                    p.Stock_Minimo,
+                    (SELECT SUM(Existencias) FROM inventario_bodega WHERE ID_Producto = p.ID_Producto) as Stock_Global
+                FROM inventario_bodega ib
+                JOIN productos p ON ib.ID_Producto = p.ID_Producto
+                JOIN bodegas b ON ib.ID_Bodega = b.ID_Bodega
+                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                WHERE ib.Existencias > 0 AND b.Estado = 'activa'
+            """
+            params = []
+            
+            if estado_filtro != 'todos':
+                query += " AND p.Estado = %s"
+                params.append(estado_filtro)
+                
+            if categoria_filtro != 'todos':
+                query += " AND p.ID_Categoria = %s"
+                params.append(categoria_filtro)
+                
+            if empresa_filtro != 'todas':
+                query += " AND p.ID_Empresa = %s"
+                params.append(empresa_filtro)
+                
+            if bodega_filtro != 'todas':
+                query += " AND b.ID_Bodega = %s"
+                params.append(bodega_filtro)
+                
+            if search_term:
+                query += " AND (p.COD_Producto LIKE %s OR p.Descripcion LIKE %s)"
+                params.append(f'%{search_term}%')
+                params.append(f'%{search_term}%')
+
+            query += " ORDER BY b.Nombre, p.Descripcion"
+            
+            cursor.execute(query, params)
+            resultados = cursor.fetchall()
+
+            if not resultados:
+                flash('No hay productos con existencias para generar el reporte.', 'warning')
+                return redirect(url_for('admin.admin_productos'))
+                
+            datos_por_bodega = {}
+            for row in resultados:
+                if isinstance(row, dict):
+                    bodega = row.get('Bodega', '')
+                    existencias_raw = float(row.get('Existencias', 0))
+                    es_caja = row.get('Unidad_Medida') == 1
+                    stock_min = float(row.get('Stock_Minimo', 5))
+                    stock_actual = float(row.get('Stock_Global', 0))
+                else:
+                    bodega = row[0] if len(row) > 0 else ''
+                    existencias_raw = float(row[4]) if len(row) > 4 else 0
+                    es_caja = row[5] == 1 if len(row) > 5 else False
+                    stock_min = float(row[6]) if len(row) > 6 else 5
+                    stock_actual = float(row[7]) if len(row) > 7 else 0
+
+                # Aplicar filtro de stock global
+                if stock_filtro != 'todos':
+                    if stock_filtro == 'critico' and not (stock_actual > 0 and stock_actual <= stock_min):
+                        continue
+                    elif stock_filtro == 'bajo' and not (stock_actual > stock_min and stock_actual <= stock_min * 2):
+                        continue
+                    elif stock_filtro == 'normal' and not (stock_actual > stock_min * 2):
+                        continue
+                    elif stock_filtro == 'sin_stock' and stock_actual != 0:
+                        continue
+
+                if es_caja:
+                    cajillas = int(existencias_raw)
+                    unidades = int(round((existencias_raw - cajillas) * 100))
+                    existencias_str = f"{cajillas}.{unidades:02d}"
+                else:
+                    existencias_str = f"{existencias_raw:g}"
+
+                if isinstance(row, dict):
+                    item = {
+                        'Código': row.get('Código', ''),
+                        'Producto': row.get('Producto', ''),
+                        'Unidad': row.get('Unidad', ''),
+                        'Existencias': existencias_str
+                    }
+                else:
+                    item = {
+                        'Código': row[1] if len(row) > 1 else '',
+                        'Producto': row[2] if len(row) > 2 else '',
+                        'Unidad': row[3] if len(row) > 3 else '',
+                        'Existencias': existencias_str
+                    }
+                    
+                if bodega not in datos_por_bodega:
+                    datos_por_bodega[bodega] = []
+                datos_por_bodega[bodega].append(item)
+
+            from helpers.export import exportar_pdf_existencias_por_bodega
+            return exportar_pdf_existencias_por_bodega(datos_por_bodega, "Reporte_Existencias_Bodegas")
+            
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        flash(f'Error al generar PDF: {str(e)}', 'error')
+        return redirect(url_for('admin.admin_productos'))

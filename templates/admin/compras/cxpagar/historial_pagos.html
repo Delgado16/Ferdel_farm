@@ -111,20 +111,20 @@
                     <div class="row text-center g-2">
                         <div class="col-4">
                             <div class="border-end">
-                                <h4 class="fw-bold text-primary font-monospace">C${{ "%.2f"|format(total_cuenta) }}</h4>
+                                <h4 class="fw-bold text-primary font-monospace">C${{ total_cuenta | cantidad }}</h4>
                                 <small class="text-muted small">Monto Total</small>
                             </div>
                         </div>
                         <div class="col-4">
                             <div class="border-end">
-                                <h4 class="fw-bold text-success font-monospace">C${{ "%.2f"|format(total_pagado) }}</h4>
+                                <h4 class="fw-bold text-success font-monospace">C${{ total_pagado | cantidad }}</h4>
                                 <small class="text-muted small">Total Pagado</small>
                             </div>
                         </div>
                         <div class="col-4">
                             <div>
                                 <h4 class="fw-bold font-monospace {% if cuenta.Saldo_Pendiente|float > 0 %}text-warning{% else %}text-success{% endif %}">
-                                    C${{ "%.2f"|format(cuenta.Saldo_Pendiente|float) }}
+                                    C${{ cuenta.Saldo_Pendiente|float | cantidad }}
                                 </h4>
                                 <small class="text-muted small">Saldo Pendiente</small>
                             </div>
@@ -138,7 +138,7 @@
                             <small class="text-muted small">
                                 <strong>
                                     {% if total_cuenta > 0 %}
-                                        {{ "%.1f"|format((total_pagado / total_cuenta * 100)) }}%
+                                        {{ (total_pagado / total_cuenta * 100) | cantidad }}%
                                     {% else %}
                                         0%
                                     {% endif %}
@@ -201,7 +201,7 @@
                                 {% endif %}
                             </td>
                             <td class="fw-bold text-success font-monospace">
-                                C${{ "%.2f"|format(pago.Monto|float) }}
+                                C${{ pago.Monto|float | cantidad }}
                             </td>
                             <td>
                                 <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">{{ pago.Metodo_Pago or 'No especificado' }}</span>
@@ -244,12 +244,12 @@
                     <tfoot class="table-light">
                         <tr class="fw-bold">
                             <td colspan="2" class="text-end">TOTAL PAGADO:</td>
-                            <td class="text-success font-monospace">C${{ "%.2f"|format(total_pagado) }}</td>
+                            <td class="text-success font-monospace">C${{ total_pagado | cantidad }}</td>
                             <td colspan="5"></td>
                         </tr>
                         <tr class="fw-bold">
                             <td colspan="2" class="text-end">SALDO PENDIENTE:</td>
-                            <td class="text-warning font-monospace">C${{ "%.2f"|format(cuenta.Saldo_Pendiente|float) }}</td>
+                            <td class="text-warning font-monospace">C${{ cuenta.Saldo_Pendiente|float | cantidad }}</td>
                             <td colspan="5"></td>
                         </tr>
                     </tfoot>

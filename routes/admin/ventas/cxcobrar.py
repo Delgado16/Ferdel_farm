@@ -651,8 +651,32 @@ def admin_detalle_cuentacobrar(id_movimiento):
                 LEFT JOIN usuarios u2 ON a.ID_Usuario = u2.ID_Usuario
                 WHERE a.ID_CuentaCobrar = %s
                 
+                UNION ALL
+                
+                SELECT 
+                    'abono' as tipo_registro,
+                    ag.ID_Detalle as id_registro,
+                    ag.ID_CuentaCobrar as ID_Movimiento,
+                    ag.Monto_Aplicado as Monto,
+                    ag.ID_MetodoPago,
+                    CONCAT('Abono global admin. Mov Caja: ', COALESCE(ag.caja_movimientos, 'SIN CAJA')) as Descripcion,
+                    NULL as Detalles_Metodo,
+                    ag.ID_Usuario as ID_Usuario_Creacion,
+                    ag.Fecha,
+                    COALESCE(mp3.Nombre, 'Abono Admin') as MetodoPago,
+                    COALESCE(u3.NombreUsuario, 'Usuario no disponible') as UsuarioRegistro,
+                    ag.Saldo_Anterior,
+                    ag.Saldo_Nuevo,
+                    NULL as ID_Movimiento_Caja,
+                    NULL as ID_Asignacion,
+                    ag.ID_Cliente
+                FROM abonos_general ag
+                LEFT JOIN usuarios u3 ON ag.ID_Usuario = u3.ID_Usuario
+                LEFT JOIN metodos_pago mp3 ON ag.ID_MetodoPago = mp3.ID_MetodoPago
+                WHERE ag.ID_CuentaCobrar = %s
+                
                 ORDER BY Fecha DESC
-            """, (id_movimiento, id_movimiento))
+            """, (id_movimiento, id_movimiento, id_movimiento))
             
             historial_raw = cursor.fetchall()
             
@@ -840,21 +864,27 @@ def api_productos_por_cliente(cliente_id):
                     p.Precio_Ruta,
                     p.ID_Categoria,
                     c.Descripcion as Categoria,
-                    um.Descripcion as Unidad_Medida
+                    um.Descripcion as Unidad_Medida,
+                    b.ID_Bodega,
+                    b.Nombre as BodegaNombre
                 FROM productos p
                 INNER JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
                 INNER JOIN config_visibilidad_categorias cfg 
                     ON c.ID_Categoria = cfg.ID_Categoria
-                LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto 
-                    AND ib.ID_Bodega = %s
+                LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
+                LEFT JOIN bodegas b ON ib.ID_Bodega = b.ID_Bodega
+                INNER JOIN config_visibilidad_bodegas cfgbod
+                    ON b.ID_Bodega = cfgbod.ID_Bodega
                 LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
-                WHERE cfg.tipo_cliente = %s
-                  AND cfg.visible = 1
-                  AND p.Estado = 'activo' 
-                  AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
-                  AND COALESCE(ib.Existencias, 0) > 0
-                ORDER BY c.Descripcion, p.Descripcion
-            """, (id_bodega, tipo_cliente, id_empresa))
+                WHERE p.Estado = 'activo' 
+                AND cfg.tipo_cliente = %s
+                AND cfg.visible = 1
+                AND cfgbod.tipo_cliente = %s
+                AND cfgbod.visible = 1
+                AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
+                AND COALESCE(ib.Existencias, 0) > 0
+                ORDER BY c.Descripcion, p.Descripcion, b.Nombre
+            """, (tipo_cliente, tipo_cliente, id_empresa))
             
             productos = cursor.fetchall()
             
@@ -866,14 +896,18 @@ def api_productos_por_cliente(cliente_id):
                 INNER JOIN config_visibilidad_categorias cfg 
                     ON c.ID_Categoria = cfg.ID_Categoria
                 LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto 
-                    AND ib.ID_Bodega = %s
+                LEFT JOIN bodegas b ON ib.ID_Bodega = b.ID_Bodega
+                INNER JOIN config_visibilidad_bodegas cfgbod
+                    ON b.ID_Bodega = cfgbod.ID_Bodega
                 WHERE cfg.tipo_cliente = %s
                   AND cfg.visible = 1
+                  AND cfgbod.tipo_cliente = %s
+                  AND cfgbod.visible = 1
                   AND p.Estado = 'activo' 
                   AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
                   AND COALESCE(ib.Existencias, 0) > 0
                 GROUP BY c.ID_Categoria, c.Descripcion
-            """, (id_bodega, tipo_cliente, id_empresa))
+            """, (tipo_cliente, tipo_cliente, id_empresa))
             
             categorias_count = cursor.fetchall()
             
@@ -893,6 +927,8 @@ def api_productos_por_cliente(cliente_id):
                 
                 producto_dict['Precio_Aplicado'] = float(precio_aplicado)
                 producto_dict['Perfil_Aplicado'] = perfil_cliente
+                producto_dict['ID_Bodega'] = producto['ID_Bodega']
+                producto_dict['BodegaNombre'] = producto['BodegaNombre']
                 productos_con_precio_segun_perfil.append(producto_dict)
             
             return jsonify({
@@ -1136,17 +1172,28 @@ def admin_crear_abono():
                         id_usuario
                     ))
                     id_cxc_generico = cursor.lastrowid
+                    
+                    # Calcular el saldo real del cliente para el historial
+                    cursor.execute("SELECT Saldo_Pendiente_Total FROM clientes WHERE ID_Cliente = %s", (int(id_cliente),))
+                    cliente_db = cursor.fetchone()
+                    saldo_total_actual = Decimal(str(cliente_db['Saldo_Pendiente_Total'] if cliente_db and cliente_db['Saldo_Pendiente_Total'] else 0))
+                    
+                    # El saldo anterior a este remanente es el saldo inicial menos lo que ya se aplicó a facturas
+                    saldo_anterior_remanente = saldo_total_actual - monto_aplicado_total
+                    saldo_nuevo_remanente = saldo_anterior_remanente - monto_restante
 
                     cursor.execute("""
                         INSERT INTO abonos_general
                         (ID_Usuario, ID_Cliente, ID_CuentaCobrar, Monto_Aplicado, 
                         Saldo_Anterior, Saldo_Nuevo, Fecha, ID_MetodoPago, caja_movimientos)
-                        VALUES (%s, %s, %s, %s, 0.0, 0.0, NOW(), %s, %s)
+                        VALUES (%s, %s, %s, %s, %s, %s, NOW(), %s, %s)
                     """, (
                         id_usuario,
                         id_cliente,
                         id_cxc_generico,
                         float(monto_restante),
+                        float(saldo_anterior_remanente),
+                        float(saldo_nuevo_remanente),
                         id_metodo_pago,
                         caja_mov_ref
                     ))
@@ -1156,8 +1203,8 @@ def admin_crear_abono():
                         'factura_id': id_cxc_generico,
                         'num_documento': 'ABONO-GLOBAL',
                         'monto_aplicado': float(monto_restante),
-                        'saldo_anterior': 0.0,
-                        'saldo_nuevo': 0.0
+                        'saldo_anterior': float(saldo_anterior_remanente),
+                        'saldo_nuevo': float(saldo_nuevo_remanente)
                     })
                     
                     monto_aplicado_total += monto_restante

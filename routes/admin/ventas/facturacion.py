@@ -165,12 +165,11 @@ def admin_ventas_salidas():
                     SELECT mi1.*
                     FROM movimientos_inventario mi1
                     INNER JOIN (
-                        SELECT ID_Factura_Venta, MAX(Fecha_Creacion) as Ultima_Fecha
+                        SELECT ID_Factura_Venta, MAX(ID_Movimiento) as Ultimo_Movimiento
                         FROM movimientos_inventario 
                         WHERE ID_Factura_Venta IS NOT NULL
                         GROUP BY ID_Factura_Venta
-                    ) mi2 ON mi1.ID_Factura_Venta = mi2.ID_Factura_Venta 
-                          AND mi1.Fecha_Creacion = mi2.Ultima_Fecha
+                    ) mi2 ON mi1.ID_Movimiento = mi2.Ultimo_Movimiento
                 ) mi ON f.ID_Factura = mi.ID_Factura_Venta
                 LEFT JOIN bodegas b ON mi.ID_Bodega = b.ID_Bodega
                 LEFT JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
@@ -393,6 +392,10 @@ def admin_crear_venta():
             
             id_bodega_principal = bodega_principal['ID_Bodega']
             
+            # Obtener todas las bodegas para el filtro
+            cursor.execute("SELECT ID_Bodega, Nombre FROM bodegas WHERE Estado = 1 ORDER BY Nombre")
+            todas_bodegas = cursor.fetchall()
+            
             # Obtener categorías de productos
             cursor.execute("""
                 SELECT ID_Categoria, Descripcion 
@@ -412,15 +415,18 @@ def admin_crear_venta():
                     p.Precio_Mayorista,
                     p.Precio_Ruta,
                     p.ID_Categoria,
-                    c.Descripcion as Categoria
+                    c.Descripcion as Categoria,
+                    b.ID_Bodega,
+                    b.Nombre as BodegaNombre
                 FROM productos p
                 LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
-                LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto AND ib.ID_Bodega = %s
+                LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
+                LEFT JOIN bodegas b ON ib.ID_Bodega = b.ID_Bodega
                 WHERE p.Estado = 'activo' 
                 AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
                 AND COALESCE(ib.Existencias, 0) > 0
-                ORDER BY c.Descripcion, p.Descripcion
-            """, (id_bodega_principal, id_empresa))
+                ORDER BY c.Descripcion, p.Descripcion, b.Nombre
+            """, (id_empresa,))
             productos = cursor.fetchall()
             
             # Obtener datos de la empresa
@@ -452,6 +458,7 @@ def admin_crear_venta():
             
             # Obtener productos del formulario
             productos_ids = request.form.getlist('producto_id[]')
+            bodegas_ids = request.form.getlist('bodega_id[]')
             cantidades = request.form.getlist('cantidad[]')
             precios = request.form.getlist('precio[]')
             es_extra_list = request.form.getlist('es_extra[]')
@@ -466,6 +473,7 @@ def admin_crear_venta():
                 return render_template('admin/ventas/crear_venta.html',
                                     clientes=clientes,
                                     bodega_principal=bodega_principal,
+                                    todas_bodegas=todas_bodegas,
                                     productos=productos,
                                     categorias=categorias,
                                     empresa=empresa_data,
@@ -478,6 +486,7 @@ def admin_crear_venta():
                 return render_template('admin/ventas/crear_venta.html',
                                     clientes=clientes,
                                     bodega_principal=bodega_principal,
+                                    todas_bodegas=todas_bodegas,
                                     productos=productos,
                                     categorias=categorias,
                                     empresa=empresa_data,
@@ -533,13 +542,21 @@ def admin_crear_venta():
                     is_bonif = int(es_bonificacion_list[i]) if i < len(es_bonificacion_list) and es_bonificacion_list[i] else 0
                     sueltos = float(cantidad_sueltos_list[i]) if i < len(cantidad_sueltos_list) and cantidad_sueltos_list[i] else 0
                     
-                    cursor.execute("SELECT ID_Categoria, Descripcion FROM productos WHERE ID_Producto = %s", (producto_id,))
+                    cursor.execute("SELECT ID_Categoria, Descripcion, Unidad_Medida FROM productos WHERE ID_Producto = %s", (producto_id,))
                     prod_info = cursor.fetchone()
                     if not prod_info:
                         continue
                     
                     id_categoria = prod_info['ID_Categoria']
-                    cajillas_qty = float(cantidades[i]) if cantidades[i] else 0
+                    es_caja = prod_info.get('Unidad_Medida') == 1
+                    
+                    raw_cajillas_qty = float(cantidades[i]) if cantidades[i] else 0
+                    if es_caja and raw_cajillas_qty % 1 != 0:
+                        cajillas = int(raw_cajillas_qty)
+                        unidades = int(round((raw_cajillas_qty - cajillas) * 100))
+                        cajillas_qty = cajillas + (unidades / 30.0)
+                    else:
+                        cajillas_qty = raw_cajillas_qty
                     
                     if id_categoria == ID_CATEGORIA_HUEVOS:
                         qty_total = cajillas_qty + (sueltos / 30.0)
@@ -561,18 +578,22 @@ def admin_crear_venta():
                         FROM productos p
                         INNER JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
                         INNER JOIN config_visibilidad_categorias cfg ON c.ID_Categoria = cfg.ID_Categoria
+                        LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
+                        INNER JOIN config_visibilidad_bodegas cfgbod ON ib.ID_Bodega = cfgbod.ID_Bodega
                         WHERE p.ID_Producto = %s
                           AND cfg.tipo_cliente = %s
                           AND cfg.visible = 1
+                          AND cfgbod.tipo_cliente = %s
+                          AND cfgbod.visible = 1
                           AND p.Estado = 'activo'
-                    """, (producto_id, tipo_cliente))
+                    """, (producto_id, tipo_cliente, tipo_cliente))
                     
                     resultado = cursor.fetchone()
                     if not resultado or resultado['valido'] == 0:
                         productos_invalidos.append({
                             'id': producto_id,
                             'nombre': prod_info['Descripcion'],
-                            'categoria': resultado['categoria_nombre'] if resultado else 'Desconocida'
+                            'categoria': resultado['categoria_nombre'] if resultado and resultado.get('categoria_nombre') else 'Desconocida o Bodega Inaccesible'
                         })
                 
                 if productos_invalidos:
@@ -586,6 +607,7 @@ def admin_crear_venta():
                         return render_template('admin/ventas/crear_venta.html',
                                             clientes=clientes,
                                             bodega_principal=bodega_principal,
+                                            todas_bodegas=todas_bodegas,
                                             productos=productos,
                                             categorias=categorias,
                                             empresa=empresa_data,
@@ -603,13 +625,21 @@ def admin_crear_venta():
                     is_bonif = int(es_bonificacion_list[i]) if i < len(es_bonificacion_list) and es_bonificacion_list[i] else 0
                     sueltos = float(cantidad_sueltos_list[i]) if i < len(cantidad_sueltos_list) and cantidad_sueltos_list[i] else 0
                     
-                    cursor.execute("SELECT ID_Categoria FROM productos WHERE ID_Producto = %s", (id_producto,))
+                    cursor.execute("SELECT ID_Categoria, Unidad_Medida FROM productos WHERE ID_Producto = %s", (id_producto,))
                     prod_info = cursor.fetchone()
                     if not prod_info:
                         continue
                         
                     id_categoria = prod_info['ID_Categoria']
-                    cajillas_qty = float(cantidades[i]) if cantidades[i] else 0
+                    es_caja = prod_info.get('Unidad_Medida') == 1
+                    
+                    raw_cajillas_qty = float(cantidades[i]) if cantidades[i] else 0
+                    if es_caja and raw_cajillas_qty % 1 != 0:
+                        cajillas = int(raw_cajillas_qty)
+                        unidades = int(round((raw_cajillas_qty - cajillas) * 100))
+                        cajillas_qty = cajillas + (unidades / 30.0)
+                    else:
+                        cajillas_qty = raw_cajillas_qty
                     
                     if id_categoria == ID_CATEGORIA_HUEVOS:
                         cantidad_total = cajillas_qty + (sueltos / 30.0)
@@ -627,12 +657,92 @@ def admin_crear_venta():
                         total_linea = cantidad_total * precio
                         total_venta += total_linea
                     
+                    id_bodega_item = int(bodegas_ids[i]) if i < len(bodegas_ids) and bodegas_ids[i] else id_bodega_principal
+                    
                     items_venta.append({
                         'id_producto': id_producto,
+                        'id_bodega': id_bodega_item,
                         'cantidad': cantidad_total,
                         'precio': precio,
                         'total_linea': total_linea
                     })
+                
+                # --- AUTO-SPLIT DE INVENTARIO ---
+                # Si una bodega no tiene suficiente stock, dividir automáticamente
+                # y tomar de otras bodegas que sí tengan stock.
+                items_venta_split = []
+                stock_disponible_memoria = {}
+                
+                for item in items_venta:
+                    cantidad_restante = item['cantidad']
+                    id_bodega_preferida = item['id_bodega']
+                    id_producto = item['id_producto']
+                    precio = item['precio']
+                    
+                    # Consultar bodegas con stock para este producto, 
+                    # dando prioridad a la bodega seleccionada.
+                    cursor.execute("""
+                        SELECT ID_Bodega, COALESCE(Existencias, 0) as Stock 
+                        FROM inventario_bodega 
+                        WHERE ID_Producto = %s AND Existencias > 0
+                        ORDER BY 
+                            CASE WHEN ID_Bodega = %s THEN 0 ELSE 1 END, 
+                            ID_Bodega ASC
+                    """, (id_producto, id_bodega_preferida))
+                    
+                    bodegas_con_stock = cursor.fetchall()
+                    
+                    for bs in bodegas_con_stock:
+                        if cantidad_restante <= 0:
+                            break
+                            
+                        b_id = bs['ID_Bodega']
+                        key = (id_producto, b_id)
+                        
+                        # Cargar stock en memoria la primera vez
+                        if key not in stock_disponible_memoria:
+                            stock_disponible_memoria[key] = float(bs['Stock'])
+                            
+                        stock_disp = stock_disponible_memoria[key]
+                        if stock_disp <= 0:
+                            continue
+                            
+                        # Tomar lo que se pueda de esta bodega
+                        cantidad_a_tomar = min(cantidad_restante, stock_disp)
+                        
+                        items_venta_split.append({
+                            'id_producto': id_producto,
+                            'id_bodega': b_id,
+                            'cantidad': cantidad_a_tomar,
+                            'precio': precio,
+                            'total_linea': cantidad_a_tomar * precio
+                        })
+                        
+                        cantidad_restante -= cantidad_a_tomar
+                        stock_disponible_memoria[key] -= cantidad_a_tomar
+                        
+                    if cantidad_restante > 0.001:  # Margen de error para floats
+                        cursor.execute("SELECT Descripcion FROM productos WHERE ID_Producto = %s", (id_producto,))
+                        prod_row = cursor.fetchone()
+                        producto_nombre = prod_row['Descripcion'] if prod_row else f"ID:{id_producto}"
+                        raise Exception(f"Stock insuficiente para: {producto_nombre}. Faltan {cantidad_restante:,.2f} unidades en total sumando todas las bodegas.")
+                        
+                # Para la factura (cliente), agrupamos los items por producto y precio
+                items_facturacion_dict = {}
+                for item in items_venta:
+                    key = (item['id_producto'], item['precio'])
+                    if key not in items_facturacion_dict:
+                        items_facturacion_dict[key] = {
+                            'id_producto': item['id_producto'],
+                            'cantidad': 0,
+                            'precio': item['precio'],
+                            'total_linea': 0
+                        }
+                    items_facturacion_dict[key]['cantidad'] += item['cantidad']
+                    items_facturacion_dict[key]['total_linea'] += item['total_linea']
+                    
+                items_facturacion = list(items_facturacion_dict.values())
+                # ---------------------------------
                 
                 # 🔥 PROCESAR PAGOS - Calcular cuánto pagó el cliente
                 metodos_pago_list = []
@@ -736,27 +846,11 @@ def admin_crear_venta():
                 total_cajillas_huevos = 0
                 
                 # CONSTANTES
-                ID_SEPARADOR = 11
                 ID_CATEGORIA_HUEVOS = 1
                 ID_BODEGA_EMPAQUE = 1
                 
-                # 2. Procesar productos
-                for item in items_venta:
-                    # Verificar stock
-                    cursor.execute("""
-                        SELECT COALESCE(Existencias, 0) as Stock 
-                        FROM inventario_bodega 
-                        WHERE ID_Bodega = %s AND ID_Producto = %s
-                    """, (id_bodega_principal, item['id_producto']))
-                    
-                    stock = cursor.fetchone()
-                    stock_actual = stock['Stock'] if stock else 0
-                    
-                    if stock_actual < item['cantidad']:
-                        cursor.execute("SELECT Descripcion FROM productos WHERE ID_Producto = %s", (item['id_producto'],))
-                        producto_nombre = cursor.fetchone()['Descripcion']
-                        raise Exception(f'Stock insuficiente para: {producto_nombre}. Stock actual: {stock_actual}')
-                    
+                # 2.A Procesar Detalle de Facturación (Agrupado para no mostrar duplicados al cliente)
+                for item in items_facturacion:
                     # Insertar detalle de facturación
                     cursor.execute("""
                         INSERT INTO detalle_facturacion (
@@ -765,111 +859,94 @@ def admin_crear_venta():
                         VALUES (%s, %s, %s, %s, %s)
                     """, (id_factura, item['id_producto'], item['cantidad'], item['precio'], item['total_linea']))
                     
+                    # Detectar productos de huevos para separadores
+                    cursor.execute("SELECT ID_Categoria FROM productos WHERE ID_Producto = %s", (item['id_producto'],))
+                    producto_cat = cursor.fetchone()
+                    if producto_cat and producto_cat['ID_Categoria'] == ID_CATEGORIA_HUEVOS:
+                        total_cajillas_huevos += item['cantidad']
+
+                # 2.B Actualizar Inventarios y Validar Stock Físico (Desglosado por bodega)
+                for item in items_venta_split:
+                    # Verificar stock
+                    cursor.execute("""
+                        SELECT COALESCE(Existencias, 0) as Stock 
+                        FROM inventario_bodega 
+                        WHERE ID_Bodega = %s AND ID_Producto = %s
+                    """, (item['id_bodega'], item['id_producto']))
+                    
+                    stock = cursor.fetchone()
+                    stock_actual = stock['Stock'] if stock else 0
+                    
+                    if stock_actual < item['cantidad']:
+                        cursor.execute("SELECT Descripcion FROM productos WHERE ID_Producto = %s", (item['id_producto'],))
+                        producto_nombre = cursor.fetchone()['Descripcion']
+                        raise Exception(f"Stock insuficiente para: {producto_nombre}. Bodega ID: {item['id_bodega']}. Stock actual: {stock_actual}")
+                    
                     # Actualizar inventario
                     cursor.execute("""
                         UPDATE inventario_bodega 
                         SET Existencias = Existencias - %s
                         WHERE ID_Bodega = %s AND ID_Producto = %s
-                    """, (item['cantidad'], id_bodega_principal, item['id_producto']))
-                    
-                    
-                    # Detectar productos de huevos
-                    cursor.execute("SELECT ID_Categoria FROM productos WHERE ID_Producto = %s", (item['id_producto'],))
-                    producto_cat = cursor.fetchone()
-                    if producto_cat and producto_cat['ID_Categoria'] == ID_CATEGORIA_HUEVOS:
-                        total_cajillas_huevos += item['cantidad']
+                    """, (item['cantidad'], item['id_bodega'], item['id_producto']))
                 
                 
-                # 3. Procesar separadores
+                # 3. Procesar separadores (Control estricto deshabilitado a petición del usuario)
                 separadores_totales = 0
-                if total_cajillas_huevos > 0:
-                    separadores_entre_cajillas = total_cajillas_huevos
-                    # Se regalan 2 separadores extras por cada 10 cajillas vendidas
-                    separadores_base_extra = (total_cajillas_huevos // 10) * 2
-                    separadores_totales = separadores_entre_cajillas + separadores_base_extra
-                    
-                    
-                    cursor.execute("""
-                        SELECT COALESCE(Existencias, 0) as Stock 
-                        FROM inventario_bodega 
-                        WHERE ID_Bodega = %s AND ID_Producto = %s
-                    """, (ID_BODEGA_EMPAQUE, ID_SEPARADOR))
-                    
-                    stock_separadores = cursor.fetchone()
-                    stock_actual_separadores = stock_separadores['Stock'] if stock_separadores else 0
-                    
-                    if stock_actual_separadores >= separadores_totales:
-                        cursor.execute("""
-                            UPDATE inventario_bodega 
-                            SET Existencias = Existencias - %s
-                            WHERE ID_Bodega = %s AND ID_Producto = %s
-                        """, (separadores_totales, ID_BODEGA_EMPAQUE, ID_SEPARADOR))
-                        
-                        cursor.execute("""
-                            INSERT INTO detalle_facturacion (
-                                ID_Factura, ID_Producto, Cantidad, Costo, Total
-                            )
-                            VALUES (%s, %s, %s, 0, 0)
-                        """, (id_factura, ID_SEPARADOR, separadores_totales))
-                        
-                    else:
-                        warning_msg = f'Stock insuficiente de separadores. Necesarios: {separadores_totales}, Disponibles: {stock_actual_separadores}'
-                        cursor.execute("""
-                            UPDATE facturacion 
-                            SET Observacion = CONCAT(COALESCE(Observacion, ''), ' | [ADVERTENCIA: ', %s, ']')
-                            WHERE ID_Factura = %s
-                        """, (warning_msg, id_factura))
                 
-                # 4. Registrar movimiento de inventario
+
+                # 4. Registrar movimiento de inventario por cada bodega involucrada
                 tipo_movimiento_str = 'CREDITO' if es_credito == 2 else ('CREDITO' if saldo_pendiente > 0 else 'CONTADO')
-                cursor.execute("""
-                    INSERT INTO movimientos_inventario (
-                        ID_TipoMovimiento, ID_Bodega, Fecha, Tipo_Compra,
-                        Observacion, ID_Empresa, ID_Usuario_Creacion, Estado,
-                        ID_Factura_Venta
-                    )
-                    VALUES (%s, %s, CURDATE(), %s, %s, %s, %s, 1, %s)
-                """, (
-                    id_tipo_movimiento,
-                    id_bodega_principal,
-                    tipo_movimiento_str,
-                    f"{observacion} | Perfil cliente: {perfil_cliente}",
-                    id_empresa,
-                    id_usuario,
-                    id_factura
-                ))
                 
-                cursor.execute("SELECT LAST_INSERT_ID() as id_movimiento")
-                id_movimiento = cursor.fetchone()['id_movimiento']
+                # Agrupar items por bodega
+                items_por_bodega = {}
+                for item in items_venta_split:
+                    b_id = item['id_bodega']
+                    if b_id not in items_por_bodega:
+                        items_por_bodega[b_id] = []
+                    items_por_bodega[b_id].append(item)
                 
-                # 5. Insertar detalles del movimiento
-                for item in items_venta:
+                # Crear movimientos separados por cada bodega
+                for b_id, items_bodega in items_por_bodega.items():
                     cursor.execute("""
-                        INSERT INTO detalle_movimientos_inventario (
-                            ID_Movimiento, ID_Producto, Cantidad, 
-                            Costo_Unitario, Precio_Unitario, Subtotal,
-                            ID_Usuario_Creacion
+                        INSERT INTO movimientos_inventario (
+                            ID_TipoMovimiento, ID_Bodega, Fecha, Tipo_Compra,
+                            Observacion, ID_Empresa, ID_Usuario_Creacion, Estado,
+                            ID_Factura_Venta
                         )
-                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        VALUES (%s, %s, CURDATE(), %s, %s, %s, %s, 'Activa', %s)
                     """, (
-                        id_movimiento,
-                        item['id_producto'],
-                        item['cantidad'],
-                        item['precio'],
-                        item['precio'],
-                        item['total_linea'],
-                        id_usuario
+                        id_tipo_movimiento,
+                        b_id,
+                        tipo_movimiento_str,
+                        f"{observacion} | Perfil cliente: {perfil_cliente} | Items de esta bodega",
+                        id_empresa,
+                        id_usuario,
+                        id_factura
                     ))
+                    
+                    cursor.execute("SELECT LAST_INSERT_ID() as id_movimiento")
+                    id_movimiento = cursor.fetchone()['id_movimiento']
+                    
+                    # 5. Insertar detalles del movimiento para esta bodega
+                    for item in items_bodega:
+                        cursor.execute("""
+                            INSERT INTO detalle_movimientos_inventario (
+                                ID_Movimiento, ID_Producto, Cantidad, 
+                                Costo_Unitario, Precio_Unitario, Subtotal,
+                                ID_Usuario_Creacion
+                            )
+                            VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        """, (
+                            id_movimiento,
+                            item['id_producto'],
+                            item['cantidad'],
+                            item['precio'],
+                            item['precio'],
+                            item['total_linea'],
+                            id_usuario
+                        ))
                 
-                if separadores_totales > 0:
-                    cursor.execute("""
-                        INSERT INTO detalle_movimientos_inventario (
-                            ID_Movimiento, ID_Producto, Cantidad, 
-                            Costo_Unitario, Precio_Unitario, Subtotal,
-                            ID_Usuario_Creacion
-                        )
-                        VALUES (%s, %s, %s, 0, 0, 0, %s)
-                    """, (id_movimiento, ID_SEPARADOR, separadores_totales, id_usuario))
+                # (Registro de movimiento de separadores eliminado)
                 
                 # 6. Registrar pago en caja (si hay efectivo)
                 if monto_efectivo > 0:
@@ -996,6 +1073,7 @@ def admin_crear_venta():
         return render_template('admin/ventas/crear_venta.html',
                             clientes=clientes,
                             bodega_principal=bodega_principal,
+                            todas_bodegas=todas_bodegas,
                             productos=productos,
                             categorias=categorias,
                             empresa=empresa_data,
@@ -1017,6 +1095,7 @@ def admin_crear_venta():
         return render_template('admin/ventas/crear_venta.html',
                             clientes=clientes if 'clientes' in locals() else [],
                             bodega_principal=bodega_principal if 'bodega_principal' in locals() else None,
+                            todas_bodegas=todas_bodegas if 'todas_bodegas' in locals() else [],
                             productos=productos if 'productos' in locals() else [],
                             categorias=categorias if 'categorias' in locals() else [],
                             empresa=empresa_data if 'empresa_data' in locals() else None,
@@ -1581,6 +1660,7 @@ def admin_anular_venta(id_factura):
                     LEFT JOIN bodegas b ON mi.ID_Bodega = b.ID_Bodega
                     WHERE f.ID_Factura = %s 
                     AND f.ID_Empresa = %s
+                    LIMIT 1
                 """, (id_factura, id_empresa))
                 
                 venta = cursor.fetchone()
@@ -1910,7 +1990,7 @@ def admin_anular_venta(id_factura):
                 # CAMBIAR el tipo de movimiento a ANULACIÓN (ID 10) y estado a 'Anulada'
                 cursor.execute("""
                     UPDATE movimientos_inventario 
-                    SET ID_TipoMovimiento = 10,  -- Tipo ANULACIÓN
+                    SET ID_TipoMovimiento = 11,  -- Tipo ANULACIÓN
                         Estado = 'Anulada',
                         Observacion = %s,
                         Fecha_Modificacion = NOW(),
@@ -2870,71 +2950,47 @@ def admin_anular_factura():
                         FROM movimientos_inventario 
                         WHERE ID_Factura_Venta = %s AND ID_Empresa = %s 
                         AND (Estado = 'Activa' OR Estado = 'ACTIVA')
-                        ORDER BY ID_Movimiento DESC
-                        LIMIT 1
                     """, (id_factura, empresa_id))
-                    movimiento_original = cursor.fetchone()
+                    movimientos_originales = cursor.fetchall()
                     
-                    if not movimiento_original:
+                    if not movimientos_originales:
                         raise Exception("No se encontró el movimiento de inventario original para la factura #{}".format(id_factura))
                     
-                    id_movimiento_original = movimiento_original['ID_Movimiento']
-                    id_bodega = movimiento_original['ID_Bodega']
-                    
-                    # MODIFICAR el movimiento original - cambiar tipo a ANULACIÓN (10) y estado a 'Anulada'
                     observacion_anulacion = 'ANULADA - Factura #{} - Motivo: {}'.format(id_factura, motivo)
                     
-                    cursor.execute("""
-                        UPDATE movimientos_inventario 
-                        SET ID_TipoMovimiento = 10,
-                            Estado = 'Anulada',
-                            Observacion = %s,
-                            Fecha_Modificacion = NOW(),
-                            ID_Usuario_Modificacion = %s
-                        WHERE ID_Movimiento = %s
-                    """, (observacion_anulacion, user_id, id_movimiento_original))
-                    
-                    # ELIMINAR detalles anteriores del movimiento
-                    cursor.execute("""
-                        DELETE FROM detalle_movimientos_inventario 
-                        WHERE ID_Movimiento = %s
-                    """, (id_movimiento_original,))
-                    
-                    # INSERTAR nuevos detalles en el MISMO movimiento (como devolución)
-                    for detalle in detalles:
-                        id_producto = detalle['ID_Producto']
-                        cantidad = float(detalle['Cantidad'])
-                        costo = float(detalle['Costo']) if detalle['Costo'] else 0
-                        costo_unitario = costo / cantidad if cantidad > 0 else 0
-                        total = float(detalle['Total']) if detalle['Total'] else 0
+                    for movimiento_original in movimientos_originales:
+                        id_mov = movimiento_original['ID_Movimiento']
+                        id_bodega = movimiento_original['ID_Bodega']
                         
+                        # MODIFICAR el movimiento original - cambiar tipo a ANULACIÓN (11) y estado a 'Anulada'
                         cursor.execute("""
-                            INSERT INTO detalle_movimientos_inventario 
-                            (ID_Movimiento, ID_Producto, Cantidad, Costo_Unitario, 
-                             Precio_Unitario, Subtotal, ID_Usuario_Creacion, Fecha_Creacion)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
-                        """, (id_movimiento_original, id_producto, cantidad, 
-                              costo_unitario, costo_unitario, total, user_id))
+                            UPDATE movimientos_inventario 
+                            SET ID_TipoMovimiento = 11,
+                                Estado = 'Anulada',
+                                Observacion = CONCAT(IFNULL(Observacion, ''), ' | ', %s),
+                                Fecha_Modificacion = NOW(),
+                                ID_Usuario_Modificacion = %s
+                            WHERE ID_Movimiento = %s
+                        """, (observacion_anulacion, user_id, id_mov))
                         
-                        # Devolver al inventario de bodega
+                        # Obtener los detalles de este movimiento específico para devolver al inventario de su bodega
                         cursor.execute("""
-                            SELECT Existencias FROM inventario_bodega 
-                            WHERE ID_Bodega = %s AND ID_Producto = %s
-                        """, (id_bodega, id_producto))
-                        inv_bodega = cursor.fetchone()
+                            SELECT ID_Producto, Cantidad 
+                            FROM detalle_movimientos_inventario 
+                            WHERE ID_Movimiento = %s
+                        """, (id_mov,))
+                        detalles_mov = cursor.fetchall()
                         
-                        if inv_bodega:
+                        for d_mov in detalles_mov:
+                            id_producto = d_mov['ID_Producto']
+                            cantidad = float(d_mov['Cantidad'])
+                            
+                            # Devolver al inventario de la bodega específica
                             cursor.execute("""
                                 UPDATE inventario_bodega 
                                 SET Existencias = Existencias + %s
                                 WHERE ID_Bodega = %s AND ID_Producto = %s
                             """, (cantidad, id_bodega, id_producto))
-                        else:
-                            cursor.execute("""
-                                INSERT INTO inventario_bodega 
-                                (ID_Bodega, ID_Producto, Existencias)
-                                VALUES (%s, %s, %s)
-                            """, (id_bodega, id_producto, cantidad))
                 
                 # ============ 3. ANULAR MOVIMIENTOS DE CAJA (EFECTIVO) ============
                 monto_caja_anulado = 0.0
@@ -3091,8 +3147,9 @@ def admin_anular_factura():
                     mensaje = 'Factura de ruta #{} anulada. {} unidades devueltas al inventario{}.'.format(
                         id_factura, total_cantidad, caja_msg)
                 else:
-                    mensaje = 'Factura de local #{} anulada. Movimiento #{} modificado. {} unidades devueltas. Monto: C${:,.2f}{}.'.format(
-                        id_factura, id_movimiento_original, total_cantidad, total_monto, caja_msg)
+                    movimientos_ids = ', '.join([str(m['ID_Movimiento']) for m in movimientos_originales])
+                    mensaje = 'Factura de local #{} anulada. Movimientos [{}] modificados. {} unidades devueltas. Monto: C${:,.2f}{}.'.format(
+                        id_factura, movimientos_ids, total_cantidad, total_monto, caja_msg)
                 
                 if id_vendedor:
                     redirect_url = url_for('admin.admin_facturas_ventas', vista='detalle_vendedor',
@@ -3112,6 +3169,7 @@ def admin_anular_factura():
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'message': 'Error al anular factura: {}'.format(str(e))}), 500
+
 
 @admin_bp.route('/admin/ventas/buscar-clientes')
 @admin_required
@@ -3688,7 +3746,6 @@ def obtener_todos_productos_venta():
             bodega_result = cursor.fetchone()
             id_bodega = bodega_result['ID_Bodega'] if bodega_result else 1
         
-        
         with get_db_cursor(True) as cursor:
             cursor.execute("""
                 SELECT 
@@ -3700,15 +3757,18 @@ def obtener_todos_productos_venta():
                     p.Precio_Mayorista,
                     p.Precio_Ruta,
                     p.ID_Categoria,
-                    c.Descripcion as Categoria
+                    c.Descripcion as Categoria,
+                    b.ID_Bodega,
+                    b.Nombre as BodegaNombre
                 FROM productos p
                 LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
-                LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto AND ib.ID_Bodega = %s
+                LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
+                LEFT JOIN bodegas b ON ib.ID_Bodega = b.ID_Bodega
                 WHERE p.Estado = 'activo' 
                 AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
                 AND COALESCE(ib.Existencias, 0) > 0
-                ORDER BY c.Descripcion, p.Descripcion
-            """, (id_bodega, id_empresa))
+                ORDER BY c.Descripcion, p.Descripcion, b.Nombre
+            """, (id_empresa,))
             
             productos = cursor.fetchall()
             
@@ -3723,7 +3783,9 @@ def obtener_todos_productos_venta():
                     'Precio_Mayorista': float(producto['Precio_Mayorista'] or 0),
                     'Precio_Ruta': float(producto['Precio_Ruta'] or 0),
                     'ID_Categoria': producto['ID_Categoria'],
-                    'Categoria': producto['Categoria']
+                    'Categoria': producto['Categoria'],
+                    'ID_Bodega': producto['ID_Bodega'],
+                    'BodegaNombre': producto['BodegaNombre']
                 })
             
             return jsonify(productos_list)
@@ -3778,11 +3840,17 @@ def verificar_stock_producto(id_producto):
     try:
         id_empresa = session.get('id_empresa', 1)
         
-        # Obtener la bodega principal
-        with get_db_cursor(True) as cursor:
-            cursor.execute("SELECT ID_Bodega FROM bodegas WHERE Estado = 1 ORDER BY ID_Bodega LIMIT 1")
-            bodega_result = cursor.fetchone()
-            id_bodega = bodega_result['ID_Bodega'] if bodega_result else 1
+        # Obtener bodega_id de los parámetros GET, o usar la principal
+        bodega_id_param = request.args.get('bodega_id')
+        
+        if bodega_id_param and bodega_id_param.isdigit():
+            id_bodega = int(bodega_id_param)
+        else:
+            # Obtener la bodega principal
+            with get_db_cursor(True) as cursor:
+                cursor.execute("SELECT ID_Bodega FROM bodegas WHERE Estado = 1 ORDER BY ID_Bodega LIMIT 1")
+                bodega_result = cursor.fetchone()
+                id_bodega = bodega_result['ID_Bodega'] if bodega_result else 1
         
         
         with get_db_cursor(True) as cursor:
@@ -3795,7 +3863,8 @@ def verificar_stock_producto(id_producto):
                     p.Precio_Mayorista,
                     p.Precio_Ruta,
                     COALESCE(ib.Existencias, 0) as Existencias,
-                    b.Nombre as Bodega
+                    b.Nombre as Bodega,
+                    (SELECT COALESCE(SUM(ib2.Existencias), 0) FROM inventario_bodega ib2 WHERE ib2.ID_Producto = p.ID_Producto) as Existencias_Totales
                 FROM productos p
                 LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto AND ib.ID_Bodega = %s
                 LEFT JOIN bodegas b ON ib.ID_Bodega = b.ID_Bodega
@@ -3808,6 +3877,7 @@ def verificar_stock_producto(id_producto):
             
             if producto:
                 stock = float(producto['Existencias'])
+                stock_total = float(producto['Existencias_Totales'])
                 
                 return jsonify({
                     'success': True,
@@ -3815,6 +3885,7 @@ def verificar_stock_producto(id_producto):
                     'codigo': producto['COD_Producto'],
                     'descripcion': producto['Descripcion'],
                     'existencias': stock,
+                    'existencias_totales': stock_total,
                     'bodega': producto['Bodega'],
                     'precios': {
                         'mercado': float(producto['Precio_Mercado'] or 0),

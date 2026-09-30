@@ -47,9 +47,9 @@
                             </p>
                         </div>
                         <div class="col-md-6">
-                            <p><strong>Monto Total:</strong> <span class="fw-bold">C${{ "%.2f"|format(cuenta.Monto_Movimiento) }}</span></p>
+                            <p><strong>Monto Total:</strong> <span class="fw-bold">C${{ cuenta.Monto_Movimiento | cantidad }}</span></p>
                             <p><strong>Saldo Pendiente:</strong> 
-                                <span class="text-danger fw-bold" style="font-size: 1.2rem;">C${{ "%.2f"|format(cuenta.Saldo_Pendiente) }}</span>
+                                <span class="text-danger fw-bold" style="font-size: 1.2rem;">C${{ cuenta.Saldo_Pendiente | cantidad }}</span>
                             </p>
                             <p><strong>Fecha Vencimiento:</strong> 
                                 {% if cuenta.Fecha_Vencimiento %}
@@ -98,12 +98,12 @@
                                 <div class="progress-bar bg-success" role="progressbar" 
                                      style="width: {{ porcentaje }}%;" 
                                      aria-valuenow="{{ porcentaje }}" aria-valuemin="0" aria-valuemax="100">
-                                    {{ "%.1f"|format(porcentaje) }}% Pagado
+                                    {{ porcentaje | cantidad }}% Pagado
                                 </div>
                             </div>
                             <div class="d-flex justify-content-between mt-1">
-                                <small>Pagado: C${{ "%.2f"|format(cuenta.Monto_Movimiento - cuenta.Saldo_Pendiente) }}</small>
-                                <small>Total: C${{ "%.2f"|format(cuenta.Monto_Movimiento) }}</small>
+                                <small>Pagado: C${{ (cuenta.Monto_Movimiento - cuenta.Saldo_Pendiente) | cantidad }}</small>
+                                <small>Total: C${{ cuenta.Monto_Movimiento | cantidad }}</small>
                             </div>
                         </div>
                     </div>
@@ -133,11 +133,11 @@
                         <div class="form-group mb-3">
                             <label for="monto" class="form-label-premium fw-bold">Monto del Pago *</label>
                             <input type="number" class="form-control form-control-premium form-control-lg" id="monto" name="monto" 
-                                   step="0.01" min="0.01" max="{{ "%.2f"|format(cuenta.Saldo_Pendiente) }}" 
+                                   step="0.01" min="0.01" max="{{ cuenta.Saldo_Pendiente | cantidad }}" 
                                    required placeholder="0.00" style="font-size: 1.2rem;"
                                    value="{{ "%.2f"|format(cuenta.Saldo_Pendiente) if cuenta.Saldo_Pendiente > 0 else '' }}">
                             <small class="form-text text-muted d-block mt-1">
-                                Saldo disponible de esta cuenta: <span class="fw-bold text-danger">C${{ "%.2f"|format(cuenta.Saldo_Pendiente) }}</span>
+                                Saldo disponible de esta cuenta: <span class="fw-bold text-danger">C${{ cuenta.Saldo_Pendiente | cantidad }}</span>
                             </small>
                         </div>
 
@@ -215,11 +215,11 @@
                         <table class="table table-sm table-borderless">
                             <tr>
                                 <td>Monto Original Esta Cuenta:</td>
-                                <td class="text-right font-weight-bold text-slate-800">C${{ "%.2f"|format(cuenta.Monto_Movimiento) }}</td>
+                                <td class="text-right font-weight-bold text-slate-800">C${{ cuenta.Monto_Movimiento | cantidad }}</td>
                             </tr>
                             <tr>
                                 <td>Saldo Pendiente Esta Cuenta:</td>
-                                <td class="text-right font-weight-bold text-danger">C${{ "%.2f"|format(cuenta.Saldo_Pendiente) }}</td>
+                                <td class="text-right font-weight-bold text-danger">C${{ cuenta.Saldo_Pendiente | cantidad }}</td>
                             </tr>
                             <tr class="table-warning bg-warning bg-opacity-10">
                                 <td>Saldo TOTAL Cliente:</td>
@@ -230,7 +230,7 @@
                             <tr>
                                 <td>Pagado Esta Cuenta:</td>
                                 <td class="text-right font-weight-bold text-success">
-                                    C${{ "%.2f"|format(cuenta.Monto_Movimiento - cuenta.Saldo_Pendiente) }}
+                                    C${{ (cuenta.Monto_Movimiento - cuenta.Saldo_Pendiente) | cantidad }}
                                 </td>
                             </tr>
                         </table>
@@ -242,7 +242,7 @@
                         <div id="simulacionSaldo" class="mt-2 p-2 bg-light rounded">
                             <p class="mb-1">
                                 <strong>Saldo de esta cuenta:</strong> 
-                                <span id="nuevoSaldo" class="font-weight-bold">C${{ "%.2f"|format(cuenta.Saldo_Pendiente) }}</span>
+                                <span id="nuevoSaldo" class="font-weight-bold">C${{ cuenta.Saldo_Pendiente | cantidad }}</span>
                             </p>
                             <p class="mb-1">
                                 <strong>Saldo TOTAL del cliente:</strong>
@@ -878,21 +878,21 @@ document.addEventListener('DOMContentLoaded', function() {
         // Validaciones básicas
         if (monto <= 0) {
             e.preventDefault();
-            alert('❌ Por favor ingrese un monto válido (mayor a cero)');
+            Swal.fire('❌ Por favor ingrese un monto válido (mayor a cero, '', 'info')');
             montoInput.focus();
             return false;
         }
         
         if (monto > saldoMaximo) {
             e.preventDefault();
-            alert('❌ El monto no puede ser mayor al saldo pendiente (C$' + saldoMaximo.toFixed(2) + ')');
+            Swal.fire('❌ El monto no puede ser mayor al saldo pendiente (C$' + saldoMaximo.toFixed(2, '', 'info') + ')');
             montoInput.focus();
             return false;
         }
         
         if (!metodoPago) {
             e.preventDefault();
-            alert('❌ Por favor seleccione un método de pago');
+            Swal.fire('❌ Por favor seleccione un método de pago', '', 'info');
             metodoSelect.focus();
             return false;
         }
@@ -908,13 +908,13 @@ document.addEventListener('DOMContentLoaded', function() {
             const recibido = parseFloat(document.getElementById('efectivo_recibido')?.value) || 0;
             if (!recibido || recibido <= 0) {
                 e.preventDefault();
-                alert('❌ Debe ingresar la cantidad recibida en efectivo');
+                Swal.fire('❌ Debe ingresar la cantidad recibida en efectivo', '', 'info');
                 document.getElementById('efectivo_recibido').focus();
                 return false;
             }
             if (recibido < monto) {
                 e.preventDefault();
-                alert('❌ La cantidad recibida no puede ser menor al monto del pago');
+                Swal.fire('❌ La cantidad recibida no puede ser menor al monto del pago', '', 'info');
                 document.getElementById('efectivo_recibido').focus();
                 return false;
             }
@@ -924,7 +924,7 @@ document.addEventListener('DOMContentLoaded', function() {
                           document.getElementById('deposito_numero')?.value;
             if (!numero || numero.trim() === '') {
                 e.preventDefault();
-                alert('❌ Debe ingresar el número de transacción o referencia');
+                Swal.fire('❌ Debe ingresar el número de transacción o referencia', '', 'info');
                 const input = document.getElementById('transferencia_numero') || 
                              document.getElementById('deposito_numero');
                 input?.focus();
@@ -936,13 +936,13 @@ document.addEventListener('DOMContentLoaded', function() {
             const banco = document.getElementById('cheque_banco')?.value;
             if (!numero || numero.trim() === '') {
                 e.preventDefault();
-                alert('❌ Debe ingresar el número de cheque');
+                Swal.fire('❌ Debe ingresar el número de cheque', '', 'info');
                 document.getElementById('cheque_numero').focus();
                 return false;
             }
             if (!banco || banco.trim() === '') {
                 e.preventDefault();
-                alert('❌ Debe ingresar el nombre del banco');
+                Swal.fire('❌ Debe ingresar el nombre del banco', '', 'info');
                 document.getElementById('cheque_banco').focus();
                 return false;
             }
@@ -951,7 +951,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const numero = document.getElementById('tarjeta_numero')?.value;
             if (!numero || numero.trim() === '' || numero.length !== 4) {
                 e.preventDefault();
-                alert('❌ Debe ingresar los últimos 4 dígitos de la tarjeta');
+                Swal.fire('❌ Debe ingresar los últimos 4 dígitos de la tarjeta', '', 'info');
                 document.getElementById('tarjeta_numero').focus();
                 return false;
             }
@@ -961,13 +961,13 @@ document.addEventListener('DOMContentLoaded', function() {
             const comprobante = document.getElementById('sinpe_comprobante')?.value;
             if (!numero || numero.trim() === '') {
                 e.preventDefault();
-                alert('❌ Debe ingresar el número de teléfono');
+                Swal.fire('❌ Debe ingresar el número de teléfono', '', 'info');
                 document.getElementById('sinpe_numero').focus();
                 return false;
             }
             if (!comprobante || comprobante.trim() === '') {
                 e.preventDefault();
-                alert('❌ Debe ingresar el número de comprobante');
+                Swal.fire('❌ Debe ingresar el número de comprobante', '', 'info');
                 document.getElementById('sinpe_comprobante').focus();
                 return false;
             }

@@ -27,8 +27,8 @@
     {% if tiene_inconsistencia %}
     <div class="alert alert-warning alert-dismissible fade show bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20" role="alert">
         <i class="bi bi-exclamation-triangle-fill me-2"></i>
-        <strong>Advertencia:</strong> Existe una diferencia de ${{ "%.2f"|format(diferencia) }} entre los cálculos. 
-        <br><small>Saldo en sistema: ${{ "%.2f"|format(saldo_pendiente_formateado) }} | Saldo teórico: ${{ "%.2f"|format(saldo_teorico) }}</small>
+        <strong>Advertencia:</strong> Existe una diferencia de ${{ diferencia | cantidad }} entre los cálculos. 
+        <br><small>Saldo en sistema: ${{ saldo_pendiente_formateado | cantidad }} | Saldo teórico: ${{ saldo_teorico | cantidad }}</small>
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
     {% endif %}
@@ -165,20 +165,20 @@
                     <div class="row text-center g-2">
                         <div class="col-4">
                             <div class="border-end">
-                                <h4 class="text-primary fw-bold">C${{ "%.2f"|format(monto_movimiento_formateado) }}</h4>
+                                <h4 class="text-primary fw-bold">C${{ monto_movimiento_formateado | cantidad }}</h4>
                                 <small class="text-muted">Monto Total</small>
                             </div>
                         </div>
                         <div class="col-4">
                             <div class="border-end">
-                                <h4 class="text-success fw-bold">C${{ "%.2f"|format(total_pagado) }}</h4>
+                                <h4 class="text-success fw-bold">C${{ total_pagado | cantidad }}</h4>
                                 <small class="text-muted">Total Pagado</small>
                             </div>
                         </div>
                         <div class="col-4">
                             <div>
                                 <h4 class="{% if saldo_pendiente_formateado > 0 %}text-warning{% else %}text-success{% endif %} fw-bold">
-                                    C${{ "%.2f"|format(saldo_pendiente_formateado) }}
+                                    C${{ saldo_pendiente_formateado | cantidad }}
                                 </h4>
                                 <small class="text-muted">Saldo Pendiente</small>
                             </div>
@@ -189,7 +189,7 @@
                     <div class="mt-4">
                         <div class="d-flex justify-content-between mb-1">
                             <small class="text-muted">Progreso de Pago</small>
-                            <small class="text-muted"><strong>{{ "%.1f"|format(porcentaje_pagado) }}%</strong></small>
+                            <small class="text-muted"><strong>{{ porcentaje_pagado | cantidad }}%</strong></small>
                         </div>
                         <div class="progress" style="height: 15px;">
                             <div class="progress-bar bg-success" 
@@ -210,14 +210,14 @@
                                     <i class="bi bi-credit-card"></i> Pagos: {{ cantidad_pagos }}
                                 </span>
                                 <br>
-                                <span class="text-muted">C${{ "%.2f"|format(total_pagos) }}</span>
+                                <span class="text-muted">C${{ total_pagos | cantidad }}</span>
                             </div>
                             <div class="col-6">
                                 <span class="badge" style="color: #16a34a !important; background-color: rgba(22, 163, 74, 0.08) !important; border: 1px solid rgba(22, 163, 74, 0.15) !important;">
                                     <i class="bi bi-cash-stack"></i> Abonos: {{ cantidad_abonos }}
                                 </span>
                                 <br>
-                                <span class="text-muted">C${{ "%.2f"|format(total_abonos) }}</span>
+                                <span class="text-muted">C${{ total_abonos | cantidad }}</span>
                             </div>
                         </div>
                     </div>
@@ -280,7 +280,7 @@
                                 </span>
                             </td>
                             <td class="fw-bold text-success">
-                                C${{ "%.2f"|format(movimiento.Monto) }}
+                                C${{ movimiento.Monto | cantidad }}
                             </td>
                             <td>
                                 {% if movimiento.tipo_registro == 'pago' %}
@@ -317,8 +317,8 @@
                             <td>
                                 {% if movimiento.tipo_registro == 'abono' %}
                                     <small class="text-muted">
-                                        Anterior: C${{ "%.2f"|format(movimiento.Saldo_Anterior) }}<br>
-                                        Nuevo: C${{ "%.2f"|format(movimiento.Saldo_Nuevo) }}
+                                        Anterior: C${{ movimiento.Saldo_Anterior | cantidad }}<br>
+                                        Nuevo: C${{ movimiento.Saldo_Nuevo | cantidad }}
                                     </small>
                                 {% else %}
                                     <span class="text-muted">--</span>
@@ -359,14 +359,14 @@
                     <tfoot class="table-light">
                         <tr class="fw-bold">
                             <td colspan="3" class="text-end">TOTAL MOVIMIENTOS:</td>
-                            <td class="text-success">C${{ "%.2f"|format(total_pagado) }}</td>
+                            <td class="text-success">C${{ total_pagado | cantidad }}</td>
                             <td colspan="5"></td>
                         </tr>
                         <tr class="fw-bold">
                             <td colspan="3" class="text-end">DETALLE:</td>
                             <td colspan="6">
-                                <span class="text-primary">Pagos: C${{ "%.2f"|format(total_pagos) }}</span> | 
-                                <span class="text-success">Abonos: C${{ "%.2f"|format(total_abonos) }}</span>
+                                <span class="text-primary">Pagos: C${{ total_pagos | cantidad }}</span> | 
+                                <span class="text-success">Abonos: C${{ total_abonos | cantidad }}</span>
                             </td>
                         </tr>
                     </tfoot>
@@ -480,7 +480,7 @@ function enviarRecordatorio(id_movimiento) {
             <div class="text-start">
                 <p>Se enviará un recordatorio al cliente:</p>
                 <p><strong>Cliente:</strong> {{ cuenta.NombreCliente }}</p>
-                <p><strong>Saldo Pendiente:</strong> C${{ "%.2f"|format(saldo_pendiente_formateado) }}</p>
+                <p><strong>Saldo Pendiente:</strong> C${{ saldo_pendiente_formateado | cantidad }}</p>
                 <p><strong>Documento:</strong> {{ cuenta.Num_Documento }}</p>
                 <div class="form-group mt-3">
                     <label for="mensaje" class="form-label">Mensaje personalizado (opcional):</label>

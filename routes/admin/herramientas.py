@@ -131,12 +131,12 @@ def exportar_bitacora():
 @admin_bp.route('/admin/config/visibilidad', methods=['GET', 'POST'])
 @admin_required
 def config_visibilidad():
-    """Configurar visibilidad de categorías"""
+    """Configurar visibilidad de categorías y bodegas"""
     
     if request.method == 'POST':
         try:
             with get_db_cursor(commit=True) as cursor:
-                # Procesar TODAS las categorías
+                # 1. Procesar Categorías
                 cursor.execute("SELECT ID_Categoria FROM categorias_producto")
                 todas_categorias = cursor.fetchall()
                 
@@ -164,6 +164,35 @@ def config_visibilidad():
                         VALUES ('Especial', %s, %s)
                         ON DUPLICATE KEY UPDATE visible = %s
                     """, (categoria_id, visible_especial, visible_especial))
+
+                # 2. Procesar Bodegas
+                cursor.execute("SELECT ID_Bodega FROM bodegas WHERE Estado = 1")
+                todas_bodegas = cursor.fetchall()
+                
+                for bodega in todas_bodegas:
+                    bodega_id = bodega['ID_Bodega']
+                    
+                    # Para clientes Comunes
+                    key_comun_bod = f"bod_{bodega_id}_Comun"
+                    visible_comun_bod = 1 if key_comun_bod in request.form else 0
+                    
+                    cursor.execute("""
+                        INSERT INTO config_visibilidad_bodegas 
+                        (tipo_cliente, ID_Bodega, visible) 
+                        VALUES ('Comun', %s, %s)
+                        ON DUPLICATE KEY UPDATE visible = %s
+                    """, (bodega_id, visible_comun_bod, visible_comun_bod))
+                    
+                    # Para clientes Especiales
+                    key_especial_bod = f"bod_{bodega_id}_Especial"
+                    visible_especial_bod = 1 if key_especial_bod in request.form else 0
+                    
+                    cursor.execute("""
+                        INSERT INTO config_visibilidad_bodegas 
+                        (tipo_cliente, ID_Bodega, visible) 
+                        VALUES ('Especial', %s, %s)
+                        ON DUPLICATE KEY UPDATE visible = %s
+                    """, (bodega_id, visible_especial_bod, visible_especial_bod))
                 
                 flash('✅ Configuración guardada exitosamente', 'success')
                 return redirect(url_for('admin.config_visibilidad'))
@@ -173,7 +202,7 @@ def config_visibilidad():
     
     # GET: Mostrar formulario
     with get_db_cursor() as cursor:
-        # Consulta CORREGIDA - sin productos_activos
+        # Obtener Categorías
         cursor.execute("""
             SELECT 
                 c.ID_Categoria,
@@ -190,8 +219,27 @@ def config_visibilidad():
             ORDER BY c.Descripcion
         """)
         categorias = cursor.fetchall()
+
+        # Obtener Bodegas
+        cursor.execute("""
+            SELECT 
+                b.ID_Bodega,
+                b.Nombre as nombre,
+                COALESCE(cfg_comun.visible, 0) as comun_visible,
+                COALESCE(cfg_especial.visible, 0) as especial_visible
+            FROM bodegas b
+            LEFT JOIN config_visibilidad_bodegas cfg_comun 
+                ON b.ID_Bodega = cfg_comun.ID_Bodega 
+                AND cfg_comun.tipo_cliente = 'Comun'
+            LEFT JOIN config_visibilidad_bodegas cfg_especial 
+                ON b.ID_Bodega = cfg_especial.ID_Bodega 
+                AND cfg_especial.tipo_cliente = 'Especial'
+            WHERE b.Estado = 1
+            ORDER BY b.Nombre
+        """)
+        bodegas = cursor.fetchall()
     
-    return render_template('admin/config/visibilidad.html', categorias=categorias)
+    return render_template('admin/config/visibilidad.html', categorias=categorias, bodegas=bodegas)
 
 
 #==================================

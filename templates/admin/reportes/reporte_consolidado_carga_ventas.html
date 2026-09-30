@@ -396,7 +396,7 @@
                         <td class="text-center fw-bold text-primary col-carga-local">
                             {% if item.Carga_Bodega|float > 0 %}
                             <span class="badge bg-primary-subtle text-primary border border-primary px-2">
-                                {{ "%.0f"|format(item.Carga_Bodega) }}
+                                {{ item.Carga_Bodega | cantidad }}
                             </span>
                             {% else %}
                             <span class="text-muted">0</span>
@@ -407,7 +407,7 @@
                         <td class="text-center fw-bold text-info col-carga-prov">
                             {% if item.Carga_Proveedor|float > 0 %}
                             <span class="badge bg-info-subtle text-info border border-info px-2">
-                                +{{ "%.0f"|format(item.Carga_Proveedor) }}
+                                +{{ item.Carga_Proveedor | cantidad }}
                             </span>
                             {% else %}
                             <span class="text-muted">0</span>
@@ -416,20 +416,20 @@
                         
                         <!-- Total Cargado -->
                         <td class="text-center fw-bold col-carga-total" style="background-color: rgba(241, 245, 249, 0.5);">
-                            {{ "%.0f"|format(item.Total_Cargado) }}
+                            {{ item.Total_Cargado | cantidad }}
                         </td>
                         
                         <!-- Vendido -->
-                        <td class="text-center fw-bold text-success">{{ "%.0f"|format(item.Total_Vendido) }}</td>
+                        <td class="text-center fw-bold text-success">{{ item.Total_Vendido | cantidad }}</td>
                         <!-- Devuelto -->
-                        <td class="text-center fw-bold text-warning">{{ "%.0f"|format(item.Total_Devuelto) }}</td>
+                        <td class="text-center fw-bold text-warning">{{ item.Total_Devuelto | cantidad }}</td>
                         <!-- Mermado -->
-                        <td class="text-center fw-bold text-danger">{{ "%.0f"|format(item.Total_Mermado) }}</td>
+                        <td class="text-center fw-bold text-danger">{{ item.Total_Mermado | cantidad }}</td>
                         <!-- Stock Camión -->
                         <td class="text-center fw-bold col-stock-camion">
                             {% if item.Stock_Camion|float > 0 %}
                             <span class="badge bg-info text-dark px-2 py-1 shadow-2xs" title="Producto actualmente en el camión">
-                                <i class="bi bi-truck me-1"></i>{{ "%.0f"|format(item.Stock_Camion) }}
+                                <i class="bi bi-truck me-1"></i>{{ item.Stock_Camion | cantidad }}
                             </span>
                             {% else %}
                             <span class="text-muted opacity-75" title="0 cajas en camión (Liquidado)">0</span>
@@ -437,7 +437,7 @@
                         </td>
                         <!-- Diferencia -->
                         <td class="text-center fw-bold {% if item.Diferencia|float == 0 %}text-success{% else %}text-danger{% endif %}">
-                            {{ "%.0f"|format(item.Diferencia) }}
+                            {{ item.Diferencia | cantidad }}
                         </td>
                         <!-- Estado -->
                         <td class="text-center">
@@ -475,15 +475,15 @@
                 <tfoot class="table-light fw-bold" id="tablaFoot">
                     <tr>
                         <td colspan="3" class="text-end">TOTALES VISIBLES:</td>
-                        <td class="text-center text-primary col-carga-local" id="footCargaLocal">{{ "%.0f"|format(total_carga_bodega) }}</td>
-                        <td class="text-center text-info col-carga-prov" id="footCargaProv">{{ "%.0f"|format(total_carga_prov) }}</td>
-                        <td class="text-center col-carga-total" style="background-color: #e2e8f0;" id="footTotalCarga">{{ "%.0f"|format(total_cargado) }}</td>
-                        <td class="text-center text-success" id="footVendido">{{ "%.0f"|format(total_vendido) }}</td>
-                        <td class="text-center text-warning" id="footDevuelto">{{ "%.0f"|format(total_devuelto) }}</td>
-                        <td class="text-center text-danger" id="footMermado">{{ "%.0f"|format(total_mermado) }}</td>
-                        <td class="text-center text-info col-stock-camion" id="footStock">{{ "%.0f"|format(total_stock) }}</td>
+                        <td class="text-center text-primary col-carga-local" id="footCargaLocal">{{ total_carga_bodega | cantidad }}</td>
+                        <td class="text-center text-info col-carga-prov" id="footCargaProv">{{ total_carga_prov | cantidad }}</td>
+                        <td class="text-center col-carga-total" style="background-color: #e2e8f0;" id="footTotalCarga">{{ total_cargado | cantidad }}</td>
+                        <td class="text-center text-success" id="footVendido">{{ total_vendido | cantidad }}</td>
+                        <td class="text-center text-warning" id="footDevuelto">{{ total_devuelto | cantidad }}</td>
+                        <td class="text-center text-danger" id="footMermado">{{ total_mermado | cantidad }}</td>
+                        <td class="text-center text-info col-stock-camion" id="footStock">{{ total_stock | cantidad }}</td>
                         <td class="text-center {% if total_diferencia == 0 %}text-success{% else %}text-danger{% endif %}" id="footDiferencia">
-                            {{ "%.0f"|format(total_diferencia) }}
+                            {{ total_diferencia | cantidad }}
                         </td>
                         <td></td>
                         <td></td>
@@ -548,7 +548,7 @@
                                 <td>{{ cb.Ruta }}</td>
                                 <td><span class="badge bg-primary-subtle text-primary border border-primary">{{ cb.Documento_Numero or '-' }}</span></td>
                                 <td class="text-center">{{ cb.Total_Productos }}</td>
-                                <td class="text-center fw-bold text-primary">{{ "%.0f"|format(cb.Total_Items) }}</td>
+                                <td class="text-center fw-bold text-primary">{{ cb.Total_Items | cantidad }}</td>
                                 <td class="text-end fw-bold">C$ {{ "{:,.2f}".format(cb.Total_Subtotal) }}</td>
                             </tr>
                             {% else %}
@@ -586,7 +586,7 @@
                                 <td>{{ cp.Ruta }}</td>
                                 <td><span class="badge bg-info-subtle text-info border border-info">{{ cp.Documento_Numero or '-' }}</span></td>
                                 <td class="text-center">{{ cp.Total_Productos }}</td>
-                                <td class="text-center fw-bold text-info">{{ "%.0f"|format(cp.Total_Items) }}</td>
+                                <td class="text-center fw-bold text-info">{{ cp.Total_Items | cantidad }}</td>
                                 <td class="text-end fw-bold text-info">C$ {{ "{:,.2f}".format(cp.Total_Subtotal) }}</td>
                             </tr>
                             {% else %}
@@ -664,7 +664,7 @@
                                 <td>{{ d.Fecha.strftime('%d/%m/%Y %H:%M') if d.Fecha else '-' }}</td>
                                 <td>{{ d.Ruta }}</td>
                                 <td><code>{{ d.Documento_Numero or '-' }}</code></td>
-                                <td class="text-center fw-bold">{{ "%.0f"|format(d.Total_Productos) }}</td>
+                                <td class="text-center fw-bold">{{ d.Total_Productos | cantidad }}</td>
                                 <td class="text-end fw-bold text-muted">C$ {{ "{:,.2f}".format(d.Total_Subtotal) }}</td>
                             </tr>
                             {% else %}
@@ -1270,7 +1270,7 @@
             .then(response => response.json())
             .then(data => {
                 if (data.error) {
-                    alert('Error: ' + data.error);
+                    Swal.fire('Error: ' + data.error, '', 'info');
                     return;
                 }
 

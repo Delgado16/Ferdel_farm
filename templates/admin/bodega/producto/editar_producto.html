@@ -95,7 +95,7 @@
                 <div class="stats-icon text-primary bg-primary bg-opacity-10 mb-2">
                     <i class="fas fa-warehouse"></i>
                 </div>
-                <div class="stats-number">{{ "%.2f"|format(producto.get('Existencias_Totales', 0)) }}</div>
+                <div class="stats-number">{{ producto.get('Existencias_Totales', 0) | cantidad }}</div>
                 <div class="stats-label">Existencias Totales</div>
                 <small class="text-muted d-block mt-2 font-monospace">{{ producto['Abreviatura'] }}</small>
             </div>
@@ -105,7 +105,7 @@
                 <div class="stats-icon text-warning bg-warning bg-opacity-10 mb-2">
                     <i class="fas fa-chart-line"></i>
                 </div>
-                <div class="stats-number text-warning">{{ "%.2f"|format(producto['Stock_Minimo']) }}</div>
+                <div class="stats-number text-warning">{{ producto['Stock_Minimo'] | cantidad }}</div>
                 <div class="stats-label">Stock Mínimo</div>
                 <small class="text-muted d-block mt-2 font-monospace">{{ producto['Abreviatura'] }}</small>
             </div>
@@ -265,7 +265,7 @@
                                         <td><strong>{{ inventario['Nombre_Bodega'] }}</strong></td>
                                         <td>{{ inventario['Nombre_Empresa'] }}</td>
                                         <td>
-                                            <span class="fw-semibold text-slate-800">{{ "%.2f"|format(inventario['Existencias']) }} {{ producto['Abreviatura'] }}</span>
+                                            <span class="fw-semibold text-slate-800">{{ inventario['Existencias'] | cantidad }} {{ producto['Abreviatura'] }}</span>
                                             {% if inventario['Existencias']|float <= producto['Stock_Minimo']|float %}
                                             <span class="badge-stock badge-critical ms-2"><i class="fas fa-exclamation-triangle me-1"></i>Stock Bajo</span>
                                             {% endif %}
@@ -362,7 +362,7 @@
                         <select class="form-select" name="id_bodega_origen" required>
                             <option value="">Seleccione bodega origen...</option>
                             {% for inv in inventario_bodegas %}
-                                <option value="{{ inv['ID_Bodega'] }}">{{ inv['Nombre_Bodega'] }} (Disp: {{ "%.2f"|format(inv['Existencias']) }})</option>
+                                <option value="{{ inv['ID_Bodega'] }}">{{ inv['Nombre_Bodega'] }} (Disp: {{ inv['Existencias'] | cantidad }})</option>
                             {% endfor %}
                         </select>
                     </div>

@@ -181,6 +181,37 @@ def format_status(status):
     return Markup(status_map.get(status, f'<span class="badge bg-secondary">{status}</span>'))
 
 
+def format_cantidad(value, unidad='Caja'):
+    """
+    Formatea una cantidad para mostrarla según su unidad de medida.
+    Si es 'Caja', formatea la fracción matemática de vuelta a formato Cajillas.Unidades (Ej: 4.63 -> 4.19)
+    """
+    try:
+        if value is None or value == '':
+            return "0"
+            
+        d = Decimal(str(value))
+        
+        # Si es un número exacto, mostrar sin decimales
+        if d % 1 == 0:
+            return str(int(d))
+            
+        # Si la unidad es Caja, reformatear
+        unidad_upper = str(unidad).upper() if unidad else 'CAJA'
+        es_caja = 'CAJA' in unidad_upper or 'CJA' in unidad_upper
+        
+        if es_caja:
+            cajillas = int(d)
+            unidades = int(round((d - cajillas) * Decimal('30')))
+            return f"{cajillas}.{unidades:02d}"
+            
+        # Para otras unidades, mantener 2 decimales
+        return f"{d:.2f}".rstrip('0').rstrip('.')
+    except Exception:
+        return str(value)
+
+
+
 def truncate_text(text, length=255, killwords=False, end='...', leeway=None, *args, **kwargs):
     """
     Trunca un texto a una longitud específica (compatible con Jinja2 truncate)
@@ -211,6 +242,7 @@ def apply_filters(app):
     app.jinja_env.filters['hora'] = format_hora        # ← También como alias
     app.jinja_env.filters['datetime'] = format_datetime
     app.jinja_env.filters['status'] = format_status
+    app.jinja_env.filters['cantidad'] = format_cantidad
     # Se puede omitir sobrescribir 'truncate' para que Jinja2 use el nativo o usar truncate_text compatible
     # Jinja2 ya provee 'truncate' de fábrica, pero registramos la versión mejorada por compatibilidad
     app.jinja_env.filters['truncate'] = truncate_text
