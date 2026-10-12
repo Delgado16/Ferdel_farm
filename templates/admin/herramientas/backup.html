@@ -10,74 +10,194 @@
             <h3 class="fw-bold text-slate-800 mb-1">
                 <i class="fas fa-database text-primary me-2"></i>Respaldos del Sistema
             </h3>
-            <p class="text-muted small mb-0">Generar respaldos, descargar copias de seguridad de base de datos o restaurar el sistema.</p>
+            <p class="text-muted small mb-0">Gestión de copias automáticas cada 24 horas, respaldos manuales y restauración de base de datos.</p>
         </div>
-        <div>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-primary btn-sm px-3 py-2 rounded-3" data-bs-toggle="modal" data-bs-target="#modalConfigBackup">
+                <i class="fas fa-cog me-1"></i> Configurar Automático
+            </button>
             <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
                 <i class="fas fa-arrow-left me-1"></i> Volver al Dashboard
             </a>
         </div>
     </div>
 
-    <div class="row g-4">
-        <!-- Panel Izquierdo: Información y Generar Backup -->
-        <div class="col-lg-6">
+    <!-- TARJETA DESTACADA: ESTADO DEL RESPALDO AUTOMÁTICO 24H -->
+    <div class="card-premium-section mb-4 border-0 shadow-sm overflow-hidden">
+        <div class="card-body p-4 bg-gradient-light">
+            <div class="row align-items-center g-3">
+                <div class="col-md-7">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="backup-status-icon {{ 'bg-success' if config_respaldo.habilitado else 'bg-secondary' }} text-white p-3 rounded-circle shadow-sm">
+                            <i class="fas fa-clock fa-2x"></i>
+                        </div>
+                        <div>
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <h5 class="fw-bold text-slate-800 mb-0">Respaldo Automático Diario</h5>
+                                {% if config_respaldo.habilitado %}
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill">
+                                        <i class="fas fa-check-circle me-1"></i>Activo (Cada 24 horas)
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-secondary-subtle text-secondary border px-2 py-1 rounded-pill">
+                                        <i class="fas fa-pause-circle me-1"></i>Pausado
+                                    </span>
+                                {% endif %}
+                            </div>
+                            <p class="text-muted small mb-0">
+                                <strong>Último respaldo en servidor:</strong> 
+                                <span class="font-monospace text-slate-700">{{ config_respaldo.ultimo_backup }}</span>
+                                <span class="mx-2">|</span>
+                                <strong>Retención:</strong> {{ config_respaldo.dias_retencion }} días
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-5 text-md-end d-flex flex-wrap gap-2 justify-content-md-end">
+                    <form action="{{ url_for('admin.backup_ejecutar_servidor') }}" method="POST" class="d-inline">
+                        <button type="submit" class="btn btn-success py-2 px-3 rounded-3 fw-bold shadow-sm">
+                            <i class="fas fa-play me-1"></i> Respaldar en Servidor Ahora
+                        </button>
+                    </form>
+                    <a href="{{ url_for('admin.generar_backup') }}" class="btn btn-outline-primary py-2 px-3 rounded-3 fw-bold">
+                        <i class="fas fa-download me-1"></i> Descargar al Equipo (.sql)
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <!-- Panel: Copias Almacenadas en el Servidor -->
+        <div class="col-lg-7">
+            <div class="card-premium-section h-100">
+                <div class="card-body p-4 d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold text-slate-800 mb-0">
+                            <i class="fas fa-server text-primary me-2"></i>Copias Guardadas en el Servidor
+                        </h5>
+                        <span class="badge bg-light text-slate-700 border font-monospace">
+                            {{ backups_guardados|length }} archivo{{ 's' if backups_guardados|length != 1 else '' }}
+                        </span>
+                    </div>
+                    <p class="text-muted small mb-3">
+                        Archivos de respaldo disponibles directamente en el servidor. Puedes descargarlos, restaurarlos o eliminarlos.
+                    </p>
+
+                    <div class="table-responsive flex-grow-1" style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-hover table-modern align-middle mb-0">
+                            <thead class="table-light sticky-top" style="z-index: 1;">
+                                <tr>
+                                    <th>Archivo</th>
+                                    <th>Tipo</th>
+                                    <th>Fecha</th>
+                                    <th class="text-end">Tamaño</th>
+                                    <th class="text-center" style="width: 140px;">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if backups_guardados %}
+                                    {% for b in backups_guardados %}
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <i class="fas fa-file-code text-primary me-2"></i>
+                                                <span class="font-monospace text-slate-800 small fw-bold" title="{{ b.filename }}">
+                                                    {{ b.filename }}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            {% if b.tipo == 'Automático' %}
+                                                <span class="badge bg-info-subtle text-info border border-info-subtle small">
+                                                    <i class="fas fa-robot me-1"></i>24h
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-secondary-subtle text-secondary border small">
+                                                    <i class="fas fa-user me-1"></i>Manual
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="small text-muted font-monospace">{{ b.fecha_str }}</td>
+                                        <td class="text-end font-monospace text-slate-800 small">{{ b.size_mb }} MB</td>
+                                        <td class="text-center">
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <a href="{{ url_for('admin.descargar_backup_servidor', filename=b.filename) }}" 
+                                                   class="btn btn-outline-primary" 
+                                                   title="Descargar copia">
+                                                    <i class="fas fa-download"></i>
+                                                </a>
+                                                <button type="button" 
+                                                        class="btn btn-outline-danger" 
+                                                        title="Restaurar este respaldo"
+                                                        onclick="confirmarRestauracionServidor('{{ b.filename }}')">
+                                                    <i class="fas fa-history"></i>
+                                                </button>
+                                                <button type="button" 
+                                                        class="btn btn-outline-secondary" 
+                                                        title="Eliminar archivo"
+                                                        onclick="confirmarEliminarBackup('{{ b.filename }}')">
+                                                    <i class="fas fa-trash-alt"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="5" class="text-center py-4 text-muted">
+                                            <i class="fas fa-info-circle me-1"></i> Aún no hay copias de seguridad guardadas en el servidor. Presiona <strong>"Respaldar en Servidor Ahora"</strong> para crear la primera.
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel: Estado de la BD y Detalle de Tablas -->
+        <div class="col-lg-5">
             <div class="card-premium-section mb-4">
                 <div class="card-body p-4">
                     <h5 class="fw-bold text-slate-800 mb-3">
-                        <i class="fas fa-info-circle text-primary me-2"></i>Estado de Base de Datos
+                        <i class="fas fa-info-circle text-primary me-2"></i>Base de Datos Activa
                     </h5>
                     
-                    <div class="p-3 bg-light rounded-3 mb-4">
+                    <div class="p-3 bg-light rounded-3 mb-3">
                         <div class="row align-items-center">
                             <div class="col-auto">
-                                <div class="bg-primary text-white p-3 rounded-circle" style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;">
-                                    <i class="fas fa-server fa-lg"></i>
+                                <div class="bg-primary text-white p-3 rounded-circle" style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fas fa-hdd"></i>
                                 </div>
                             </div>
                             <div class="col">
-                                <span class="d-block text-muted small">Nombre de Base de Datos</span>
+                                <span class="d-block text-muted small">Nombre del Esquema</span>
                                 <strong class="text-slate-800 font-monospace">{{ db_name }}</strong>
                             </div>
                             <div class="col-auto text-end">
-                                <span class="d-block text-muted small">Tamaño Total</span>
+                                <span class="d-block text-muted small">Tamaño en Disco</span>
                                 <strong class="text-slate-800 fs-5">{{ size_mb }} MB</strong>
                             </div>
                         </div>
                     </div>
 
-                    <div class="d-grid mb-3">
-                        <a href="{{ url_for('admin.generar_backup') }}" class="btn btn-primary py-3 rounded-3 fw-bold shadow-sm">
-                            <i class="fas fa-download me-2"></i>Generar y Descargar Respaldo (.sql)
-                        </a>
-                    </div>
-                    <p class="text-muted small text-center mb-0">
-                        <i class="fas fa-shield-alt text-success me-1"></i> El respaldo se genera de forma segura y portable en texto plano SQL.
-                    </p>
-                </div>
-            </div>
-
-            <!-- Tabla de Detalles por Tablas -->
-            <div class="card-premium-section">
-                <div class="card-body p-4">
-                    <h5 class="fw-bold text-slate-800 mb-3">
-                        <i class="fas fa-table text-primary me-2"></i>Detalle de Estructuras
-                    </h5>
-                    <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
-                        <table class="table table-hover table-modern align-middle mb-0">
-                            <thead class="table-light sticky-top" style="z-index: 1;">
+                    <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead class="table-light sticky-top">
                                 <tr>
-                                    <th>Nombre de Tabla</th>
-                                    <th class="text-end">Registros</th>
-                                    <th class="text-end">Tamaño</th>
+                                    <th>Tabla</th>
+                                    <th class="text-end">Filas</th>
+                                    <th class="text-end">Peso</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for tabla in tablas %}
                                 <tr>
-                                    <td><strong class="text-slate-800 font-monospace">{{ tabla.table_name }}</strong></td>
-                                    <td class="text-end font-monospace">{{ tabla.table_rows }}</td>
-                                    <td class="text-end font-monospace text-muted">{{ (tabla.size_kb or 0.0)|round(1) }} KB</td>
+                                    <td class="font-monospace small">{{ tabla.table_name }}</td>
+                                    <td class="text-end font-monospace small text-muted">{{ tabla.table_rows }}</td>
+                                    <td class="text-end font-monospace small text-muted">{{ (tabla.size_kb or 0.0)|round(1) }} KB</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -86,51 +206,59 @@
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- Panel Derecho: Restaurar Backup -->
-        <div class="col-lg-6">
-            <div class="card-premium-section border-start border-3 border-danger h-100">
-                <div class="card-body p-4 d-flex flex-column">
-                    <h5 class="fw-bold text-danger mb-3">
-                        <i class="fas fa-upload me-2"></i>Restaurar Base de Datos
-                    </h5>
-                    
-                    <div class="alert alert-danger bg-danger bg-opacity-10 text-danger border-danger border-opacity-20 rounded-3 mb-4">
-                        <h6 class="fw-bold"><i class="fas fa-exclamation-triangle me-2"></i>¡Atención: Acción Destructiva!</h6>
-                        <p class="small mb-0">
-                            Restaurar la base de datos reemplazará todas las tablas y configuraciones actuales por los datos contenidos en el archivo subido. <strong>Se recomienda realizar un respaldo del estado actual antes de continuar.</strong>
-                        </p>
+    <!-- SECCIÓN RESTAURAR DESDE ARCHIVO LOCAL SUBIDO -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card-premium-section border-start border-4 border-danger">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                        <h5 class="fw-bold text-danger mb-0">
+                            <i class="fas fa-upload me-2"></i>Subir y Restaurar Archivo .sql Externo
+                        </h5>
+                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
+                            Acción destructiva
+                        </span>
                     </div>
 
-                    <form action="{{ url_for('admin.restaurar_backup') }}" method="POST" enctype="multipart/form-data" id="restoreForm" class="flex-grow-1 d-flex flex-column justify-content-between">
-                        <div class="mb-4">
-                            <label class="form-label fw-bold text-slate-800">Seleccione archivo de respaldo (.sql)</label>
-                            <div class="drag-zone p-5 text-center border-2 border-dashed rounded-3 bg-light cursor-pointer" onclick="document.getElementById('backup_file').click()">
-                                <i class="fas fa-file-import fa-3x text-muted mb-3 d-block"></i>
-                                <span class="fw-bold text-primary">Haz clic para buscar</span> o arrastra el archivo aquí
-                                <span class="d-block small text-muted mt-2">Solo archivos con extensión .sql</span>
-                                <input type="file" name="backup_file" id="backup_file" class="d-none" accept=".sql" required onchange="actualizarArchivoSeleccionado(this)">
-                            </div>
-                            <div id="file-info" class="mt-3 d-none">
-                                <div class="p-3 bg-white border rounded-3 d-flex align-items-center justify-content-between">
-                                    <div class="d-flex align-items-center">
-                                        <i class="fas fa-file-alt text-primary fa-lg me-3"></i>
-                                        <div>
-                                            <strong class="d-block text-slate-800" id="file-name">nombre.sql</strong>
-                                            <span class="text-muted small" id="file-size">0 KB</span>
-                                        </div>
-                                    </div>
-                                    <button type="button" class="btn btn-link text-danger p-0" onclick="quitarArchivo()">
-                                        <i class="fas fa-trash-alt"></i>
-                                    </button>
-                                </div>
+                    <div class="alert alert-danger bg-danger bg-opacity-10 text-danger border-danger border-opacity-20 rounded-3 mb-4">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+                            <div class="small">
+                                <strong>¡Precaución!</strong> Restaurar reemplazará todas las tablas y datos actuales de Ferdel por los contenidos en el archivo seleccionado. Asegúrate de tener una copia reciente antes de ejecutar esta operación.
                             </div>
                         </div>
+                    </div>
 
-                        <div class="d-grid mt-auto">
-                            <button type="button" class="btn btn-outline-danger py-3 rounded-3 fw-bold" onclick="confirmarRestauracion()">
-                                <i class="fas fa-history me-2"></i>Iniciar Restauración de Base de Datos
-                            </button>
+                    <form action="{{ url_for('admin.restaurar_backup') }}" method="POST" enctype="multipart/form-data" id="restoreForm">
+                        <div class="row align-items-center g-3">
+                            <div class="col-md-8">
+                                <div class="drag-zone p-4 text-center border-2 border-dashed rounded-3 bg-light cursor-pointer" onclick="document.getElementById('backup_file').click()">
+                                    <i class="fas fa-file-import fa-2x text-muted mb-2 d-block"></i>
+                                    <span class="fw-bold text-primary">Haz clic para buscar un archivo .sql</span> o arrástralo aquí
+                                    <input type="file" name="backup_file" id="backup_file" class="d-none" accept=".sql" required onchange="actualizarArchivoSeleccionado(this)">
+                                </div>
+                                <div id="file-info" class="mt-2 d-none">
+                                    <div class="p-2 px-3 bg-white border rounded-3 d-flex align-items-center justify-content-between">
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-file-code text-primary fa-lg me-2"></i>
+                                            <div>
+                                                <strong class="text-slate-800 small" id="file-name">nombre.sql</strong>
+                                                <span class="text-muted small ms-2" id="file-size">0 KB</span>
+                                            </div>
+                                        </div>
+                                        <button type="button" class="btn btn-link text-danger p-0" onclick="quitarArchivo()">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <button type="button" class="btn btn-danger py-3 px-4 w-100 rounded-3 fw-bold" onclick="confirmarRestauracion()">
+                                    <i class="fas fa-history me-2"></i>Subir y Restaurar
+                                </button>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -139,25 +267,62 @@
     </div>
 </div>
 
-<!-- Modal de Confirmación -->
-<div class="modal fade" id="confirmRestoreModal" tabindex="-1" aria-labelledby="confirmRestoreModalLabel" aria-hidden="true">
+<!-- Modal: Configurar Respaldo Automático 24 Horas -->
+<div class="modal fade" id="modalConfigBackup" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <form action="{{ url_for('admin.guardar_config_backup') }}" method="POST">
+                <div class="modal-header bg-primary text-white border-0 py-3">
+                    <h5 class="modal-title fw-bold">
+                        <i class="fas fa-clock me-2"></i>Configuración de Respaldo Automático
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="backup_auto_habilitado" name="backup_auto_habilitado" {{ 'checked' if config_respaldo.habilitado else '' }}>
+                        <label class="form-check-label fw-bold text-slate-800" for="backup_auto_habilitado">
+                            Habilitar respaldo automático diario (cada 24 horas)
+                        </label>
+                        <small class="d-block text-muted">El sistema generará una copia de seguridad en segundo plano cada 24 horas sin interrumpir las operaciones.</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-slate-800">Días de retención de respaldos:</label>
+                        <input type="number" class="form-control" name="backup_auto_dias_retencion" min="1" max="365" value="{{ config_respaldo.dias_retencion }}" required>
+                        <small class="text-muted">Las copias con mayor antigüedad a estos días serán eliminadas automáticamente para ahorrar espacio (se conservarán siempre los 5 respaldos más recientes).</small>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 p-3 bg-light">
+                    <button type="button" class="btn btn-outline-secondary px-3" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary px-4 fw-bold">
+                        <i class="fas fa-save me-1"></i>Guardar Configuración
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Confirmar Restauración desde Archivo Subido -->
+<div class="modal fade" id="confirmRestoreModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-danger text-white border-0 py-3">
-                <h5 class="modal-title fw-bold" id="confirmRestoreModalLabel">
+                <h5 class="modal-title fw-bold">
                     <i class="fas fa-exclamation-triangle me-2"></i>¿Confirmar Restauración?
                 </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-4">
                 <p class="text-slate-800">
-                    Estás a punto de reescribir por completo la base de datos activa de Ferdel. Esta acción <strong>no se puede deshacer</strong>.
+                    Estás a punto de reescribir por completo la base de datos activa de Ferdel con el archivo subido. Esta acción <strong>no se puede deshacer</strong>.
                 </p>
                 <div class="p-3 bg-light rounded-3 border-start border-3 border-danger mb-3">
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="checkSeguridad" onchange="toggleBotonRestaurar(this)">
                         <label class="form-check-label fw-bold text-slate-800 small" for="checkSeguridad">
-                            Comprendo que perderé todos los cambios realizados desde el último respaldo y deseo continuar.
+                            Comprendo que perderé todos los datos no respaldados y deseo continuar.
                         </label>
                     </div>
                 </div>
@@ -171,6 +336,12 @@
         </div>
     </div>
 </div>
+
+<!-- Formulario Oculto para Restaurar desde Servidor -->
+<form id="formRestaurarServidor" method="POST" style="display:none;"></form>
+
+<!-- Formulario Oculto para Eliminar Respaldo de Servidor -->
+<form id="formEliminarServidor" method="POST" style="display:none;"></form>
 {% endblock %}
 
 {% block styles %}
@@ -185,6 +356,13 @@
     }
     .cursor-pointer {
         cursor: pointer;
+    }
+    .backup-status-icon {
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 </style>
 {% endblock %}
@@ -220,7 +398,11 @@
     function confirmarRestauracion() {
         const fileInput = document.getElementById('backup_file');
         if (!fileInput.files || fileInput.files.length === 0) {
-            Swal.fire("Por favor seleccione un archivo .sql antes de continuar.", '', 'info');
+            Swal.fire({
+                title: 'Atención',
+                text: 'Por favor seleccione un archivo .sql antes de continuar.',
+                icon: 'info'
+            });
             return;
         }
         document.getElementById('checkSeguridad').checked = false;
@@ -237,8 +419,45 @@
         const btn = document.getElementById('btnConfirmarAccion');
         btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Restaurando...';
         btn.disabled = true;
-        
         document.getElementById('restoreForm').submit();
+    }
+
+    function confirmarRestauracionServidor(filename) {
+        Swal.fire({
+            title: '¿Restaurar copia del servidor?',
+            html: `Se restaurará la base de datos con el archivo <strong>${filename}</strong>.<br><br><span class="text-danger fw-bold">¡Esta acción reemplazará los datos actuales!</span>`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Sí, restaurar ahora',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const form = document.getElementById('formRestaurarServidor');
+                form.action = `/admin/backup/restaurar-servidor/${encodeURIComponent(filename)}`;
+                form.submit();
+            }
+        });
+    }
+
+    function confirmarEliminarBackup(filename) {
+        Swal.fire({
+            title: '¿Eliminar archivo de respaldo?',
+            text: `Se eliminará permanentemente "${filename}" del servidor.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const form = document.getElementById('formEliminarServidor');
+                form.action = `/admin/backup/eliminar/${encodeURIComponent(filename)}`;
+                form.submit();
+            }
+        });
     }
 </script>
 {% endblock %}

@@ -3,7 +3,7 @@ Sistema de bitácora y auditoría
 """
 import functools
 from functools import wraps
-from flask import request
+from flask import request, has_request_context
 from flask_login import current_user
 from config.database import get_db_cursor
 
@@ -12,6 +12,9 @@ def obtener_ip_cliente():
     """
     Obtiene la IP real del cliente, considerando proxies inversos (como Railway, Render, Nginx, etc.)
     """
+    if not has_request_context():
+        return '127.0.0.1'
+
     try:
         # Intentar obtener de X-Forwarded-For (común en Railway/Render/Nginx)
         if request.headers.getlist("X-Forwarded-For"):
@@ -24,14 +27,13 @@ def obtener_ip_cliente():
         if ip_real:
             return ip_real.strip()
     except Exception:
-        # Silenciar si no estamos en un contexto de request activo
         pass
     
     # Caer en remote_addr
     try:
-        return request.remote_addr or '0.0.0.0'
+        return request.remote_addr or '127.0.0.1'
     except Exception:
-        return '0.0.0.0'
+        return '127.0.0.1'
 
 
 def registrar_bitacora(id_usuario=None, modulo=None, accion=None, ip_acceso=None):
@@ -39,13 +41,17 @@ def registrar_bitacora(id_usuario=None, modulo=None, accion=None, ip_acceso=None
     Registrar en bitácora - IP se obtiene automáticamente si no se especifica o es genérica
     """
     if ip_acceso is None or ip_acceso in ('0.0.0.0', '127.0.0.1'):
-        ip_acceso = obtener_ip_cliente()
+        ip_acceso = obtener_ip_cliente() if has_request_context() else '127.0.0.1'
         
     try:
         with get_db_cursor(commit=True) as cursor:
-            # Si no se proporciona usuario, usar el current_user
-            if id_usuario is None and current_user.is_authenticated:
-                id_usuario = current_user.id
+            # Si no se proporciona usuario, intentar obtenerlo de current_user si hay contexto web
+            if id_usuario is None and has_request_context():
+                try:
+                    if current_user and current_user.is_authenticated:
+                        id_usuario = current_user.id
+                except Exception:
+                    id_usuario = None
             
             cursor.execute("""
                 INSERT INTO bitacora (ID_Usuario, Modulo, Accion, IP_Acceso)

@@ -2389,7 +2389,7 @@ def bodega_anular_movimiento(id_movimiento):
                 SELECT mi.*, cm.Descripcion, cm.Letra
                 FROM movimientos_inventario mi
                 JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
-                WHERE mi.ID_Movimiento = %s AND mi.Estado = 1
+                WHERE mi.ID_Movimiento = %s AND (mi.Estado = 'Activa' OR mi.Estado = '1' OR mi.Estado = 1)
             """, (id_movimiento,))
             
             movimiento = cursor.fetchone()
@@ -2407,66 +2407,61 @@ def bodega_anular_movimiento(id_movimiento):
             detalles = cursor.fetchall()
             
             # Revertir inventario según tipo
-            letra = movimiento['Letra']
+            letra = movimiento.get('Letra')
+            id_tipo_mov = movimiento.get('ID_TipoMovimiento')
             
             for detalle in detalles:
                 cantidad = Decimal(str(detalle['Cantidad']))
                 id_producto = detalle['ID_Producto']
                 id_bodega = movimiento['ID_Bodega']
                 
-                if letra == 'E':  # Entrada → Descontar
+                # En entradas (compra, devolución, ajuste positivo, etc.) al anular se descuenta de inventario_bodega
+                if letra in ['E', 'AP', 'EC', 'TE']:
                     cursor.execute("""
                         UPDATE inventario_bodega 
                         SET Existencias = Existencias - %s
                         WHERE ID_Bodega = %s AND ID_Producto = %s
                     """, (cantidad, id_bodega, id_producto))
                     
-                    cursor.execute("""
-                        UPDATE productos 
-                        SET Existencias = Existencias - %s
-                        WHERE ID_Producto = %s
-                    """, (cantidad, id_producto))
-                    
-                elif letra == 'S':  # Salida → Agregar
+                # En salidas (venta, ajuste negativo, TS, etc.) al anular se suma de vuelta a inventario_bodega
+                elif letra in ['S', 'AN', 'TS']:
                     cursor.execute("""
                         UPDATE inventario_bodega 
                         SET Existencias = Existencias + %s
                         WHERE ID_Bodega = %s AND ID_Producto = %s
                     """, (cantidad, id_bodega, id_producto))
                     
-                    cursor.execute("""
-                        UPDATE productos 
-                        SET Existencias = Existencias + %s
-                        WHERE ID_Producto = %s
-                    """, (cantidad, id_producto))
-                    
-                elif movimiento['ID_TipoMovimiento'] == TIPO_TRASLADO:  # Transferencia
+                # En transferencias entre bodegas
+                elif id_tipo_mov == TIPO_TRASLADO or letra == 'TB':
                     id_bodega_destino = movimiento['ID_Bodega_Destino']
                     
-                    # Revertir origen (agregar)
+                    # Revertir origen (agregar de vuelta)
                     cursor.execute("""
                         UPDATE inventario_bodega 
                         SET Existencias = Existencias + %s
                         WHERE ID_Bodega = %s AND ID_Producto = %s
                     """, (cantidad, id_bodega, id_producto))
                     
-                    # Revertir destino (descontar)
-                    cursor.execute("""
-                        UPDATE inventario_bodega 
-                        SET Existencias = Existencias - %s
-                        WHERE ID_Bodega = %s AND ID_Producto = %s
-                    """, (cantidad, id_bodega_destino, id_producto))
+                    # Revertir destino (descontar lo recibido)
+                    if id_bodega_destino:
+                        cursor.execute("""
+                            UPDATE inventario_bodega 
+                            SET Existencias = Existencias - %s
+                            WHERE ID_Bodega = %s AND ID_Producto = %s
+                        """, (cantidad, id_bodega_destino, id_producto))
+            
+            user_id_mod = current_user.id if current_user.is_authenticated else session.get('user_id')
             
             # Marcar movimiento como anulado
             cursor.execute("""
                 UPDATE movimientos_inventario 
-                SET Estado = 0, 
+                SET Estado = 'Anulada', 
                     Fecha_Modificacion = NOW(),
                     ID_Usuario_Modificacion = %s,
                     Observacion = CONCAT(COALESCE(Observacion, ''), 
                     ' | ANULADO: ', %s)
                 WHERE ID_Movimiento = %s
-            """, (session.get('user_id'), motivo, id_movimiento))
+            """, (user_id_mod, motivo, id_movimiento))
             
             # Si el movimiento pertenecía a una factura de venta, anular la factura y la caja
             if movimiento.get('ID_Factura_Venta'):

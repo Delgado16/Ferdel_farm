@@ -1,6 +1,7 @@
 import csv
 import io
-from flask import make_response, render_template, redirect, url_for, request, flash, jsonify
+import os
+from flask import make_response, render_template, redirect, url_for, request, flash, jsonify, send_from_directory
 from flask_login import current_user
 from datetime import datetime, date
 from decimal import Decimal
@@ -8,6 +9,13 @@ from config.database import get_db_cursor
 from auth.decorators import admin_required
 from . import admin_bp
 from helpers.bitacora import bitacora_decorator, registrar_bitacora
+from helpers.backup_service import (
+    generar_script_sql,
+    ejecutar_backup_servidor,
+    listar_backups_servidor,
+    eliminar_backup_servidor,
+    obtener_directorio_backups
+)
 
 #============================
 #=== MODULO HERRAMIENTAS ====
@@ -308,22 +316,25 @@ def config_general():
 #==================================
 #=== MODULO RESPALDOS DE BD =======
 #==================================
+@admin_bp.route('/backup')
 @admin_bp.route('/admin/backup')
 @admin_required
 def admin_backup():
-    """Vista principal de la gestión de respaldos"""
+    """Vista principal de la gestión de respaldos con copias automáticas y manuales"""
     try:
         with get_db_cursor() as cursor:
             # Obtener el tamaño aproximado de la base de datos
             cursor.execute("SELECT DATABASE() as db_name")
-            db_name = cursor.fetchone()['db_name']
+            db_name_res = cursor.fetchone()
+            db_name = db_name_res['db_name'] if db_name_res else 'ferdel'
             
             cursor.execute("""
                 SELECT SUM(data_length + index_length) / 1024 / 1024 AS size_mb 
                 FROM information_schema.TABLES 
                 WHERE table_schema = %s
             """, (db_name,))
-            size_mb = cursor.fetchone()['size_mb'] or 0.0
+            res_size = cursor.fetchone()
+            size_mb = res_size['size_mb'] if res_size and res_size['size_mb'] else 0.0
             
             cursor.execute("""
                 SELECT TABLE_NAME AS table_name, 
@@ -337,110 +348,48 @@ def admin_backup():
             tablas = []
             for row in tablas_raw:
                 tablas.append({k.lower(): v for k, v in row.items()})
+
+            # Obtener configuraciones de respaldo
+            cursor.execute("""
+                SELECT llave, valor FROM config_sistema 
+                WHERE llave IN ('ultimo_backup_automatico', 'backup_auto_habilitado', 'backup_auto_dias_retencion')
+            """)
+            cfg_rows = cursor.fetchall()
+            cfg = {r['llave']: r['valor'] for r in cfg_rows}
+            
+            config_respaldo = {
+                'ultimo_backup': cfg.get('ultimo_backup_automatico', 'Ninguno registrado'),
+                'habilitado': cfg.get('backup_auto_habilitado', '1') == '1',
+                'dias_retencion': cfg.get('backup_auto_dias_retencion', '15')
+            }
+            
+            # Obtener lista de respaldos existentes en el servidor
+            backups_guardados = listar_backups_servidor()
             
             return render_template('admin/herramientas/backup.html', 
                                  db_name=db_name, 
                                  size_mb=round(float(size_mb), 2), 
-                                 tablas=tablas)
+                                 tablas=tablas,
+                                 config_respaldo=config_respaldo,
+                                 backups_guardados=backups_guardados)
     except Exception as e:
         flash(f"❌ Error al cargar información de respaldos: {e}", "danger")
         return redirect(url_for('admin.admin_dashboard'))
 
 
+@admin_bp.route('/backup/generar')
 @admin_bp.route('/admin/backup/generar')
 @admin_required
 def generar_backup():
-    """Generar y descargar un archivo .sql del respaldo de la base de datos"""
+    """Generar y descargar en el navegador un archivo .sql del respaldo de la base de datos"""
     try:
-        output = io.StringIO()
-        output.write("-- Respaldador de Base de Datos Ferdel (Pure Python)\n")
-        output.write(f"-- Fecha: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-        output.write("-- --------------------------------------------------------\n\n")
-        output.write("SET FOREIGN_KEY_CHECKS = 0;\n\n")
-        
-        with get_db_cursor(commit=False) as cursor:
-            # Obtener nombre de la base de datos actual
-            cursor.execute("SELECT DATABASE() as db_name")
-            db_name = cursor.fetchone()['db_name']
-            output.write(f"CREATE DATABASE IF NOT EXISTS `{db_name}` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;\n")
-            output.write(f"USE `{db_name}`;\n\n")
-            
-            cursor.execute("SHOW TABLES")
-            tables = [list(row.values())[0] for row in cursor.fetchall()]
-            
-            # 1. Primero las estructuras e inserciones de tablas reales
-            for table in tables:
-                # Comprobar si es vista
-                cursor.execute(f"SHOW FULL TABLES LIKE '{table}'")
-                table_info = cursor.fetchone()
-                is_view = table_info and list(table_info.values())[1] == 'VIEW'
-                if is_view:
-                    continue
-                    
-                output.write(f"-- --------------------------------------------------------\n")
-                output.write(f"-- Estructura de tabla para `{table}`\n")
-                output.write(f"-- --------------------------------------------------------\n")
-                output.write(f"DROP TABLE IF EXISTS `{table}`;\n")
-                
-                cursor.execute(f"SHOW CREATE TABLE `{table}`")
-                create_stmt = cursor.fetchone()
-                sql_create = list(create_stmt.values())[1]
-                output.write(f"{sql_create};\n\n")
-                
-                # Obtener datos de la tabla
-                output.write(f"-- Datos de la tabla `{table}`\n")
-                cursor.execute(f"SELECT * FROM `{table}`")
-                rows = cursor.fetchall()
-                if rows:
-                    columns = list(rows[0].keys())
-                    col_names = ", ".join([f"`{col}`" for col in columns])
-                    
-                    for row in rows:
-                        vals = []
-                        for col in columns:
-                            val = row[col]
-                            if val is None:
-                                vals.append("NULL")
-                            elif isinstance(val, (int, float, Decimal)):
-                                vals.append(str(val))
-                            elif isinstance(val, (datetime, date)):
-                                vals.append(f"'{val.strftime('%Y-%m-%d %H:%M:%S') if isinstance(val, datetime) else val.strftime('%Y-%m-%d')}'")
-                            elif isinstance(val, bytes):
-                                vals.append(f"0x{val.hex()}")
-                            else:
-                                # Escapar comillas y backslashes
-                                escaped_val = str(val).replace("\\", "\\\\").replace("'", "\\'")
-                                vals.append(f"'{escaped_val}'")
-                                
-                        output.write(f"INSERT INTO `{table}` ({col_names}) VALUES ({', '.join(vals)});\n")
-                output.write("\n")
-                
-            # 2. Después las vistas
-            for table in tables:
-                cursor.execute(f"SHOW FULL TABLES LIKE '{table}'")
-                table_info = cursor.fetchone()
-                is_view = table_info and list(table_info.values())[1] == 'VIEW'
-                if not is_view:
-                    continue
-                    
-                output.write(f"-- --------------------------------------------------------\n")
-                output.write(f"-- Estructura de vista `{table}`\n")
-                output.write(f"-- --------------------------------------------------------\n")
-                output.write(f"DROP VIEW IF EXISTS `{table}`;\n")
-                
-                cursor.execute(f"SHOW CREATE VIEW `{table}`")
-                create_stmt = cursor.fetchone()
-                sql_create = list(create_stmt.values())[1]
-                output.write(f"{sql_create};\n\n")
-                
-        output.write("SET FOREIGN_KEY_CHECKS = 1;\n")
-        
+        sql_content = generar_script_sql()
         filename = f"backup_ferdel_{datetime.now().strftime('%Y%m%d_%H%M%S')}.sql"
-        response = make_response(output.getvalue())
+        response = make_response(sql_content)
         response.headers["Content-Disposition"] = f"attachment; filename={filename}"
         response.headers["Content-type"] = "application/sql"
         
-        registrar_bitacora(modulo="RESPALDO", accion=f"GENERAR_BACKUP_SQL: {filename}")
+        registrar_bitacora(modulo="RESPALDO", accion=f"GENERAR_BACKUP_DESCARGA: {filename}")
         return response
         
     except Exception as e:
@@ -448,6 +397,143 @@ def generar_backup():
         return redirect(url_for('admin.admin_backup'))
 
 
+@admin_bp.route('/backup/ejecutar-servidor', methods=['POST'])
+@admin_bp.route('/admin/backup/ejecutar-servidor', methods=['POST'])
+@admin_required
+def backup_ejecutar_servidor():
+    """Ejecutar respaldo inmediato y guardarlo en el servidor"""
+    try:
+        resultado = ejecutar_backup_servidor(es_automatico=False)
+        flash(f"✅ Copia de seguridad guardada con éxito en el servidor: {resultado['filename']} ({resultado['size_mb']} MB)", "success")
+    except Exception as e:
+        flash(f"❌ Error al generar respaldo en el servidor: {e}", "danger")
+    return redirect(url_for('admin.admin_backup'))
+
+
+@admin_bp.route('/backup/descargar/<filename>')
+@admin_bp.route('/admin/backup/descargar/<filename>')
+@admin_required
+def descargar_backup_servidor(filename):
+    """Descargar un archivo de respaldo específico almacenado en el servidor"""
+    try:
+        directorio = obtener_directorio_backups()
+        return send_from_directory(directorio, filename, as_attachment=True)
+    except Exception as e:
+        flash(f"❌ No se pudo descargar el archivo: {e}", "danger")
+        return redirect(url_for('admin.admin_backup'))
+
+
+@admin_bp.route('/backup/eliminar/<filename>', methods=['POST'])
+@admin_bp.route('/admin/backup/eliminar/<filename>', methods=['POST'])
+@admin_required
+def eliminar_backup_archivo(filename):
+    """Eliminar un archivo de respaldo guardado en el servidor"""
+    try:
+        if eliminar_backup_servidor(filename):
+            flash(f"🗑️ Archivo de respaldo '{filename}' eliminado correctamente.", "success")
+        else:
+            flash(f"⚠️ El archivo '{filename}' no fue encontrado.", "warning")
+    except Exception as e:
+        flash(f"❌ Error al eliminar el respaldo: {e}", "danger")
+    return redirect(url_for('admin.admin_backup'))
+
+
+@admin_bp.route('/backup/config', methods=['POST'])
+@admin_bp.route('/admin/backup/config', methods=['POST'])
+@admin_required
+def guardar_config_backup():
+    """Actualizar configuración de copias automáticas (habilitar/deshabilitar, días de retención)"""
+    try:
+        habilitado = '1' if 'backup_auto_habilitado' in request.form else '0'
+        dias_retencion = request.form.get('backup_auto_dias_retencion', '15').strip()
+        
+        try:
+            dias_val = int(dias_retencion)
+            if dias_val < 1:
+                dias_retencion = '15'
+        except ValueError:
+            dias_retencion = '15'
+
+        with get_db_cursor(commit=True) as cursor:
+            cursor.execute("""
+                INSERT INTO config_sistema (llave, valor)
+                VALUES ('backup_auto_habilitado', %s)
+                ON DUPLICATE KEY UPDATE valor = %s
+            """, (habilitado, habilitado))
+
+            cursor.execute("""
+                INSERT INTO config_sistema (llave, valor)
+                VALUES ('backup_auto_dias_retencion', %s)
+                ON DUPLICATE KEY UPDATE valor = %s
+            """, (dias_retencion, dias_retencion))
+
+        registrar_bitacora(
+            modulo="RESPALDO", 
+            accion=f"ACTUALIZAR_CONFIG_BACKUP: habilitado={habilitado}, retencion={dias_retencion}d"
+        )
+        flash("✅ Configuración de respaldo automático actualizada.", "success")
+    except Exception as e:
+        flash(f"❌ Error al guardar configuración: {e}", "danger")
+    return redirect(url_for('admin.admin_backup'))
+
+
+@admin_bp.route('/backup/restaurar-servidor/<filename>', methods=['POST'])
+@admin_bp.route('/admin/backup/restaurar-servidor/<filename>', methods=['POST'])
+@admin_required
+def restaurar_backup_servidor(filename):
+    """Restaurar la base de datos directamente desde un archivo guardado en el servidor"""
+    try:
+        directorio = obtener_directorio_backups()
+        filepath = os.path.join(directorio, os.path.basename(filename))
+        
+        if not os.path.exists(filepath):
+            flash("❌ Archivo de respaldo no encontrado en el servidor.", "danger")
+            return redirect(url_for('admin.admin_backup'))
+            
+        with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+            sql_content = f.read()
+
+        statements = []
+        current_stmt = []
+        for line in sql_content.splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith('--') or stripped.startswith('/*'):
+                continue
+            current_stmt.append(line)
+            if stripped.endswith(';'):
+                statements.append(" ".join(current_stmt))
+                current_stmt = []
+
+        with get_db_cursor(commit=True) as cursor:
+            cursor.execute("SET FOREIGN_KEY_CHECKS = 0;")
+            exitosas = 0
+            errores = 0
+            for stmt in statements:
+                stmt_strip = stmt.strip()
+                if not stmt_strip:
+                    continue
+                try:
+                    cursor.execute(stmt_strip)
+                    exitosas += 1
+                except Exception as stmt_err:
+                    errores += 1
+                    print(f"Error al ejecutar sentencia de backup: {stmt_err}\nSentencia: {stmt_strip[:150]}")
+            
+            cursor.execute("SET FOREIGN_KEY_CHECKS = 1;")
+            registrar_bitacora(modulo="RESPALDO", accion=f"RESTAURAR_BACKUP_SERVIDOR: {filename} ({exitosas} sentencias, {errores} errores)")
+
+            if errores == 0:
+                flash(f"✅ Base de datos restaurada con éxito desde '{filename}'. ({exitosas} sentencias ejecutadas)", "success")
+            else:
+                flash(f"⚠️ Base de datos restaurada con advertencias ({exitosas} exitosas, {errores} fallidas).", "warning")
+
+    except Exception as e:
+        flash(f"❌ Error al restaurar respaldo: {e}", "danger")
+
+    return redirect(url_for('admin.admin_backup'))
+
+
+@admin_bp.route('/backup/restaurar', methods=['POST'])
 @admin_bp.route('/admin/backup/restaurar', methods=['POST'])
 @admin_required
 def restaurar_backup():

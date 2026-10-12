@@ -192,7 +192,14 @@ def create_app():
     print(f"   Secret Key: {'✅ Configurado' if SECRET_KEY else '❌ No configurado'}")
     print(f"   CORS: ✅ Habilitado")
     print(f"   Autenticación: ✅ Flask-Login configurado")
-    print(f"   Ambiente: {'🏭 Render' if RENDER_ENV else ('🚂 Railway' if RAILWAY_ENV else '💻 Desarrollo')}")
+    # ===== PROGRAMADOR DE RESPALDOS AUTOMÁTICOS (24 HORAS) =====
+    try:
+        from helpers.backup_service import iniciar_scheduler_backup
+        iniciar_scheduler_backup(app)
+        print("   Respaldo automático: ✅ Scheduler activo (cada 24 horas)")
+    except Exception as sched_err:
+        print(f"   Respaldo automático: ⚠️ No se pudo iniciar el scheduler ({sched_err})")
+
     print("✅ Aplicación inicializada correctamente")
     
     return app

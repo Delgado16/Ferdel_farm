@@ -20,7 +20,7 @@ import logging
 from mysql.connector import Error, pooling
 import mysql.connector
 import contextlib
-from flask import g
+from flask import g, has_app_context
 
 # ===== INICIO - MODIFICACIONES PARA PYTHON 3.13 Y RENDER =====
 # Solución para Python 3.13
@@ -62,7 +62,7 @@ def init_pool():
 def crear_tablas_sistema():
     """Crear tablas de configuración del sistema si no existen"""
     try:
-        conn = connection_pool.get_connection()
+        conn = _obtener_nueva_conexion()
         cursor = conn.cursor(dictionary=True)
         
         # Crear tabla config_sistema
@@ -85,7 +85,10 @@ def crear_tablas_sistema():
             ("smtp_host", "smtp.gmail.com", "Servidor de correo SMTP"),
             ("smtp_port", "587", "Puerto del servidor SMTP (587 para TLS)"),
             ("smtp_user", "", "Usuario/Correo del servidor SMTP"),
-            ("smtp_password", "", "Contraseña de aplicación o del servidor SMTP")
+            ("smtp_password", "", "Contraseña de aplicación o del servidor SMTP"),
+            ("ultimo_backup_automatico", "", "Fecha y hora del último respaldo generado en el servidor"),
+            ("backup_auto_habilitado", "1", "Habilitar respaldo automático diario cada 24 horas (1=Sí, 0=No)"),
+            ("backup_auto_dias_retencion", "15", "Días de retención para copias de seguridad automáticas")
         ]
         
         for llave, valor, desc in valores_defecto:
@@ -106,71 +109,55 @@ def crear_tablas_sistema():
 
 
 
-def get_db():
-    """Obtener conexión de la base de datos con manejo de errores"""
-    if 'db' not in g:
+def _obtener_nueva_conexion():
+    """Crea una conexión desde el pool o conexión directa y ajusta zona horaria"""
+    conn = None
+    if connection_pool:
         try:
-            if connection_pool:
-                g.db = connection_pool.get_connection()
-            else:
-                # Fallback a conexión simple si el pool falla
-                config_simple = {k: v for k, v in DB_CONFIG.items() 
-                               if k not in ['pool_name', 'pool_size', 'pool_reset_session']}
-                g.db = mysql.connector.connect(**config_simple)
-            
-            # Configurar zona horaria de la sesión en MySQL a Nicaragua (UTC-6)
-            try:
-                cursor = g.db.cursor()
-                cursor.execute("SET time_zone = '-06:00'")
-                cursor.close()
-                print("⏰ Zona horaria de la sesión BD establecida a UTC-6 (Nicaragua)")
-            except Exception as tz_err:
-                print(f"⚠️ No se pudo establecer la zona horaria en MySQL: {tz_err}")
+            conn = connection_pool.get_connection()
+        except Exception:
+            conn = None
 
-            print("✅ Conexión a BD establecida")
-            
-        except pooling.PoolError as e:
-            print(f"⚠️ Pool agotado, usando conexión directa: {e}")
-            try:
-                config_simple = {k: v for k, v in DB_CONFIG.items()
-                                if k not in ['pool_name', 'pool_size', 'pool_reset_session']}
-                g.db = mysql.connector.connect(**config_simple)
-                
-                # Configurar zona horaria en la conexión de fallback
-                try:
-                    cursor = g.db.cursor()
-                    cursor.execute("SET time_zone = '-06:00'")
-                    cursor.close()
-                    print("⏰ Zona horaria de la sesión BD (Fallback) establecida a UTC-6 (Nicaragua)")
-                except Exception as tz_err:
-                    print(f"⚠️ No se pudo establecer la zona horaria en MySQL (Fallback): {tz_err}")
-                    
-            except Error as fallback_error:
-                print(f"❌ Fallback también falló: {fallback_error}")
-                g.db = None
-        except Error as e:
-            print(f"❌ Error al conectar a la BD: {e}")
-            g.db = None
-    return g.db
+    if conn is None:
+        config_simple = {k: v for k, v in DB_CONFIG.items() 
+                       if k not in ['pool_name', 'pool_size', 'pool_reset_session']}
+        conn = mysql.connector.connect(**config_simple)
+
+    try:
+        cur = conn.cursor()
+        cur.execute("SET time_zone = '-06:00'")
+        cur.close()
+    except Exception:
+        pass
+    return conn
+
+
+def get_db():
+    """Obtener conexión de la base de datos con manejo de errores dentro o fuera de Flask"""
+    if has_app_context():
+        if 'db' not in g:
+            g.db = _obtener_nueva_conexion()
+        return g.db
+    else:
+        return _obtener_nueva_conexion()
 
 
 def close_db(exception=None):
     """Cerrar conexión al final de cada request"""
-    db = g.pop('db', None)
-    if db is not None:
-        try:
-            if db.is_connected():
-                db.close()
-                print("🔒 Conexión a BD cerrada")
-            else:
-                print("ℹ️ Conexión ya estaba cerrada")
-        except Exception as e:
-            print(f"❌ Error al cerrar conexión: {e}")
+    if has_app_context():
+        db = g.pop('db', None)
+        if db is not None:
+            try:
+                if db.is_connected():
+                    db.close()
+            except Exception as e:
+                print(f"❌ Error al cerrar conexión: {e}")
 
 
 @contextlib.contextmanager
 def get_db_cursor(commit=True):
-    """Context manager para manejar cursor automáticamente"""
+    """Context manager para manejar cursor automáticamente tanto en Flask como en segundo plano"""
+    en_app_context = has_app_context()
     db = get_db()
     if db is None:
         raise Exception("No se pudo conectar a la base de datos")
@@ -178,7 +165,6 @@ def get_db_cursor(commit=True):
     cursor = None
     try:
         if not db.is_connected():
-            print("🔄 Reconectando...")
             db.reconnect(attempts=1, delay=0)
     
         cursor = db.cursor(dictionary=True)
@@ -186,24 +172,25 @@ def get_db_cursor(commit=True):
         
         if commit:
             db.commit()
-            print("✅ Cambios confirmados en la BD")
 
     except Exception as e:
-        print(f"❌ Error en operación de BD: {e}")
         if commit:
             try:
                 db.rollback()
-                print("🔄 Rollback realizado en la BD")
-            except:
-                print("❌ Error al hacer rollback")
+            except Exception:
+                pass
         raise e
 
     finally:
         if cursor:
             try:
                 cursor.close()
-                print("🔒 Cursor cerrado")
-            except:
+            except Exception:
+                pass
+        if not en_app_context and db:
+            try:
+                db.close()
+            except Exception:
                 pass
 
 

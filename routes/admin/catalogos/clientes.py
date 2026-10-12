@@ -193,10 +193,6 @@ def admin_crear_cliente():
             flash("El nombre del cliente es obligatorio.", "danger")
             return redirect(url_for("admin.admin_clientes"))
         
-        if not telefono:
-            flash("El teléfono del cliente es obligatorio.", "danger")
-            return redirect(url_for("admin.admin_clientes"))
-        
         if not id_usuario:
             flash("Error de autenticación. Por favor, inicie sesión nuevamente.", "danger")
             return redirect(url_for("admin.admin_clientes"))
@@ -430,11 +426,6 @@ def admin_editar_cliente(id):
                 # Validaciones básicas
                 if not nombre:
                     flash("El nombre del cliente es obligatorio.", "danger")
-                    return render_template("admin/catalog/client/editar_clientes.html", 
-                                         cliente=cliente, rutas=rutas, productos=productos)
-                
-                if not telefono:
-                    flash("El teléfono del cliente es obligatorio.", "danger")
                     return render_template("admin/catalog/client/editar_clientes.html", 
                                          cliente=cliente, rutas=rutas, productos=productos)
                 

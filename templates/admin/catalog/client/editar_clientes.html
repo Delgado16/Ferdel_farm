@@ -324,16 +324,16 @@
 
                             <!-- Teléfono -->
                             <div class="col-md-6">
-                                <label for="telefono" class="form-label-premium">Teléfono de Contacto <span class="text-danger">*</span></label>
+                                <label for="telefono" class="form-label-premium">Teléfono de Contacto <span class="text-muted small">(Opcional)</span></label>
                                 <div class="input-group">
                                     <span class="input-group-text"><i class="bi bi-telephone text-slate-500"></i></span>
                                     <input type="tel" name="telefono" id="telefono" class="form-control form-control-premium" 
                                            value="{{ cliente.Telefono or '' }}"
-                                           required maxlength="20"
+                                           maxlength="20"
                                            placeholder="Ej: 8888-8888"
                                            oninput="this.value = this.value.replace(/[^0-9+\-()\s]/g, '')">
                                 </div>
-                                <div class="invalid-feedback">Por favor ingrese un número de teléfono válido.</div>
+                                <div class="invalid-feedback">Por favor ingrese un número de teléfono válido si decide ingresarlo.</div>
                             </div>
 
                             <!-- Dirección -->
@@ -696,15 +696,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Validación de Teléfono
+    // Validación de Teléfono (Opcional)
     function validateTelefono() {
-        if (!telefonoInput.value.trim()) {
-            telefonoInput.setCustomValidity('El teléfono es obligatorio');
-            telefonoInput.classList.add('is-invalid');
-            return false;
+        if (!telefonoInput) return true;
+        const value = telefonoInput.value.trim();
+        if (!value) {
+            telefonoInput.setCustomValidity('');
+            telefonoInput.classList.remove('is-invalid');
+            return true;
         }
         
-        const value = telefonoInput.value.trim();
         if (value.length < 7) {
             telefonoInput.setCustomValidity('El teléfono debe tener al menos 7 dígitos');
             telefonoInput.classList.add('is-invalid');
