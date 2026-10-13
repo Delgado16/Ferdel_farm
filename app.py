@@ -98,6 +98,8 @@ def create_app():
     app.config['SESSION_TYPE'] = SESSION_CONFIG['TYPE']
     app.config['PERMANENT_SESSION_LIFETIME'] = SESSION_CONFIG['PERMANENT_LIFETIME']
     
+    app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 31536000
+    
     # ===== EXTENSIONES =====
     CORS(app)
     if app.config['SESSION_TYPE'] is not None:
@@ -105,6 +107,14 @@ def create_app():
     
     # Resolver la IP real del cliente detrás de proxies inversos (como Railway/Render)
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
+    
+    # Optimización de entrega de estáticos con WhiteNoise (compresión y caché persistente)
+    try:
+        from whitenoise import WhiteNoise
+        static_folder = os.path.join(app.root_path, 'static')
+        app.wsgi_app = WhiteNoise(app.wsgi_app, root=static_folder, prefix='static/', max_age=31536000)
+    except Exception:
+        pass
     
     # ===== AUTENTICACIÓN =====
     setup_login_manager(app)

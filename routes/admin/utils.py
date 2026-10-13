@@ -10,13 +10,15 @@ from config.database import get_db_cursor
 def obtener_metricas_kpis():
     """Obtiene las métricas principales del dashboard"""
     with get_db_cursor() as cursor:
-        # Usuarios activos
-        cursor.execute("SELECT COUNT(*) as count FROM usuarios WHERE UPPER(Estado) = 'ACTIVO'")
-        usuarios_count = cursor.fetchone()['count']
-        
-        # Empresas activas
-        cursor.execute("SELECT COUNT(*) as count FROM empresa WHERE Estado = 'Activo'")
-        empresas_count = cursor.fetchone()['count']
+        # Usuarios y empresas activos en una sola consulta
+        cursor.execute("""
+            SELECT 
+                (SELECT COUNT(*) FROM usuarios WHERE UPPER(Estado) = 'ACTIVO') AS usuarios_count,
+                (SELECT COUNT(*) FROM empresa WHERE Estado = 'Activo') AS empresas_count
+        """)
+        conteos = cursor.fetchone() or {}
+        usuarios_count = conteos.get('usuarios_count', 0)
+        empresas_count = conteos.get('empresas_count', 0)
         
         # Ventas de hoy (solo contado)
         cursor.execute("""
@@ -71,21 +73,16 @@ def obtener_metricas_kpis():
         """)
         cobros_hoy = cursor.fetchone()['Total_Cobrado_Hoy'] or 0
         
-        # Saldo pendiente total
+        # Saldo pendiente y facturas vencidas en una sola consulta
         cursor.execute("""
-            SELECT COALESCE(SUM(Saldo_Pendiente), 0) AS Saldo_Total_Pendiente
+            SELECT 
+                COALESCE(SUM(CASE WHEN Estado IN ('Pendiente', 'Vencida') THEN Saldo_Pendiente ELSE 0 END), 0) AS Saldo_Total_Pendiente,
+                COUNT(CASE WHEN Estado = 'Vencida' AND Saldo_Pendiente > 0 THEN 1 END) AS Facturas_Vencidas
             FROM cuentas_por_cobrar
-            WHERE Estado IN ('Pendiente', 'Vencida')
         """)
-        saldo_pendiente = cursor.fetchone()['Saldo_Total_Pendiente'] or 0
-        
-        # Facturas vencidas
-        cursor.execute("""
-            SELECT COUNT(*) as count
-            FROM cuentas_por_cobrar
-            WHERE Estado = 'Vencida' AND Saldo_Pendiente > 0
-        """)
-        facturas_vencidas = cursor.fetchone()['count'] or 0
+        cxc_res = cursor.fetchone() or {}
+        saldo_pendiente = cxc_res.get('Saldo_Total_Pendiente', 0)
+        facturas_vencidas = cxc_res.get('Facturas_Vencidas', 0)
         
         # Productos con stock bajo (solo productos activos y bodega principal ID_Bodega = 1)
         cursor.execute("""

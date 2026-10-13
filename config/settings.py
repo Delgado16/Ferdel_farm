@@ -62,21 +62,31 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
 RENDER_ENV = os.environ.get('RENDER', False)
 RAILWAY_ENV = os.environ.get('RAILWAY_STATIC_URL', None) is not None
 
-DB_SSL_DISABLED = os.environ.get('DB_SSL_DISABLED', 'True') == 'True'
+DB_SSL_DISABLED = os.environ.get('DB_SSL_DISABLED', 'True') == 'True' 
 DB_SSL_CA = os.environ.get('DB_SSL_CA', None)
 
+# ===== DETECCIÓN AUTOMÁTICA DE BASE DE DATOS (Railway / Render / Local) =====
+_db_url = os.environ.get('MYSQL_URL') or os.environ.get('DATABASE_URL')
+_parsed_url = urllib.parse.urlparse(_db_url) if (_db_url and _db_url.startswith('mysql')) else None
+
+_default_user = _parsed_url.username if _parsed_url else (os.environ.get('MYSQLUSER') or 'root')
+_default_pwd = _parsed_url.password if _parsed_url else (os.environ.get('MYSQLPASSWORD') or '')
+_default_host = _parsed_url.hostname if _parsed_url else (os.environ.get('MYSQLHOST') or os.environ.get('MYSQL_HOST') or 'roundhouse.proxy.rlwy.net')
+_default_port = _parsed_url.port if (_parsed_url and _parsed_url.port) else int(os.environ.get('MYSQLPORT') or (3306 if os.environ.get('MYSQLHOST') else 26574))
+_default_db = _parsed_url.path.lstrip('/') if _parsed_url else (os.environ.get('MYSQLDATABASE') or 'db_ferdel')
+
 DB_CONFIG = {
-    'user': os.environ.get('DB_USER', 'root'),
-    'password': os.environ.get('DB_PASSWORD', ''),
-    'host': os.environ.get('DB_HOST', 'altaria.proxy.rlwy.net'),
-    'port': int(os.environ.get('DB_PORT', 29240)),
-    'database': os.environ.get('DB_NAME', 'railway'),
+    'user': os.environ.get('DB_USER', _default_user),
+    'password': os.environ.get('DB_PASSWORD', _default_pwd),
+    'host': os.environ.get('DB_HOST', _default_host),
+    'port': int(os.environ.get('DB_PORT', _default_port)),
+    'database': os.environ.get('DB_NAME', _default_db),
     'pool_name': 'ferdel_pool',
     'pool_size': int(os.environ.get('DB_POOL_SIZE', 5)),
     'pool_reset_session': True,
     'autocommit': os.environ.get('DB_AUTOCOMMIT', 'False') == 'True',
-    'connect_timeout': 30,
-    'use_pure': True,
+    'connect_timeout': 15,
+    'use_pure': os.environ.get('DB_USE_PURE', 'False') == 'True',
     'charset': 'utf8mb4',
     'collation': 'utf8mb4_general_ci',
     'ssl_disabled': DB_SSL_DISABLED
@@ -91,7 +101,7 @@ SESSION_CONFIG = {
     'PERMANENT': False,
     'TYPE': os.environ.get('SESSION_TYPE', None),
     'PERMANENT_LIFETIME': timedelta(hours=12),
-    'TEMPLATES_AUTO_RELOAD': True,
+    'TEMPLATES_AUTO_RELOAD': DEBUG,
 }
 
 # ===== CONFIGURACIÓN DE CORS =====

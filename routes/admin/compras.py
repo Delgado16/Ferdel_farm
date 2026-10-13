@@ -127,45 +127,22 @@ def admin_compras_entradas():
                 compras_procesadas.append(compra_dict)
             
 
+            # **CONSULTA OPTIMIZADA: Capital Invertido Total, Contado y Crédito en una sola pasada**
             cursor.execute("""
                 SELECT 
-                    COALESCE(SUM(dmi.Subtotal), 0) as Capital_Total
+                    COALESCE(SUM(dmi.Subtotal), 0) as Capital_Total,
+                    COALESCE(SUM(CASE WHEN mi.Tipo_Compra = 'CONTADO' THEN dmi.Subtotal ELSE 0 END), 0) as Capital_Contado,
+                    COALESCE(SUM(CASE WHEN mi.Tipo_Compra = 'CREDITO' THEN dmi.Subtotal ELSE 0 END), 0) as Capital_Credito
                 FROM movimientos_inventario mi
                 INNER JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
                 WHERE mi.Estado = 'Activa'
                     AND mi.ID_TipoMovimiento = 1
                     AND (mi.ID_Factura_venta IS NULL OR mi.ID_Factura_venta = '')
             """)
-            resultado_total = cursor.fetchone()
-            capital_total = float(resultado_total['Capital_Total']) if resultado_total and resultado_total['Capital_Total'] else 0.0
-            
-            # **CONSULTA 3: Capital Invertido SOLO AL CONTADO - SOLO ACTIVAS**
-            cursor.execute("""
-                SELECT 
-                    COALESCE(SUM(dmi.Subtotal), 0) as Capital_Contado
-                FROM movimientos_inventario mi
-                INNER JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
-                WHERE mi.Estado = 'Activa'
-                    AND mi.Tipo_Compra = 'CONTADO'
-                    AND mi.ID_TipoMovimiento = 1
-                    AND (mi.ID_Factura_venta IS NULL OR mi.ID_Factura_venta = '')
-            """)
-            resultado_contado = cursor.fetchone()
-            capital_contado = float(resultado_contado['Capital_Contado']) if resultado_contado and resultado_contado['Capital_Contado'] else 0.0
-            
-            # **CONSULTA 4: Capital en CRÉDITO (deudas pendientes) - SOLO ACTIVAS**
-            cursor.execute("""
-                SELECT 
-                    COALESCE(SUM(dmi.Subtotal), 0) as Capital_Credito
-                FROM movimientos_inventario mi
-                INNER JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
-                WHERE mi.Estado = 'Activa'
-                    AND mi.Tipo_Compra = 'CREDITO'
-                    AND mi.ID_TipoMovimiento = 1
-                    AND (mi.ID_Factura_venta IS NULL OR mi.ID_Factura_venta = '')
-            """)
-            resultado_credito = cursor.fetchone()
-            capital_credito = float(resultado_credito['Capital_Credito']) if resultado_credito and resultado_credito['Capital_Credito'] else 0.0
+            resultado_capital = cursor.fetchone() or {}
+            capital_total = float(resultado_capital.get('Capital_Total') or 0.0)
+            capital_contado = float(resultado_capital.get('Capital_Contado') or 0.0)
+            capital_credito = float(resultado_capital.get('Capital_Credito') or 0.0)
             
             # Validar consistencia
             capital_total_calculado = capital_contado + capital_credito
