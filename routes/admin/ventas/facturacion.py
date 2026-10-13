@@ -179,84 +179,37 @@ def admin_ventas_salidas():
             """, tuple(params))
             ventas = cursor.fetchall()
             
-            # ========== CONSULTAS DE RESUMEN FINANCIERO ==========
-            
-            # **CONSULTA 1: Ventas TOTALES (Contado + Crédito) de TODAS las ventas ACTIVAS**
+            # ========== CONSULTAS DE RESUMEN FINANCIERO OPTIMIZADAS ==========
             cursor.execute("""
                 SELECT 
-                    COALESCE(SUM(df.Total), 0) as Ventas_Totales
+                    COALESCE(SUM(df.Total), 0) as Ventas_Totales,
+                    COALESCE(SUM(CASE WHEN f.Credito_Contado = 0 THEN df.Total ELSE 0 END), 0) as Ventas_Contado,
+                    COALESCE(SUM(CASE WHEN f.Credito_Contado IN (1, 2) THEN df.Total ELSE 0 END), 0) as Ventas_Credito
                 FROM facturacion f
                 INNER JOIN detalle_facturacion df ON f.ID_Factura = df.ID_Factura
                 WHERE f.Estado = 'Activa'
             """)
-            resultado_ventas_total = cursor.fetchone()
-            ventas_totales = resultado_ventas_total['Ventas_Totales'] if resultado_ventas_total else 0.0
+            res_ventas = cursor.fetchone() or {}
+            ventas_totales = res_ventas.get('Ventas_Totales', 0.0)
+            ventas_contado_total = res_ventas.get('Ventas_Contado', 0.0)
+            ventas_credito_total = res_ventas.get('Ventas_Credito', 0.0)
             
-            # **CONSULTA 2: Ventas SOLO AL CONTADO**
             cursor.execute("""
                 SELECT 
-                    COALESCE(SUM(df.Total), 0) as Ventas_Contado
-                FROM facturacion f
-                INNER JOIN detalle_facturacion df ON f.ID_Factura = df.ID_Factura
-                WHERE f.Estado = 'Activa'
-                    AND f.Credito_Contado = 0
-            """)
-            resultado_ventas_contado = cursor.fetchone()
-            ventas_contado_total = resultado_ventas_contado['Ventas_Contado'] if resultado_ventas_contado else 0.0
-            
-            # **CONSULTA 3: Ventas en CRÉDITO (total facturado a crédito)**
-            cursor.execute("""
-                SELECT 
-                    COALESCE(SUM(df.Total), 0) as Ventas_Credito
-                FROM facturacion f
-                INNER JOIN detalle_facturacion df ON f.ID_Factura = df.ID_Factura
-                WHERE f.Estado = 'Activa'
-                    AND f.Credito_Contado IN (1, 2)
-            """)
-            resultado_ventas_credito = cursor.fetchone()
-            ventas_credito_total = resultado_ventas_credito['Ventas_Credito'] if resultado_ventas_credito else 0.0
-            
-            # **CONSULTA 4: Créditos pendientes de cobrar (usando Saldo_Pendiente)**
-            cursor.execute("""
-                SELECT 
-                    COALESCE(SUM(cpc.Saldo_Pendiente), 0) as Creditos_Pendientes
-                FROM cuentas_por_cobrar cpc
-                INNER JOIN facturacion f ON cpc.ID_Factura = f.ID_Factura
-                WHERE cpc.Estado IN ('Pendiente', 'Vencida')
-                    AND f.Estado = 'Activa'
-            """)
-            resultado_creditos_pendientes = cursor.fetchone()
-            creditos_pendientes = resultado_creditos_pendientes['Creditos_Pendientes'] if resultado_creditos_pendientes else 0.0
-            
-            # **CONSULTA 5: Créditos ya cobrados (Pagadas)**
-            # Nota: Para saber cuánto se ha cobrado, calculamos Monto_Movimiento - Saldo_Pendiente
-            cursor.execute("""
-                SELECT 
-                    COALESCE(SUM(cpc.Monto_Movimiento - cpc.Saldo_Pendiente), 0) as Creditos_Cobrados
-                FROM cuentas_por_cobrar cpc
-                INNER JOIN facturacion f ON cpc.ID_Factura = f.ID_Factura
-                WHERE cpc.Estado = 'Pagada'
-                    AND f.Estado = 'Activa'
-            """)
-            resultado_creditos_cobrados = cursor.fetchone()
-            creditos_cobrados = resultado_creditos_cobrados['Creditos_Cobrados'] if resultado_creditos_cobrados else 0.0
-            
-            # Alternativa: Si quieres calcular todos los cobrados (incluyendo pagos parciales)
-            cursor.execute("""
-                SELECT 
-                    COALESCE(SUM(cpc.Monto_Movimiento - cpc.Saldo_Pendiente), 0) as Total_Cobrado
+                    COALESCE(SUM(CASE WHEN cpc.Estado IN ('Pendiente', 'Vencida') THEN cpc.Saldo_Pendiente ELSE 0 END), 0) as Creditos_Pendientes,
+                    COALESCE(SUM(CASE WHEN cpc.Estado = 'Pagada' THEN cpc.Monto_Movimiento - cpc.Saldo_Pendiente ELSE 0 END), 0) as Creditos_Cobrados,
+                    COALESCE(SUM(CASE WHEN cpc.Saldo_Pendiente = 0 THEN cpc.Monto_Movimiento - cpc.Saldo_Pendiente ELSE 0 END), 0) as Total_Cobrado
                 FROM cuentas_por_cobrar cpc
                 INNER JOIN facturacion f ON cpc.ID_Factura = f.ID_Factura
                 WHERE f.Estado = 'Activa'
-                    AND cpc.Saldo_Pendiente = 0
             """)
-            resultado_total_cobrado = cursor.fetchone()
-            total_cobrado = resultado_total_cobrado['Total_Cobrado'] if resultado_total_cobrado else 0.0
+            res_creditos = cursor.fetchone() or {}
+            creditos_pendientes = res_creditos.get('Creditos_Pendientes', 0.0)
+            creditos_cobrados = res_creditos.get('Creditos_Cobrados', 0.0)
+            total_cobrado = res_creditos.get('Total_Cobrado', 0.0)
             
-            # **VALIDACIÓN: Verificar que contado + crédito = total**
             suma_contado_credito = ventas_contado_total + ventas_credito_total
-            diferencia = abs(ventas_totales - suma_contado_credito)
-            if diferencia > 0.01:
+            if abs(ventas_totales - suma_contado_credito) > 0.01:
                 ventas_totales = suma_contado_credito
             
             # ========== ESTADÍSTICAS PARA LAS VENTAS MOSTRADAS (LIMIT 100) ==========

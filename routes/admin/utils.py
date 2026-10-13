@@ -315,3 +315,90 @@ def preparar_datos_graficos(ventas_mes, ventas_7dias, gastos_mes, movimientos_ca
         'ventas_7dias_json': json.dumps(ventas_7dias_data),
         'gastos_mes_json': json.dumps(gastos_mes_data)
     }
+
+
+def safe_float(val, default=0.0):
+    """Convierte valor a float de manera segura"""
+    if val is None or val == '':
+        return float(default)
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return float(default)
+
+
+def safe_int(val, default=0):
+    """Convierte valor a int de manera segura"""
+    if val is None or val == '':
+        return int(default)
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        return int(default)
+
+
+def obtener_catalogos_productos_admin(cursor):
+    """Obtiene categorías, empresas, bodegas y unidades para filtros y formularios"""
+    cursor.execute("SELECT ID_Categoria, Descripcion FROM categorias_producto ORDER BY Descripcion")
+    categorias = [{'id': c['ID_Categoria'], 'nombre': c['Descripcion']} for c in cursor.fetchall()]
+
+    cursor.execute("SELECT ID_Empresa, Nombre_Empresa FROM empresa WHERE Estado = 'Activo' ORDER BY Nombre_Empresa")
+    empresas = [{'id': e['ID_Empresa'], 'nombre': e['Nombre_Empresa']} for e in cursor.fetchall()]
+
+    cursor.execute("""
+        SELECT b.ID_Bodega, b.Nombre, b.ID_Empresa, e.Nombre_Empresa 
+        FROM bodegas b 
+        JOIN empresa e ON b.ID_Empresa = e.ID_Empresa 
+        WHERE b.Estado = 'activa'
+        ORDER BY e.Nombre_Empresa, b.Nombre
+    """)
+    bodegas = [{
+        'id': b['ID_Bodega'],
+        'nombre': b['Nombre'],
+        'id_empresa': b['ID_Empresa'],
+        'empresa': b['Nombre_Empresa']
+    } for b in cursor.fetchall()]
+
+    cursor.execute("SELECT ID_Unidad, Descripcion, Abreviatura FROM unidades_medida ORDER BY ID_Unidad")
+    unidades = [{
+        'id': u['ID_Unidad'],
+        'nombre': u['Descripcion'],
+        'abreviatura': u['Abreviatura'] or ''
+    } for u in cursor.fetchall()]
+
+    return {
+        'categorias': categorias,
+        'empresas': empresas,
+        'bodegas': bodegas,
+        'unidades': unidades
+    }
+
+
+def formatear_producto_para_listado(producto):
+    """Formatea un registro de producto desde MySQL para renderizado en tabla"""
+    stock_val = safe_float(producto.get('Stock'), 0.0)
+    unidad_medida = producto.get('Unidad_Medida')
+    
+    if unidad_medida == 1:
+        cajillas = int(stock_val)
+        unidades = int(round((stock_val - cajillas) * 100))
+        stock_display = f"{cajillas}.{unidades:02d}"
+    else:
+        stock_display = f"{stock_val:g}"
+        
+    return {
+        'id': producto.get('ID_Producto'),
+        'codigo': producto.get('COD_Producto') or 'N/A',
+        'nombre': producto.get('Descripcion') or '',
+        'unidad': producto.get('Unidad') or 'Und',
+        'stock': stock_val,
+        'stock_display': stock_display,
+        'desglose_bodegas': producto.get('Desglose_Bodegas') or '',
+        'estado': producto.get('Estado') or 'activo',
+        'categoria': producto.get('Categoria') or 'Sin categoría',
+        'precio_mercado': safe_float(producto.get('Precio_Mercado'), 0.0),
+        'precio_mayorista': safe_float(producto.get('Precio_Mayorista'), 0.0),
+        'precio_ruta': safe_float(producto.get('Precio_Ruta'), 0.0),
+        'empresa': producto.get('Empresa') or 'Sin empresa',
+        'stock_minimo': safe_float(producto.get('Stock_Minimo'), 5.0)
+    }

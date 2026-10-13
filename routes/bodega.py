@@ -175,31 +175,18 @@ def bodega_dashboard():
             """, (id_empresa, id_empresa))
             productos_stock_bajo = cursor.fetchall()
             
-            # 5. Top productos con salidas hoy
-            cursor.execute("""
-                SELECT 
-                    p.ID_Producto,
-                    p.COD_Producto,
-                    p.Descripcion AS Producto,
-                    COALESCE(um.Abreviatura, 'UND') AS Unidad,
-                    b.Nombre AS Bodega,
-                    SUM(dmi.Cantidad) AS Total_Salidas
-                FROM productos p
-                INNER JOIN detalle_movimientos_inventario dmi ON p.ID_Producto = dmi.ID_Producto
-                INNER JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
-                INNER JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
-                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
-                INNER JOIN bodegas b ON mi.ID_Bodega = b.ID_Bodega
-                WHERE mi.Estado = 'Activa'
-                    AND mi.Fecha = CURDATE()
-                    AND (cm.Adicion = 'RESTA' OR cm.Letra = 'S')
-                    AND (mi.ID_Empresa = %s OR mi.ID_Empresa IS NULL)
-                GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, um.Abreviatura, b.Nombre
-                HAVING SUM(dmi.Cantidad) > 0
-                ORDER BY SUM(dmi.Cantidad) DESC
-                LIMIT 10
-            """, (id_empresa,))
-            top_productos_hoy = cursor.fetchall()
+            # 5. Top productos con salidas hoy (derivado directamente de productos_salidas_hoy)
+            top_productos_hoy = [
+                {
+                    'ID_Producto': r['ID_Producto'],
+                    'COD_Producto': r['COD_Producto'],
+                    'Producto': r['Producto'],
+                    'Unidad': r['Unidad'],
+                    'Bodega': r['Bodega'],
+                    'Total_Salidas': r['Cantidad_Salida']
+                }
+                for r in productos_salidas_hoy[:10]
+            ]
             
             # 6. Información de todas las bodegas activas
             cursor.execute("""
@@ -255,18 +242,13 @@ def bodega_dashboard():
             """)
             cargas_pendientes_recepcion = cursor.fetchall()
             
-            # Resumen de cargas pendientes
-            cursor.execute("""
-                SELECT 
-                    COUNT(DISTINCT cp.ID_Carga) as total_pendientes,
-                    COALESCE(SUM(cpd.Cantidad_Cargada), 0) as total_cantidad_pendiente,
-                    COALESCE(SUM(cpd.Cantidad_Cargada * cpd.Costo_Unitario), 0) as total_monto_pendiente,
-                    COUNT(DISTINCT CASE WHEN DATEDIFF(CURDATE(), cp.Fecha_Carga) > 3 THEN cp.ID_Carga END) as cargas_atrasadas
-                FROM cargas_pendientes_recepcion cp
-                LEFT JOIN cargas_pendientes_detalle cpd ON cp.ID_Carga = cpd.ID_Carga
-                WHERE cp.Estado = 'PENDIENTE'
-            """)
-            resumen_cargas_pendientes = cursor.fetchone() or {}
+            # Resumen de cargas pendientes (calculado en memoria sin otra consulta SQL)
+            resumen_cargas_pendientes = {
+                'total_pendientes': len(cargas_pendientes_recepcion),
+                'total_cantidad_pendiente': sum(float(c.get('total_cantidad', 0) or 0) for c in cargas_pendientes_recepcion),
+                'total_monto_pendiente': sum(float(c.get('total_monto', 0) or 0) for c in cargas_pendientes_recepcion),
+                'cargas_atrasadas': sum(1 for c in cargas_pendientes_recepcion if (c.get('dias_espera') or 0) > 3)
+            }
 
             # ============================================
             # 9. Pedidos pendientes de despacho
@@ -322,18 +304,12 @@ def bodega_dashboard():
             """, (id_empresa,))
             pedidos_pendientes = cursor.fetchall()
             
-            # Resumen de pedidos pendientes
-            cursor.execute("""
-                SELECT 
-                    COUNT(*) as total_pendientes,
-                    COUNT(CASE WHEN p.Prioridad = 'Urgente' THEN 1 END) as urgentes,
-                    COUNT(CASE WHEN p.Tipo_Pedido = 'Consolidado' THEN 1 END) as consolidados
-                FROM pedidos p
-                WHERE p.Estado IN ('Pendiente', 'Aprobado')
-                    AND p.Fecha = CURDATE()
-                    AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
-            """, (id_empresa,))
-            resumen_pedidos_pendientes = cursor.fetchone() or {}
+            # Resumen de pedidos pendientes (calculado en memoria sin otra consulta SQL)
+            resumen_pedidos_pendientes = {
+                'total_pendientes': len(pedidos_pendientes),
+                'urgentes': sum(1 for p in pedidos_pendientes if p.get('Prioridad') == 'Urgente'),
+                'consolidados': sum(1 for p in pedidos_pendientes if p.get('Tipo_Pedido') == 'Consolidado')
+            }
 
             # ============================================
             # 10. Datos para Gráficos de Analítica del Día

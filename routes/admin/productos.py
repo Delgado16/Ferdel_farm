@@ -7,6 +7,12 @@ from config.database import get_db_cursor
 from auth.decorators import admin_required
 from . import admin_bp
 from helpers.bitacora import bitacora_decorator
+from .utils import (
+    safe_float,
+    safe_int,
+    obtener_catalogos_productos_admin,
+    formatear_producto_para_listado
+)
 
 @admin_bp.route('/admin/bodega/productos', methods=['GET'])
 @admin_required
@@ -85,189 +91,37 @@ def admin_productos():
             cursor.execute(query, params)
             productos = cursor.fetchall()
             
-            # Procesar productos manejando NULL correctamente
+            # Formatear productos y aplicar filtro de stock
             productos_list = []
-            for producto in productos:
-                if isinstance(producto, dict):
-                    # Manejo para diccionario
-                    codigo = producto.get('COD_Producto')
-                    if codigo is None:
-                        codigo = 'N/A'
-                    
-                    stock_val = producto.get('Stock')
-                    if stock_val is None:
-                        stock_val = 0
-                    
-                    precio_mercado = producto.get('Precio_Mercado')
-                    if precio_mercado is None:
-                        precio_mercado = 0
-                    
-                    stock_minimo = producto.get('Stock_Minimo')
-                    if stock_minimo is None:
-                        stock_minimo = 5
-                        
-                    unidad_medida = producto.get('Unidad_Medida')
-                    es_caja = unidad_medida == 1
-                    
-                    if es_caja:
-                        cajillas = int(float(stock_val))
-                        unidades = int(round((float(stock_val) - cajillas) * 100))
-                        stock_display = f"{cajillas}.{unidades:02d}"
-                    else:
-                        stock_display = f"{float(stock_val):g}"
-                    
-                    prod_dict = {
-                        'id': producto.get('ID_Producto'),
-                        'codigo': codigo,
-                        'nombre': producto.get('Descripcion', ''),
-                        'unidad': producto.get('Unidad', 'Und'),
-                        'stock': float(stock_val),
-                        'stock_display': stock_display,
-                        'desglose_bodegas': producto.get('Desglose_Bodegas', ''),
-                        'estado': producto.get('Estado', 'activo'),
-                        'categoria': producto.get('Categoria', 'Sin categoría'),
-                        'precio_mercado': float(precio_mercado),
-                        'precio_mayorista': float(producto.get('Precio_Mayorista') or 0),
-                        'precio_ruta': float(producto.get('Precio_Ruta') or 0),
-                        'empresa': producto.get('Empresa', 'Sin empresa'),
-                        'stock_minimo': float(stock_minimo)
-                    }
-                else:
-                    # Manejo para tupla
-                    def safe_float(val, default=0):
-                        if val is None:
-                            return float(default)
-                        try:
-                            return float(val)
-                        except (ValueError, TypeError):
-                            return float(default)
-                    
-                    def safe_str(val, default=''):
-                        if val is None:
-                            return default
-                        return str(val)
-                    
-                    codigo = producto[1] if producto[1] is not None else 'N/A'
-                    stock_raw = safe_float(producto[4], 0)
-                    
-                    unidad_medida = producto[13] if len(producto) > 13 else None
-                    es_caja = unidad_medida == 1
-                    
-                    if es_caja:
-                        cajillas = int(stock_raw)
-                        unidades = int(round((stock_raw - cajillas) * 100))
-                        stock_display = f"{cajillas}.{unidades:02d}"
-                    else:
-                        stock_display = f"{stock_raw:g}"
-                    
-                    prod_dict = {
-                        'id': producto[0],
-                        'codigo': codigo,
-                        'nombre': safe_str(producto[2]),
-                        'unidad': safe_str(producto[3], 'Und'),
-                        'stock': stock_raw,
-                        'stock_display': stock_display,
-                        'desglose_bodegas': safe_str(producto[5], ''),
-                        'estado': safe_str(producto[6], 'activo'),
-                        'categoria': safe_str(producto[7], 'Sin categoría'),
-                        'precio_mercado': safe_float(producto[8], 0),
-                        'precio_mayorista': safe_float(producto[9], 0),
-                        'precio_ruta': safe_float(producto[10], 0),
-                        'empresa': safe_str(producto[11], 'Sin empresa'),
-                        'stock_minimo': safe_float(producto[12], 5)
-                    }
+            for p in productos:
+                prod_dict = formatear_producto_para_listado(p)
+                stock_actual = prod_dict['stock']
+                stock_min = prod_dict['stock_minimo']
                 
-                # Aplicar filtro de stock
-                if stock_filtro != 'todos':
-                    stock_actual = prod_dict['stock']
-                    stock_min = prod_dict['stock_minimo']
-                    
-                    if stock_filtro == 'critico' and not (stock_actual > 0 and stock_actual <= stock_min):
-                        continue
-                    elif stock_filtro == 'bajo' and not (stock_actual > stock_min and stock_actual <= stock_min * 2):
-                        continue
-                    elif stock_filtro == 'normal' and not (stock_actual > stock_min * 2):
-                        continue
-                    elif stock_filtro == 'sin_stock' and stock_actual != 0:
-                        continue
+                if stock_filtro == 'critico' and not (0 < stock_actual <= stock_min):
+                    continue
+                elif stock_filtro == 'bajo' and not (stock_min < stock_actual <= stock_min * 2):
+                    continue
+                elif stock_filtro == 'normal' and not (stock_actual > stock_min * 2):
+                    continue
+                elif stock_filtro == 'sin_stock' and stock_actual != 0:
+                    continue
                 
                 productos_list.append(prod_dict)
             
-            # Datos para filtros
-            cursor.execute("SELECT ID_Categoria, Descripcion FROM categorias_producto ORDER BY Descripcion")
-            categorias_raw = cursor.fetchall()
-            categorias = []
-            for cat in categorias_raw:
-                if isinstance(cat, dict):
-                    categorias.append({'id': cat['ID_Categoria'], 'nombre': cat['Descripcion']})
-                else:
-                    categorias.append({'id': cat[0], 'nombre': cat[1] if cat[1] else 'Sin nombre'})
-            
-            cursor.execute("SELECT ID_Empresa, Nombre_Empresa FROM empresa WHERE Estado = 'Activo' ORDER BY Nombre_Empresa")
-            empresas_raw = cursor.fetchall()
-            empresas = []
-            for emp in empresas_raw:
-                if isinstance(emp, dict):
-                    empresas.append({'id': emp['ID_Empresa'], 'nombre': emp['Nombre_Empresa']})
-                else:
-                    empresas.append({'id': emp[0], 'nombre': emp[1] if emp[1] else 'Sin nombre'})
-            
-            cursor.execute("""
-                SELECT b.ID_Bodega, b.Nombre, b.ID_Empresa, e.Nombre_Empresa 
-                FROM bodegas b 
-                JOIN empresa e ON b.ID_Empresa = e.ID_Empresa 
-                WHERE b.Estado = 'activa'
-                ORDER BY e.Nombre_Empresa, b.Nombre
-            """)
-            bodegas_raw = cursor.fetchall()
-            bodegas = []
-            for bod in bodegas_raw:
-                if isinstance(bod, dict):
-                    bodegas.append({
-                        'id': bod['ID_Bodega'],
-                        'nombre': bod['Nombre'],
-                        'id_empresa': bod['ID_Empresa'],
-                        'empresa': bod['Nombre_Empresa']
-                    })
-                else:
-                    bodegas.append({
-                        'id': bod[0],
-                        'nombre': bod[1] if bod[1] else 'Sin nombre',
-                        'id_empresa': bod[2],
-                        'empresa': bod[3] if bod[3] else 'Sin empresa'
-                    })
-            
-            cursor.execute("SELECT ID_Unidad, Descripcion, Abreviatura FROM unidades_medida")
-            unidades_raw = cursor.fetchall()
-            unidades = []
-            for uni in unidades_raw:
-                if isinstance(uni, dict):
-                    unidades.append({
-                        'id': uni['ID_Unidad'],
-                        'nombre': uni['Descripcion'],
-                        'abreviatura': uni['Abreviatura'] or ''
-                    })
-                else:
-                    unidades.append({
-                        'id': uni[0],
-                        'nombre': uni[1] if uni[1] else 'Sin nombre',
-                        'abreviatura': uni[2] if uni[2] else ''
-                    })
+            # Catálogos para filtros
+            catalogos = obtener_catalogos_productos_admin(cursor)
             
             # Contadores globales de estado
             cursor.execute("""
                 SELECT 
-                    SUM(CASE WHEN LOWER(Estado) = 'activo' THEN 1 ELSE 0 END) as total_activos,
-                    SUM(CASE WHEN LOWER(Estado) = 'inactivo' THEN 1 ELSE 0 END) as total_inactivos
+                    COALESCE(SUM(CASE WHEN LOWER(Estado) = 'activo' THEN 1 ELSE 0 END), 0) as total_activos,
+                    COALESCE(SUM(CASE WHEN LOWER(Estado) = 'inactivo' THEN 1 ELSE 0 END), 0) as total_inactivos
                 FROM productos
             """)
-            conteo_estados = cursor.fetchone()
-            if isinstance(conteo_estados, dict):
-                total_activos = conteo_estados.get('total_activos') or 0
-                total_inactivos = conteo_estados.get('total_inactivos') or 0
-            else:
-                total_activos = conteo_estados[0] if conteo_estados and conteo_estados[0] is not None else 0
-                total_inactivos = conteo_estados[1] if conteo_estados and conteo_estados[1] is not None else 0
+            conteo_estados = cursor.fetchone() or {}
+            total_activos = conteo_estados.get('total_activos') or 0
+            total_inactivos = conteo_estados.get('total_inactivos') or 0
 
             # Estadísticas
             stats = {
@@ -282,15 +136,15 @@ def admin_productos():
             return render_template('admin/bodega/producto/productos.html', 
                                  productos=productos_list,
                                  stats=stats,
-                                 categorias=categorias,
+                                 categorias=catalogos['categorias'],
                                  categoria_seleccionada=categoria_filtro,
-                                 bodegas=bodegas,
+                                 bodegas=catalogos['bodegas'],
                                  bodega_seleccionada=bodega_filtro,
                                  stock_seleccionado=stock_filtro,
-                                 empresas=empresas,
+                                 empresas=catalogos['empresas'],
                                  empresa_seleccionada=empresa_filtro,
                                  estado_seleccionado=estado_filtro,
-                                 unidades=unidades,
+                                 unidades=catalogos['unidades'],
                                  search_term=search_term)
                                  
     except Exception as e:
@@ -316,154 +170,66 @@ def admin_productos():
 @bitacora_decorator("CREAR_PRODUCTO")
 def admin_crear_producto():
     try:
-        # Obtener datos del formulario - Actualizado con nuevos precios
-        cod_producto = request.form.get('COD_Producto')
-        cod_producto = cod_producto.strip() if cod_producto else ""
-        descripcion = request.form.get('Descripcion')
-        id_unidad_medida = request.form.get('Unidad_Medida')
-        id_categoria = request.form.get('ID_Categoria')
-        precio_mercado = request.form.get('Precio_Mercado', 0)      # Nuevo
-        precio_mayorista = request.form.get('Precio_Mayorista', 0)  # Nuevo
-        precio_ruta = request.form.get('Precio_Ruta', 0)            # Nuevo
-        id_empresa = request.form.get('ID_Empresa', 1)
-        stock_minimo = request.form.get('Stock_Minimo', 5)
-        cantidad_inicial = request.form.get('Cantidad_Inicial')
-        id_bodega = request.form.get('ID_Bodega')
+        cod_producto = request.form.get('COD_Producto', '').strip()
+        descripcion = request.form.get('Descripcion', '').strip()
+        id_unidad_medida = safe_int(request.form.get('Unidad_Medida'))
+        id_categoria = safe_int(request.form.get('ID_Categoria'))
+        id_bodega = safe_int(request.form.get('ID_Bodega'))
+        id_empresa = safe_int(request.form.get('ID_Empresa', 1), 1)
         estado = request.form.get('Estado', 'activo')
         usuario_creador = current_user.id if (current_user and current_user.is_authenticated) else session.get('id_usuario', 1)
 
-
-        # Validaciones básicas
-        if not all([descripcion, id_unidad_medida, id_categoria]):
-            flash('Descripción, unidad de medida y categoría son campos obligatorios', 'error')
+        if not all([descripcion, id_unidad_medida, id_categoria, id_bodega]):
+            flash('Descripción, unidad de medida, categoría y bodega inicial son obligatorios', 'error')
             return redirect(url_for('admin.admin_productos'))
 
-        if not id_bodega:
-            flash('Debe seleccionar una bodega para el inventario inicial', 'error')
-            return redirect(url_for('admin.admin_productos'))
+        raw_cantidad = safe_float(request.form.get('Cantidad_Inicial'), 0.0)
+        if id_unidad_medida == 1 and raw_cantidad % 1 != 0:
+            cajillas = int(raw_cantidad)
+            unidades = int(round((raw_cantidad - cajillas) * 100))
+            cantidad_inicial = cajillas + (unidades / 30.0)
+        else:
+            cantidad_inicial = raw_cantidad
 
-        # Validar y convertir valores
-        try:
-            raw_cantidad_inicial = float(cantidad_inicial) if cantidad_inicial else 0
-            if str(id_unidad_medida) == "1" and raw_cantidad_inicial % 1 != 0:
-                cajillas = int(raw_cantidad_inicial)
-                unidades = int(round((raw_cantidad_inicial - cajillas) * 100))
-                cantidad_inicial = cajillas + (unidades / 30.0)
-            else:
-                cantidad_inicial = raw_cantidad_inicial
-        except (ValueError, TypeError):
-            cantidad_inicial = 0
-            
-        # Convertir precios
-        try:
-            precio_mercado = float(precio_mercado) if precio_mercado else 0.0
-        except (ValueError, TypeError):
-            precio_mercado = 0.0
-            
-        try:
-            precio_mayorista = float(precio_mayorista) if precio_mayorista else 0.0
-        except (ValueError, TypeError):
-            precio_mayorista = 0.0
-            
-        try:
-            precio_ruta = float(precio_ruta) if precio_ruta else 0.0
-        except (ValueError, TypeError):
-            precio_ruta = 0.0
-            
-        try:
-            stock_minimo = float(stock_minimo) if stock_minimo else 5.0
-        except (ValueError, TypeError):
-            stock_minimo = 5.0
-
-        try:
-            id_unidad_medida = int(id_unidad_medida)
-        except (ValueError, TypeError):
-            flash('Unidad de medida no válida', 'error')
-            return redirect(url_for('admin.admin_productos'))
-            
-        try:
-            id_categoria = int(id_categoria)
-        except (ValueError, TypeError):
-            flash('Categoría no válida', 'error')
-            return redirect(url_for('admin.admin_productos'))
-            
-        try:
-            id_empresa = int(id_empresa)
-        except (ValueError, TypeError):
-            id_empresa = 1
-            
-        try:
-            id_bodega = int(id_bodega)
-        except (ValueError, TypeError):
-            flash('Bodega no válida', 'error')
-            return redirect(url_for('admin.admin_productos'))
+        precio_mercado = safe_float(request.form.get('Precio_Mercado'), 0.0)
+        precio_mayorista = safe_float(request.form.get('Precio_Mayorista'), 0.0)
+        precio_ruta = safe_float(request.form.get('Precio_Ruta'), 0.0)
+        stock_minimo = safe_float(request.form.get('Stock_Minimo'), 5.0)
 
         with get_db_cursor(commit=True) as cursor:
-            
-            # Verificar que la bodega existe y está activa
-            cursor.execute("""
-                SELECT ID_Bodega, ID_Empresa FROM bodegas 
-                WHERE ID_Bodega = %s AND Estado = 'activa'
-            """, (id_bodega,))
-            
+            cursor.execute("SELECT ID_Bodega, ID_Empresa FROM bodegas WHERE ID_Bodega = %s AND Estado = 'activa'", (id_bodega,))
             bodega_data = cursor.fetchone()
-            
             if not bodega_data:
                 flash('La bodega seleccionada no es válida', 'error')
                 return redirect(url_for('admin.admin_productos'))
-            
-            # Manejar tanto diccionarios como tuplas
-            if isinstance(bodega_data, dict):
-                bodega_id = bodega_data.get('ID_Bodega')
-                bodega_empresa_id = bodega_data.get('ID_Empresa')
-            else:
-                bodega_id = bodega_data[0]
-                bodega_empresa_id = bodega_data[1]
-            
-            
-            # Verificar que la bodega pertenece a la empresa del producto
-            if bodega_empresa_id != id_empresa:
+
+            if bodega_data['ID_Empresa'] != id_empresa:
                 flash('La bodega seleccionada no pertenece a la empresa del producto', 'error')
                 return redirect(url_for('admin.admin_productos'))
 
-            # Verificar si el código de producto ya existe
             if cod_producto:
                 cursor.execute("SELECT ID_Producto FROM productos WHERE COD_Producto = %s", (cod_producto,))
                 if cursor.fetchone():
                     flash('El código de producto ya existe', 'error')
                     return redirect(url_for('admin.admin_productos'))
             else:
-                # Generar código automático si no se proporciona
                 cursor.execute("""
-                    SELECT COALESCE(MAX(CAST(COD_Producto AS UNSIGNED)), 0) + 1 
-                    FROM productos 
-                    WHERE COD_Producto REGEXP '^[0-9]+$'
+                    SELECT COALESCE(MAX(CAST(COD_Producto AS UNSIGNED)), 0) + 1 as max_cod 
+                    FROM productos WHERE COD_Producto REGEXP '^[0-9]+$'
                 """)
-                result = cursor.fetchone()
-                
-                if isinstance(result, dict):
-                    max_cod = result.get(list(result.keys())[0])
-                else:
-                    max_cod = result[0] if result else 0
-                    
-                cod_producto = str(max_cod) if max_cod else "1"
+                cod_producto = str((cursor.fetchone() or {}).get('max_cod') or 1)
 
-            # Insertar nuevo producto - Actualizado con los nuevos campos de precio
             cursor.execute("""
                 INSERT INTO productos (
                     COD_Producto, Descripcion, Unidad_Medida, Estado,
                     ID_Categoria, Precio_Mercado, Precio_Mayorista, Precio_Ruta, 
                     ID_Empresa, Usuario_Creador, Stock_Minimo
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """, (
-                cod_producto, descripcion, id_unidad_medida, estado,
-                id_categoria, precio_mercado, precio_mayorista, precio_ruta, 
-                id_empresa, usuario_creador, stock_minimo
-            ))
+            """, (cod_producto, descripcion, id_unidad_medida, estado,
+                  id_categoria, precio_mercado, precio_mayorista, precio_ruta, 
+                  id_empresa, usuario_creador, stock_minimo))
 
             producto_id = cursor.lastrowid
-
-            # Insertar en inventario_bodega con la cantidad inicial
             cursor.execute("""
                 INSERT INTO inventario_bodega (ID_Bodega, ID_Producto, Existencias)
                 VALUES (%s, %s, %s)
@@ -471,10 +237,7 @@ def admin_crear_producto():
             """, (id_bodega, producto_id, cantidad_inicial))
 
         flash(f'Producto "{descripcion}" creado exitosamente con {cantidad_inicial} unidades en la bodega seleccionada', 'success')
-        
     except Exception as e:
-        print(f"ERROR DETALLADO: {str(e)}")
-        print(traceback.format_exc())
         flash(f'Error al crear producto: {str(e)}', 'error')
     
     return redirect(url_for('admin.admin_productos'))
@@ -498,145 +261,62 @@ def obtener_bodegas_por_empresa(id_empresa):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
 @admin_bp.route('/admin/bodega/productos/editar/<int:id_producto>', methods=['GET', 'POST'])
 @admin_required
 @bitacora_decorator("EDITAR_PRODUCTO")
 def admin_editar_producto(id_producto):
     try:
         if request.method == 'POST':
-            # ========== PROCESAR FORMULARIO POST ==========
-            # Obtener datos del formulario - Actualizado con nuevos precios
             cod_producto = request.form.get('COD_Producto', '').strip()
             descripcion = request.form.get('Descripcion', '').strip()
-            unidad_medida = request.form.get('Unidad_Medida')
-            id_categoria = request.form.get('ID_Categoria')
-            precio_mercado = request.form.get('Precio_Mercado', 0)      # Nuevo
-            precio_mayorista = request.form.get('Precio_Mayorista', 0)  # Nuevo
-            precio_ruta = request.form.get('Precio_Ruta', 0)            # Nuevo
-            id_empresa = request.form.get('ID_Empresa')
-            stock_minimo = request.form.get('Stock_Minimo', 5)
-            estado = request.form.get('Estado', 'activo')
+            unidad_medida = safe_int(request.form.get('Unidad_Medida'))
+            id_categoria = safe_int(request.form.get('ID_Categoria'))
+            id_empresa = safe_int(request.form.get('ID_Empresa'))
+            estado = 'activo' if request.form.get('Estado') == 'activo' else 'inactivo'
 
-            # Validaciones
-            if not descripcion:
-                flash('La descripción es obligatoria', 'error')
+            if not all([descripcion, unidad_medida, id_categoria, id_empresa]):
+                flash('Descripción, unidad, categoría y empresa son obligatorios', 'error')
                 return redirect(url_for('admin.admin_editar_producto', id_producto=id_producto))
 
-            if not unidad_medida or not id_categoria or not id_empresa:
-                flash('Unidad de medida, categoría y empresa son campos obligatorios', 'error')
-                return redirect(url_for('admin.admin_editar_producto', id_producto=id_producto))
+            precio_mercado = safe_float(request.form.get('Precio_Mercado'), 0.0)
+            precio_mayorista = safe_float(request.form.get('Precio_Mayorista'), 0.0)
+            precio_ruta = safe_float(request.form.get('Precio_Ruta'), 0.0)
+            stock_minimo = safe_float(request.form.get('Stock_Minimo'), 5.0)
 
-            # Validar estado
-            if estado not in ['activo', 'inactivo']:
-                estado = 'activo'
-
-            # Convertir valores numéricos
-            try:
-                precio_mercado = float(precio_mercado) if precio_mercado else 0
-                precio_mayorista = float(precio_mayorista) if precio_mayorista else 0
-                precio_ruta = float(precio_ruta) if precio_ruta else 0
-                stock_minimo = float(stock_minimo) if stock_minimo else 5
-                
-                # Validar valores positivos
-                if precio_mercado < 0 or precio_mayorista < 0 or precio_ruta < 0:
-                    flash('Los precios no pueden ser negativos', 'error')
-                    return redirect(url_for('admin.admin_editar_producto', id_producto=id_producto))
-                    
-                if stock_minimo < 0:
-                    flash('El stock mínimo no puede ser negativo', 'error')
-                    return redirect(url_for('admin.admin_editar_producto', id_producto=id_producto))
-                    
-            except (ValueError, TypeError):
-                flash('Error en los valores numéricos', 'error')
+            if precio_mercado < 0 or precio_mayorista < 0 or precio_ruta < 0 or stock_minimo < 0:
+                flash('Los precios y el stock mínimo no pueden ser negativos', 'error')
                 return redirect(url_for('admin.admin_editar_producto', id_producto=id_producto))
 
             with get_db_cursor(commit=True) as cursor:
-                # Verificar si el código de producto ya existe en otro producto
                 if cod_producto:
-                    cursor.execute("""
-                        SELECT ID_Producto FROM productos 
-                        WHERE COD_Producto = %s AND ID_Producto != %s
-                    """, (cod_producto, id_producto))
+                    cursor.execute("SELECT ID_Producto FROM productos WHERE COD_Producto = %s AND ID_Producto != %s", (cod_producto, id_producto))
                     if cursor.fetchone():
                         flash('El código de producto ya existe en otro producto', 'error')
                         return redirect(url_for('admin.admin_editar_producto', id_producto=id_producto))
 
-                # Verificar que las referencias existan
-                cursor.execute("SELECT ID_Unidad FROM unidades_medida WHERE ID_Unidad = %s", (unidad_medida,))
-                if not cursor.fetchone():
-                    flash('La unidad de medida seleccionada no existe', 'error')
-                    return redirect(url_for('admin.admin_editar_producto', id_producto=id_producto))
-
-                cursor.execute("SELECT ID_Categoria FROM categorias_producto WHERE ID_Categoria = %s", (id_categoria,))
-                if not cursor.fetchone():
-                    flash('La categoría seleccionada no existe', 'error')
-                    return redirect(url_for('admin.admin_editar_producto', id_producto=id_producto))
-
-                cursor.execute("SELECT ID_Empresa FROM empresa WHERE ID_Empresa = %s AND Estado = 'Activo'", (id_empresa,))
-                if not cursor.fetchone():
-                    flash('La empresa seleccionada no existe o está inactiva', 'error')
-                    return redirect(url_for('admin.admin_editar_producto', id_producto=id_producto))
-
-                # Actualizar producto - Actualizado con nuevos precios
                 cursor.execute("""
                     UPDATE productos SET
-                        COD_Producto = %s,
-                        Descripcion = %s,
-                        Unidad_Medida = %s,
-                        ID_Categoria = %s,
-                        Precio_Mercado = %s,      -- Nuevo
-                        Precio_Mayorista = %s,    -- Nuevo
-                        Precio_Ruta = %s,          -- Nuevo
-                        ID_Empresa = %s,
-                        Stock_Minimo = %s,
-                        Estado = %s
+                        COD_Producto = %s, Descripcion = %s, Unidad_Medida = %s,
+                        ID_Categoria = %s, Precio_Mercado = %s, Precio_Mayorista = %s,
+                        Precio_Ruta = %s, ID_Empresa = %s, Stock_Minimo = %s, Estado = %s
                     WHERE ID_Producto = %s
-                """, (
-                    cod_producto or None,
-                    descripcion, 
-                    unidad_medida, 
-                    id_categoria,
-                    precio_mercado, 
-                    precio_mayorista,
-                    precio_ruta,
-                    id_empresa, 
-                    stock_minimo, 
-                    estado,
-                    id_producto
-                ))
-
-                # Verificar si se actualizó algún registro
-                if cursor.rowcount == 0:
-                    flash('No se pudo actualizar el producto. Puede que no exista.', 'error')
-                    return redirect(url_for('admin.admin_editar_producto', id_producto=id_producto))
+                """, (cod_producto or None, descripcion, unidad_medida, id_categoria,
+                      precio_mercado, precio_mayorista, precio_ruta, id_empresa,
+                      stock_minimo, estado, id_producto))
 
             flash('Producto actualizado exitosamente', 'success')
             return redirect(url_for('admin.admin_productos'))
 
         else:
-            # ========== CARGAR FORMULARIO GET ==========
             with get_db_cursor() as cursor:
-                # Obtener el producto específico - Actualizado con nuevos precios
                 cursor.execute("""
                     SELECT 
-                        p.ID_Producto,
-                        p.COD_Producto,
-                        p.Descripcion,
-                        p.Unidad_Medida,
-                        um.Descripcion as Nombre_Unidad,
-                        um.Abreviatura,
-                        p.Estado,
-                        p.ID_Categoria,
-                        cp.Descripcion as Nombre_Categoria,
-                        p.Precio_Mercado,      -- Nuevo
-                        p.Precio_Mayorista,    -- Nuevo
-                        p.Precio_Ruta,          -- Nuevo
-                        p.ID_Empresa,
-                        e.Nombre_Empresa,
-                        p.Fecha_Creacion,
-                        p.Usuario_Creador,
-                        u.NombreUsuario as Usuario_Creador_Nombre,
-                        p.Stock_Minimo,
+                        p.ID_Producto, p.COD_Producto, p.Descripcion, p.Unidad_Medida,
+                        um.Descripcion as Nombre_Unidad, um.Abreviatura, p.Estado, p.ID_Categoria,
+                        cp.Descripcion as Nombre_Categoria, p.Precio_Mercado, p.Precio_Mayorista,
+                        p.Precio_Ruta, p.ID_Empresa, e.Nombre_Empresa, p.Fecha_Creacion,
+                        p.Usuario_Creador, u.NombreUsuario as Usuario_Creador_Nombre, p.Stock_Minimo,
                         COALESCE(SUM(ib.Existencias), 0) as Existencias_Totales
                     FROM productos p
                     LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
@@ -647,7 +327,7 @@ def admin_editar_producto(id_producto):
                     WHERE p.ID_Producto = %s
                     GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion, p.Unidad_Medida,
                              um.Descripcion, um.Abreviatura, p.Estado, p.ID_Categoria,
-                             cp.Descripcion, p.Precio_Mercado, p.Precio_Mayorista, p.Precio_Ruta,  -- Actualizado
+                             cp.Descripcion, p.Precio_Mercado, p.Precio_Mayorista, p.Precio_Ruta,
                              p.ID_Empresa, e.Nombre_Empresa, p.Fecha_Creacion, p.Usuario_Creador, 
                              u.NombreUsuario, p.Stock_Minimo
                 """, (id_producto,))
@@ -656,83 +336,33 @@ def admin_editar_producto(id_producto):
                 if not producto:
                     flash('Producto no encontrado', 'error')
                     return redirect(url_for('admin.admin_productos'))
-                
-                # Convertir a diccionario si es necesario
-                if isinstance(producto, dict):
-                    producto_data = producto
-                else:
-                    # Si es tupla, convertir a diccionario - Actualizado
-                    producto_data = {
-                        'ID_Producto': producto[0],
-                        'COD_Producto': producto[1],
-                        'Descripcion': producto[2],
-                        'Unidad_Medida': producto[3],
-                        'Nombre_Unidad': producto[4],
-                        'Abreviatura': producto[5],
-                        'Estado': producto[6],
-                        'ID_Categoria': producto[7],
-                        'Nombre_Categoria': producto[8],
-                        'Precio_Mercado': producto[9],
-                        'Precio_Mayorista': producto[10],
-                        'Precio_Ruta': producto[11],
-                        'ID_Empresa': producto[12],
-                        'Nombre_Empresa': producto[13],
-                        'Fecha_Creacion': producto[14],
-                        'Usuario_Creador': producto[15],
-                        'Usuario_Creador_Nombre': producto[16],
-                        'Stock_Minimo': producto[17],
-                        'Existencias_Totales': producto[18] or 0
-                    }
-                
-                
-                # Obtener datos para los dropdowns
-                cursor.execute("SELECT ID_Categoria, Descripcion FROM categorias_producto")
-                categorias = cursor.fetchall()
-                
-                cursor.execute("SELECT ID_Unidad, Descripcion, Abreviatura FROM unidades_medida")
-                unidades = cursor.fetchall()
-                
-                cursor.execute("SELECT ID_Empresa, Nombre_Empresa FROM empresa WHERE Estado = 'Activo'")
-                empresas = cursor.fetchall()
-                
-                # CONSULTA PARA INVENTARIO POR BODEGA (SOLO ASIGNADAS)
+
+                catalogos = obtener_catalogos_productos_admin(cursor)
+
                 cursor.execute("""
-                    SELECT 
-                        b.ID_Bodega, 
-                        b.Nombre as Nombre_Bodega,
-                        e.Nombre_Empresa,
-                        ib.Existencias
+                    SELECT b.ID_Bodega, b.Nombre as Nombre_Bodega, e.Nombre_Empresa, ib.Existencias
                     FROM inventario_bodega ib
                     JOIN bodegas b ON ib.ID_Bodega = b.ID_Bodega
                     JOIN empresa e ON b.ID_Empresa = e.ID_Empresa
                     WHERE ib.ID_Producto = %s AND b.Estado = 'activa'
                     ORDER BY e.Nombre_Empresa, b.Nombre
                 """, (id_producto,))
-                inventario_bodegas = cursor.fetchall()
+                inventario_bodegas = cursor.fetchall() or []
 
-                # CONSULTA PARA TODAS LAS BODEGAS (PARA SELECTS)
-                cursor.execute("""
-                    SELECT ID_Bodega, Nombre as Nombre_Bodega 
-                    FROM bodegas 
-                    WHERE Estado = 'activa' 
-                    ORDER BY Nombre
-                """)
-                todas_bodegas = cursor.fetchall()
-                
-                fecha_actual = datetime.now().strftime('%d/%m/%Y %H:%M')
-                
+                cursor.execute("SELECT ID_Bodega, Nombre as Nombre_Bodega FROM bodegas WHERE Estado = 'activa' ORDER BY Nombre")
+                todas_bodegas = cursor.fetchall() or []
+
                 return render_template('admin/bodega/producto/editar_producto.html', 
-                                     producto=producto_data,
-                                     categorias=categorias,
-                                     unidades=unidades,
-                                     empresas=empresas,
+                                     producto=producto,
+                                     categorias=catalogos['categorias'],
+                                     unidades=catalogos['unidades'],
+                                     empresas=catalogos['empresas'],
                                      inventario_bodegas=inventario_bodegas,
                                      todas_bodegas=todas_bodegas,
-                                     fecha_actual=fecha_actual)
-                
+                                     fecha_actual=datetime.now().strftime('%d/%m/%Y %H:%M'))
+
     except Exception as e:
         flash(f'Error al procesar producto: {str(e)}', 'error')
-        traceback.print_exc()
         return redirect(url_for('admin.admin_productos'))
     
 @admin_bp.route('/admin/bodega/productos/activar/<int:id_producto>', methods=['POST'])
@@ -825,11 +455,7 @@ def admin_transferir_producto_bodega(id_producto):
                 flash("Producto no encontrado o inactivo", "error")
                 return redirect(url_for('admin.admin_editar_producto', id_producto=id_producto))
                 
-            es_caja = False
-            if isinstance(prod_info, dict):
-                es_caja = prod_info.get('Unidad_Medida') == 1
-            else:
-                es_caja = prod_info[2] == 1 if len(prod_info) > 2 else False
+            es_caja = prod_info.get('Unidad_Medida') == 1
 
             # Lógica base 30
             raw_cantidad = float(cantidad)
@@ -840,10 +466,7 @@ def admin_transferir_producto_bodega(id_producto):
             
             cursor.execute("SELECT COALESCE(Existencias, 0) as Existencias FROM inventario_bodega WHERE ID_Bodega = %s AND ID_Producto = %s", (id_bodega_origen, id_producto))
             stock_info = cursor.fetchone()
-            if isinstance(stock_info, dict):
-                stock_disponible = Decimal(str(stock_info['Existencias'])) if stock_info else Decimal('0')
-            else:
-                stock_disponible = Decimal(str(stock_info[0])) if stock_info else Decimal('0')
+            stock_disponible = Decimal(str(stock_info['Existencias'])) if stock_info else Decimal('0')
             
             if stock_disponible < cantidad:
                 flash(f"Stock insuficiente en la bodega de origen. Disponible: {stock_disponible}", "error")
@@ -851,11 +474,11 @@ def admin_transferir_producto_bodega(id_producto):
                 
             cursor.execute("SELECT Nombre FROM bodegas WHERE ID_Bodega = %s", (id_bodega_origen,))
             origen_res = cursor.fetchone()
-            bodega_origen_nombre = origen_res['Nombre'] if isinstance(origen_res, dict) else origen_res[0]
+            bodega_origen_nombre = origen_res['Nombre'] if origen_res else ''
 
             cursor.execute("SELECT Nombre FROM bodegas WHERE ID_Bodega = %s", (id_bodega_destino,))
             destino_res = cursor.fetchone()
-            bodega_destino_nombre = destino_res['Nombre'] if isinstance(destino_res, dict) else destino_res[0]
+            bodega_destino_nombre = destino_res['Nombre'] if destino_res else ''
             
             cursor.execute("""
                 SELECT dmi.Costo_Unitario 
@@ -869,17 +492,8 @@ def admin_transferir_producto_bodega(id_producto):
                 LIMIT 1
             """, (id_producto,))
             costo_result = cursor.fetchone()
-            if isinstance(costo_result, dict):
-                costo_unitario = Decimal(str(costo_result['Costo_Unitario'])) if costo_result and costo_result['Costo_Unitario'] is not None else Decimal('0')
-            elif costo_result:
-                costo_unitario = Decimal(str(costo_result[0])) if costo_result[0] is not None else Decimal('0')
-            else:
-                costo_unitario = Decimal('0')
-            
-            if isinstance(prod_info, dict):
-                precio_venta = Decimal(str(prod_info['Precio_Mercado'])) if prod_info['Precio_Mercado'] else Decimal('0')
-            else:
-                precio_venta = Decimal(str(prod_info[1])) if prod_info[1] else Decimal('0')
+            costo_unitario = Decimal(str(costo_result['Costo_Unitario'])) if costo_result and costo_result.get('Costo_Unitario') is not None else Decimal('0')
+            precio_venta = Decimal(str(prod_info['Precio_Mercado'])) if prod_info.get('Precio_Mercado') else Decimal('0')
 
             subtotal = cantidad * costo_unitario
             
@@ -930,8 +544,6 @@ def admin_transferir_producto_bodega(id_producto):
         
     except Exception as e:
         flash(f'Error al transferir producto: {str(e)}', 'error')
-        import traceback
-        traceback.print_exc()
         
     return redirect(url_for('admin.admin_editar_producto', id_producto=id_producto))
 
@@ -941,34 +553,21 @@ def admin_transferir_producto_bodega(id_producto):
 @bitacora_decorator("ASIGNAR_BODEGA_PRODUCTO")
 def admin_asignar_bodega_producto(id_producto):
     try:
-        id_bodega = request.form.get('id_bodega')
-        cantidad = request.form.get('cantidad', 0)
+        id_bodega = safe_int(request.form.get('id_bodega'))
+        cantidad = safe_float(request.form.get('cantidad', 0))
         
         if not id_bodega:
             flash("Debe seleccionar una bodega", "error")
             return redirect(url_for('admin.admin_editar_producto', id_producto=id_producto))
             
-        try:
-            id_bodega = int(id_bodega)
-            cantidad = float(cantidad)
-        except ValueError:
-            flash("Valores inválidos", "error")
-            return redirect(url_for('admin.admin_editar_producto', id_producto=id_producto))
-            
         with get_db_cursor(commit=True) as cursor:
-            # Check product
             cursor.execute("SELECT ID_Producto, Unidad_Medida FROM productos WHERE ID_Producto = %s AND Estado = 'activo'", (id_producto,))
             prod_info = cursor.fetchone()
             if not prod_info:
                 flash("Producto no encontrado o inactivo", "error")
                 return redirect(url_for('admin.admin_editar_producto', id_producto=id_producto))
                 
-            es_caja = False
-            if isinstance(prod_info, dict):
-                es_caja = prod_info.get('Unidad_Medida') == 1
-            else:
-                es_caja = prod_info[1] == 1 if len(prod_info) > 1 else False
-
+            es_caja = prod_info.get('Unidad_Medida') == 1
             if es_caja and cantidad % 1 != 0:
                 cajillas = int(cantidad)
                 unidades = int(round((cantidad - cajillas) * 100))
@@ -980,14 +579,13 @@ def admin_asignar_bodega_producto(id_producto):
                 ON DUPLICATE KEY UPDATE Existencias = Existencias + VALUES(Existencias)
             """, (id_bodega, id_producto, cantidad))
             
-        flash(f"Bodega asignada exitosamente", "success")
+        flash("Bodega asignada exitosamente", "success")
         
     except Exception as e:
         flash(f'Error al asignar bodega: {str(e)}', 'error')
-        import traceback
-        traceback.print_exc()
         
     return redirect(url_for('admin.admin_editar_producto', id_producto=id_producto))
+
 
 @admin_bp.route('/admin/bodega/productos/pdf_existencias', methods=['GET'])
 @admin_required
@@ -1002,14 +600,13 @@ def admin_productos_pdf_existencias():
         search_term = request.args.get('search', '')
 
         with get_db_cursor() as cursor:
-            # Query for products, grouped by Bodega
             query = """
                 SELECT 
-                    b.Nombre as 'Bodega',
-                    p.COD_Producto as 'Código',
-                    p.Descripcion as 'Producto',
-                    COALESCE(um.Abreviatura, 'Und') as 'Unidad',
-                    CAST(ib.Existencias AS DECIMAL(10,2)) as 'Existencias',
+                    b.Nombre as Bodega,
+                    p.COD_Producto as Codigo,
+                    p.Descripcion as Producto,
+                    COALESCE(um.Abreviatura, 'Und') as Unidad,
+                    CAST(ib.Existencias AS DECIMAL(10,2)) as Existencias,
                     p.Unidad_Medida,
                     p.Stock_Minimo,
                     (SELECT SUM(Existencias) FROM inventario_bodega WHERE ID_Producto = p.ID_Producto) as Stock_Global
@@ -1053,24 +650,17 @@ def admin_productos_pdf_existencias():
                 
             datos_por_bodega = {}
             for row in resultados:
-                if isinstance(row, dict):
-                    bodega = row.get('Bodega', '')
-                    existencias_raw = float(row.get('Existencias', 0))
-                    es_caja = row.get('Unidad_Medida') == 1
-                    stock_min = float(row.get('Stock_Minimo', 5))
-                    stock_actual = float(row.get('Stock_Global', 0))
-                else:
-                    bodega = row[0] if len(row) > 0 else ''
-                    existencias_raw = float(row[4]) if len(row) > 4 else 0
-                    es_caja = row[5] == 1 if len(row) > 5 else False
-                    stock_min = float(row[6]) if len(row) > 6 else 5
-                    stock_actual = float(row[7]) if len(row) > 7 else 0
+                bodega = row.get('Bodega', '')
+                existencias_raw = float(row.get('Existencias', 0))
+                es_caja = row.get('Unidad_Medida') == 1
+                stock_min = float(row.get('Stock_Minimo', 5))
+                stock_actual = float(row.get('Stock_Global', 0))
 
                 # Aplicar filtro de stock global
                 if stock_filtro != 'todos':
-                    if stock_filtro == 'critico' and not (stock_actual > 0 and stock_actual <= stock_min):
+                    if stock_filtro == 'critico' and not (0 < stock_actual <= stock_min):
                         continue
-                    elif stock_filtro == 'bajo' and not (stock_actual > stock_min and stock_actual <= stock_min * 2):
+                    elif stock_filtro == 'bajo' and not (stock_min < stock_actual <= stock_min * 2):
                         continue
                     elif stock_filtro == 'normal' and not (stock_actual > stock_min * 2):
                         continue
@@ -1084,20 +674,12 @@ def admin_productos_pdf_existencias():
                 else:
                     existencias_str = f"{existencias_raw:g}"
 
-                if isinstance(row, dict):
-                    item = {
-                        'Código': row.get('Código', ''),
-                        'Producto': row.get('Producto', ''),
-                        'Unidad': row.get('Unidad', ''),
-                        'Existencias': existencias_str
-                    }
-                else:
-                    item = {
-                        'Código': row[1] if len(row) > 1 else '',
-                        'Producto': row[2] if len(row) > 2 else '',
-                        'Unidad': row[3] if len(row) > 3 else '',
-                        'Existencias': existencias_str
-                    }
+                item = {
+                    'Código': row.get('Codigo', ''),
+                    'Producto': row.get('Producto', ''),
+                    'Unidad': row.get('Unidad', ''),
+                    'Existencias': existencias_str
+                }
                     
                 if bodega not in datos_por_bodega:
                     datos_por_bodega[bodega] = []
@@ -1107,7 +689,6 @@ def admin_productos_pdf_existencias():
             return exportar_pdf_existencias_por_bodega(datos_por_bodega, "Reporte_Existencias_Bodegas")
             
     except Exception as e:
-        import traceback
-        traceback.print_exc()
         flash(f'Error al generar PDF: {str(e)}', 'error')
         return redirect(url_for('admin.admin_productos'))
+
