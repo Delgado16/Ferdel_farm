@@ -515,34 +515,18 @@ def vendedor_movimiento_liquidar_jornada():
             """, (id_asignacion,))
             inventario = cursor.fetchall()
             
-            # Obtener caja acumulada
+            # Obtener saldo real de caja de la ruta (calculado de todos los movimientos de la asignación)
             cursor.execute("""
-                SELECT Tipo, Monto, Saldo_Acumulado
+                SELECT COALESCE(SUM(CASE 
+                    WHEN Tipo = 'GASTO' THEN -Monto 
+                    WHEN Tipo = 'CIERRE' THEN 0
+                    ELSE Monto 
+                END), 0) as Saldo_Calculado
                 FROM movimientos_caja_ruta
-                WHERE ID_Usuario = %s AND ID_Asignacion = %s AND Estado = 'ACTIVO'
-                ORDER BY Fecha DESC, ID_Movimiento DESC
-                LIMIT 1
-            """, (user_id, id_asignacion))
-            resultado_saldo = cursor.fetchone()
-            
-            if resultado_saldo:
-                if resultado_saldo['Tipo'] == 'CIERRE':
-                    saldo_caja = resultado_saldo['Monto'] if resultado_saldo['Monto'] is not None else 0
-                else:
-                    if resultado_saldo['Saldo_Acumulado'] is not None:
-                        saldo_caja = resultado_saldo['Saldo_Acumulado']
-                    else:
-                        cursor.execute("""
-                            SELECT Saldo_Acumulado 
-                            FROM movimientos_caja_ruta
-                            WHERE ID_Usuario = %s AND ID_Asignacion = %s AND Estado = 'ACTIVO' AND Saldo_Acumulado IS NOT NULL
-                            ORDER BY Fecha DESC, ID_Movimiento DESC
-                            LIMIT 1
-                        """, (user_id, id_asignacion))
-                        res_non_null = cursor.fetchone()
-                        saldo_caja = res_non_null['Saldo_Acumulado'] if res_non_null else 0
-            else:
-                saldo_caja = 0
+                WHERE ID_Asignacion = %s AND Estado = 'ACTIVO'
+            """, (id_asignacion,))
+            calc_res = cursor.fetchone()
+            saldo_caja = float(calc_res['Saldo_Calculado'] or 0) if calc_res else 0.0
             
             # Obtener resumen de ventas
             cursor.execute("""
@@ -1626,6 +1610,53 @@ def vendedor_carga_directa_proveedor():
         return redirect(url_for('vendedor.vendedor_inventario'))
 
 
+def agrupar_abonos_cierre(abonos_raw):
+    """
+    Agrupa los abonos de abonos_detalle por transacción/cobro individual
+    para que si un pago se distribuyó entre varias facturas (o saldo manual),
+    se muestre como un único abono consolidado con su monto total en el cierre.
+    """
+    from collections import OrderedDict
+    grouped_dict = OrderedDict()
+    
+    for a in abonos_raw:
+        id_mov_caja = a.get('ID_Movimiento_Caja')
+        if id_mov_caja:
+            # Pagos en efectivo: un único movimiento de caja agrupa todos los desgloses
+            key = ('caja', id_mov_caja)
+        else:
+            # Pagos no-efectivo (transferencia, cheque, etc.): agrupamos por cliente, fecha y método
+            fecha_val = a.get('Fecha')
+            fecha_str = fecha_val.strftime('%Y-%m-%d %H:%M:%S') if hasattr(fecha_val, 'strftime') else str(fecha_val or '')
+            key = ('nocaja', a.get('ID_Cliente'), fecha_str, a.get('MetodoPago'))
+            
+        if key not in grouped_dict:
+            grouped_dict[key] = {
+                'ID_Detalle': a.get('ID_Detalle'),
+                'ID_Movimiento_Caja': id_mov_caja,
+                'ID_Cliente': a.get('ID_Cliente'),
+                'Cliente': a.get('Cliente') or 'Consumidor',
+                'MetodoPago': a.get('MetodoPago') or 'Efectivo',
+                'ID_MetodoPago': a.get('ID_MetodoPago'),
+                'Fecha': a.get('Fecha'),
+                'Monto_Aplicado': 0.0,
+                'Documentos_List': []
+            }
+            
+        grouped_dict[key]['Monto_Aplicado'] += float(a.get('Monto_Aplicado') or 0)
+        doc = a.get('Num_Documento')
+        if doc and doc not in grouped_dict[key]['Documentos_List']:
+            grouped_dict[key]['Documentos_List'].append(doc)
+            
+    abonos_agrupados = []
+    for g in grouped_dict.values():
+        docs = g.pop('Documentos_List')
+        g['Num_Documento'] = ', '.join(docs) if docs else 'Saldo Inicial/Manual'
+        abonos_agrupados.append(g)
+        
+    return abonos_agrupados
+
+
 @vendedor_bp.route('/vendedor/movimientos/pdf_cierre/<int:id_asignacion>')
 @vendedor_required
 def vendedor_pdf_cierre(id_asignacion):
@@ -1659,16 +1690,16 @@ def vendedor_pdf_cierre(id_asignacion):
             vendedor_id = asignacion['ID_Usuario']
             fecha_ruta = asignacion['Fecha_Asignacion']
 
-            # 2. Obtener movimientos de caja de la asignación por fecha
+            # 2. Obtener movimientos de caja de la asignación
             cursor.execute("""
                 SELECT Tipo, Concepto, Monto, Saldo_Acumulado, Fecha
                 FROM movimientos_caja_ruta
-                WHERE ID_Usuario = %s AND DATE(Fecha) = %s AND Estado = 'ACTIVO'
+                WHERE ID_Asignacion = %s AND Estado = 'ACTIVO'
                 ORDER BY ID_Movimiento ASC
-            """, (vendedor_id, fecha_ruta))
+            """, (id_asignacion,))
             movimientos_caja = cursor.fetchall()
             
-            # 3. Obtener facturas/ventas realizadas en el día
+            # 3. Obtener facturas/ventas realizadas en la asignación
             cursor.execute("""
                 SELECT fr.ID_FacturaRuta, fr.Fecha, fr.Credito_Contado,
                        c.Nombre as Cliente, fr.Observacion,
@@ -1676,42 +1707,50 @@ def vendedor_pdf_cierre(id_asignacion):
                         FROM detalle_facturacion_ruta 
                         WHERE ID_FacturaRuta = fr.ID_FacturaRuta) as Total
                 FROM facturacion_ruta fr
-                INNER JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
                 LEFT JOIN clientes c ON fr.ID_Cliente = c.ID_Cliente
-                WHERE av.ID_Usuario = %s AND DATE(fr.Fecha) = %s AND fr.Estado = 'Activa'
+                WHERE fr.ID_Asignacion = %s AND fr.Estado = 'Activa'
                 ORDER BY fr.ID_FacturaRuta ASC
-            """, (vendedor_id, fecha_ruta))
+            """, (id_asignacion,))
             ventas = cursor.fetchall()
             
-            # 4. Obtener abonos detallados recibidos en el día
+            # 4. Obtener abonos recibidos en la asignación (agrupados por cobro/transacción)
             cursor.execute("""
                 SELECT ad.ID_Detalle, ad.Monto_Aplicado, ad.Saldo_Anterior, ad.Saldo_Nuevo,
-                       c.Nombre as Cliente, mp.Nombre as MetodoPago,
+                       c.Nombre as Cliente, COALESCE(mp.Nombre, 'Efectivo') as MetodoPago,
                        COALESCE(cxc.Num_Documento, 'Saldo Inicial/Manual') as Num_Documento,
-                       ad.Fecha
+                       ad.Fecha, ad.ID_Movimiento_Caja, ad.ID_Cliente, ad.ID_MetodoPago
                 FROM abonos_detalle ad
                 LEFT JOIN clientes c ON ad.ID_Cliente = c.ID_Cliente
                 LEFT JOIN metodos_pago mp ON ad.ID_MetodoPago = mp.ID_MetodoPago
                 LEFT JOIN cuentas_por_cobrar cxc ON ad.ID_CuentaCobrar = cxc.ID_Movimiento
-                WHERE ad.ID_Usuario = %s AND DATE(ad.Fecha) = %s
+                WHERE ad.ID_Asignacion = %s
                 ORDER BY ad.ID_Detalle ASC
-            """, (vendedor_id, fecha_ruta))
-            abonos = cursor.fetchall()
+            """, (id_asignacion,))
+            abonos_raw = cursor.fetchall()
+            abonos = agrupar_abonos_cierre(abonos_raw)
             
-            # 5. Obtener devoluciones y mermas en el día
+            # 5. Obtener devoluciones y mermas en la asignación
             cursor.execute("""
                 SELECT mrc.Documento_Numero, mrc.Fecha_Movimiento, mrc.ID_TipoMovimiento,
                        p.Descripcion as Producto, mrd.Cantidad, mrd.Precio_Unitario, mrd.Subtotal
                 FROM movimientos_ruta_cabecera mrc
                 INNER JOIN movimientos_ruta_detalle mrd ON mrc.ID_Movimiento = mrd.ID_Movimiento
                 INNER JOIN productos p ON mrd.ID_Producto = p.ID_Producto
-                WHERE mrc.ID_Usuario_Registra = %s 
-                  AND DATE(mrc.Fecha_Movimiento) = %s
+                WHERE mrc.ID_Asignacion = %s 
                   AND mrc.ID_TipoMovimiento IN (7, 11)
                   AND mrc.Estado = 'ACTIVO'
                 ORDER BY mrc.Fecha_Movimiento ASC
-            """, (vendedor_id, fecha_ruta))
+            """, (id_asignacion,))
             devoluciones_mermas = cursor.fetchall()
+
+            # 6. Verificar si ya se registró traslado/consolidado a caja central
+            cursor.execute("""
+                SELECT Monto, Descripcion 
+                FROM caja_movimientos 
+                WHERE Referencia_Documento IN (%s, %s) AND Estado = 'ACTIVO'
+                LIMIT 1
+            """, (f"RUTA-{id_asignacion}", f"RUT-LIQ-{id_asignacion}"))
+            consolidado = cursor.fetchone()
             
         # Calcular resúmenes de caja
         apertura = 0.0
@@ -1732,7 +1771,13 @@ def vendedor_pdf_cierre(id_asignacion):
             elif mov['Tipo'] == 'GASTO':
                 gastos_monto += float(mov['Monto'] or 0)
                 
-        # Calcular montos directamente desde las transacciones reales para evitar inconsistencias
+        # Si se liquidó a caja central, el cierre entregado definitivo es el monto consolidado
+        if consolidado:
+            cierre = float(consolidado['Monto'] or 0)
+            caja_cerrada = True
+            if not concepto_cierre:
+                concepto_cierre = consolidado.get('Descripcion') or f"Consolidado entregado: C$ {cierre:,.2f}"
+
         # Calcular montos directamente desde las transacciones reales para evitar inconsistencias
         ventas_contado_monto = sum(float(v['Total'] or 0) for v in ventas if v['Credito_Contado'] == 1)
         abonos_monto = sum(float(a['Monto_Aplicado'] or 0) for a in abonos)
@@ -1904,7 +1949,7 @@ def vendedor_pdf_cierre(id_asignacion):
         
         # Abonos Recibidos
         story.append(Paragraph("DETALLE DE ABONOS RECIBIDOS", section_style))
-        abonos_headers = ["Fecha", "Cliente", "Documento Afectado", "Método Pago", "Monto Aplicado"]
+        abonos_headers = ["Fecha", "Cliente", "Método Pago", "Monto Cobrado"]
         t_abonos_data = [[Paragraph(h, cell_bold_style) for h in abonos_headers]]
         total_abonos_monto = 0.0
         
@@ -1914,7 +1959,6 @@ def vendedor_pdf_cierre(id_asignacion):
             t_abonos_data.append([
                 Paragraph(a['Fecha'].strftime('%d/%m/%Y %H:%M'), cell_style),
                 Paragraph(a['Cliente'] or 'N/A', cell_style),
-                Paragraph(a['Num_Documento'], cell_style),
                 Paragraph(a['MetodoPago'] or 'N/A', cell_style),
                 Paragraph(f"C$ {monto_ap:,.2f}", cell_right_style)
             ])
@@ -1923,11 +1967,10 @@ def vendedor_pdf_cierre(id_asignacion):
             Paragraph("<b>TOTAL ABONOS</b>", cell_bold_style),
             Paragraph("", cell_style),
             Paragraph("", cell_style),
-            Paragraph("", cell_style),
             Paragraph(f"<b>C$ {total_abonos_monto:,.2f}</b>", cell_right_style)
         ])
         
-        t_abonos = Table(t_abonos_data, colWidths=[95, 145, 110, 100, 90])
+        t_abonos = Table(t_abonos_data, colWidths=[100, 220, 110, 110])
         t_abonos_style = [
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#2c5e2e')),
             ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#cbd5e1')),
@@ -2047,16 +2090,16 @@ def vendedor_ticket_cierre(id_asignacion):
             vendedor_id = asignacion['ID_Usuario']
             fecha_ruta = asignacion['Fecha_Asignacion']
 
-            # 2. Obtener movimientos de caja de la asignación por fecha
+            # 2. Obtener movimientos de caja de la asignación
             cursor.execute("""
                 SELECT Tipo, Concepto, Monto, Saldo_Acumulado, Fecha
                 FROM movimientos_caja_ruta
-                WHERE ID_Usuario = %s AND DATE(Fecha) = %s AND Estado = 'ACTIVO'
+                WHERE ID_Asignacion = %s AND Estado = 'ACTIVO'
                 ORDER BY ID_Movimiento ASC
-            """, (vendedor_id, fecha_ruta))
+            """, (id_asignacion,))
             movimientos_caja = cursor.fetchall()
             
-            # 3. Obtener facturas/ventas realizadas en el día
+            # 3. Obtener facturas/ventas realizadas en la asignación
             cursor.execute("""
                 SELECT fr.ID_FacturaRuta, fr.Fecha, fr.Credito_Contado,
                        c.Nombre as Cliente, fr.Observacion,
@@ -2064,41 +2107,40 @@ def vendedor_ticket_cierre(id_asignacion):
                         FROM detalle_facturacion_ruta 
                         WHERE ID_FacturaRuta = fr.ID_FacturaRuta) as Total
                 FROM facturacion_ruta fr
-                INNER JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
                 LEFT JOIN clientes c ON fr.ID_Cliente = c.ID_Cliente
-                WHERE av.ID_Usuario = %s AND DATE(fr.Fecha) = %s AND fr.Estado = 'Activa'
+                WHERE fr.ID_Asignacion = %s AND fr.Estado = 'Activa'
                 ORDER BY fr.ID_FacturaRuta ASC
-            """, (vendedor_id, fecha_ruta))
+            """, (id_asignacion,))
             ventas = cursor.fetchall()
             
-            # 4. Obtener abonos detallados recibidos en el día
+            # 4. Obtener abonos recibidos en la asignación (agrupados por cobro/transacción)
             cursor.execute("""
                 SELECT ad.ID_Detalle, ad.Monto_Aplicado, ad.Saldo_Anterior, ad.Saldo_Nuevo,
-                       c.Nombre as Cliente, mp.Nombre as MetodoPago,
+                       c.Nombre as Cliente, COALESCE(mp.Nombre, 'Efectivo') as MetodoPago,
                        COALESCE(cxc.Num_Documento, 'Saldo Inicial/Manual') as Num_Documento,
-                       ad.Fecha
+                       ad.Fecha, ad.ID_Movimiento_Caja, ad.ID_Cliente, ad.ID_MetodoPago
                 FROM abonos_detalle ad
                 LEFT JOIN clientes c ON ad.ID_Cliente = c.ID_Cliente
                 LEFT JOIN metodos_pago mp ON ad.ID_MetodoPago = mp.ID_MetodoPago
                 LEFT JOIN cuentas_por_cobrar cxc ON ad.ID_CuentaCobrar = cxc.ID_Movimiento
-                WHERE ad.ID_Usuario = %s AND DATE(ad.Fecha) = %s
+                WHERE ad.ID_Asignacion = %s
                 ORDER BY ad.ID_Detalle ASC
-            """, (vendedor_id, fecha_ruta))
-            abonos = cursor.fetchall()
+            """, (id_asignacion,))
+            abonos_raw = cursor.fetchall()
+            abonos = agrupar_abonos_cierre(abonos_raw)
             
-            # 5. Obtener devoluciones y mermas en el día
+            # 5. Obtener devoluciones y mermas en la asignación
             cursor.execute("""
                 SELECT mrc.Documento_Numero, mrc.Fecha_Movimiento, mrc.ID_TipoMovimiento,
                        p.Descripcion as Producto, mrd.Cantidad, mrd.Precio_Unitario, mrd.Subtotal
                 FROM movimientos_ruta_cabecera mrc
                 INNER JOIN movimientos_ruta_detalle mrd ON mrc.ID_Movimiento = mrd.ID_Movimiento
                 INNER JOIN productos p ON mrd.ID_Producto = p.ID_Producto
-                WHERE mrc.ID_Usuario_Registra = %s 
-                  AND DATE(mrc.Fecha_Movimiento) = %s
+                WHERE mrc.ID_Asignacion = %s 
                   AND mrc.ID_TipoMovimiento IN (7, 11)
                   AND mrc.Estado = 'ACTIVO'
                 ORDER BY mrc.Fecha_Movimiento ASC
-            """, (vendedor_id, fecha_ruta))
+            """, (id_asignacion,))
             devoluciones_mermas = cursor.fetchall()
             
             # 5b. Obtener sumatoria consolidada de productos vendidos en la ruta
@@ -2115,6 +2157,15 @@ def vendedor_ticket_cierre(id_asignacion):
                 ORDER BY p.Descripcion ASC
             """, (id_asignacion,))
             productos_vendidos = cursor.fetchall()
+
+            # 6. Verificar si ya se registró traslado/consolidado a caja central
+            cursor.execute("""
+                SELECT Monto, Descripcion 
+                FROM caja_movimientos 
+                WHERE Referencia_Documento IN (%s, %s) AND Estado = 'ACTIVO'
+                LIMIT 1
+            """, (f"RUTA-{id_asignacion}", f"RUT-LIQ-{id_asignacion}"))
+            consolidado = cursor.fetchone()
             
         # Calcular resúmenes de caja
         apertura = 0.0
@@ -2134,6 +2185,13 @@ def vendedor_ticket_cierre(id_asignacion):
                 concepto_cierre = mov['Concepto'] or ""
             elif mov['Tipo'] == 'GASTO':
                 gastos_monto += float(mov['Monto'] or 0)
+
+        # Si se liquidó a caja central, el cierre entregado definitivo es el monto consolidado
+        if consolidado:
+            cierre = float(consolidado['Monto'] or 0)
+            caja_cerrada = True
+            if not concepto_cierre:
+                concepto_cierre = consolidado.get('Descripcion') or f"Consolidado entregado: C$ {cierre:,.2f}"
                 
         # Calcular montos directamente desde las transacciones reales para evitar inconsistencias
         ventas_contado_monto = sum(float(v['Total'] or 0) for v in ventas if v['Credito_Contado'] == 1)

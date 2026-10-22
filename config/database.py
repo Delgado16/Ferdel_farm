@@ -100,10 +100,34 @@ def crear_tablas_sistema():
                     VALUES (%s, %s, %s)
                 """, (llave, valor, desc))
             
+        # Asegurar existencia de la vista pagos_cxc requerida por el módulo de facturación
+        try:
+            cursor.execute("""
+                CREATE OR REPLACE VIEW pagos_cxc AS
+                SELECT 
+                    pc.ID_Pago,
+                    pc.ID_Movimiento,
+                    cxc.ID_Factura,
+                    cxc.ID_Cliente,
+                    pc.Fecha AS Fecha_Pago,
+                    pc.Fecha,
+                    pc.Monto,
+                    COALESCE(mp.Nombre, 'Efectivo') AS Metodo_Pago,
+                    pc.ID_MetodoPago,
+                    pc.Comentarios,
+                    pc.Detalles_Metodo,
+                    pc.ID_Usuario_Creacion
+                FROM pagos_cuentascobrar pc
+                INNER JOIN cuentas_por_cobrar cxc ON pc.ID_Movimiento = cxc.ID_Movimiento
+                LEFT JOIN metodos_pago mp ON pc.ID_MetodoPago = mp.ID_MetodoPago;
+            """)
+        except Exception as e_view:
+            print(f"⚠️ Nota al verificar vista pagos_cxc: {e_view}")
+
         conn.commit()
         cursor.close()
         conn.close()
-        print("⚙️ Tabla config_sistema inicializada correctamente.")
+        print("⚙️ Tabla config_sistema y vistas de sistema inicializadas correctamente.")
     except Exception as e:
         print(f"⚠️ Error al inicializar tablas de sistema: {e}")
 

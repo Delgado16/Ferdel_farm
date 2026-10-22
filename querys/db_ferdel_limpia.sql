@@ -1198,4 +1198,26 @@ LEFT JOIN `bodegas` `b` ON `mi`.`ID_Bodega` = `b`.`ID_Bodega`
 LEFT JOIN `detalle_movimientos_inventario` `dmi` ON `mi`.`ID_Movimiento` = `dmi`.`ID_Movimiento`
 LEFT JOIN `productos` `p` ON `dmi`.`ID_Producto` = `p`.`ID_Producto`;
 
+-- --------------------------------------------------------
+-- Estructura de vista `pagos_cxc`
+-- --------------------------------------------------------
+DROP VIEW IF EXISTS `pagos_cxc`;
+CREATE OR REPLACE VIEW `pagos_cxc` AS 
+SELECT 
+    `pc`.`ID_Pago`,
+    `pc`.`ID_Movimiento`,
+    `cxc`.`ID_Factura`,
+    `cxc`.`ID_Cliente`,
+    `pc`.`Fecha` AS `Fecha_Pago`,
+    `pc`.`Fecha`,
+    `pc`.`Monto`,
+    COALESCE(`mp`.`Nombre`, 'Efectivo') AS `Metodo_Pago`,
+    `pc`.`ID_MetodoPago`,
+    `pc`.`Comentarios`,
+    `pc`.`Detalles_Metodo`,
+    `pc`.`ID_Usuario_Creacion`
+FROM `pagos_cuentascobrar` `pc`
+INNER JOIN `cuentas_por_cobrar` `cxc` ON `pc`.`ID_Movimiento` = `cxc`.`ID_Movimiento`
+LEFT JOIN `metodos_pago` `mp` ON `pc`.`ID_MetodoPago` = `mp`.`ID_MetodoPago`;
+
 SET FOREIGN_KEY_CHECKS = 1;

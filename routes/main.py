@@ -94,7 +94,12 @@ def diagnostico():
 
 @main_bp.route('/sw.js')
 def serve_sw():
-    return send_from_directory(current_app.static_folder, 'sw.js')
+    response = send_from_directory(current_app.static_folder, 'sw.js')
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    response.headers['Content-Type'] = 'application/javascript'
+    return response
 
 
 @main_bp.route('/manifest.json')

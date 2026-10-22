@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vendedor-cache-v11'; // Incrementamos a v11 para forzar actualización de hojas de estilo de compras
+const CACHE_NAME = 'vendedor-cache-v12'; // v12: optimización de latencia nativa sin IPC en rutas de gestión
 
 // Recursos estáticos públicos que no requieren autenticación y garantizan status 200
 const urlsToCache = [
@@ -57,17 +57,16 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // 2. Bypassear rutas de administración, bodega, autenticación y diagnósticos para evitar lentitud y conflictos de sesión
-  // IMPORTANTE: Se usa event.respondWith(fetch(request)) en lugar de un return vacío,
-  // para que Chrome valide que el Service Worker controla la página y habilite la instalación PWA.
+  // 2. Bypassear rutas de administración, bodega, autenticación y diagnósticos
+  // Al retornar directamente sin llamar a event.respondWith(), el navegador usa su stack
+  // nativo C++ de red con 0ms de retraso por IPC, garantizando máxima velocidad.
   if (url.pathname.startsWith('/admin/') ||
-    url.pathname.startsWith('/bodega/') ||
-    url.pathname.startsWith('/auth/') || 
-    url.pathname === '/health' ||
-    url.pathname === '/debug-db' ||
-    url.pathname === '/diagnostico' ||
-    url.pathname === '/sw.js') {
-    event.respondWith(fetch(request));
+      url.pathname.startsWith('/bodega/') ||
+      url.pathname.startsWith('/auth/') || 
+      url.pathname === '/health' ||
+      url.pathname === '/debug-db' ||
+      url.pathname === '/diagnostico' ||
+      url.pathname === '/sw.js') {
     return;
   }
 
@@ -131,7 +130,7 @@ self.addEventListener('fetch', event => {
     );
   }
 
-  // 🔧 Estrategia 2: API de vendedores y páginas del vendedor (Network First)
+  // 🔧 Estrategia 2: API de vendedores y páginas del vendedor (Network First para soporte offline)
   else if (url.pathname.startsWith('/vendedor/')) {
     event.respondWith(
       fetch(request)
@@ -155,8 +154,8 @@ self.addEventListener('fetch', event => {
     );
   }
 
-  // 🔧 Estrategia 3: HTML de páginas públicas y recursos principales (Cache First con revalidación)
-  else if (url.pathname.match(/\.(html|css|js)$/i) ||
+  // 🔧 Estrategia 3: Recursos estáticos (CSS, JS, Fuentes) y landing principal (Cache First con revalidación)
+  else if (url.pathname.match(/\.(html|css|js|woff2?|ttf|eot|otf)$/i) ||
     url.pathname === '/' ||
     url.pathname === '/index.html') {
     event.respondWith(
@@ -205,28 +204,9 @@ self.addEventListener('fetch', event => {
     );
   }
 
-  // 🔧 Estrategia 4: Otros recursos generales (Network First con fallback a caché)
+  // 🔧 Cualquier otra ruta dinámica: retorno directo a la red sin interceptar
   else {
-    event.respondWith(
-      fetch(request)
-        .then(networkResponse => {
-          if (networkResponse && networkResponse.status === 200 && !networkResponse.redirected) {
-            const responseToCache = networkResponse.clone();
-            caches.open(CACHE_NAME)
-              .then(cache => {
-                cache.put(request, responseToCache);
-              })
-              .catch(error => {
-                console.error('[Service Worker] Error guardando recurso en caché:', error);
-              });
-          }
-          return networkResponse;
-        })
-        .catch(() => {
-          console.log('[Service Worker] 📦 Recurso desde caché (offline):', url.pathname);
-          return caches.match(request);
-        })
-    );
+    return;
   }
 });
 

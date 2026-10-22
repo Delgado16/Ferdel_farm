@@ -56,6 +56,8 @@ def api_procesar_abono():
                 SELECT ID_Asignacion, ID_Ruta 
                 FROM asignacion_vendedores 
                 WHERE ID_Usuario = %s AND Estado = 'Activa'
+                ORDER BY Fecha_Asignacion DESC, ID_Asignacion DESC
+                LIMIT 1
             """, (id_vendedor,))
             
             asignacion = cursor.fetchone()
@@ -103,11 +105,11 @@ def api_procesar_abono():
                 cursor.execute("""
                     SELECT COALESCE(SUM(CASE 
                         WHEN Tipo = 'GASTO' THEN -Monto 
+                        WHEN Tipo = 'CIERRE' THEN 0
                         ELSE Monto 
                     END), 0) as Saldo_Actual
                     FROM movimientos_caja_ruta
                     WHERE ID_Asignacion = %s 
-                      AND DATE(Fecha) = CURDATE() 
                       AND Tipo != 'CIERRE'
                       AND Estado = 'ACTIVO'
                 """, (asignacion['ID_Asignacion'],))
@@ -141,16 +143,17 @@ def api_procesar_abono():
                     print(f"❌ Error al insertar en movimientos_caja_ruta: {e}")
                     raise Exception(f"Error al registrar movimiento de caja: {str(e)}")
             else:
-                # No es efectivo - NO se registra en caja
+                # No es efectivo - NO se registra en caja física
                 pass
             
-            # 4. Distribuir el abono entre las facturas o saldo manual
+            # 4. Distribuir el abono entre las facturas y/o saldo manual
             monto_restante = monto_abono
             detalle_abono = []
             monto_aplicado = 0
             ultimo_id_abono = None
             facturas_canceladas = []  # Lista para almacenar facturas que se cancelan completamente
             
+            # 4a. Distribuir primero a facturas pendientes de cuentas_por_cobrar si existen
             if facturas:
                 for factura in facturas:
                     if monto_restante <= 0:
@@ -158,7 +161,7 @@ def api_procesar_abono():
                         
                     saldo_factura = float(factura['Saldo_Pendiente'])
                     monto_aplicar = min(monto_restante, saldo_factura)
-                    nuevo_saldo_factura = saldo_factura - monto_aplicar
+                    nuevo_saldo_factura = max(0.0, saldo_factura - monto_aplicar)
                     nuevo_estado = 'Pagada' if nuevo_saldo_factura <= 0.01 else 'Pendiente'
                     
                     # Si la factura queda pagada completamente, agregar a la lista
@@ -169,7 +172,7 @@ def api_procesar_abono():
                             'monto_pagado': monto_aplicar
                         })
                     
-                    # Actualizar factura
+                    # Actualizar factura en cuentas_por_cobrar
                     cursor.execute("""
                         UPDATE cuentas_por_cobrar
                         SET Saldo_Pendiente = %s, 
@@ -177,32 +180,26 @@ def api_procesar_abono():
                         WHERE ID_Movimiento = %s
                     """, (nuevo_saldo_factura, nuevo_estado, factura['ID_Movimiento']))
                     
-                    # Insertar en abonos_detalle (VERSIÓN CORREGIDA - sin Metodo_Pago_Nombre)
-                    try:
-                        cursor.execute("""
-                            INSERT INTO abonos_detalle
-                            (ID_Movimiento_Caja, ID_Asignacion, ID_Usuario, ID_Cliente, 
-                             ID_CuentaCobrar, Monto_Aplicado, Saldo_Anterior, Saldo_Nuevo,
-                             ID_MetodoPago)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                        """, (
-                            id_movimiento_caja,      # Puede ser NULL para no-efectivo
-                            asignacion['ID_Asignacion'],
-                            id_vendedor,
-                            int(id_cliente),
-                            factura['ID_Movimiento'],
-                            monto_aplicar,
-                            saldo_factura,
-                            nuevo_saldo_factura,
-                            id_metodo_pago           # Solo el ID del método
-                        ))
-                        
-                        ultimo_id_abono = cursor.lastrowid
-                        
-                    except Exception as e:
-                        print(f"❌ Error al insertar en abonos_detalle: {e}")
-                        # Si falla, intentar al menos guardar el ID del movimiento de caja
-                        ultimo_id_abono = id_movimiento_caja if id_movimiento_caja else 0
+                    # Insertar en abonos_detalle
+                    cursor.execute("""
+                        INSERT INTO abonos_detalle
+                        (ID_Movimiento_Caja, ID_Asignacion, ID_Usuario, ID_Cliente, 
+                         ID_CuentaCobrar, Monto_Aplicado, Saldo_Anterior, Saldo_Nuevo,
+                         ID_MetodoPago)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        id_movimiento_caja,      # Puede ser NULL para no-efectivo
+                        asignacion['ID_Asignacion'],
+                        id_vendedor,
+                        int(id_cliente),
+                        factura['ID_Movimiento'],
+                        monto_aplicar,
+                        saldo_factura,
+                        nuevo_saldo_factura,
+                        id_metodo_pago
+                    ))
+                    
+                    ultimo_id_abono = cursor.lastrowid
                     
                     detalle_abono.append({
                         'factura': factura['Num_Documento'],
@@ -215,59 +212,50 @@ def api_procesar_abono():
                     
                     monto_restante -= monto_aplicar
                     monto_aplicado += monto_aplicar
-            else:
-                # Si no hay facturas, aplicar abono directamente al saldo pendiente total (inicial/manual)
-                monto_aplicar = min(monto_restante, saldo_total_cliente)
-                nuevo_saldo_cliente = saldo_total_cliente - monto_aplicar
+
+            # 4b. Si sobra monto o no había facturas pendientes en cuentas_por_cobrar (saldo inicial/manual o abono excedente)
+            if monto_restante > 0:
+                saldo_anterior_global = max(0.0, saldo_total_cliente - monto_aplicado)
+                nuevo_saldo_global = max(0.0, saldo_anterior_global - monto_restante)
                 
-                try:
-                    cursor.execute("""
-                        INSERT INTO abonos_detalle
-                        (ID_Movimiento_Caja, ID_Asignacion, ID_Usuario, ID_Cliente, 
-                         ID_CuentaCobrar, Monto_Aplicado, Saldo_Anterior, Saldo_Nuevo,
-                         ID_MetodoPago)
-                        VALUES (%s, %s, %s, %s, NULL, %s, %s, %s, %s)
-                    """, (
-                        id_movimiento_caja,
-                        asignacion['ID_Asignacion'],
-                        id_vendedor,
-                        int(id_cliente),
-                        monto_aplicar,
-                        saldo_total_cliente,
-                        nuevo_saldo_cliente,
-                        id_metodo_pago
-                    ))
-                    ultimo_id_abono = cursor.lastrowid
-                except Exception as e:
-                    print(f"❌ Error al insertar en abonos_detalle (saldo manual): {e}")
-                    if not ultimo_id_abono:
-                        ultimo_id_abono = id_movimiento_caja if id_movimiento_caja else 0
+                cursor.execute("""
+                    INSERT INTO abonos_detalle
+                    (ID_Movimiento_Caja, ID_Asignacion, ID_Usuario, ID_Cliente, 
+                     ID_CuentaCobrar, Monto_Aplicado, Saldo_Anterior, Saldo_Nuevo,
+                     ID_MetodoPago)
+                    VALUES (%s, %s, %s, %s, NULL, %s, %s, %s, %s)
+                """, (
+                    id_movimiento_caja,
+                    asignacion['ID_Asignacion'],
+                    id_vendedor,
+                    int(id_cliente),
+                    monto_restante,
+                    saldo_anterior_global,
+                    nuevo_saldo_global,
+                    id_metodo_pago
+                ))
+                ultimo_id_abono = cursor.lastrowid
                 
                 detalle_abono.append({
-                    'factura': 'Saldo Inicial/Manual',
-                    'monto': monto_aplicar,
-                    'saldo_anterior': saldo_total_cliente,
-                    'saldo_nuevo': nuevo_saldo_cliente,
-                    'estado': 'Pagada' if nuevo_saldo_cliente <= 0.01 else 'Pendiente',
-                    'cancelada': nuevo_saldo_cliente <= 0.01
+                    'factura': 'Saldo Inicial/Manual' if not facturas else 'Saldo General / Excedente',
+                    'monto': monto_restante,
+                    'saldo_anterior': saldo_anterior_global,
+                    'saldo_nuevo': nuevo_saldo_global,
+                    'estado': 'Pagada' if nuevo_saldo_global <= 0.01 else 'Pendiente',
+                    'cancelada': nuevo_saldo_global <= 0.01
                 })
                 
-                monto_restante -= monto_aplicar
-                monto_aplicado += monto_aplicar
+                monto_aplicado += monto_restante
+                monto_restante = 0
             
-            # 5. Actualizar saldo del cliente
+            # 5. Actualizar saldo global del cliente
             cursor.execute("""
                 UPDATE clientes 
                 SET Saldo_Pendiente_Total = GREATEST(0, COALESCE(Saldo_Pendiente_Total, 0) - %s),
-                    Fecha_Ultimo_Pago = NOW()
+                    Fecha_Ultimo_Pago = NOW(),
+                    Fecha_Ultimo_Movimiento = NOW()
                 WHERE ID_Cliente = %s
             """, (monto_aplicado, int(id_cliente)))
-            
-            
-            # Si se cancelaron facturas, mostrar mensaje
-            if facturas_canceladas:
-                for factura_cancelada in facturas_canceladas:
-                    pass
             
             # ID para el recibo
             id_abono_para_recibo = ultimo_id_abono if ultimo_id_abono else (id_movimiento_caja if id_movimiento_caja else 0)
@@ -665,7 +653,7 @@ def mis_abonos_detalle():
                     c.Nombre as Cliente,
                     c.RUC_CEDULA,
                     ad.ID_CuentaCobrar,
-                    cc.Num_Documento as Factura,
+                    COALESCE(cc.Num_Documento, 'Saldo Inicial/Manual') as Factura,
                     ad.Monto_Aplicado,
                     ad.Saldo_Anterior,
                     ad.Saldo_Nuevo,
@@ -677,7 +665,7 @@ def mis_abonos_detalle():
                     r.Nombre_Ruta
                 FROM abonos_detalle ad
                 INNER JOIN clientes c ON ad.ID_Cliente = c.ID_Cliente
-                INNER JOIN cuentas_por_cobrar cc ON ad.ID_CuentaCobrar = cc.ID_Movimiento
+                LEFT JOIN cuentas_por_cobrar cc ON ad.ID_CuentaCobrar = cc.ID_Movimiento
                 INNER JOIN asignacion_vendedores av ON ad.ID_Asignacion = av.ID_Asignacion
                 INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
                 WHERE ad.ID_Usuario = %s

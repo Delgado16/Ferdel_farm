@@ -64,7 +64,9 @@ def mis_movimientos_caja():
                     COALESCE(SUM(CASE WHEN Tipo = 'GASTO' THEN Monto ELSE 0 END), 0) as Gastos,
                     COALESCE(SUM(CASE 
                         WHEN Tipo = 'GASTO' THEN -Monto 
-                        WHEN Tipo IN ('APERTURA', 'VENTA', 'ABONO') AND Tipo != 'CIERRE' THEN Monto 
+                        WHEN Tipo = 'CIERRE' THEN 0
+                        WHEN Tipo IN ('APERTURA', 'ABONO') THEN Monto
+                        WHEN Tipo = 'VENTA' AND (Tipo_Pago = 'CONTADO' OR Tipo_Pago IS NULL) THEN Monto
                         ELSE 0 
                     END), 0) as Saldo_Actual,
                     COALESCE(SUM(CASE 
@@ -250,31 +252,42 @@ def cierre_caja_modal():
             cursor.execute("""
                 SELECT COALESCE(SUM(CASE 
                     WHEN Tipo = 'GASTO' THEN -Monto 
-                    WHEN Tipo IN ('APERTURA', 'VENTA', 'ABONO') THEN Monto 
+                    WHEN Tipo = 'CIERRE' THEN 0
+                    WHEN Tipo IN ('APERTURA', 'ABONO') THEN Monto 
+                    WHEN Tipo = 'VENTA' AND (Tipo_Pago = 'CONTADO' OR Tipo_Pago IS NULL) THEN Monto
                     ELSE 0 
                 END), 0) as Saldo_Esperado
                 FROM movimientos_caja_ruta
                 WHERE ID_Asignacion = %s 
                   AND Estado = 'ACTIVO'
+                  AND Tipo != 'CIERRE'
             """, (asignacion['ID_Asignacion'],))
             
             saldo = cursor.fetchone()
-            saldo_esperado = float(saldo['Saldo_Esperado'])
+            saldo_esperado = float(saldo['Saldo_Esperado']) if saldo else 0.0
             diferencia = monto_real - saldo_esperado
             
             # Limitar la longitud del concepto a 200 caracteres (longitud de columna varchar(200))
             concepto = f"Cierre de caja - Diferencia: C$ {diferencia:,.2f}. {observacion}" if observacion else f"Cierre de caja - Diferencia: C$ {diferencia:,.2f}"
             concepto = concepto[:200]
             
+            # Si ya existía un cierre previo para esta asignación, anularlo para no duplicar cierres
+            cursor.execute("""
+                UPDATE movimientos_caja_ruta
+                SET Estado = 'ANULADO'
+                WHERE ID_Asignacion = %s AND Tipo = 'CIERRE' AND Estado = 'ACTIVO'
+            """, (asignacion['ID_Asignacion'],))
+
             # Insertar cierre
             cursor.execute("""
                 INSERT INTO movimientos_caja_ruta 
-                (ID_Asignacion, ID_Usuario, Tipo, Concepto, Monto, Estado)
-                VALUES (%s, %s, 'CIERRE', %s, %s, 'ACTIVO')
+                (ID_Asignacion, ID_Usuario, Tipo, Concepto, Monto, Saldo_Acumulado, Estado)
+                VALUES (%s, %s, 'CIERRE', %s, %s, %s, 'ACTIVO')
             """, (
                 asignacion['ID_Asignacion'],
                 id_vendedor,
                 concepto,
+                monto_real,
                 monto_real
             ))
             

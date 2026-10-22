@@ -373,7 +373,7 @@
                             <td class="text-center">{{ item.Stock_Minimo }}</td>
                             <td class="text-center"><strong>{{ item.Existencias_Display }}</strong></td>
                             <td class="text-end fw-semibold text-slate-800">C${{ '{:,.2f}'.format(item.Precio_Mercado or 0).replace(',', '.') }}</td>
-                            <td class="text-end fw-bold text-slate-800">C${{ '{:,.2f}'.format((item.Precio_Mercado or 0) * item.Existencias).replace(',', '.') }}</td>
+                            <td class="text-end fw-bold text-slate-800">C${{ '{:,.2f}'.format(item.Valor_Total if item.Valor_Total is defined else ((item.Precio_Mercado|float or 0) * (item.Existencias|float or 0))).replace(',', '.') }}</td>
                             <td class="text-center">
                                 {% if stock_under %}
                                 <span class="badge-stock badge-critical"><i class="fas fa-exclamation-triangle me-1"></i>Stock Bajo</span>
@@ -450,7 +450,7 @@
                 </div>
                 <div class="modal-info-item" style="background: rgba(59, 130, 246, 0.05); border-color: rgba(59, 130, 246, 0.2);">
                     <span class="modal-info-label text-primary fw-bold">Valor Total en Bodega:</span>
-                    <span class="modal-info-value text-primary fw-bold">C${{ '{:,.2f}'.format((item.Precio_Mercado or 0) * item.Existencias).replace(',', '.') }}</span>
+                    <span class="modal-info-value text-primary fw-bold">C${{ '{:,.2f}'.format(item.Valor_Total if item.Valor_Total is defined else ((item.Precio_Mercado|float or 0) * (item.Existencias|float or 0))).replace(',', '.') }}</span>
                 </div>
                 <div class="modal-info-item">
                     <span class="modal-info-label">Estado del Stock:</span>

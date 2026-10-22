@@ -3338,6 +3338,11 @@ def inventario_vendedor_detalle(id_usuario):
             inventario = []
             for item in inventario_raw:
                 item_dict = dict(item)
+                item_dict['Precio_Venta'] = float(item_dict.get('Precio_Venta') or 0)
+                item_dict['Stock_Actual'] = float(item_dict.get('Stock_Actual') or 0)
+                item_dict['Stock_Minimo'] = float(item_dict.get('Stock_Minimo') or 0)
+                item_dict['Total_Cargado'] = float(item_dict.get('Total_Cargado') or 0)
+                item_dict['Valor_Total'] = float(item_dict.get('Valor_Total') or 0)
                 if item_dict.get('Fecha_Actualizacion') and isinstance(item_dict['Fecha_Actualizacion'], str):
                     try:
                         item_dict['Fecha_Actualizacion'] = datetime.strptime(item_dict['Fecha_Actualizacion'][:19], '%Y-%m-%d %H:%M:%S')

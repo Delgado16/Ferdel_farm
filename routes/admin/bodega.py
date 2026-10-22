@@ -1,11 +1,11 @@
 from flask import render_template, redirect, url_for, request, flash, jsonify
 from config.database import get_db_cursor
-from auth.decorators import admin_required
+from auth.decorators import admin_required, admin_or_bodega_required
 from . import admin_bp
 from helpers.bitacora import bitacora_decorator
 
 @admin_bp.route('/admin/bodega', methods=['GET'])
-@admin_required
+@admin_or_bodega_required
 @bitacora_decorator("BODEGA")
 def admin_bodega():
     try:
@@ -31,7 +31,7 @@ def admin_bodega():
         return redirect(url_for('admin.admin_dashboard'))
 
 @admin_bp.route('/admin/bodega/detalle-inventario-bodega/<int:id_bodega>', methods=['GET'])
-@admin_required
+@admin_or_bodega_required
 @bitacora_decorator("INVENTARIO-BODEGA")
 def admin_detalle_inventario_bodega(id_bodega):
     try:
@@ -82,7 +82,10 @@ def admin_detalle_inventario_bodega(id_bodega):
                     # Make a copy to avoid mutating a potentially immutable row object
                     new_item = dict(item)
                     es_caja = new_item.get('Unidad_Medida') == 1
-                    existencias_raw = float(new_item.get('Existencias', 0))
+                    existencias_raw = float(new_item.get('Existencias', 0) or 0)
+                    precio_mercado = float(new_item.get('Precio_Mercado') or 0)
+                    stock_minimo = float(new_item.get('Stock_Minimo') or 0)
+                    valor_total_item = existencias_raw * precio_mercado
                     
                     if es_caja:
                         cajillas = int(existencias_raw)
@@ -93,10 +96,16 @@ def admin_detalle_inventario_bodega(id_bodega):
                         
                     new_item['Existencias_Display'] = existencias_str
                     new_item['Existencias'] = existencias_raw
+                    new_item['Precio_Mercado'] = precio_mercado
+                    new_item['Stock_Minimo'] = stock_minimo
+                    new_item['Valor_Total'] = valor_total_item
                     inventario.append(new_item)
                 else:
                     es_caja = item[6] == 1 if len(item) > 6 else False
-                    existencias_raw = float(item[5]) if len(item) > 5 else 0
+                    existencias_raw = float(item[5] or 0) if len(item) > 5 else 0.0
+                    precio_mercado = float(item[4] or 0) if len(item) > 4 else 0.0
+                    stock_minimo = float(item[3] or 0) if len(item) > 3 else 0.0
+                    valor_total_item = existencias_raw * precio_mercado
                     
                     if es_caja:
                         cajillas = int(existencias_raw)
@@ -109,17 +118,18 @@ def admin_detalle_inventario_bodega(id_bodega):
                         'ID_Producto': item[0],
                         'COD_Producto': item[1],
                         'Descripcion': item[2],
-                        'Stock_Minimo': item[3],
-                        'Precio_Mercado': item[4],
+                        'Stock_Minimo': stock_minimo,
+                        'Precio_Mercado': precio_mercado,
                         'Existencias': existencias_raw,
-                        'Existencias_Display': existencias_str
+                        'Existencias_Display': existencias_str,
+                        'Valor_Total': valor_total_item
                     }
                     inventario.append(inv_item)
             
             # Calcular estadísticas
             total_productos = len(inventario)
             total_unidades = sum(float(item['Existencias']) for item in inventario) if inventario else 0
-            valor_total = sum(float(item['Existencias']) * float(item['Precio_Mercado'] or 0) for item in inventario) if inventario else 0
+            valor_total = sum(float(item['Valor_Total']) for item in inventario) if inventario else 0
             
             return render_template('admin/bodega/detalle_inventario.html',
                                  bodega=bodega,
