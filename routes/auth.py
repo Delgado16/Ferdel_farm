@@ -58,6 +58,14 @@ def login():
                         session['id_empresa'] = user_data['ID_Empresa']
                         registrar_login_exitoso(username, user_data['ID_Usuario'])
                         flash(f"¡Bienvenido {user.username}!", "success")
+                        
+                        # Redirección directa por rol (elimina salto HTTP 302 intermedio)
+                        if user.rol == 'Administrador':
+                            return redirect(url_for('admin.admin_dashboard'))
+                        elif user.rol == 'Vendedor':
+                            return redirect(url_for('vendedor.vendedor_dashboard'))
+                        elif user.rol == 'Bodega':
+                            return redirect(url_for('bodega.bodega_dashboard'))
                         return redirect(url_for('main.dashboard'))
                     else:
                         registrar_login_fallido(username, "contraseña incorrecta")

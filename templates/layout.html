@@ -1655,7 +1655,12 @@
                     this.setupUpdateNotifications();
                     this.checkIOSPrompt();
 
+                    // Evitar recargas involuntarias al instalar el Service Worker en la primera visita o tras login
+                    const hadController = Boolean(navigator.serviceWorker.controller);
+                    let refreshing = false;
                     navigator.serviceWorker.addEventListener('controllerchange', () => {
+                        if (!hadController || refreshing) return;
+                        refreshing = true;
                         window.location.reload();
                     });
                 }

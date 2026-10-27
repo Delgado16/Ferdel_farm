@@ -8,6 +8,7 @@ from auth.decorators import vendedor_required
 from . import vendedor_bp
 from .utils import convertir_hora_db, procesar_asignacion, procesar_lista_asignaciones
 
+@vendedor_bp.route('/dashboard')
 @vendedor_bp.route('/vendedor/dashboard')
 @vendedor_required
 def vendedor_dashboard():

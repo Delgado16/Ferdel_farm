@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vendedor-cache-v12'; // v12: optimización de latencia nativa sin IPC en rutas de gestión
+const CACHE_NAME = 'vendedor-cache-v13'; // v13: bypass instantáneo en /dashboard y prevención de recargas
 
 // Recursos estáticos públicos que no requieren autenticación y garantizan status 200
 const urlsToCache = [
@@ -57,12 +57,13 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // 2. Bypassear rutas de administración, bodega, autenticación y diagnósticos
+  // 2. Bypassear rutas de administración, bodega, autenticación, dashboard y diagnósticos
   // Al retornar directamente sin llamar a event.respondWith(), el navegador usa su stack
   // nativo C++ de red con 0ms de retraso por IPC, garantizando máxima velocidad.
   if (url.pathname.startsWith('/admin/') ||
       url.pathname.startsWith('/bodega/') ||
       url.pathname.startsWith('/auth/') || 
+      url.pathname === '/dashboard' ||
       url.pathname === '/health' ||
       url.pathname === '/debug-db' ||
       url.pathname === '/diagnostico' ||

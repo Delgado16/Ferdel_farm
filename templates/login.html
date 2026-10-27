@@ -491,10 +491,11 @@
 
                     <!-- Botón de Envío -->
                     <div class="mb-4">
-                        <button type="submit" class="btn btn-modern">
-                            <i class="bi bi-box-arrow-in-right"></i>
-                            <span>Iniciar Sesión</span>
-                            <i class="bi bi-chevron-right ms-auto" style="font-size: 0.75rem;"></i>
+                        <button type="submit" id="btnLogin" class="btn btn-modern">
+                            <i class="bi bi-box-arrow-in-right" id="loginIcon"></i>
+                            <span id="loginText">Iniciar Sesión</span>
+                            <span id="loginSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                            <i class="bi bi-chevron-right ms-auto" id="loginArrow" style="font-size: 0.75rem;"></i>
                         </button>
                     </div>
                 </form>
@@ -510,9 +511,30 @@
                 </div>
             </div>
 
-            <!-- Auto-cierre de alertas flash -->
+            <!-- Auto-cierre de alertas flash y feedback de envío -->
             <script>
                 document.addEventListener('DOMContentLoaded', function () {
+                    // Prevenir múltiples envíos y mostrar estado de carga inmediato
+                    const loginForm = document.querySelector('form');
+                    if (loginForm) {
+                        loginForm.addEventListener('submit', function () {
+                            const btn = document.getElementById('btnLogin');
+                            const text = document.getElementById('loginText');
+                            const spinner = document.getElementById('loginSpinner');
+                            const icon = document.getElementById('loginIcon');
+                            const arrow = document.getElementById('loginArrow');
+                            if (btn && !btn.disabled) {
+                                btn.disabled = true;
+                                btn.style.opacity = '0.85';
+                                btn.style.cursor = 'wait';
+                                if (text) text.textContent = 'Accediendo...';
+                                if (spinner) spinner.classList.remove('d-none');
+                                if (icon) icon.classList.add('d-none');
+                                if (arrow) arrow.classList.add('d-none');
+                            }
+                        });
+                    }
+
                     setTimeout(function () {
                         var alerts = document.querySelectorAll('.alert-modern');
                         alerts.forEach(function (alert) {
