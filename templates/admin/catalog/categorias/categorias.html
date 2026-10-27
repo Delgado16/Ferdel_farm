@@ -1,0 +1,290 @@
+{% extends "layout.html" %}
+
+{% block title %}Gestión de Categorías - FerDel{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4 fade-in-up">
+    <!-- Encabezado con botón de volver -->
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-tags text-primary me-2"></i>Gestión de Categorías
+            </h3>
+            <p class="text-muted small mb-0">Administración de agrupaciones lógicas para el catálogo de productos</p>
+        </div>
+        <div>
+            <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-arrow-left me-1"></i> Volver al Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Botón crear categoría -->
+    <div class="mb-3">
+        <button class="btn btn-outline-primary rounded-3 px-3 py-2" data-bs-toggle="modal" data-bs-target="#crearCategoriaModal">
+            <i class="fas fa-plus me-1"></i> Nueva Categoría
+        </button>
+    </div>
+
+    <!-- Tabla de categorías -->
+    {% if categorias %}
+    <div class="card-premium-section">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-modern align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Descripción</th>
+                            <th>Estado</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for categoria in categorias %}
+                        <tr>
+                            <td class="fw-bold text-slate-700">#{{ categoria.ID_Categoria }}</td>
+                            <td class="fw-bold text-slate-800">{{ categoria.Descripcion }}</td>
+                            <td>
+                                {% if categoria.Estado == 'Activo' %}
+                                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">Activo</span>
+                                {% else %}
+                                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">Inactivo</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center gap-1">
+                                    <!-- Botón Editar -->
+                                    <a href="{{ url_for('admin.admin_categorias_editar', id=categoria.ID_Categoria) }}" 
+                                       class="btn btn-sm btn-outline-primary rounded-3">
+                                        <i class="fas fa-pencil-alt me-1"></i> Editar
+                                    </a>
+                                    
+                                    <!-- Botón para cambiar estado -->
+                                    <form action="{{ url_for('admin.admin_categorias_toggle_estado', id=categoria.ID_Categoria) }}" 
+                                          method="POST" class="d-inline-block">
+                                        {% if csrf_token %}
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        {% endif %}
+                                        <button type="submit" class="btn btn-sm btn-outline-warning btn-cambiar-estado rounded-3"
+                                                data-id="{{ categoria.ID_Categoria }}"
+                                                data-descripcion="{{ categoria.Descripcion }}"
+                                                data-estado="{{ categoria.Estado }}">
+                                            <i class="fas fa-sync-alt me-1"></i>
+                                            {% if categoria.Estado == 'Activo' %}
+                                                Desactivar
+                                            {% else %}
+                                                Activar
+                                            {% endif %}
+                                        </button>
+                                    </form>
+                                    
+                                    <!-- Botón Eliminar -->
+                                    <form action="{{ url_for('admin.admin_categorias_eliminar', id=categoria.ID_Categoria) }}" 
+                                          method="POST" class="d-inline-block">
+                                        {% if csrf_token %}
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        {% endif %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger btn-eliminar rounded-3" 
+                                                data-id="{{ categoria.ID_Categoria }}"
+                                                data-descripcion="{{ categoria.Descripcion }}">
+                                            <i class="fas fa-trash-alt me-1"></i> Eliminar
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-warning bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20 rounded-3">
+        <i class="fas fa-exclamation-triangle me-2"></i> No se encontraron categorías en el sistema.
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal para crear categoría -->
+<div class="modal fade" id="crearCategoriaModal" tabindex="-1" aria-labelledby="crearCategoriaModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow-lg rounded-3">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold text-slate-800" id="crearCategoriaModalLabel">
+                    <i class="fas fa-plus me-2 text-primary"></i>Crear Nueva Categoría
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin.admin_categorias_crear') }}" id="crearCategoriaForm" novalidate>
+                {% if csrf_token %}
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                {% endif %}
+                <div class="modal-body">
+                    <!-- Descripción -->
+                    <div class="mb-3">
+                        <label for="descripcion" class="form-label-premium fw-bold mb-1">Descripción *</label>
+                        <input type="text" class="form-control form-control-premium" id="descripcion" name="descripcion" 
+                               required minlength="2" maxlength="255"
+                               placeholder="Ingrese la descripción de la categoría">
+                        <div class="form-text small text-muted">Mínimo 2 caracteres, máximo 255</div>
+                        <div class="invalid-feedback">
+                            Por favor ingrese una descripción válida (2-255 caracteres).
+                        </div>
+                    </div>
+                    
+                    <!-- Campo de Estado -->
+                    <div class="mb-3">
+                        <label for="estado" class="form-label-premium fw-bold mb-1">Estado</label>
+                        <select class="form-select form-select-premium" id="estado" name="estado" required>
+                            <option value="Activo" selected>Activo</option>
+                            <option value="Inactivo">Inactivo</option>
+                        </select>
+                        <div class="form-text small text-muted">Define si la categoría estará disponible para usar en productos</div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0">
+                    <button type="button" class="btn btn-outline-secondary px-3 py-1.5 rounded-3" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-outline-primary px-3 py-1.5 rounded-3">
+                        <i class="fas fa-check me-1"></i> Guardar Categoría
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // ============ MÓDULO DE CREACIÓN ============
+    
+    // Limpiar el modal de crear cuando se cierre
+    const crearModal = document.getElementById('crearCategoriaModal');
+    if (crearModal) {
+        crearModal.addEventListener('hidden.bs.modal', function () {
+            const form = document.getElementById('crearCategoriaForm');
+            if (form) {
+                form.reset();
+                form.classList.remove('was-validated');
+                // Resetear el estado al valor por defecto
+                const estadoSelect = document.getElementById('estado');
+                if (estadoSelect) {
+                    estadoSelect.value = 'Activo';
+                }
+            }
+        });
+        
+        // Auto-focus en el campo descripción cuando se abre el modal
+        crearModal.addEventListener('shown.bs.modal', function () {
+            document.getElementById('descripcion').focus();
+        });
+    }
+
+    // Validación del formulario de creación
+    const crearForm = document.getElementById('crearCategoriaForm');
+    if (crearForm) {
+        crearForm.addEventListener('submit', function(event) {
+            if (!crearForm.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            crearForm.classList.add('was-validated');
+            
+            // Prevenir envío doble
+            const submitButton = this.querySelector('button[type="submit"]');
+            if (submitButton && crearForm.checkValidity()) {
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<i class="bi bi-hourglass-split"></i> Guardando...';
+            }
+        });
+    }
+    
+    // ============ MÓDULO DE CAMBIO DE ESTADO ============
+    
+    // Confirmación para cambio de estado
+    document.querySelectorAll('.btn-cambiar-estado').forEach(button => {
+        button.addEventListener('click', function(event) {
+            event.preventDefault(); // Prevenir envío inmediato
+            
+            const id = this.getAttribute('data-id');
+            const descripcion = this.getAttribute('data-descripcion');
+            const estadoActual = this.getAttribute('data-estado');
+            const nuevoEstado = estadoActual === 'Activo' ? 'Inactivo' : 'Activo';
+            const form = this.closest('form');
+            
+            // Crear diálogo de confirmación personalizado
+            const confirmacion = confirm(
+                `⚠️ ¿Estás seguro de ${estadoActual === 'Activo' ? 'desactivar' : 'activar'} esta categoría?\n\n` +
+                `ID: ${id}\n` +
+                `Descripción: "${descripcion}"\n` +
+                `Estado actual: ${estadoActual}\n` +
+                `Nuevo estado: ${nuevoEstado}\n\n` +
+                `${estadoActual === 'Activo' ? 'Al desactivarla, no estará disponible para nuevos productos.' : 'Al activarla, estará disponible para usar en productos.'}`
+            );
+            
+            if (confirmacion && form) {
+                // Prevenir envío doble
+                this.disabled = true;
+                const originalHTML = this.innerHTML;
+                this.innerHTML = '<i class="bi bi-hourglass-split"></i> Procesando...';
+                
+                // Enviar formulario después de la confirmación
+                setTimeout(() => {
+                    form.submit();
+                }, 100);
+            }
+        });
+    });
+    
+    // ============ MÓDULO DE ELIMINACIÓN ============
+    
+    // Confirmación mejorada para eliminación
+    document.querySelectorAll('.btn-eliminar').forEach(button => {
+        button.addEventListener('click', function(event) {
+            event.preventDefault(); // Prevenir envío inmediato
+            
+            const id = this.getAttribute('data-id');
+            const descripcion = this.getAttribute('data-descripcion');
+            const form = this.closest('form');
+            
+            // Crear diálogo de confirmación personalizado
+            const confirmacion = confirm(
+                `⚠️ ¿Estás seguro de eliminar esta categoría?\n\n` +
+                `ID: ${id}\n` +
+                `Descripción: "${descripcion}"\n\n` +
+                `Esta acción no se puede deshacer.`
+            );
+            
+            if (confirmacion && form) {
+                // Prevenir envío doble
+                this.disabled = true;
+                this.innerHTML = '<i class="bi bi-hourglass-split"></i> Eliminando...';
+                
+                // Enviar formulario después de la confirmación
+                setTimeout(() => {
+                    form.submit();
+                }, 100);
+            }
+        });
+    });
+    
+    // ============ UTILIDADES ============
+    
+    // Cerrar automáticamente las alertas después de 5 segundos
+    setTimeout(function() {
+        const alerts = document.querySelectorAll('.alert');
+        alerts.forEach(function(alert) {
+            const bsAlert = bootstrap.Alert.getOrCreateInstance(alert);
+            setTimeout(function() {
+                bsAlert.close();
+            }, 5000);
+        });
+    }, 3000);
+});
+</script>{% endblock %}

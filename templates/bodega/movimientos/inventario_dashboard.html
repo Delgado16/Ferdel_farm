@@ -1,0 +1,1116 @@
+{% extends "layout.html" %}
+{% block title %}Dashboard de Inventario{% endblock %}
+
+{% block head %}
+    {{ super() }}
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Font Awesome (CSS solo) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css">
+    
+    <style>
+        :root {
+            --color-critico: #dc3545;
+            --color-bajo: #ffc107;
+            --color-optimo: #28a745;
+            --color-exceso: #17a2b8;
+            --color-sin-stock: #6c757d;
+            --color-produccion: #6610f2;
+            --color-compra: #20c997;
+        }
+        
+        /* Estilos consistentes con el diseño anterior */
+        .stat-card {
+            border-radius: 0.25rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border: 1px solid #dee2e6;
+            transition: all 0.3s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 0.25rem;
+        }
+        
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.85rem;
+        }
+        
+        .card-title {
+            border-bottom: 2px solid #dee2e6;
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+            color: #495057;
+            font-weight: 600;
+        }
+        
+        .table-responsive {
+            border-radius: 0.25rem;
+            overflow: hidden;
+        }
+        
+        .badge-nivel {
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-weight: 500;
+            font-size: 0.85em;
+        }
+        
+        .badge-sin-stock { background-color: var(--color-sin-stock); color: white; }
+        .badge-critico { background-color: var(--color-critico); color: white; }
+        .badge-bajo { background-color: var(--color-bajo); color: #212529; }
+        .badge-optimo { background-color: var(--color-optimo); color: white; }
+        .badge-exceso { background-color: var(--color-exceso); color: white; }
+        .badge-produccion { background-color: var(--color-produccion); color: white; }
+        .badge-compra { background-color: var(--color-compra); color: white; }
+        
+        .progress {
+            height: 0.5rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        .progress-bar-critico { background-color: var(--color-critico); }
+        .progress-bar-bajo { background-color: var(--color-bajo); }
+        .progress-bar-optimo { background-color: var(--color-optimo); }
+        .progress-bar-exceso { background-color: var(--color-exceso); }
+        
+        /* Mejoras específicas para gráficos */
+        .chart-container {
+            position: relative;
+            height: 280px; /* Aumentado de 250px */
+            margin-bottom: 1rem;
+        }
+        
+        .chart-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #495057;
+        }
+        
+        .chart-subtitle {
+            font-size: 0.85rem;
+            color: #6c757d;
+            margin-bottom: 1.5rem;
+        }
+        
+        .chart-legend {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            padding: 0.5rem;
+            background-color: #f8f9fa;
+            border-radius: 0.25rem;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            font-size: 0.85rem;
+            color: #495057;
+        }
+        
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            margin-right: 0.25rem;
+        }
+        
+        /* Colores específicos para el gráfico de barras */
+        .color-sin-stock { background-color: #6c757d; }
+        .color-critico { background-color: #dc3545; }
+        .color-bajo { background-color: #ffc107; }
+        .color-optimo { background-color: #28a745; }
+        .color-exceso { background-color: #17a2b8; }
+        
+        /* Tooltip personalizado */
+        .chart-tooltip {
+            background-color: rgba(0, 0, 0, 0.8) !important;
+            border-radius: 0.25rem !important;
+            border: 1px solid #dee2e6 !important;
+            padding: 0.5rem !important;
+            font-size: 0.85rem !important;
+        }
+        
+        .filter-section {
+            background: #fff;
+            padding: 1rem;
+            border-radius: 0.25rem;
+            margin-bottom: 1rem;
+            border: 1px solid #dee2e6;
+        }
+        
+        .action-buttons {
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            z-index: 1000;
+        }
+        
+        .btn-action {
+            width: 3rem;
+            height: 3rem;
+            border-radius: 50%;
+            margin-bottom: 0.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        /* Estilos específicos para las nuevas secciones */
+        .entradas-dia-section {
+            border-left: 3px solid;
+            padding-left: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .entradas-produccion {
+            border-left-color: var(--color-produccion);
+        }
+        
+        .entradas-compras {
+            border-left-color: var(--color-compra);
+        }
+        
+        .entradas-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .entradas-total {
+            font-size: 1rem;
+            font-weight: bold;
+            color: #495057;
+        }
+        
+        .table-entradas {
+            font-size: 0.85rem;
+        }
+        
+        .table-entradas th {
+            font-weight: 600;
+            background-color: #f8f9fa;
+        }
+        
+        .table-entradas td {
+            vertical-align: middle;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 2rem;
+            color: #6c757d;
+            font-style: italic;
+        }
+        
+        /* Ajustes para DataTables */
+        .dataTables_wrapper {
+            padding: 0.5rem;
+        }
+        
+        .dataTables_wrapper .dataTables_length,
+        .dataTables_wrapper .dataTables_filter {
+            margin-bottom: 1rem;
+        }
+        
+        /* Badges consistentes */
+        .badge {
+            font-size: 0.85em;
+            padding: 0.4em 0.8em;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .stat-value {
+                font-size: 1.25rem;
+            }
+            
+            .chart-container {
+                height: 220px;
+            }
+            
+            .btn-action {
+                width: 2.5rem;
+                height: 2.5rem;
+            }
+            
+            .chart-legend {
+                font-size: 0.75rem;
+            }
+        }
+        
+        /* Efecto hover para gráficos */
+        canvas:hover {
+            cursor: pointer;
+        }
+        
+        /* Evitar conflictos con Bootstrap Icons */
+        .fa, .fas, .far, .fal, .fab {
+            font-family: 'Font Awesome 6 Free' !important;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center py-4">
+        <div>
+            <h2 class="mt-4">
+                <i class="fas fa-boxes me-1"></i> Dashboard de Inventario
+            </h2>
+            <p class="text-muted mb-0">Resumen completo del inventario y bodegas | Entradas del día: {{ fecha_filtro }}</p>
+            <small class="text-muted">Última actualización: {{ fecha_actual }}</small>
+        </div>
+        <div>
+            <button class="btn btn-outline-secondary me-2" onclick="exportarReporte()" title="Exportar Reporte">
+                <i class="fas fa-download"></i>
+            </button>
+            <button class="btn btn-outline-secondary" onclick="actualizarDashboard()" title="Actualizar Dashboard">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <span><i class="fas fa-filter me-1"></i> Filtros de Búsqueda</span>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Bodega</label>
+                    <select class="form-select" id="filtro-bodega">
+                        <option value="">Todas las bodegas</option>
+                        {% for bodega in inventario_bodegas %}
+                        <option value="{{ bodega.ID_Bodega }}">{{ bodega.Bodega }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Categoría</label>
+                    <select class="form-select" id="filtro-categoria">
+                        <option value="">Todas las categorías</option>
+                        {% for cat in distribucion_categorias %}
+                        <option value="{{ cat.Categoria }}">{{ cat.Categoria }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Nivel de Stock</label>
+                    <select class="form-select" id="filtro-nivel">
+                        <option value="">Todos los niveles</option>
+                        <option value="SIN_STOCK">Sin Stock</option>
+                        <option value="CRITICO">Crítico</option>
+                        <option value="BAJO">Bajo</option>
+                        <option value="OPTIMO">Óptimo</option>
+                        <option value="EXCESO">Exceso</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button class="btn btn-primary w-100" onclick="aplicarFiltros()">
+                        <i class="fas fa-filter me-1"></i> Aplicar Filtros
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estadísticas Rápidas -->
+    <div class="row mb-4">
+        <div class="col-md-2">
+            <div class="stat-card bg-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="stat-value text-primary">
+                            {{ estadisticas.Total_Productos|default(0) }}
+                        </div>
+                        <div class="stat-label">Productos Activos</div>
+                    </div>
+                    <i class="fas fa-boxes fa-2x text-primary"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="stat-card bg-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="stat-value text-success">
+                            {{ estadisticas.Productos_Optimos|default(0) }}
+                        </div>
+                        <div class="stat-label">Stock Óptimo</div>
+                    </div>
+                    <i class="fas fa-check-circle fa-2x text-success"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="stat-card bg-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="stat-value text-danger">
+                            {{ (estadisticas.Productos_Sin_Stock|default(0)) + (estadisticas.Productos_Bajos|default(0)) }}
+                        </div>
+                        <div class="stat-label">Productos con Alerta</div>
+                    </div>
+                    <i class="fas fa-exclamation-triangle fa-2x text-danger"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="stat-card bg-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="stat-value text-info">
+                            C${{ "{:,.2f}".format(estadisticas.Valor_Total_Inventario|default(0)) }}
+                        </div>
+                        <div class="stat-label">Valor Total</div>
+                    </div>
+                    <i class="fas fa-dollar-sign fa-2x text-info"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="stat-card bg-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="stat-value" style="color: var(--color-produccion);">
+                            {{ datos_graficos.total_produccion_hoy|default(0) }}
+                        </div>
+                        <div class="stat-label">Producción Hoy</div>
+                    </div>
+                    <i class="fas fa-industry fa-2x" style="color: var(--color-produccion);"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="stat-card bg-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="stat-value" style="color: var(--color-compra);">
+                            {{ datos_graficos.total_compras_hoy|default(0) }}
+                        </div>
+                        <div class="stat-label">Compras Hoy</div>
+                    </div>
+                    <i class="fas fa-shopping-cart fa-2x" style="color: var(--color-compra);"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- NUEVA SECCIÓN: Entradas del Día -->
+    <div class="row mb-4">
+        <!-- Entradas por Producción -->
+        <div class="col-md-6">
+            <div class="card entradas-dia-section entradas-produccion">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>
+                            <i class="fas fa-industry me-1" style="color: var(--color-produccion);"></i> 
+                            Entradas por Producción - Hoy
+                        </span>
+                        <span class="badge badge-produccion">
+                            {{ datos_graficos.productos_produccion_hoy|default(0) }} productos
+                        </span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if entradas_produccion_hoy %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-entradas">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Categoría</th>
+                                    <th>Producto</th>
+                                    <th>Código</th>
+                                    <th class="text-end">Cantidad</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in entradas_produccion_hoy %}
+                                <tr>
+                                    <td>{{ item.Categoria }}</td>
+                                    <td>{{ item.Producto }}</td>
+                                    <td><code>{{ item.Codigo_Producto }}</code></td>
+                                    <td class="text-end fw-bold">{{ item.Cantidad_Total_Ingresada }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <td colspan="3" class="text-end"><strong>Total:</strong></td>
+                                    <td class="text-end fw-bold">
+                                        {{ datos_graficos.total_produccion_hoy|default(0) }}
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="no-data">
+                        <i class="fas fa-box-open fa-2x mb-3" style="color: #dee2e6;"></i>
+                        <p>No hay entradas por producción hoy</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Entradas por Compras -->
+        <div class="col-md-6">
+            <div class="card entradas-dia-section entradas-compras">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>
+                            <i class="fas fa-shopping-cart me-1" style="color: var(--color-compra);"></i> 
+                            Entradas por Compras - Hoy
+                        </span>
+                        <span class="badge badge-compra">
+                            {{ datos_graficos.productos_compras_hoy|default(0) }} productos
+                        </span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if entradas_compras_hoy %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-entradas">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Categoría</th>
+                                    <th>Producto</th>
+                                    <th>Código</th>
+                                    <th class="text-end">Cantidad</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in entradas_compras_hoy %}
+                                <tr>
+                                    <td>{{ item.Categoria }}</td>
+                                    <td>{{ item.Producto }}</td>
+                                    <td><code>{{ item.Codigo_Producto }}</code></td>
+                                    <td class="text-end fw-bold">{{ item.Cantidad_Total_Comprada }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <td colspan="3" class="text-end"><strong>Total:</strong></td>
+                                    <td class="text-end fw-bold">
+                                        {{ datos_graficos.total_compras_hoy|default(0) }}
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="no-data">
+                        <i class="fas fa-cart-plus fa-2x mb-3" style="color: #dee2e6;"></i>
+                        <p>No hay entradas por compras hoy</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráficos -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <span><i class="fas fa-chart-pie me-1"></i> Distribución por Categoría</span>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="graficoCategorias"></canvas>
+                    </div>
+                    <div class="chart-subtitle text-center">
+                        Valor total por categoría de producto
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <span><i class="fas fa-chart-bar me-1"></i> Distribución de Niveles de Stock</span>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="graficoNivelesStock"></canvas>
+                    </div>
+                    <div class="chart-legend">
+                        <div class="legend-item">
+                            <div class="legend-color color-sin-stock"></div>
+                            <span>Sin Stock</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color color-critico"></div>
+                            <span>Crítico</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color color-bajo"></div>
+                            <span>Bajo</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color color-optimo"></div>
+                            <span>Óptimo</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color color-exceso"></div>
+                            <span>Exceso</span>
+                        </div>
+                    </div>
+                    <div class="chart-subtitle text-center">
+                        Cantidad de productos por nivel de inventario
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Productos por Nivel de Stock -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-exclamation-circle me-1"></i> Productos por Nivel de Stock</span>
+                <div>
+                    <button class="btn btn-sm btn-outline-primary" onclick="generarReporteStock()">
+                        <i class="fas fa-file-alt me-1"></i> Reporte
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table id="tablaProductos" class="table table-bordered table-hover" width="100%" cellspacing="0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Código</th>
+                            <th>Descripción</th>
+                            <th>Categoría</th>
+                            <th>Stock Actual</th>
+                            <th>Stock Mínimo</th>
+                            <th>Nivel</th>
+                            <th>Valor en Inventario</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for producto in productos_nivel %}
+                        <tr>
+                            <td><code>{{ producto.COD_Producto }}</code></td>
+                            <td>{{ producto.Descripcion }}</td>
+                            <td>{{ producto.Categoria }}</td>
+                            <td class="text-center">{{ producto.Stock_Actual }}</td>
+                            <td class="text-center">{{ producto.Stock_Minimo }}</td>
+                            <td class="text-center">
+                                {% if producto.Nivel_Stock == 'SIN_STOCK' %}
+                                    <span class="badge badge-sin-stock">Sin Stock</span>
+                                {% elif producto.Nivel_Stock == 'CRITICO' %}
+                                    <span class="badge badge-critico">Crítico</span>
+                                {% elif producto.Nivel_Stock == 'BAJO' %}
+                                    <span class="badge badge-bajo">Bajo</span>
+                                {% elif producto.Nivel_Stock == 'OPTIMO' %}
+                                    <span class="badge badge-optimo">Óptimo</span>
+                                {% elif producto.Nivel_Stock == 'EXCESO' %}
+                                    <span class="badge badge-exceso">Exceso</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">C${{ "{:,.2f}".format(producto.Valor_Inventario) }}</td>
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button class="btn btn-outline-info" 
+                                            onclick="verDetalleProducto({{ producto.ID_Producto }})"
+                                            title="Ver Detalles">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button class="btn btn-outline-success" 
+                                            onclick="realizarMovimiento({{ producto.ID_Producto }})"
+                                            title="Realizar Movimiento">
+                                        <i class="fas fa-exchange-alt"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de Bodegas y Sugerencias -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <span><i class="fas fa-warehouse me-1"></i> Inventario por Bodega</span>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover table-sm">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Bodega</th>
+                                    <th class="text-center">Productos</th>
+                                    <th class="text-center">Existencias</th>
+                                    <th class="text-end">Valor</th>
+                                    <th class="text-center">% Stock</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for bodega in inventario_bodegas %}
+                                <tr>
+                                    <td>{{ bodega.Bodega }}</td>
+                                    <td class="text-center">{{ bodega.Productos_Diferentes }}</td>
+                                    <td class="text-center">{{ bodega.Total_Existencias }}</td>
+                                    <td class="text-end">C${{ "{:,.2f}".format(bodega.Valor_Total) }}</td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="progress flex-grow-1 me-2">
+                                                <div class="progress-bar {% if bodega.Porcentaje_Stock_Promedio < 50 %}bg-danger{% elif bodega.Porcentaje_Stock_Promedio < 80 %}bg-warning{% else %}bg-success{% endif %}" 
+                                                     style="width: {{ bodega.Porcentaje_Stock_Promedio }}%">
+                                                </div>
+                                            </div>
+                                            <span>{{ bodega.Porcentaje_Stock_Promedio | cantidad }}%</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <span><i class="fas fa-shopping-cart me-1"></i> Sugerencias de Reorden</span>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover table-sm">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Producto</th>
+                                    <th class="text-center">Stock Actual</th>
+                                    <th class="text-center">Requerido</th>
+                                    <th class="text-end">Valor</th>
+                                    <th class="text-center">Prioridad</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for sugerencia in sugerencias_reorden %}
+                                <tr>
+                                    <td>{{ sugerencia.Descripcion[:30] }}...</td>
+                                    <td class="text-center">{{ sugerencia.Stock_Actual }}</td>
+                                    <td class="text-center">{{ sugerencia.Cantidad_Requerida }}</td>
+                                    <td class="text-end">C${{ "{:,.2f}".format(sugerencia.Valor_Reorden) }}</td>
+                                    <td class="text-center">
+                                        {% if sugerencia.Prioridad == 'URGENTE' %}
+                                            <span class="badge bg-danger">URGENTE</span>
+                                        {% elif sugerencia.Prioridad == 'ALTA' %}
+                                            <span class="badge bg-warning">ALTA</span>
+                                        {% elif sugerencia.Prioridad == 'MEDIA' %}
+                                            <span class="badge bg-info">MEDIA</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">BAJA</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botones de Acción Flotantes -->
+    <div class="action-buttons">
+        <button class="btn btn-primary btn-action" onclick="nuevaEntrada()" 
+                title="Nueva Entrada">
+            <i class="fas fa-plus"></i>
+        </button>
+        <button class="btn btn-success btn-action" onclick="nuevaSalida()" 
+                title="Nueva Salida">
+            <i class="fas fa-minus"></i>
+        </button>
+        <button class="btn btn-warning btn-action" onclick="realizarAjuste()" 
+                title="Ajuste de Inventario">
+            <i class="fas fa-adjust"></i>
+        </button>
+        <button class="btn btn-info btn-action" onclick="generarReporte()" 
+                title="Generar Reporte">
+            <i class="fas fa-file-alt"></i>
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+    <!-- jQuery para DataTables (debe cargarse antes que DataTables) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- DataTables JS -->
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
+    
+    <script>
+        // Inicializar DataTable cuando el DOM esté listo
+        $(document).ready(function() {
+            // Inicializar DataTable
+            var table = $('#tablaProductos').DataTable({
+                "order": [[5, 'asc']],
+                "language": {
+                    "url": "//cdn.datatables.net/plug-ins/1.11.5/i18n/es-ES.json",
+                    "search": "Buscar:",
+                    "lengthMenu": "Mostrar _MENU_ registros por página",
+                    "zeroRecords": "No se encontraron registros",
+                    "info": "Mostrando página _PAGE_ de _PAGES_",
+                    "infoEmpty": "No hay registros disponibles",
+                    "infoFiltered": "(filtrado de _MAX_ registros totales)",
+                    "paginate": {
+                        "first": "Primera",
+                        "last": "Última",
+                        "next": "Siguiente",
+                        "previous": "Anterior"
+                    }
+                },
+                "responsive": true,
+                "pageLength": 25,
+                "lengthMenu": [10, 25, 50, 100],
+                "columnDefs": [
+                    { 
+                        "orderable": false, 
+                        "targets": [7], // Deshabilitar orden en columna Acciones
+                        "className": "text-center"
+                    },
+                    { "width": "10%", "targets": 0 }, // Código
+                    { "width": "25%", "targets": 1 }, // Descripción
+                    { "width": "15%", "targets": 2 }, // Categoría
+                    { 
+                        "width": "8%", 
+                        "targets": 3, // Stock Actual
+                        "className": "text-center"
+                    },
+                    { 
+                        "width": "8%", 
+                        "targets": 4, // Stock Mínimo
+                        "className": "text-center"
+                    },
+                    { 
+                        "width": "10%", 
+                        "targets": 5, // Nivel
+                        "className": "text-center"
+                    },
+                    { 
+                        "width": "12%", 
+                        "targets": 6, // Valor
+                        "className": "text-end"
+                    },
+                    { 
+                        "width": "12%", 
+                        "targets": 7, // Acciones
+                        "className": "text-center"
+                    }
+                ],
+                "dom": '<"row mb-3"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6 d-flex justify-content-md-end"f>>rt<"row"<"col-sm-12 col-md-6"i><"col-sm-12 col-md-6"p>>',
+                "initComplete": function(settings, json) {
+                    console.log('✅ DataTable de productos inicializado');
+                }
+            });
+
+            // Inicializar gráficos
+            inicializarGraficos();
+        });
+
+        // Datos para gráficos desde Flask
+        const datosGraficos = {
+            categorias: {{ datos_graficos.categorias|tojson }},
+            valoresCategorias: {{ datos_graficos.valores_categorias|tojson }},
+            nivelesStock: {{ datos_graficos.niveles_stock|tojson }},
+            totalProduccionHoy: {{ datos_graficos.total_produccion_hoy|default(0) }},
+            totalComprasHoy: {{ datos_graficos.total_compras_hoy|default(0) }}
+        };
+
+        // Variable global para almacenar los gráficos
+        let graficoCategorias = null;
+        let graficoNivelesStock = null;
+
+        function inicializarGraficos() {
+            // Verificar que Chart.js esté cargado
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js no está cargado');
+                return;
+            }
+            
+            // Gráfico de pastel: Distribución por categoría
+            const ctx1 = document.getElementById('graficoCategorias');
+            if (ctx1) {
+                graficoCategorias = new Chart(ctx1.getContext('2d'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: datosGraficos.categorias,
+                        datasets: [{
+                            data: datosGraficos.valoresCategorias,
+                            backgroundColor: [
+                                '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
+                                '#9966FF', '#FF9F40', '#C9CBCF', '#7CBF4F',
+                                '#E74C3C', '#3498DB'
+                            ],
+                            borderWidth: 1,
+                            borderColor: '#fff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'right',
+                                labels: {
+                                    padding: 15,
+                                    usePointStyle: true,
+                                    pointStyle: 'circle'
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        label += 'C$ ' + context.parsed.toLocaleString();
+                                        return label;
+                                    }
+                                }
+                            }
+                        },
+                        cutout: '60%',
+                        animation: {
+                            animateScale: true,
+                            animateRotate: true
+                        }
+                    }
+                });
+            }
+
+            // Gráfico de barras: Niveles de stock mejorado
+            const ctx2 = document.getElementById('graficoNivelesStock');
+            if (ctx2) {
+                graficoNivelesStock = new Chart(ctx2.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: ['Sin Stock', 'Crítico', 'Bajo', 'Óptimo', 'Exceso'],
+                        datasets: [{
+                            label: 'Productos',
+                            data: [
+                                datosGraficos.nivelesStock?.SIN_STOCK || 0,
+                                datosGraficos.nivelesStock?.CRITICO || 0,
+                                datosGraficos.nivelesStock?.BAJO || 0,
+                                datosGraficos.nivelesStock?.OPTIMO || 0,
+                                datosGraficos.nivelesStock?.EXCESO || 0
+                            ],
+                            backgroundColor: [
+                                'rgba(108, 117, 125, 0.8)',
+                                'rgba(220, 53, 69, 0.8)',
+                                'rgba(255, 193, 7, 0.8)',
+                                'rgba(40, 167, 69, 0.8)',
+                                'rgba(23, 162, 184, 0.8)'
+                            ],
+                            borderColor: [
+                                'rgb(73, 80, 87)',
+                                'rgb(220, 53, 69)',
+                                'rgb(255, 193, 7)',
+                                'rgb(40, 167, 69)',
+                                'rgb(23, 162, 184)'
+                            ],
+                            borderWidth: 1,
+                            borderRadius: 4,
+                            borderSkipped: false,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                                titleColor: '#fff',
+                                bodyColor: '#fff',
+                                borderColor: '#dee2e6',
+                                borderWidth: 1,
+                                cornerRadius: 4,
+                                padding: 10,
+                                displayColors: true,
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.dataset.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        label += context.parsed.y + ' productos';
+                                        return label;
+                                    },
+                                    afterLabel: function(context) {
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        if (total > 0) {
+                                            const percentage = ((context.parsed.y / total) * 100).toFixed(1);
+                                            return `(${percentage}% del total)`;
+                                        }
+                                        return '(0%)';
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.05)'
+                                },
+                                ticks: {
+                                    stepSize: 1,
+                                    callback: function(value) {
+                                        return Number.isInteger(value) ? value : '';
+                                    }
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Cantidad de Productos',
+                                    color: '#6c757d',
+                                    font: {
+                                        size: 12,
+                                        weight: '500'
+                                    }
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    display: false
+                                },
+                                ticks: {
+                                    font: {
+                                        size: 11
+                                    }
+                                }
+                            }
+                        },
+                        animation: {
+                            duration: 1000,
+                            easing: 'easeOutQuart'
+                        },
+                        interaction: {
+                            intersect: false,
+                            mode: 'index'
+                        }
+                    }
+                });
+            }
+        }
+
+        // Función para actualizar solo el gráfico de barras
+        function actualizarGraficoBarras(nuevosDatos) {
+            if (graficoNivelesStock) {
+                graficoNivelesStock.data.datasets[0].data = [
+                    nuevosDatos.SIN_STOCK || 0,
+                    nuevosDatos.CRITICO || 0,
+                    nuevosDatos.BAJO || 0,
+                    nuevosDatos.OPTIMO || 0,
+                    nuevosDatos.EXCESO || 0
+                ];
+                graficoNivelesStock.update('active');
+            }
+        }
+
+        // Funciones de filtrado
+        function aplicarFiltros() {
+            const bodega = document.getElementById('filtro-bodega').value;
+            const categoria = document.getElementById('filtro-categoria').value;
+            const nivel = document.getElementById('filtro-nivel').value;
+            
+            // Aquí puedes implementar la lógica para filtrar la tabla
+            // Por simplicidad, recargamos la página con parámetros
+            let url = window.location.pathname;
+            let params = [];
+            
+            if (bodega) params.push(`bodega=${bodega}`);
+            if (categoria) params.push(`categoria=${categoria}`);
+            if (nivel) params.push(`nivel=${nivel}`);
+            
+            if (params.length > 0) {
+                url += '?' + params.join('&');
+            }
+            
+            window.location.href = url;
+        }
+
+        // Funciones de acción
+        function verDetalleProducto(idProducto) {
+            window.location.href = `/admin/productos/detalle/${idProducto}`;
+        }
+
+        function realizarMovimiento(idProducto) {
+            Swal.fire(`Movimiento para producto ID: ${idProducto}\nEsta función abrirá un modal para realizar movimientos rápidos.`, '', 'info');
+        }
+
+        function nuevaEntrada() {
+            window.location.href = '/admin/inventario/entrada/nueva';
+        }
+
+        function nuevaSalida() {
+            window.location.href = '/admin/inventario/salida/nueva';
+        }
+
+        function realizarAjuste() {
+            window.location.href = '/admin/inventario/ajuste/nuevo';
+        }
+
+        function generarReporte() {
+            Swal.fire('Generando reporte completo del inventario...', '', 'info');
+        }
+
+        function generarReporteStock() {
+            Swal.fire('Generando reporte de niveles de stock...', '', 'info');
+        }
+
+        function exportarReporte() {
+            Swal.fire('Exportando datos del dashboard...', '', 'info');
+        }
+
+        function actualizarDashboard() {
+            window.location.reload();
+        }
+
+        // Actualizar automáticamente cada 5 minutos
+        setInterval(function() {
+            console.log('Dashboard actualizado automáticamente');
+            // Para una actualización parcial, usar AJAX
+            // Para simplicidad, recargamos
+            window.location.reload();
+        }, 300000); // 5 minutos
+    </script>
+{% endblock %}

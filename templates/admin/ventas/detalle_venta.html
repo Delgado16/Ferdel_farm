@@ -1,0 +1,511 @@
+{% extends "layout.html" %}
+
+{% block title %}Detalles de Venta #{{ factura.ID_Factura }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <!-- Encabezado con breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb mb-0">
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('admin.admin_dashboard') }}" class="text-decoration-none">
+                    <i class="fas fa-home me-1"></i>Dashboard
+                </a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('admin.admin_ventas_salidas') }}" class="text-decoration-none">
+                    <i class="fas fa-chart-line me-1"></i>Ventas
+                </a>
+            </li>
+            <li class="breadcrumb-item active" aria-current="page">
+                Detalles #{{ factura.ID_Factura }}
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Encabezado -->
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-receipt text-primary me-2"></i>Detalles de Venta
+            </h3>
+            <p class="text-muted small mb-0">Factura #{{ factura.ID_Factura }} — Cliente: {{ factura.Cliente or 'N/A' }}</p>
+        </div>
+        <div>
+            <a href="{{ url_for('admin.admin_ventas_salidas') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-arrow-left me-1"></i> Volver a Ventas
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Columna Izquierda: Información de Factura y Productos -->
+        <div class="col-lg-8">
+            <!-- Información de la Factura -->
+            <div class="card-premium-section mb-4">
+                <div class="card-premium-header d-flex justify-content-between align-items-center">
+                    <h6 class="fw-bold text-slate-800 mb-0">
+                        <i class="fas fa-file-invoice text-primary me-2"></i>Factura #{{ factura.ID_Factura }}
+                    </h6>
+                    <span class="badge {% if factura.Estado_Factura == 'Activa' %}bg-success bg-opacity-10 text-success border border-success border-opacity-25{% else %}bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25{% endif %} rounded-pill px-3 py-2 fw-bold">
+                        {{ factura.Estado_Factura_Formateado }}
+                    </span>
+                </div>
+                <div class="card-body p-4">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <table class="table table-borderless table-sm mb-0 align-middle">
+                                <tr>
+                                    <th width="40%" class="text-secondary small fw-bold py-2">Fecha:</th>
+                                    <td class="small text-slate-800 py-2">{{ factura.Fecha_Formateada or 'N/A' }}</td>
+                                </tr>
+                                <tr>
+                                    <th class="text-secondary small fw-bold py-2">Cliente:</th>
+                                    <td class="small fw-bold text-slate-800 py-2">{{ factura.Cliente or 'N/A' }}</td>
+                                </tr>
+                                <tr>
+                                    <th class="text-secondary small fw-bold py-2">RUC/Cédula:</th>
+                                    <td class="small text-slate-800 py-2">{{ factura.RUC_Cliente or 'N/A' }}</td>
+                                </tr>
+                                <tr>
+                                    <th class="text-secondary small fw-bold py-2">Tipo de Venta:</th>
+                                    <td class="py-2">
+                                        <span class="badge {% if factura.Tipo_Venta_Numerico == 1 %}bg-warning bg-opacity-10 text-warning-dark border border-warning border-opacity-25{% else %}bg-success bg-opacity-10 text-success border border-success border-opacity-25{% endif %} rounded-pill px-2.5 py-1.5 fw-bold">
+                                            {{ factura.Tipo_Venta_Formateado }}
+                                        </span>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <table class="table table-borderless table-sm mb-0 align-middle">
+                                <tr>
+                                    <th width="40%" class="text-secondary small fw-bold py-2">Movimiento:</th>
+                                    <td class="py-2">
+                                        {% if factura.ID_Movimiento and factura.ID_Movimiento > 0 %}
+                                        <span class="badge {% if factura.Estado_Movimiento == 'Activa' %}bg-success bg-opacity-10 text-success border border-success border-opacity-25{% else %}bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25{% endif %} rounded-pill px-2.5 py-1.5 fw-bold">
+                                            {{ factura.Estado_Movimiento_Formateado }}
+                                        </span>
+                                        {% else %}
+                                        <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">SIN MOVIMIENTO</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th class="text-secondary small fw-bold py-2">Bodega:</th>
+                                    <td class="small text-slate-800 py-2">{{ factura.Bodega or 'N/A' }}</td>
+                                </tr>
+                                <tr>
+                                    <th class="text-secondary small fw-bold py-2">Usuario:</th>
+                                    <td class="small text-slate-800 py-2">{{ factura.Usuario_Creacion or 'N/A' }}</td>
+                                </tr>
+                                <tr>
+                                    <th class="text-secondary small fw-bold py-2">Tipo Movimiento:</th>
+                                    <td class="small text-slate-800 py-2">{{ factura.Tipo_Movimiento or 'VENTA' }}</td>
+                                </tr>
+                                <tr>
+                                    <th class="text-secondary small fw-bold py-2">Observación:</th>
+                                    <td class="small text-muted py-2"><em>{{ factura.Observacion or 'Sin observación' }}</em></td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Productos Vendidos -->
+            <div class="card-premium-section mb-4">
+                <div class="card-premium-header d-flex justify-content-between align-items-center">
+                    <h6 class="fw-bold text-slate-800 mb-0">
+                        <i class="fas fa-boxes text-primary me-2"></i>Productos Vendidos
+                    </h6>
+                    <span class="badge bg-light text-dark border rounded-pill">{{ total_productos }} productos</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-modern align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th style="width: 50px;">#</th>
+                                    <th>Código</th>
+                                    <th>Producto</th>
+                                    <th>Categoría</th>
+                                    <th class="text-center">Cantidad</th>
+                                    <th class="text-center">Unidad</th>
+                                    <th class="text-end">Precio Unit.</th>
+                                    <th class="text-end">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for detalle in detalles %}
+                                <tr>
+                                    <td>{{ loop.index }}</td>
+                                    <td><span class="font-monospace small text-muted">{{ detalle.COD_Producto or 'N/A' }}</span></td>
+                                    <td class="fw-bold text-slate-800">{{ detalle.Producto or 'N/A' }}</td>
+                                    <td>{{ detalle.Categoria or 'N/A' }}</td>
+                                    <td class="text-center fw-semibold">{{ detalle.Cantidad | cantidad }}</td>
+                                    <td class="text-center"><span class="badge bg-light text-dark border">{{ detalle.Unidad_Medida or 'UNIDAD' }}</span></td>
+                                    <td class="text-end fw-semibold text-slate-700">C$ {{ detalle.Precio_Unitario | cantidad }}</td>
+                                    <td class="text-end fw-bold text-slate-800">C$ {{ detalle.Subtotal | cantidad }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr class="fw-bold text-slate-800">
+                                    <td colspan="7" class="text-end">TOTAL VENTA:</td>
+                                    <td class="text-end text-success font-monospace" style="font-size: 1.1rem;">C$ {{ total_venta | cantidad }}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Columna Derecha: Métodos de Pago y Acciones -->
+        <div class="col-lg-4">
+            <!-- MÉTODOS DE PAGO -->
+            <div class="card-premium-section mb-4">
+                <div class="card-premium-header bg-success-soft">
+                    <h6 class="fw-bold text-success mb-0">
+                        <i class="fas fa-wallet me-2"></i>Métodos de Pago
+                    </h6>
+                </div>
+                <div class="card-body p-4">
+                    {% if metodos_pago and metodos_pago|length > 0 %}
+                        <div class="table-responsive mb-3">
+                            <table class="table table-sm table-modern align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Método</th>
+                                        <th class="text-end">Monto</th>
+                                        <th>Referencia</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for pago in metodos_pago %}
+                                    <tr>
+                                        <td>
+                                            {% if pago.nombre == 'Efectivo' %}
+                                                <i class="fas fa-money-bill-wave text-success me-1"></i>
+                                            {% elif pago.nombre == 'Transferencia' %}
+                                                <i class="fas fa-university text-primary me-1"></i>
+                                            {% elif pago.nombre == 'Depósito Bancario' %}
+                                                <i class="fas fa-piggy-bank text-info me-1"></i>
+                                            {% elif pago.nombre == 'Tarjeta Débito' or pago.nombre == 'Tarjeta Crédito' %}
+                                                <i class="fas fa-credit-card text-warning me-1"></i>
+                                            {% elif pago.nombre == 'Cheque' %}
+                                                <i class="fas fa-money-check-alt text-secondary me-1"></i>
+                                            {% else %}
+                                                <i class="fas fa-file-invoice-dollar me-1"></i>
+                                            {% endif %}
+                                            <span class="small fw-semibold">{{ pago.nombre }}</span>
+                                        </td>
+                                        <td class="text-end text-success fw-bold font-monospace small">
+                                            C$ {{ "{:,.2f}".format(pago.monto) }}
+                                        </td>
+                                        <td>
+                                            {% if pago.referencia %}
+                                                <small class="text-muted font-monospace">{{ pago.referencia }}</small>
+                                            {% else %}
+                                                <small class="text-muted">---</small>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot>
+                                    <tr class="fw-bold">
+                                        <td class="text-end small">TOTAL PAGADO:</td>
+                                        <td class="text-end text-success font-monospace small">
+                                            C$ {{ "{:,.2f}".format(total_pagado) }}
+                                        </td>
+                                        <td></td>
+                                    </tr>
+                                    {% if saldo_pendiente > 0 %}
+                                    <tr class="fw-bold">
+                                        <td class="text-end small">SALDO PENDIENTE:</td>
+                                        <td class="text-end text-danger font-monospace small">
+                                            C$ {{ "{:,.2f}".format(saldo_pendiente) }}
+                                        </td>
+                                        <td>
+                                            {% if credito_info.Fecha_Vencimiento_Max %}
+                                            <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2 py-1" style="font-size: 0.65rem;">
+                                                {% if credito_info.Fecha_Vencimiento_Max is string %}
+                                                    Vence: {{ credito_info.Fecha_Vencimiento_Max }}
+                                                {% else %}
+                                                    Vence: {{ credito_info.Fecha_Vencimiento_Max.strftime('%d/%m/%Y') }}
+                                                {% endif %}
+                                            </span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                </tfoot>
+                            </table>
+                        </div>
+
+                        <!-- Resumen rápido -->
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <div class="bg-light border text-center p-2 rounded-3">
+                                    <small class="text-muted d-block" style="font-size: 0.7rem; font-weight: 500;">Total Factura</small>
+                                    <span class="mb-0 fw-bold text-slate-800 font-monospace small">C$ {{ "{:,.2f}".format(total_venta) }}</span>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="bg-light border text-center p-2 rounded-3">
+                                    <small class="text-muted d-block" style="font-size: 0.7rem; font-weight: 500;">{% if saldo_pendiente > 0 %}Pendiente{% else %}Pagado{% endif %}</small>
+                                    <span class="mb-0 fw-bold {% if saldo_pendiente > 0 %}text-danger{% else %}text-success{% endif %} font-monospace small">C$ {{ "{:,.2f}".format(saldo_pendiente if saldo_pendiente > 0 else 0) }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Barra de progreso de pago -->
+                        <div class="mt-2">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <small class="text-muted small">Progreso de pago</small>
+                                {% set porcentaje_pagado = (total_pagado / total_venta * 100) if total_venta > 0 else 0 %}
+                                <span class="small fw-bold text-slate-700">{{ porcentaje_pagado | cantidad }}%</span>
+                            </div>
+                            <div class="progress" style="height: 8px; border-radius: 4px;">
+                                <div class="progress-bar {% if porcentaje_pagado == 100 %}bg-success{% elif porcentaje_pagado >= 50 %}bg-info{% elif porcentaje_pagado > 0 %}bg-warning text-dark{% else %}bg-secondary{% endif %}" 
+                                     role="progressbar" 
+                                     style="width: {{ porcentaje_pagado }}%;" 
+                                     aria-valuenow="{{ porcentaje_pagado }}" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="100">
+                                </div>
+                            </div>
+                        </div>
+
+                    {% else %}
+                        <div class="bg-light p-3 rounded-3 border text-center">
+                            {% if factura.Tipo_Venta_Numerico == 0 %}
+                                <div class="text-success mb-2">
+                                    <i class="fas fa-check-circle fa-2x"></i>
+                                </div>
+                                <h6 class="fw-bold text-slate-800 mb-1">Venta de Contado</h6>
+                                <p class="text-muted small mb-3">Registrado como pago completo en efectivo.</p>
+                                <div class="bg-white border rounded-3 p-2 font-monospace fw-bold text-success fs-6">
+                                    C$ {{ "{:,.2f}".format(total_venta) }}
+                                </div>
+                            {% elif factura.Tipo_Venta_Numerico == 2 %}
+                                <div class="text-info mb-2">
+                                    <i class="fas fa-truck fa-2x"></i>
+                                </div>
+                                <h6 class="fw-bold text-slate-800 mb-1">Venta en Reparto / Por Confirmar</h6>
+                                <p class="text-muted small mb-3">Venta programada para reparto. Se liquidará al retorno.</p>
+                                <div class="bg-white border rounded-3 p-2 font-monospace fw-bold text-info fs-6">
+                                    C$ {{ "{:,.2f}".format(total_venta) }}
+                                </div>
+                            {% else %}
+                                <div class="text-warning mb-2">
+                                    <i class="fas fa-credit-card fa-2x"></i>
+                                </div>
+                                <h6 class="fw-bold text-slate-800 mb-1">Venta a Crédito</h6>
+                                <p class="text-muted small mb-3">Venta facturada al crédito sin abonos iniciales.</p>
+                                <div class="bg-white border rounded-3 p-2 font-monospace fw-bold text-danger fs-6">
+                                    C$ {{ "{:,.2f}".format(total_venta) }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Acciones -->
+            <div class="card-premium-section mb-4">
+                <div class="card-premium-header bg-light">
+                    <h6 class="fw-bold text-slate-800 mb-0">
+                        <i class="fas fa-cog me-2"></i>Acciones
+                    </h6>
+                </div>
+                <div class="card-body p-4">
+                    <div class="d-grid gap-2">
+                        <!-- Botón Imprimir Ticket -->
+                        <a href="{{ url_for('admin.admin_generar_ticket', id_factura=factura.ID_Factura) }}" 
+                           class="btn btn-outline-primary btn-sm rounded-3 py-2 fw-semibold">
+                            <i class="fas fa-print me-1"></i> Imprimir Ticket
+                        </a>
+
+                        <!-- Botón Anular (solo si está ACTIVA) -->
+                        {% if factura.Estado_Factura == 'Activa' %}
+                        <button type="button" 
+                                class="btn btn-outline-danger btn-sm rounded-3 py-2 fw-semibold" 
+                                onclick="anularVenta({{ factura.ID_Factura }})">
+                            <i class="fas fa-ban me-1"></i> Anular Venta
+                        </button>
+                        {% endif %}
+
+                        <!-- Volver -->
+                        <a href="{{ url_for('admin.admin_ventas_salidas') }}" 
+                           class="btn btn-outline-secondary btn-sm rounded-3 py-2">
+                            <i class="fas fa-arrow-left me-1"></i> Volver a Ventas
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Historial de Pagos -->
+            {% if tiene_credito_pendiente and pagos and pagos|length > 0 %}
+            <div class="card-premium-section mb-4">
+                <div class="card-premium-header">
+                    <h6 class="fw-bold text-slate-800 mb-0">
+                        <i class="fas fa-history me-2 text-primary"></i>Historial de Pagos
+                    </h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-modern align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Monto</th>
+                                    <th>Forma de Pago</th>
+                                    <th>Referencia</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for pago in pagos %}
+                                <tr>
+                                    <td class="small text-slate-700">
+                                        {% if pago.Fecha_Original %}
+                                            {{ pago.Fecha_Original.strftime('%d/%m/%Y %H:%M') if pago.Fecha_Original is not string else pago.Fecha_Original }}
+                                        {% else %}
+                                            {{ pago.Fecha_Pago_Formateada or 'N/A' }}
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-success fw-bold font-monospace small">
+                                        C$ {{ "%.2f"|format(pago.Monto_Pago) if pago.Monto_Pago else '0.00' }}
+                                    </td>
+                                    <td>
+                                        <span class="badge {% if pago.Forma_Pago == 'Efectivo' %}bg-success{% elif pago.Forma_Pago == 'Transferencia' %}bg-info{% elif pago.Forma_Pago == 'Tarjeta' %}bg-warning{% else %}bg-secondary{% endif %} rounded-pill px-2 py-1" style="font-size: 0.75rem;">
+                                            {{ pago.Forma_Pago or 'N/A' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            {{ pago.Numero_Comprobante or 'Sin referencia' }}
+                                        </small>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% elif tiene_credito_pendiente and credito_info.Saldo_Pendiente_Total > 0 %}
+            <div class="card-premium-section mb-4">
+                <div class="card-premium-header bg-warning-soft">
+                    <h6 class="fw-bold text-warning mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Información de Crédito
+                    </h6>
+                </div>
+                <div class="card-body p-4">
+                    <div class="bg-light p-3 rounded-3 border">
+                        <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                            <span class="small fw-bold text-slate-700">Saldo Pendiente:</span>
+                            <span class="font-monospace fw-bold text-danger">C$ {{ credito_info.Saldo_Pendiente_Total | cantidad }}</span>
+                        </div>
+                        {% if credito_info.Fecha_Vencimiento_Max %}
+                        <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                            <span class="small text-muted">Próximo Vencimiento:</span>
+                            <span class="small fw-semibold text-slate-800">
+                                {% if credito_info.Fecha_Vencimiento_Max is string %}
+                                    {{ credito_info.Fecha_Vencimiento_Max }}
+                                {% else %}
+                                    {{ credito_info.Fecha_Vencimiento_Max.strftime('%d/%m/%Y') }}
+                                {% endif %}
+                            </span>
+                        </div>
+                        {% endif %}
+                        {% if credito_info.Documentos_Credito %}
+                        <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                            <span class="small text-muted">Documentos:</span>
+                            <span class="small fw-semibold text-slate-800">{{ credito_info.Documentos_Credito }}</span>
+                        </div>
+                        {% endif %}
+                        <div class="text-center mt-3">
+                            <small class="text-muted"><i class="fas fa-info-circle me-1"></i>No hay pagos registrados para este crédito.</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Información Empresarial y del Documento -->
+            <div class="card-premium-section mb-4">
+                <div class="card-premium-header">
+                    <h6 class="fw-bold text-slate-800 mb-0">
+                        <i class="fas fa-info-circle me-2 text-primary"></i>Información Adicional
+                    </h6>
+                </div>
+                <div class="card-body p-4">
+                    <div class="border-bottom pb-3 mb-3">
+                        <label class="form-label-premium filter-label-premium mb-1">Información de la Empresa</label>
+                        <div class="small text-slate-800 fw-semibold">{{ factura.Nombre_Empresa or 'Empresa' }}</div>
+                        <div class="small text-muted">
+                            RUC: {{ factura.RUC_Empresa or 'N/A' }}<br>
+                            Tel: {{ factura.Telefono_Empresa or 'N/A' }}<br>
+                            Dir: {{ factura.Direccion_Empresa or 'N/A' }}
+                        </div>
+                    </div>
+                    <div>
+                        <label class="form-label-premium filter-label-premium mb-1">Información del Documento</label>
+                        <div class="small text-muted">
+                            <span class="fw-semibold text-slate-800">Factura #:</span> {{ factura.ID_Factura }}<br>
+                            <span class="fw-semibold text-slate-800">Estado Factura:</span> {{ factura.Estado_Factura_Formateado }}<br>
+                            <span class="fw-semibold text-slate-800">Tipo Venta:</span> {{ factura.Tipo_Venta_Formateado }}<br>
+                            <span class="fw-semibold text-slate-800">Movimiento #:</span> {{ factura.ID_Movimiento if factura.ID_Movimiento and factura.ID_Movimiento > 0 else 'N/A' }}<br>
+                            <span class="fw-semibold text-slate-800">Total Factura:</span> C$ {{ total_venta | cantidad }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function anularVenta(idFactura) {
+    Swal.fire({
+        title: '¿Está seguro que desea ANULAR esta venta?',
+        text: 'Esta acción no se puede deshacer y revertirá el inventario.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, anular',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch(`/admin/ventas/anular/${idFactura}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire(data.message, '', 'success');
+                    location.reload();
+                } else {
+                    Swal.fire('Error: ' + (data.error || 'Error desconocido'), '', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire('Error al anular la venta', '', 'error');
+            });
+        }
+    });
+}
+</script>
+{% endblock %}

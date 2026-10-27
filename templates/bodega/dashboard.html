@@ -1,0 +1,1216 @@
+{% extends "layout.html" %}
+
+{% block title %}Dashboard de Bodega - FerDel{% endblock %}
+
+{% block extra_css %}
+<!-- Chart.js para Analítica Interactiva -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+
+<style>
+/* Premium Dashboard Styles */
+:root {
+    --glass-bg: rgba(255, 255, 255, 0.85);
+    --glass-border: rgba(255, 255, 255, 0.4);
+    --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+    --card-radius: 16px;
+    --primary-gradient: linear-gradient(135deg, #2c5e2e 0%, #1e4020 100%);
+    --accent-color: #10b981;
+}
+
+body {
+    background-color: #f0f4f8; /* Soft background to let glass stand out */
+}
+
+/* Glassmorphism Cards */
+.card-glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--card-radius);
+    box-shadow: var(--glass-shadow);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    overflow: hidden;
+}
+
+.card-glass:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 35px rgba(31, 38, 135, 0.12);
+}
+
+/* KPI Cards specifically */
+.kpi-card {
+    position: relative;
+    z-index: 1;
+}
+.kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 100%);
+    z-index: -1;
+    border-radius: var(--card-radius);
+}
+.kpi-icon-wrapper {
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 14px;
+    font-size: 1.5rem;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease;
+}
+.kpi-card:hover .kpi-icon-wrapper {
+    transform: scale(1.1) rotate(5deg);
+}
+
+/* Header Section */
+.dashboard-header {
+    background: var(--primary-gradient);
+    border-radius: 20px;
+    padding: 2rem;
+    color: white;
+    box-shadow: 0 10px 30px rgba(44, 94, 46, 0.3);
+    margin-bottom: 2rem;
+    position: relative;
+    overflow: hidden;
+}
+.dashboard-header::after {
+    content: '';
+    position: absolute;
+    top: -50%; right: -10%; width: 50%; height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%);
+    transform: rotate(30deg);
+    pointer-events: none;
+}
+
+/* Action Buttons */
+.btn-glass {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(5px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    border-radius: 10px;
+    padding: 0.6rem 1.2rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-block;
+}
+.btn-glass:hover {
+    background: rgba(255, 255, 255, 0.25);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+}
+
+/* Tabs */
+.nav-pills-custom .nav-link {
+    color: #64748b;
+    font-weight: 600;
+    border-radius: 10px;
+    padding: 0.75rem 1.5rem;
+    margin-right: 0.5rem;
+    transition: all 0.3s;
+    border: 1px solid transparent;
+}
+.nav-pills-custom .nav-link:hover {
+    background: rgba(44, 94, 46, 0.05);
+    color: #2c5e2e;
+}
+.nav-pills-custom .nav-link.active {
+    background: var(--primary-gradient);
+    color: white;
+    box-shadow: 0 4px 15px rgba(44, 94, 46, 0.2);
+}
+
+/* Modern Tables */
+.table-modern {
+    border-collapse: separate !important;
+    border-spacing: 0 8px !important;
+    width: 100%;
+}
+.table-modern thead th {
+    border: none;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #64748b;
+    background: transparent;
+    padding: 0 1rem 0.5rem 1rem;
+}
+.table-modern tbody tr {
+    background: white;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+    transition: transform 0.2s, box-shadow 0.2s;
+    border-radius: 10px;
+}
+.table-modern tbody tr:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.06);
+    z-index: 10;
+    position: relative;
+}
+.table-modern tbody td {
+    border: none;
+    padding: 1rem;
+    vertical-align: middle;
+}
+.table-modern tbody td:first-child { border-radius: 10px 0 0 10px; }
+.table-modern tbody td:last-child { border-radius: 0 10px 10px 0; }
+
+/* Custom Scrollbar for containers */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(0,0,0,0.02);
+    border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(44, 94, 46, 0.2);
+    border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(44, 94, 46, 0.4);
+}
+
+/* Animations */
+.fade-in-up {
+    animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    opacity: 0;
+    transform: translateY(20px);
+}
+.delay-1 { animation-delay: 0.1s; }
+.delay-2 { animation-delay: 0.2s; }
+.delay-3 { animation-delay: 0.3s; }
+
+@keyframes fadeInUp {
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Badges */
+.badge-modern {
+    padding: 0.4em 0.8em;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.75rem;
+    letter-spacing: 0.3px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    
+    <!-- Hero Header -->
+    <div class="dashboard-header d-flex flex-wrap justify-content-between align-items-center gap-4 fade-in-up">
+        <div>
+            <h2 class="fw-bold mb-1" style="font-family: 'Outfit', sans-serif;">
+                <i class="fas fa-warehouse opacity-75 me-2"></i>Centro de Control de Bodega
+            </h2>
+            <p class="mb-0 opacity-75 fw-light" style="font-size: 0.95rem;">
+                Métricas operativas en tiempo real y operaciones logísticas • {{ fecha_hoy }}
+            </p>
+        </div>
+        <div class="d-flex flex-wrap gap-2 z-index-1" style="position: relative; z-index: 2;">
+            <a href="{{ url_for('bodega.bodega_historial_movimientos') }}?tipo=entrada" class="btn btn-glass">
+                <i class="fas fa-arrow-down me-1 text-success"></i> Entrada
+            </a>
+            <a href="{{ url_for('bodega.bodega_historial_movimientos') }}?tipo=salida" class="btn btn-glass">
+                <i class="fas fa-arrow-up me-1 text-danger"></i> Salida
+            </a>
+            <a href="{{ url_for('bodega.bodega_historial_movimientos') }}?tipo=transferencia" class="btn btn-glass">
+                <i class="fas fa-exchange-alt me-1 text-info"></i> Transferir
+            </a>
+            <a href="{{ url_for('bodega.bodega_historial_movimientos') }}?tipo=carga_ruta" class="btn btn-glass border-white">
+                <i class="fas fa-truck-loading me-1"></i> Cargar Ruta
+            </a>
+            <a href="{{ url_for('bodega.bodega_auditoria_inventario') }}" class="btn btn-glass border-white">
+                <i class="fas fa-clipboard-check me-1 text-warning"></i> Auditoría
+            </a>
+            <button class="btn btn-glass" onclick="window.location.reload()" title="Refrescar Dashboard">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="row g-4 mb-4">
+        <!-- Movimientos -->
+        <div class="col-xl-3 col-md-6 fade-in-up delay-1">
+            <div class="card-glass kpi-card p-4 h-100">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-uppercase fw-bold text-muted mb-1" style="font-size: 0.75rem; letter-spacing: 1px;">Movimientos Hoy</p>
+                        <h2 class="fw-bold text-dark mb-0" style="font-family: 'Outfit', sans-serif;">{{ resumen_dia_total.total_movimientos if resumen_dia_total else 0 }}</h2>
+                    </div>
+                    <div class="kpi-icon-wrapper bg-primary bg-opacity-10 text-primary">
+                        <i class="fas fa-exchange-alt"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <span class="badge bg-primary bg-opacity-10 text-primary badge-modern border border-primary border-opacity-25">
+                        {{ resumen_dia_total.total_productos_movidos if resumen_dia_total else 0 }} productos
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Entradas -->
+        <div class="col-xl-3 col-md-6 fade-in-up delay-1">
+            <div class="card-glass kpi-card p-4 h-100">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-uppercase fw-bold text-muted mb-1" style="font-size: 0.75rem; letter-spacing: 1px;">Total Entradas</p>
+                        <h2 class="fw-bold text-success mb-0" style="font-family: 'Outfit', sans-serif;">{{ resumen_dia_total.total_entradas if resumen_dia_total else 0 }}</h2>
+                    </div>
+                    <div class="kpi-icon-wrapper bg-success bg-opacity-10 text-success">
+                        <i class="fas fa-arrow-down"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <span class="badge bg-success bg-opacity-10 text-success badge-modern border border-success border-opacity-25">
+                        Unidades Recibidas
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Salidas -->
+        <div class="col-xl-3 col-md-6 fade-in-up delay-2">
+            <div class="card-glass kpi-card p-4 h-100">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-uppercase fw-bold text-muted mb-1" style="font-size: 0.75rem; letter-spacing: 1px;">Total Salidas</p>
+                        <h2 class="fw-bold text-danger mb-0" style="font-family: 'Outfit', sans-serif;">{{ resumen_dia_total.total_salidas if resumen_dia_total else 0 }}</h2>
+                    </div>
+                    <div class="kpi-icon-wrapper bg-danger bg-opacity-10 text-danger">
+                        <i class="fas fa-arrow-up"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <span class="badge bg-danger bg-opacity-10 text-danger badge-modern border border-danger border-opacity-25">
+                        Unidades Despachadas
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cargas Pendientes -->
+        <div class="col-xl-3 col-md-6 fade-in-up delay-2">
+            <div class="card-glass kpi-card p-4 h-100">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-uppercase fw-bold text-muted mb-1" style="font-size: 0.75rem; letter-spacing: 1px;">Cargas Pendientes</p>
+                        <h2 class="fw-bold text-warning mb-0" style="font-family: 'Outfit', sans-serif;">{{ resumen_cargas_pendientes.total_pendientes if resumen_cargas_pendientes else 0 }}</h2>
+                    </div>
+                    <div class="kpi-icon-wrapper bg-warning bg-opacity-10 text-warning">
+                        <i class="fas fa-truck-loading"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <span class="badge bg-warning bg-opacity-10 text-warning badge-modern border border-warning border-opacity-25">
+                        Requieren Atención
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="row g-4 mb-4">
+        
+        <!-- Left Column (Charts and Tables) -->
+        <div class="col-xl-8 col-lg-7">
+            
+            <!-- Flujo Horario Chart -->
+            <div class="card-glass mb-4 fade-in-up delay-3">
+                <div class="px-4 py-3 border-bottom border-light d-flex justify-content-between align-items-center bg-white bg-opacity-50">
+                    <div>
+                        <h6 class="fw-bold text-dark mb-0"><i class="fas fa-chart-area text-primary me-2"></i>Dinámica de Movimientos</h6>
+                        <small class="text-muted">Entradas vs Salidas a lo largo del día</small>
+                    </div>
+                </div>
+                <div class="p-4">
+                    <div style="height: 280px; position: relative;">
+                        <canvas id="chartFlujoHoras"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Operaciones Tabs (Cargas, Pedidos, Kardex) -->
+            <div class="card-glass fade-in-up delay-3">
+                <div class="px-4 py-3 border-bottom border-light bg-white bg-opacity-50">
+                    <ul class="nav nav-pills nav-pills-custom" id="operacionesTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="cargas-tab" data-bs-toggle="tab" data-bs-target="#cargas-pane" type="button" role="tab">
+                                <i class="fas fa-truck-loading me-1"></i> Cargas
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="pedidos-tab" data-bs-toggle="tab" data-bs-target="#pedidos-pane" type="button" role="tab">
+                                <i class="fas fa-dolly me-1"></i> Pedidos
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="kardex-tab" data-bs-toggle="tab" data-bs-target="#kardex-pane" type="button" role="tab">
+                                <i class="fas fa-history me-1"></i> Kardex
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link text-warning" id="agotamiento-tab" data-bs-toggle="tab" data-bs-target="#agotamiento-pane" type="button" role="tab">
+                                <i class="fas fa-hourglass-half me-1"></i> Riesgo Quiebre
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link text-danger" id="muerto-tab" data-bs-toggle="tab" data-bs-target="#muerto-pane" type="button" role="tab">
+                                <i class="fas fa-skull-crossbones me-1"></i> Stock Muerto
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link text-info" id="auditoria-tab" data-bs-toggle="tab" data-bs-target="#auditoria-pane" type="button" role="tab">
+                                <i class="fas fa-clipboard-check me-1"></i> Auditoría Ajustes
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+                
+                <div class="p-4">
+                    <div class="tab-content">
+                        
+                        <!-- TAB: CARGAS -->
+                        <div class="tab-pane fade show active" id="cargas-pane" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="fw-bold mb-0">Recepción Pendiente</h6>
+                                <div class="input-group" style="max-width: 250px;">
+                                    <span class="input-group-text bg-white border-end-0 border-light rounded-start-pill"><i class="fas fa-search text-muted"></i></span>
+                                    <input type="text" class="form-control border-start-0 border-light bg-white rounded-end-pill" id="searchCargas" placeholder="Buscar carga...">
+                                </div>
+                            </div>
+                            <div class="custom-scrollbar overflow-auto" style="max-height: 400px; padding-right: 5px;">
+                                <table class="table table-modern" id="tablaCargas">
+                                    <thead>
+                                        <tr>
+                                            <th>Ref / Fecha</th>
+                                            <th>Proveedor</th>
+                                            <th>Estado</th>
+                                            <th class="text-end">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% if cargas_pendientes_recepcion %}
+                                        {% for carga in cargas_pendientes_recepcion %}
+                                        <tr>
+                                            <td>
+                                                <div class="fw-bold text-dark">{{ carga.Num_Factura or ('#C-' ~ carga.ID_Carga) }}</div>
+                                                <small class="text-muted"><i class="far fa-calendar-alt me-1"></i>{{ carga.Fecha_Carga }}</small>
+                                            </td>
+                                            <td>
+                                                <div class="fw-medium text-dark">{{ carga.proveedor_nombre }}</div>
+                                                <small class="text-muted"><i class="fas fa-user-tie me-1"></i>{{ carga.vendedor_nombre }}</small>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-warning bg-opacity-10 text-warning badge-modern border border-warning border-opacity-25">{{ carga.Estado }}</span>
+                                            </td>
+                                            <td class="text-end">
+                                                <a href="{{ url_for('bodega.recibir_carga', id_carga=carga.ID_Carga) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3 shadow-sm">
+                                                    Procesar
+                                                </a>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                        {% else %}
+                                        <tr><td colspan="4" class="text-center text-muted py-5 bg-white rounded-3">Todo al día, no hay cargas pendientes.</td></tr>
+                                        {% endif %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- TAB: PEDIDOS -->
+                        <div class="tab-pane fade" id="pedidos-pane" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="fw-bold mb-0">Despachos Pendientes</h6>
+                                <div class="input-group" style="max-width: 250px;">
+                                    <span class="input-group-text bg-white border-end-0 border-light rounded-start-pill"><i class="fas fa-search text-muted"></i></span>
+                                    <input type="text" class="form-control border-start-0 border-light bg-white rounded-end-pill" id="searchPedidos" placeholder="Buscar pedido...">
+                                </div>
+                            </div>
+                            <div class="custom-scrollbar overflow-auto" style="max-height: 400px; padding-right: 5px;">
+                                <table class="table table-modern" id="tablaPedidos">
+                                    <thead>
+                                        <tr>
+                                            <th>Pedido</th>
+                                            <th>Cliente</th>
+                                            <th>Ruta / Tipo</th>
+                                            <th>Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% if pedidos_pendientes %}
+                                        {% for pedido in pedidos_pendientes %}
+                                        <tr>
+                                            <td>
+                                                <div class="fw-bold text-dark">#P-{{ pedido.ID_Pedido }}</div>
+                                                <small class="text-muted">{{ pedido.Fecha }}</small>
+                                            </td>
+                                            <td><span class="fw-medium">{{ pedido.cliente_nombre }}</span></td>
+                                            <td>
+                                                <div class="text-dark">{{ pedido.ruta_nombre }}</div>
+                                                <small class="text-muted">{{ pedido.Tipo_Entrega }}</small>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-danger bg-opacity-10 text-danger badge-modern border border-danger border-opacity-25">{{ pedido.Estado }}</span>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                        {% else %}
+                                        <tr><td colspan="4" class="text-center text-muted py-5 bg-white rounded-3">No hay despachos pendientes.</td></tr>
+                                        {% endif %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- TAB: KARDEX -->
+                        <div class="tab-pane fade" id="kardex-pane" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="fw-bold mb-0">Kardex en Vivo (Últimos Movimientos)</h6>
+                                <div class="input-group" style="max-width: 250px;">
+                                    <span class="input-group-text bg-white border-end-0 border-light rounded-start-pill"><i class="fas fa-search text-muted"></i></span>
+                                    <input type="text" class="form-control border-start-0 border-light bg-white rounded-end-pill" id="searchKardex" placeholder="Buscar producto...">
+                                </div>
+                            </div>
+                            <div class="custom-scrollbar overflow-auto" style="max-height: 400px; padding-right: 5px;">
+                                <table class="table table-modern" id="tablaKardex">
+                                    <thead>
+                                        <tr>
+                                            <th>Hora</th>
+                                            <th>Producto</th>
+                                            <th>Tipo</th>
+                                            <th class="text-end">Cant.</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% if kardex_hoy %}
+                                        {% for mov in kardex_hoy %}
+                                        <tr>
+                                            <td>
+                                                <div class="text-muted small fw-bold font-monospace">{{ mov.Hora }}</div>
+                                                <small class="text-muted"><i class="fas fa-user-circle me-1"></i>{{ mov.Usuario }}</small>
+                                            </td>
+                                            <td>
+                                                <span class="fw-bold text-dark cursor-pointer text-truncate d-block" style="max-width: 200px;" onclick="abrirKardexModal('{{ mov.ID_Producto }}', '{{ mov.Producto }}')">{{ mov.Producto }}</span>
+                                                <small class="text-primary">{{ mov.Bodega }}</small>
+                                            </td>
+                                            <td>
+                                                {% if mov.Tipo == 'ENTRADA' %}
+                                                <span class="badge bg-success bg-opacity-10 text-success badge-modern border border-success border-opacity-25">{{ mov.Tipo_Movimiento }}</span>
+                                                {% else %}
+                                                <span class="badge bg-danger bg-opacity-10 text-danger badge-modern border border-danger border-opacity-25">{{ mov.Tipo_Movimiento }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="text-end font-monospace fw-bold fs-6 {% if mov.Tipo == 'ENTRADA' %}text-success{% else %}text-danger{% endif %}">
+                                                {% if mov.Tipo == 'ENTRADA' %}+{% else %}-{% endif %}{{ mov.Cantidad|float | cantidad }}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                        {% else %}
+                                        <tr><td colspan="4" class="text-center text-muted py-5 bg-white rounded-3">Sin movimientos registrados hoy.</td></tr>
+                                        {% endif %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- TAB: RIESGO DE QUIEBRE -->
+                        <div class="tab-pane fade" id="agotamiento-pane" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="fw-bold mb-0 text-warning"><i class="fas fa-hourglass-half me-2"></i>Proyección de Agotamiento (< 7 días)</h6>
+                            </div>
+                            <div class="custom-scrollbar overflow-auto" style="max-height: 400px; padding-right: 5px;">
+                                <table class="table table-modern">
+                                    <thead>
+                                        <tr>
+                                            <th>Producto</th>
+                                            <th>Bodega</th>
+                                            <th>Existencias</th>
+                                            <th>Días Restantes</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% if proyeccion_agotamiento %}
+                                        {% for prod in proyeccion_agotamiento %}
+                                        <tr>
+                                            <td><div class="fw-bold text-dark">{{ prod.Producto }}</div></td>
+                                            <td><span class="text-muted">{{ prod.Bodega }}</span></td>
+                                            <td><span class="badge bg-primary bg-opacity-10 text-primary badge-modern border border-primary border-opacity-25">{{ prod.Existencias|float | cantidad }}</span></td>
+                                            <td><span class="badge bg-warning text-dark badge-modern fw-bold">{{ (prod.Existencias / prod.Promedio_Diario)|float | cantidad }} días</span></td>
+                                        </tr>
+                                        {% endfor %}
+                                        {% else %}
+                                        <tr><td colspan="4" class="text-center text-muted py-5 bg-white rounded-3">Inventario saludable, sin riesgo de agotamiento inminente.</td></tr>
+                                        {% endif %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- TAB: STOCK MUERTO -->
+                        <div class="tab-pane fade" id="muerto-pane" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="fw-bold mb-0 text-danger"><i class="fas fa-skull-crossbones me-2"></i>Capital Inmovilizado (> 45 días sin salidas)</h6>
+                            </div>
+                            <div class="custom-scrollbar overflow-auto" style="max-height: 400px; padding-right: 5px;">
+                                <table class="table table-modern">
+                                    <thead>
+                                        <tr>
+                                            <th>Código</th>
+                                            <th>Producto</th>
+                                            <th>Bodega</th>
+                                            <th>Existencias</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% if stock_muerto %}
+                                        {% for prod in stock_muerto %}
+                                        <tr>
+                                            <td><div class="fw-bold font-monospace text-muted">{{ prod.COD_Producto }}</div></td>
+                                            <td><div class="fw-bold text-dark">{{ prod.Producto }}</div></td>
+                                            <td><span class="text-muted">{{ prod.Bodega }}</span></td>
+                                            <td><span class="badge bg-danger bg-opacity-10 text-danger badge-modern border border-danger border-opacity-25">{{ prod.Existencias|float | cantidad }}</span></td>
+                                        </tr>
+                                        {% endfor %}
+                                        {% else %}
+                                        <tr><td colspan="4" class="text-center text-muted py-5 bg-white rounded-3">Excelente rotación, sin stock inmovilizado.</td></tr>
+                                        {% endif %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- TAB: AUDITORIA -->
+                        <div class="tab-pane fade" id="auditoria-pane" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="fw-bold mb-0 text-info"><i class="fas fa-clipboard-check me-2"></i>Auditoría de Ajustes y Mermas</h6>
+                            </div>
+                            <div class="custom-scrollbar overflow-auto" style="max-height: 400px; padding-right: 5px;">
+                                <table class="table table-modern">
+                                    <thead>
+                                        <tr>
+                                            <th>Fecha / Resp.</th>
+                                            <th>Producto</th>
+                                            <th>Motivo</th>
+                                            <th class="text-end">Cant.</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% if auditoria_ajustes %}
+                                        {% for mov in auditoria_ajustes %}
+                                        <tr>
+                                            <td>
+                                                <div class="fw-bold text-dark font-monospace small">{{ mov.Fecha }}</div>
+                                                <small class="text-muted"><i class="fas fa-user-shield me-1"></i>{{ mov.Responsable }}</small>
+                                            </td>
+                                            <td><div class="fw-bold text-dark">{{ mov.Producto }}</div></td>
+                                            <td><span class="badge bg-secondary bg-opacity-10 text-secondary badge-modern border border-secondary border-opacity-25">{{ mov.Tipo_Ajuste }}</span></td>
+                                            <td class="text-end font-monospace fw-bold fs-6 {% if mov.Adicion == 'SUMA' or mov.Adicion == '+' %}text-success{% else %}text-danger{% endif %}">
+                                                {% if mov.Adicion == 'SUMA' or mov.Adicion == '+' %}+{% else %}-{% endif %}{{ mov.Cantidad|float | cantidad }}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                        {% else %}
+                                        <tr><td colspan="4" class="text-center text-muted py-5 bg-white rounded-3">No se han registrado ajustes manuales recientes.</td></tr>
+                                        {% endif %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Column (Alerts and Summary) -->
+        <div class="col-xl-4 col-lg-5">
+            
+            <!-- Inventario en Tránsito -->
+            <div class="card-glass mb-4 fade-in-up delay-3" style="border-left: 4px solid #3b82f6;">
+                <div class="px-4 py-3 border-bottom border-light bg-white bg-opacity-50 d-flex justify-content-between align-items-center">
+                    <h6 class="fw-bold text-dark mb-0">
+                        <i class="fas fa-truck-moving text-primary me-2"></i>Inventario en Tránsito
+                    </h6>
+                    <span class="badge bg-primary text-white rounded-circle px-2 py-1">{{ inventario_transito|length }}</span>
+                </div>
+                <div class="p-3">
+                    <div class="custom-scrollbar overflow-auto pe-2" style="max-height: 250px;">
+                        {% if inventario_transito %}
+                        <div class="d-flex flex-column gap-2">
+                            {% for ruta in inventario_transito %}
+                            <div class="p-3 rounded-3 bg-white shadow-sm border border-light position-relative overflow-hidden transition-all hover-translate-y">
+                                <div class="d-flex justify-content-between align-items-start position-relative z-index-1">
+                                    <div>
+                                        <div class="fw-bold text-dark mb-1">{{ ruta.Nombre_Ruta }}</div>
+                                        <small class="text-muted d-block"><i class="fas fa-user-tie me-1 text-primary opacity-50"></i>{{ ruta.Vendedor }} {% if ruta.Placa %}({{ ruta.Placa }}){% endif %}</small>
+                                    </div>
+                                    <div class="text-end ms-2">
+                                        <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill px-2 py-1 fs-7 mb-1 d-block">
+                                            {{ ruta.Unidades_Totales|float | cantidad }} un.
+                                        </span>
+                                        <small class="text-success fw-bold">C$ {{ ruta.Valor_Total|float | cantidad }}</small>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div class="text-center py-4">
+                            <div class="bg-light text-muted rounded-circle d-inline-flex p-3 mb-3">
+                                <i class="fas fa-home fa-2x"></i>
+                            </div>
+                            <h6 class="fw-bold text-dark">Sin Rutas Activas</h6>
+                            <p class="text-muted small mb-0">No hay vehículos en tránsito con inventario.</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Operadores -->
+            <div class="card-glass mb-4 fade-in-up delay-3">
+                <div class="px-4 py-3 border-bottom border-light bg-white bg-opacity-50">
+                    <h6 class="fw-bold text-dark mb-0">
+                        <i class="fas fa-trophy text-warning me-2"></i>Productividad de Personal Hoy
+                    </h6>
+                </div>
+                <div class="p-3">
+                    {% if top_operadores %}
+                    <div class="d-flex flex-column gap-2">
+                        {% for op in top_operadores %}
+                        <div class="d-flex align-items-center justify-content-between p-2 rounded-3 bg-white shadow-sm border border-light transition-all hover-translate-y">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px; font-weight: bold;">
+                                    {{ loop.index }}
+                                </div>
+                                <div>
+                                    <h6 class="mb-0 fw-bold text-dark">{{ op.NombreUsuario }}</h6>
+                                    <small class="text-muted">{{ op.Volumen_Procesado|float | cantidad }} un. movidas</small>
+                                </div>
+                            </div>
+                            <span class="badge bg-success bg-opacity-10 text-success badge-modern">{{ op.Total_Movimientos }} trx</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">Aún no hay actividad registrada hoy.</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Alertas Stock Bajo -->
+            <div class="card-glass mb-4 fade-in-up delay-3" style="border-left: 4px solid #f59e0b;">
+                <div class="px-4 py-3 border-bottom border-light bg-white bg-opacity-50 d-flex justify-content-between align-items-center">
+                    <h6 class="fw-bold text-dark mb-0">
+                        <i class="fas fa-exclamation-circle text-warning me-2"></i>Alertas Críticas Stock
+                    </h6>
+                    <span class="badge bg-warning text-dark rounded-circle px-2 py-1">{{ productos_stock_bajo|length }}</span>
+                </div>
+                <div class="p-3">
+                    <div class="custom-scrollbar overflow-auto pe-2" style="max-height: 350px;">
+                        {% if productos_stock_bajo %}
+                        <div class="d-flex flex-column gap-2">
+                            {% for prod in productos_stock_bajo %}
+                            <div class="p-3 rounded-3 bg-white shadow-sm border border-light position-relative overflow-hidden transition-all hover-translate-y" style="transition: transform 0.2s;">
+                                {% if prod.Nivel_Alerta == 'AGOTADO' %}
+                                <div class="position-absolute top-0 start-0 w-100 h-100 bg-danger bg-opacity-10" style="pointer-events: none;"></div>
+                                {% elif prod.Nivel_Alerta == 'CRÍTICO' %}
+                                <div class="position-absolute top-0 start-0 w-100 h-100 bg-warning bg-opacity-10" style="pointer-events: none;"></div>
+                                {% endif %}
+                                <div class="d-flex justify-content-between align-items-start position-relative z-index-1">
+                                    <div class="me-2">
+                                        <div class="fw-bold text-dark mb-0 cursor-pointer" onclick="abrirKardexModal('{{ prod.ID_Producto }}', '{{ prod.Producto }}')">
+                                            {{ prod.Producto }}
+                                            {% if prod.COD_Producto %}<small class="text-muted font-monospace ms-1">({{ prod.COD_Producto }})</small>{% endif %}
+                                        </div>
+                                        <div class="text-muted small mt-1">
+                                            <i class="fas fa-warehouse me-1 text-primary opacity-50"></i>{{ prod.Bodega }}
+                                            <span class="text-secondary ms-1">• Mín: <strong class="text-dark">{{ prod.Stock_Minimo|float | cantidad }}</strong> {{ prod.Unidad }}</span>
+                                        </div>
+                                        {% if prod.Bodegas_Detalle and ' | ' in prod.Bodegas_Detalle %}
+                                        <div class="text-muted mt-1" style="font-size: 0.75rem;">
+                                            <i class="fas fa-info-circle me-1 text-info opacity-75"></i>{{ prod.Bodegas_Detalle }}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="text-end text-nowrap">
+                                        <span class="badge {% if prod.Nivel_Alerta == 'AGOTADO' %}bg-danger text-white{% elif prod.Nivel_Alerta == 'CRÍTICO' %}bg-danger bg-opacity-75 text-white{% else %}bg-warning text-dark{% endif %} rounded-pill px-2 py-1 fs-7">
+                                            {% if prod.Nivel_Alerta == 'AGOTADO' %}
+                                            <i class="fas fa-times-circle me-1"></i>0 {{ prod.Unidad }}
+                                            {% else %}
+                                            {{ prod.Stock_Actual_Formateado }}
+                                            {% endif %}
+                                        </span>
+                                        <div class="mt-1" style="font-size: 0.72rem;">
+                                            <span class="fw-bold {% if prod.Nivel_Alerta == 'AGOTADO' or prod.Nivel_Alerta == 'CRÍTICO' %}text-danger{% else %}text-warning{% endif %}">
+                                                {{ prod.Nivel_Alerta }} ({{ prod.Porcentaje_Stock }}%)
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div class="text-center py-5">
+                            <div class="bg-success bg-opacity-10 text-success rounded-circle d-inline-flex p-3 mb-3">
+                                <i class="fas fa-check fa-2x"></i>
+                            </div>
+                            <h6 class="fw-bold text-dark">Niveles Óptimos</h6>
+                            <p class="text-muted small mb-0">Todos los productos tienen stock suficiente.</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Existencias por Bodega Chart -->
+            <div class="card-glass fade-in-up delay-3">
+                <div class="px-4 py-3 border-bottom border-light bg-white bg-opacity-50">
+                    <h6 class="fw-bold text-dark mb-0">
+                        <i class="fas fa-boxes text-secondary me-2"></i>Volumen por Bodega
+                    </h6>
+                </div>
+                <div class="p-4">
+                    <div style="height: 250px; position: relative;">
+                        <canvas id="chartBodegasStock"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Distribución por Categoría Chart -->
+            <div class="card-glass mt-4 fade-in-up delay-3">
+                <div class="px-4 py-3 border-bottom border-light bg-white bg-opacity-50">
+                    <h6 class="fw-bold text-dark mb-0">
+                        <i class="fas fa-chart-pie text-info me-2"></i>Inventario por Categoría
+                    </h6>
+                </div>
+                <div class="p-4">
+                    <div style="height: 250px; position: relative;">
+                        <canvas id="chartCategoriasStock"></canvas>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Analytical Charts Row (Top, Bottom, Stock Muerto) -->
+    <div class="row g-4 mb-4">
+        <!-- Más Salen -->
+        <div class="col-xl-4 col-lg-4">
+            <div class="card-glass fade-in-up delay-3">
+                <div class="px-4 py-3 border-bottom border-light bg-white bg-opacity-50">
+                    <h6 class="fw-bold text-dark mb-0">
+                        <i class="fas fa-arrow-trend-up text-success me-2"></i>Productos Más Movidos (30 días)
+                    </h6>
+                </div>
+                <div class="p-4">
+                    <div style="height: 250px; position: relative;">
+                        <canvas id="chartTopHistorico"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Menos Salen -->
+        <div class="col-xl-4 col-lg-4">
+            <div class="card-glass fade-in-up delay-3">
+                <div class="px-4 py-3 border-bottom border-light bg-white bg-opacity-50">
+                    <h6 class="fw-bold text-dark mb-0">
+                        <i class="fas fa-arrow-trend-down text-danger me-2"></i>Productos Menos Movidos (30 días)
+                    </h6>
+                </div>
+                <div class="p-4">
+                    <div style="height: 250px; position: relative;">
+                        <canvas id="chartBottomHistorico"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stock Muerto -->
+        <div class="col-xl-4 col-lg-4">
+            <div class="card-glass fade-in-up delay-3">
+                <div class="px-4 py-3 border-bottom border-light bg-white bg-opacity-50">
+                    <h6 class="fw-bold text-dark mb-0">
+                        <i class="fas fa-skull-crossbones text-warning me-2"></i>Top Stock Muerto (> 45 días)
+                    </h6>
+                </div>
+                <div class="p-4">
+                    <div style="height: 250px; position: relative;">
+                        <canvas id="chartStockMuerto"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Kardex -->
+<div class="modal fade" id="modalKardexRapido" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content card-glass border-0 shadow-lg" style="background: rgba(255, 255, 255, 0.95);">
+            <div class="modal-header border-bottom border-light px-4 py-3">
+                <div>
+                    <h5 class="modal-title fw-bold text-dark mb-0">
+                        <i class="fas fa-history text-primary me-2"></i>Detalle Kardex
+                    </h5>
+                    <small class="text-muted" id="modalKardexSubtitulo">Cargando información...</small>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div id="modalKardexLoading" class="text-center py-5">
+                    <div class="spinner-grow text-primary" role="status"></div>
+                </div>
+                <div id="modalKardexContenido" style="display: none;">
+                    <div class="row g-3 mb-4">
+                        <div class="col-sm-4">
+                            <div class="p-3 bg-white rounded-3 border border-light shadow-sm text-center h-100">
+                                <small class="text-muted fw-bold d-block mb-1">STOCK TOTAL</small>
+                                <h4 class="fw-bold text-primary mb-0" id="modalStockTotal">-</h4>
+                            </div>
+                        </div>
+                        <div class="col-sm-4">
+                            <div class="p-3 bg-white rounded-3 border border-light shadow-sm text-center h-100">
+                                <small class="text-muted fw-bold d-block mb-1">PRECIO MERCADO</small>
+                                <h4 class="fw-bold text-success mb-0" id="modalPrecioVenta">-</h4>
+                            </div>
+                        </div>
+                        <div class="col-sm-4">
+                            <div class="p-3 bg-white rounded-3 border border-light shadow-sm text-center h-100">
+                                <small class="text-muted fw-bold d-block mb-1">CATEGORÍA</small>
+                                <h6 class="fw-bold text-dark mt-2 mb-0" id="modalCategoriaUnidad">-</h6>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h6 class="fw-bold text-dark mb-3"><i class="fas fa-sitemap text-secondary me-2"></i>Distribución</h6>
+                    <div id="modalStockBodegasContainer" class="d-flex flex-wrap gap-2 mb-4"></div>
+
+                    <h6 class="fw-bold text-dark mb-3"><i class="fas fa-exchange-alt text-primary me-2"></i>Historial Reciente</h6>
+                    <div class="custom-scrollbar overflow-auto rounded-3 border border-light" style="max-height: 250px;">
+                        <table class="table table-modern mb-0">
+                            <thead class="bg-light sticky-top">
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Operación</th>
+                                    <th>Bodega</th>
+                                    <th class="text-end">Cant.</th>
+                                </tr>
+                            </thead>
+                            <tbody id="modalMovimientosBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    inicializarGraficosDashboard();
+    configurarBuscador('searchCargas', 'tablaCargas');
+    configurarBuscador('searchPedidos', 'tablaPedidos');
+    configurarBuscador('searchKardex', 'tablaKardex');
+    
+    // Auto refresh every 5 mins
+    setTimeout(() => window.location.reload(), 300000);
+});
+
+function inicializarGraficosDashboard() {
+    Chart.defaults.font.family = "'Inter', sans-serif";
+    Chart.defaults.color = "#64748b";
+
+    const ctxFlujo = document.getElementById('chartFlujoHoras');
+    if (ctxFlujo) {
+        new Chart(ctxFlujo, {
+            type: 'line',
+            data: {
+                labels: {{ chart_horas|safe if chart_horas else "[]" }},
+                datasets: [
+                    { 
+                        label: 'Entradas', 
+                        data: {{ chart_entradas_hora|safe if chart_entradas_hora else "[]" }}, 
+                        borderColor: '#10b981', 
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#10b981',
+                        pointBorderColor: '#fff',
+                        pointHoverRadius: 6
+                    },
+                    { 
+                        label: 'Salidas', 
+                        data: {{ chart_salidas_hora|safe if chart_salidas_hora else "[]" }}, 
+                        borderColor: '#ef4444', 
+                        backgroundColor: 'transparent',
+                        borderWidth: 3,
+                        borderDash: [5, 5],
+                        tension: 0.4,
+                        pointBackgroundColor: '#ef4444',
+                        pointBorderColor: '#fff',
+                        pointHoverRadius: 6
+                    }
+                ]
+            },
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                interaction: {
+                    intersect: false,
+                    mode: 'index',
+                },
+                plugins: { 
+                    legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8 } },
+                    tooltip: {
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        titleColor: '#1e293b',
+                        bodyColor: '#475569',
+                        borderColor: 'rgba(0,0,0,0.1)',
+                        borderWidth: 1,
+                        padding: 12,
+                        boxPadding: 6,
+                        usePointStyle: true
+                    }
+                },
+                scales: {
+                    y: { border: { display: false }, grid: { color: 'rgba(0,0,0,0.04)', drawTicks: false } },
+                    x: { border: { display: false }, grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    const ctxBodegas = document.getElementById('chartBodegasStock');
+    if (ctxBodegas) {
+        new Chart(ctxBodegas, {
+            type: 'bar',
+            data: {
+                labels: {{ chart_bodegas_nombres|safe if chart_bodegas_nombres else "[]" }},
+                datasets: [{ 
+                    label: 'Existencias', 
+                    data: {{ chart_bodegas_existencias|safe if chart_bodegas_existencias else "[]" }}, 
+                    backgroundColor: 'rgba(44, 94, 46, 0.85)', 
+                    hoverBackgroundColor: '#2c5e2e',
+                    borderRadius: 8,
+                    barPercentage: 0.6
+                }]
+            },
+            options: { 
+                indexAxis: 'y', 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { border: { display: false }, grid: { color: 'rgba(0,0,0,0.04)' } },
+                    y: { border: { display: false }, grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    const ctxCategorias = document.getElementById('chartCategoriasStock');
+    if (ctxCategorias) {
+        new Chart(ctxCategorias, {
+            type: 'doughnut',
+            data: {
+                labels: {{ chart_categorias_nombres|safe if chart_categorias_nombres else "[]" }},
+                datasets: [{ 
+                    data: {{ chart_categorias_valores|safe if chart_categorias_valores else "[]" }}, 
+                    backgroundColor: [
+                        '#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#64748b', '#2c5e2e'
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#ffffff',
+                    hoverOffset: 4
+                }]
+            },
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                plugins: { 
+                    legend: { position: 'right', labels: { usePointStyle: true, boxWidth: 8, padding: 15 } },
+                    tooltip: {
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        titleColor: '#1e293b',
+                        bodyColor: '#475569',
+                        borderColor: 'rgba(0,0,0,0.1)',
+                        borderWidth: 1,
+                        padding: 12,
+                        boxPadding: 6,
+                        usePointStyle: true
+                    }
+                }
+            }
+        });
+    }
+
+    const ctxTopHistorico = document.getElementById('chartTopHistorico');
+    if (ctxTopHistorico) {
+        new Chart(ctxTopHistorico, {
+            type: 'bar',
+            data: {
+                labels: {{ chart_top_historico_nombres|safe if chart_top_historico_nombres else "[]" }},
+                datasets: [{ 
+                    label: 'Salidas', 
+                    data: {{ chart_top_historico_valores|safe if chart_top_historico_valores else "[]" }}, 
+                    backgroundColor: 'rgba(16, 185, 129, 0.85)', 
+                    hoverBackgroundColor: '#10b981',
+                    borderRadius: 8,
+                    barPercentage: 0.6
+                }]
+            },
+            options: { 
+                indexAxis: 'y', 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { border: { display: false }, grid: { color: 'rgba(0,0,0,0.04)' } },
+                    y: { border: { display: false }, grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    const ctxBottomHistorico = document.getElementById('chartBottomHistorico');
+    if (ctxBottomHistorico) {
+        new Chart(ctxBottomHistorico, {
+            type: 'bar',
+            data: {
+                labels: {{ chart_bottom_historico_nombres|safe if chart_bottom_historico_nombres else "[]" }},
+                datasets: [{ 
+                    label: 'Salidas', 
+                    data: {{ chart_bottom_historico_valores|safe if chart_bottom_historico_valores else "[]" }}, 
+                    backgroundColor: 'rgba(239, 68, 68, 0.85)', 
+                    hoverBackgroundColor: '#ef4444',
+                    borderRadius: 8,
+                    barPercentage: 0.6
+                }]
+            },
+            options: { 
+                indexAxis: 'y', 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { border: { display: false }, grid: { color: 'rgba(0,0,0,0.04)' } },
+                    y: { border: { display: false }, grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    const ctxStockMuerto = document.getElementById('chartStockMuerto');
+    if (ctxStockMuerto) {
+        new Chart(ctxStockMuerto, {
+            type: 'bar',
+            data: {
+                labels: {{ chart_stock_muerto_nombres|safe if chart_stock_muerto_nombres else "[]" }},
+                datasets: [{ 
+                    label: 'Existencias', 
+                    data: {{ chart_stock_muerto_valores|safe if chart_stock_muerto_valores else "[]" }}, 
+                    backgroundColor: 'rgba(245, 158, 11, 0.85)', 
+                    hoverBackgroundColor: '#f59e0b',
+                    borderRadius: 8,
+                    barPercentage: 0.6
+                }]
+            },
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { border: { display: false }, grid: { color: 'rgba(0,0,0,0.04)' } },
+                    x: { border: { display: false }, grid: { display: false } }
+                }
+            }
+        });
+    }
+}
+
+function configurarBuscador(inputId, tableId) {
+    const input = document.getElementById(inputId);
+    const table = document.getElementById(tableId);
+    if (!input || !table) return;
+    input.addEventListener('keyup', function() {
+        const filter = this.value.toLowerCase().trim();
+        table.querySelectorAll('tbody tr').forEach(row => {
+            row.style.display = row.textContent.toLowerCase().includes(filter) ? '' : 'none';
+        });
+    });
+}
+
+function abrirKardexModal(productoId, productoNombre) {
+    if (!productoId) return;
+    const modalEl = document.getElementById('modalKardexRapido');
+    const modal = window.bootstrap && bootstrap.Modal ? bootstrap.Modal.getOrCreateInstance(modalEl) : new bootstrap.Modal(modalEl);
+    
+    document.getElementById('modalKardexSubtitulo').textContent = productoNombre + ' (ID: #' + productoId + ')';
+    document.getElementById('modalKardexLoading').style.display = 'block';
+    document.getElementById('modalKardexContenido').style.display = 'none';
+    modal.show();
+
+    fetch(`/bodega/api/producto/${productoId}/kardex-rapido`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('modalKardexLoading').style.display = 'none';
+            if (data.success) {
+                document.getElementById('modalKardexContenido').style.display = 'block';
+                const p = data.producto;
+                document.getElementById('modalStockTotal').textContent = (p.Stock_Total || 0) + ' ' + (p.Unidad_Abrev || '');
+                document.getElementById('modalPrecioVenta').textContent = 'C$ ' + parseFloat(p.Precio_Mercado || 0).toFixed(2);
+                document.getElementById('modalCategoriaUnidad').textContent = (p.Categoria || 'S/C');
+
+                const bodegasContainer = document.getElementById('modalStockBodegasContainer');
+                bodegasContainer.innerHTML = data.stock_bodegas?.length ? 
+                    data.stock_bodegas.map(b => `<span class="badge bg-white text-dark border border-light shadow-sm px-3 py-2 fs-7 rounded-pill"><strong>${b.Bodega}:</strong> ${parseFloat(b.Existencias).toFixed(2)}</span>`).join('') 
+                    : '<span class="text-muted small">Sin existencias en bodegas</span>';
+
+                const movBody = document.getElementById('modalMovimientosBody');
+                movBody.innerHTML = data.movimientos?.length ? 
+                    data.movimientos.map(m => {
+                        const esEntrada = m.Letra === 'E' || m.Adicion === '+';
+                        const cls = esEntrada ? 'text-success' : 'text-danger';
+                        const badgeTipo = esEntrada 
+                            ? `<span class="badge bg-success bg-opacity-10 text-success badge-modern border border-success border-opacity-25">${m.Tipo_Movimiento}</span>`
+                            : `<span class="badge bg-danger bg-opacity-10 text-danger badge-modern border border-danger border-opacity-25">${m.Tipo_Movimiento}</span>`;
+                        return `<tr>
+                            <td>
+                                <div class="font-monospace fw-bold text-dark">${m.Fecha_Formateada || m.Fecha}</div>
+                                <small class="text-muted"><i class="fas fa-user-circle me-1"></i>${m.Usuario || 'Sistema'}</small>
+                            </td>
+                            <td>${badgeTipo}</td>
+                            <td><span class="text-dark fw-medium">${m.Bodega_Origen || m.Bodega_Destino || 'N/A'}</span></td>
+                            <td class="text-end fw-bold font-monospace fs-6 ${cls}">${esEntrada?'+':'-'}${parseFloat(m.Cantidad).toFixed(2)}</td>
+                        </tr>`;
+                    }).join('') : `<tr><td colspan="4" class="text-center text-muted py-4 bg-light rounded-3">Sin movimientos registrados recientemente.</td></tr>`;
+            } else {
+                Swal.fire(data.message || 'Error al cargar los datos.', '', 'info');
+            }
+        }).catch(err => {
+            document.getElementById('modalKardexLoading').style.display = 'none';
+            Swal.fire('Error al consultar kardex', '', 'info');
+        });
+}
+</script>
+{% endblock %}

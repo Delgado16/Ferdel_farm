@@ -1,0 +1,168 @@
+{% extends "layout.html" %}
+
+{% block title %}Configuración General - FerDel{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4 fade-in-up">
+    <!-- Encabezado -->
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-sliders-h text-primary me-2"></i>Configuración General
+            </h3>
+            <p class="text-muted small mb-0">Ajusta los parámetros generales, datos fiscales y configuración de correos de la empresa.</p>
+        </div>
+        <div>
+            <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-arrow-left me-1"></i> Volver al Dashboard
+            </a>
+        </div>
+    </div>
+    
+    <!-- Contenedor Principal -->
+    <div class="card-premium-section mb-4">
+        <div class="card-body p-4">
+            <!-- Pestañas de Navegación -->
+            <ul class="nav nav-tabs nav-tabs-custom mb-4" id="configTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active fw-bold" id="empresa-tab" data-bs-toggle="tab" data-bs-target="#empresa" type="button" role="tab" aria-controls="empresa" aria-selected="true">
+                        <i class="fas fa-building me-2 text-primary"></i>Datos de Empresa
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link fw-bold" id="negocio-tab" data-bs-toggle="tab" data-bs-target="#negocio" type="button" role="tab" aria-controls="negocio" aria-selected="false">
+                        <i class="fas fa-percentage me-2 text-success"></i>Impuestos y Negocio
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link fw-bold" id="correo-tab" data-bs-toggle="tab" data-bs-target="#correo" type="button" role="tab" aria-controls="correo" aria-selected="false">
+                        <i class="fas fa-envelope me-2 text-info"></i>Servidor de Correos (SMTP)
+                    </button>
+                </li>
+            </ul>
+
+            <form method="POST" id="configForm">
+                <div class="tab-content" id="configTabsContent">
+                    <!-- Pestaña 1: Datos de Empresa -->
+                    <div class="tab-pane fade show active" id="empresa" role="tabpanel" aria-labelledby="empresa-tab">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="empresa_nombre" class="form-label fw-bold text-slate-800">Nombre de la Empresa</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light"><i class="fas fa-signature text-muted"></i></span>
+                                    <input type="text" class="form-control" id="empresa_nombre" name="empresa_nombre" value="{{ config.empresa_nombre }}" required>
+                                </div>
+                                <div class="form-text text-muted">Utilizado en comprobantes de pago y reportes.</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="empresa_ruc" class="form-label fw-bold text-slate-800">RUC / RIF / Identificación Fiscal</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light"><i class="fas fa-id-card text-muted"></i></span>
+                                    <input type="text" class="form-control" id="empresa_ruc" name="empresa_ruc" value="{{ config.empresa_ruc }}">
+                                </div>
+                                <div class="form-text text-muted">Identificador legal de la organización.</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="empresa_telefono" class="form-label fw-bold text-slate-800">Teléfono General</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light"><i class="fas fa-phone text-muted"></i></span>
+                                    <input type="text" class="form-control" id="empresa_telefono" name="empresa_telefono" value="{{ config.empresa_telefono }}">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="empresa_direccion" class="form-label fw-bold text-slate-800">Dirección Física</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light"><i class="fas fa-map-marker-alt text-muted"></i></span>
+                                    <input type="text" class="form-control" id="empresa_direccion" name="empresa_direccion" value="{{ config.empresa_direccion }}">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pestaña 2: Impuestos y Negocio -->
+                    <div class="tab-pane fade" id="negocio" role="tabpanel" aria-labelledby="negocio-tab">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="iva_porcentaje" class="form-label fw-bold text-slate-800">Porcentaje del IVA (%)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light"><i class="fas fa-percent text-muted"></i></span>
+                                    <input type="number" step="0.01" min="0" max="100" class="form-control" id="iva_porcentaje" name="iva_porcentaje" value="{{ config.iva_porcentaje }}" required>
+                                </div>
+                                <div class="form-text text-muted">Tasa predeterminada del IVA aplicada a las ventas del sistema.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pestaña 3: Correo (SMTP) -->
+                    <div class="tab-pane fade" id="correo" role="tabpanel" aria-labelledby="correo-tab">
+                        <div class="row g-3">
+                            <div class="col-md-8">
+                                <label for="smtp_host" class="form-label fw-bold text-slate-800">Servidor SMTP</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light"><i class="fas fa-server text-muted"></i></span>
+                                    <input type="text" class="form-control" id="smtp_host" name="smtp_host" value="{{ config.smtp_host }}" placeholder="ej. smtp.gmail.com">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="smtp_port" class="form-label fw-bold text-slate-800">Puerto SMTP</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light"><i class="fas fa-hashtag text-muted"></i></span>
+                                    <input type="text" class="form-control" id="smtp_port" name="smtp_port" value="{{ config.smtp_port }}" placeholder="587 o 465">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="smtp_user" class="form-label fw-bold text-slate-800">Usuario SMTP / Correo Remitente</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light"><i class="fas fa-user text-muted"></i></span>
+                                    <input type="email" class="form-control" id="smtp_user" name="smtp_user" value="{{ config.smtp_user }}" placeholder="correo@empresa.com">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="smtp_password" class="form-label fw-bold text-slate-800">Contraseña SMTP</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light"><i class="fas fa-lock text-muted"></i></span>
+                                    <input type="password" class="form-control" id="smtp_password" name="smtp_password" value="{{ config.smtp_password }}" placeholder="••••••••••••">
+                                </div>
+                                <div class="form-text text-muted">Contraseña de aplicación si utilizas servicios como Gmail.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botones de Acción -->
+                <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                    <button type="submit" class="btn btn-primary px-4 py-2 rounded-3 fw-bold">
+                        <i class="fas fa-save me-2"></i>Guardar Configuración
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block styles %}
+<style>
+    .nav-tabs-custom {
+        border-bottom: 2px solid var(--border-color, #e2e8f0);
+    }
+    .nav-tabs-custom .nav-link {
+        border: none;
+        color: var(--text-muted, #718096);
+        background: transparent;
+        padding: 0.75rem 1.25rem;
+        transition: all 0.2s ease;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+    }
+    .nav-tabs-custom .nav-link:hover {
+        color: var(--primary-color, #3b82f6);
+        border-bottom-color: var(--border-color, #cbd5e1);
+    }
+    .nav-tabs-custom .nav-link.active {
+        color: var(--primary-color, #3b82f6);
+        border-bottom: 2px solid var(--primary-color, #3b82f6);
+        background: transparent;
+    }
+</style>
+{% endblock %}

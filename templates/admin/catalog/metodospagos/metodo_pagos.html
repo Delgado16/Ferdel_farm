@@ -1,0 +1,152 @@
+{% extends 'layout.html' %}
+
+{% block title %}Métodos de Pago - FerDel{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4 fade-in-up">
+    <!-- Encabezado con botón de volver -->
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-credit-card text-primary me-2"></i>Métodos de Pago
+            </h3>
+            <p class="text-muted small mb-0">Gestión de las opciones de pago aceptadas para las transacciones comerciales</p>
+        </div>
+        <div>
+            <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-arrow-left me-1"></i> Volver al Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Botón crear método de pago -->
+    <div class="mb-3">
+        <button class="btn btn-outline-primary rounded-3 px-3 py-2" data-bs-toggle="modal" data-bs-target="#crearMetodoPagoModal">
+            <i class="fas fa-plus me-1"></i> Nuevo Método de Pago
+        </button>
+    </div>
+
+    <!-- Tabla de métodos de pago -->
+    {% if metodos %}
+    <div class="card-premium-section mb-4">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-modern align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for metodo in metodos %}
+                        <tr>
+                            <td><span class="badge bg-light text-dark border">#{{ metodo.ID_MetodoPago }}</span></td>
+                            <td class="fw-bold text-slate-800">
+                                {{ metodo.Nombre }}
+                                {% if metodo.Nombre|lower in ['efectivo', 'cash'] %}
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2.5 py-1 fw-bold ms-2">Principal</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center gap-1">
+                                    <a href="{{ url_for('admin.admin_metodos_pago_editar', id=metodo.ID_MetodoPago) }}" 
+                                       class="btn btn-sm btn-outline-primary rounded-3" title="Editar">
+                                        <i class="fas fa-edit me-1"></i> Editar
+                                    </a>
+                                    
+                                    <form action="{{ url_for('admin.admin_metodos_pago_eliminar', id=metodo.ID_MetodoPago) }}" 
+                                          method="POST" class="d-inline-block"
+                                          onsubmit="event.preventDefault(); Swal.fire({title: '¿Estás seguro de que deseas eliminar este método de pago?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí', cancelButtonText: 'No'}).then((result) => { if (result.isConfirmed) { this.submit(); } });">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger rounded-3" title="Eliminar">
+                                            <i class="fas fa-trash me-1"></i> Eliminar
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-warning bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20 rounded-3">
+        <i class="fas fa-exclamation-triangle me-2"></i> No se encontraron métodos de pago en el sistema.
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal para crear método de pago -->
+<div class="modal fade" id="crearMetodoPagoModal" tabindex="-1" aria-labelledby="crearMetodoPagoModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow-lg rounded-3">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold text-slate-800" id="crearMetodoPagoModalLabel">
+                    <i class="fas fa-plus text-primary me-2"></i>Nuevo Método de Pago
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin.admin_metodos_pago_crear') }}" id="crearMetodoPagoForm" novalidate>
+                <div class="modal-body">
+                    <!-- Nombre -->
+                    <div class="mb-3">
+                        <label for="nombre" class="form-label-premium fw-bold mb-1">Nombre del Método de Pago *</label>
+                        <input type="text" class="form-control form-control-premium" id="nombre" name="nombre" 
+                               required minlength="2" maxlength="255"
+                               placeholder="Ingrese el nombre del método de pago">
+                        <div class="form-text small text-muted">
+                            Ejemplo: Tarjeta de Crédito, Transferencia Bancaria, Efectivo, etc. Mínimo 2 caracteres.
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0">
+                    <button type="button" class="btn btn-outline-secondary px-3 py-1.5 rounded-3" data-bs-dismiss="modal">
+                        <i class="fas fa-times-circle me-1"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-outline-primary px-3 py-1.5 rounded-3">
+                        <i class="fas fa-save me-1"></i> Guardar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('crearMetodoPagoForm');
+    
+    // Validación del formulario completo
+    if (form) {
+        form.addEventListener('submit', function(event) {
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            form.classList.add('was-validated');
+        });
+    }
+    
+    // Limpiar formulario al cerrar modal
+    const modal = document.getElementById('crearMetodoPagoModal');
+    if (modal) {
+        modal.addEventListener('hidden.bs.modal', function () {
+            if (form) {
+                form.reset();
+                form.classList.remove('was-validated');
+            }
+        });
+        
+        // Auto-focus en el campo nombre cuando se abre el modal
+        modal.addEventListener('shown.bs.modal', function () {
+            document.getElementById('nombre').focus();
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,390 @@
+{% extends "layout.html" %}
+
+{% block title %}Historial - {{ vendedor.NombreUsuario }} - FerDel{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4 fade-in-up">
+    <!-- Breadcrumb / Navegación -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb bg-transparent p-0 mb-0">
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('bodega.inventario_vendedores') }}" class="text-decoration-none text-muted small">
+                    <i class="fas fa-arrow-left me-1"></i> Volver a Vendedores
+                </a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('bodega.inventario_vendedor_detalle', id_usuario=vendedor.ID_Usuario) }}" class="text-decoration-none text-muted small">
+                    <i class="fas fa-boxes me-1"></i> Inventario
+                </a>
+            </li>
+            <li class="breadcrumb-item active small text-slate-800 fw-bold" aria-current="page">
+                <i class="fas fa-history me-1"></i> Historial de Movimientos
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Filtro de Fechas -->
+    <div class="card-premium-section mb-4">
+        <div class="card-premium-header">
+            <h6 class="fw-bold text-slate-800 mb-0">
+                <i class="fas fa-filter text-primary me-2"></i>Filtro de Fechas
+            </h6>
+        </div>
+        <div class="card-body p-4">
+            <form method="GET" class="row g-3 align-items-end">
+                <div class="col-12 col-md-4">
+                    <label class="form-label-premium">Fecha Inicio</label>
+                    <input type="date" name="fecha_inicio" class="form-control form-control-premium" value="{{ fecha_inicio }}">
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label-premium">Fecha Fin</label>
+                    <input type="date" name="fecha_fin" class="form-control form-control-premium" value="{{ fecha_fin }}">
+                </div>
+                <div class="col-12 col-md-4">
+                    <button type="submit" class="btn btn-primary w-100 py-2 rounded-3">
+                        <i class="fas fa-search me-1"></i> Filtrar Movimientos
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Ficha del Vendedor -->
+    <div class="card-premium-section mb-4">
+        <div class="card-body p-4">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 border-bottom border-light pb-3 mb-3">
+                <div>
+                    <h4 class="fw-bold text-slate-800 mb-1">
+                        <i class="fas fa-user-tag text-primary me-2"></i>{{ vendedor.NombreUsuario }}
+                    </h4>
+                    <p class="text-muted small mb-0">Detalle de asignación de ruta y control de inventario de vendedor</p>
+                </div>
+                <span class="badge bg-light text-dark border font-monospace px-2.5 py-1.5">
+                    Asignación #{{ vendedor.ID_Asignacion }}
+                </span>
+            </div>
+            
+            <div class="row g-3">
+                <div class="col-md-6 col-lg-4">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-route fa-lg text-primary"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <small class="text-muted d-block uppercase-detail">Ruta Asignada</small>
+                            <strong class="text-slate-800">{{ vendedor.Nombre_Ruta or 'No asignada' }}</strong>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-4">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-calendar-alt fa-lg text-success"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <small class="text-muted d-block uppercase-detail">Fecha de Asignación</small>
+                            <strong class="text-slate-800">
+                                {% if vendedor.Fecha_Asignacion %}
+                                    {% if vendedor.Fecha_Asignacion is string %}
+                                        {{ vendedor.Fecha_Asignacion }}
+                                    {% else %}
+                                        {{ vendedor.Fecha_Asignacion.strftime('%d/%m/%Y') }}
+                                    {% endif %}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </strong>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-4">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-file-invoice fa-lg text-info"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <small class="text-muted d-block uppercase-detail">Total Registros</small>
+                            <strong class="text-slate-800">{{ movimientos|length }} movimientos</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tarjetas de Resumen -->
+    {% if resumen %}
+    <div class="row mb-4 g-3">
+        <div class="col-sm-6 col-lg-3">
+            <div class="card-premium-section border-start border-3 border-info">
+                <div class="card-body p-3 text-center">
+                    <i class="fas fa-exchange-alt text-info fa-2x mb-2 opacity-75"></i>
+                    <h6 class="text-muted small mb-1">Total Movimientos</h6>
+                    <h3 class="fw-bold text-slate-800 mb-0">{{ resumen.Total_Movimientos|default(0)|int }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="card-premium-section border-start border-3 border-success">
+                <div class="card-body p-3 text-center">
+                    <i class="fas fa-arrow-circle-down text-success fa-2x mb-2 opacity-75"></i>
+                    <h6 class="text-muted small mb-1">Entradas</h6>
+                    <h3 class="fw-bold text-slate-800 mb-0">{{ resumen.Total_Entradas|default(0)|int }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="card-premium-section border-start border-3 border-danger">
+                <div class="card-body p-3 text-center">
+                    <i class="fas fa-arrow-circle-up text-danger fa-2x mb-2 opacity-75"></i>
+                    <h6 class="text-muted small mb-1">Salidas</h6>
+                    <h3 class="fw-bold text-slate-800 mb-0">{{ resumen.Total_Salidas|default(0)|int }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="card-premium-section border-start border-3 border-primary">
+                <div class="card-body p-3 text-center">
+                    <i class="fas fa-calculator text-primary fa-2x mb-2 opacity-75"></i>
+                    <h6 class="text-muted small mb-1">Movimiento Neto</h6>
+                    <h3 class="fw-bold text-slate-800 mb-0">{{ ((resumen.Total_Entradas or 0) - (resumen.Total_Salidas or 0))|int }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Tabla de Movimientos -->
+    <div class="card-premium-section mb-4">
+        <div class="card-header border-0 bg-transparent py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <h5 class="fw-bold text-slate-800 mb-0">
+                <i class="fas fa-list-alt text-primary me-2"></i>Registro de Movimientos
+            </h5>
+            <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-outline-success px-3 py-2 rounded-3" onclick="exportToCSV()">
+                    <i class="fas fa-download me-1"></i> Exportar CSV
+                </button>
+                <button class="btn btn-sm btn-outline-primary px-3 py-2 rounded-3" onclick="window.print()">
+                    <i class="fas fa-print me-1"></i> Imprimir
+                </button>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            {% if movimientos %}
+            <div class="table-responsive">
+                <table class="table table-hover table-modern align-middle mb-0" id="tablaHistorial">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha/Hora</th>
+                            <th>Tipo</th>
+                            <th>Documento</th>
+                            <th>Cliente</th>
+                            <th>Producto</th>
+                            <th>Cantidad</th>
+                            <th>Precio</th>
+                            <th>Subtotal</th>
+                            <th>Total Venta</th>
+                            <th>Registrado Por</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for mov in movimientos %}
+                        {% set fecha_mov = mov.Fecha_Movimiento %}
+                        {% set fecha_str = fecha_mov if fecha_mov is string else fecha_mov.strftime('%d/%m/%Y') if fecha_mov else '' %}
+                        {% set hora_str = fecha_mov.strftime('%H:%M:%S') if fecha_mov and fecha_mov is not string else '' %}
+                        <tr>
+                            <td>
+                                {% if fecha_mov %}
+                                    <div class="fw-bold text-slate-800">{{ fecha_str }}</div>
+                                    {% if hora_str %}
+                                        <small class="text-muted font-monospace small">{{ hora_str }}</small>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge {% if mov.Impacto == '+' %}bg-success bg-opacity-10 text-success border border-success border-opacity-25{% else %}bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25{% endif %} rounded-pill px-2.5 py-1.5 fw-bold">
+                                    <i class="fas {% if mov.Impacto == '+' %}fa-arrow-down{% else %}fa-arrow-up{% endif %} me-1"></i>
+                                    {{ mov.Simbolo or '' }} {{ mov.Tipo_Movimiento or '' }}
+                                </span>
+                            </td>
+                            <td>
+                                <code class="font-monospace bg-light text-dark border px-2 py-1 rounded small">{{ mov.Documento_Numero or '—' }}</code>
+                            </td>
+                            <td>
+                                <div class="text-truncate text-slate-800 small" style="max-width: 150px;" title="{{ mov.Nombre_Cliente or '—' }}">
+                                    <i class="fas fa-user-circle me-1 text-muted"></i>
+                                    {{ mov.Nombre_Cliente or '—' }}
+                                </div>
+                            </td>
+                            <td>
+                                <div>
+                                    <code class="font-monospace bg-light text-dark border px-2 py-0.5 rounded small">{{ mov.COD_Producto or '—' }}</code>
+                                    <div class="small mt-1 text-slate-800">{{ mov.Producto|truncate(30) if mov.Producto else '—' }}</div>
+                                </div>
+                            </td>
+                            <td>
+                                <div>
+                                    <span class="fw-bold {% if mov.Impacto == '+' %}text-success{% else %}text-danger{% endif %}">
+                                        {{ mov.Impacto or '' }}{{ mov.Cantidad | cantidad if mov.Cantidad else 0 }}
+                                    </span>
+                                    <small class="text-muted d-block small font-monospace">{{ mov.Unidad_Medida or '' }}</small>
+                                </div>
+                            </td>
+                            <td><strong class="text-slate-800 font-monospace">C$ {{ mov.Precio_Unitario|float if mov.Precio_Unitario else 0 | cantidad }}</strong></td>
+                            <td class="font-monospace text-slate-800">C$ {{ mov.Subtotal|float if mov.Subtotal else 0 | cantidad }}</td>
+                            <td>
+                                <strong class="text-primary font-monospace">C$ {{ mov.Total_Venta|float if mov.Total_Venta else 0 | cantidad }}</strong>
+                            </td>
+                            <td class="small text-slate-800">
+                                <i class="fas fa-user-check me-1 text-muted"></i>
+                                {{ mov.Registrado_Por or '—' }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-light">
+                        <tr>
+                            <th colspan="8" class="text-end fw-bold text-slate-800">Totales:</th>
+                            <th colspan="2" class="font-monospace fw-bold text-slate-800">
+                                C$ {{ movimientos|sum(attribute='Total_Venta')|default(0) | cantidad }}
+                            </th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-folder-open text-muted fa-3x mb-3"></i>
+                <h5 class="fw-bold text-slate-800">Sin movimientos registrados</h5>
+                <p class="text-muted small">No se encontraron movimientos asociados para la asignación de este vendedor.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Inicializar DataTable solo si hay datos
+    {% if movimientos and movimientos|length > 0 %}
+    if ($.fn.DataTable) {
+        window.movementsTable = $('#tablaHistorial').DataTable({
+            language: {
+                url: '//cdn.datatables.net/plug-ins/1.10.25/i18n/Spanish.json',
+                search: "<i class='fas fa-search me-1'></i> Buscar:",
+                lengthMenu: "<i class='fas fa-list me-1'></i> Mostrar _MENU_ registros",
+                info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
+                infoEmpty: "Mostrando 0 a 0 de 0 registros",
+                infoFiltered: "(filtrado de _MAX_ registros totales)",
+                paginate: {
+                    first: "<i class='fas fa-angle-double-left'></i>",
+                    previous: "<i class='fas fa-angle-left'></i>",
+                    next: "<i class='fas fa-angle-right'></i>",
+                    last: "<i class='fas fa-angle-double-right'></i>"
+                }
+            },
+            pageLength: 25,
+            order: [[0, 'desc']],
+            responsive: true,
+            dom: '<"row p-3"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6 d-flex justify-content-md-end"f>>rt<"row p-3"<"col-sm-12 col-md-6"i><"col-sm-12 col-md-6"p>>'
+        });
+    }
+    {% endif %}
+});
+
+// Función para exportar a CSV manual (segura)
+function exportToCSV() {
+    {% if movimientos and movimientos|length > 0 %}
+    const rows = [];
+    const headers = ['Fecha', 'Hora', 'Tipo', 'Documento', 'Cliente', 'Producto', 'Código', 'Cantidad', 'Unidad', 'Precio', 'Subtotal', 'Total Venta', 'Registrado Por'];
+    rows.push(headers.join(','));
+    
+    {% for mov in movimientos %}
+    // Escapar y limpiar valores para CSV
+    const fecha = '{{ mov.Fecha_Movimiento.strftime("%d/%m/%Y") if mov.Fecha_Movimiento and mov.Fecha_Movimiento is not string else "" }}';
+    const hora = '{{ mov.Fecha_Movimiento.strftime("%H:%M:%S") if mov.Fecha_Movimiento and mov.Fecha_Movimiento is not string else "" }}';
+    const tipo = '{{ (mov.Simbolo or "") + " " + (mov.Tipo_Movimiento or "") }}';
+    const documento = '{{ mov.Documento_Numero or "" }}';
+    const cliente = '{{ mov.Nombre_Cliente or "" }}'.replace(/,/g, ';').replace(/"/g, '""');
+    const producto = '{{ mov.Producto or "" }}'.replace(/,/g, ';').replace(/"/g, '""');
+    const codigo = '{{ mov.COD_Producto or "" }}';
+    const cantidad = '{{ mov.Impacto or "" }}{{ mov.Cantidad | cantidad if mov.Cantidad else 0 }}';
+    const unidad = '{{ mov.Unidad_Medida or "" }}';
+    const precio = '{{ mov.Precio_Unitario|float if mov.Precio_Unitario else 0 | cantidad }}';
+    const subtotal = '{{ mov.Subtotal|float if mov.Subtotal else 0 | cantidad }}';
+    const total = '{{ mov.Total_Venta|float if mov.Total_Venta else 0 | cantidad }}';
+    const registrado = '{{ mov.Registrado_Por or "" }}';
+    
+    const row = [fecha, hora, tipo, documento, cliente, producto, codigo, cantidad, unidad, precio, subtotal, total, registrado];
+    rows.push(row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(','));
+    {% endfor %}
+    
+    const blob = new Blob(["\uFEFF" + rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    const now = new Date();
+    const timestamp = now.getFullYear() + 
+                     String(now.getMonth() + 1).padStart(2, '0') + 
+                     String(now.getDate()).padStart(2, '0') + '_' +
+                     String(now.getHours()).padStart(2, '0') +
+                     String(now.getMinutes()).padStart(2, '0') +
+                     String(now.getSeconds()).padStart(2, '0');
+    link.setAttribute('download', 'historial_{{ vendedor.NombreUsuario }}_{{ timestamp }}.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    // Mostrar notificación
+    showToast('Exportación completada', 'El archivo CSV se ha generado correctamente', 'success');
+    {% endif %}
+}
+
+// Función para mostrar notificaciones
+function showToast(title, message, type = 'info') {
+    let toastContainer = document.querySelector('.toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+        toastContainer.style.zIndex = '1060';
+        document.body.appendChild(toastContainer);
+    }
+    
+    const toastId = 'toast-' + Date.now();
+    const bgClass = type === 'success' ? 'bg-success' : type === 'danger' ? 'bg-danger' : 'bg-info';
+    
+    const toastHTML = `
+        <div id="${toastId}" class="toast align-items-center text-white ${bgClass} border-0" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="true" data-bs-delay="3000">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <strong>${escapeHtml(title)}</strong><br>
+                    <small>${escapeHtml(message)}</small>
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    `;
+    
+    toastContainer.insertAdjacentHTML('beforeend', toastHTML);
+    const toastElement = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastElement);
+    toast.show();
+    
+    toastElement.addEventListener('hidden.bs.toast', () => {
+        toastElement.remove();
+    });
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
+{% endblock %}

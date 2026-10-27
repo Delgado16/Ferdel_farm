@@ -1,0 +1,649 @@
+{% extends "layout.html" %}
+
+{% block title %}Mis Clientes - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-2 mt-md-4 px-2 px-md-3 py-2 py-md-4">
+    <!-- ENCABEZADO -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 mb-md-4">
+        <div class="mb-2 mb-md-0">
+            <h1 class="h3 mb-1">
+                <i class="bi bi-people me-2 text-primary"></i>Mis Clientes
+            </h1>
+            <p class="text-muted small mb-0">
+                <i class="bi bi-calendar me-2"></i>{{ fecha_actual }} | 
+                <i class="bi bi-list me-2 ms-2"></i>Gestión de cobros
+            </p>
+        </div>
+        <div>
+            <span class="badge bg-primary fs-6 p-2">
+                <i class="bi bi-people me-1"></i>Total: {{ total }} clientes
+            </span>
+        </div>
+    </div>
+
+    <!-- FILTROS -->
+    <div class="card shadow-sm mb-3 mb-md-4">
+        <div class="card-body p-3">
+            <form method="GET" action="{{ url_for('vendedor.vendedor_clientes') }}" class="row g-2 g-md-3">
+                <div class="col-12 col-md-6">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white">
+                            <i class="bi bi-search text-muted"></i>
+                        </span>
+                        <input type="text" 
+                               class="form-control" 
+                               name="q" 
+                               placeholder="Buscar por nombre, teléfono o cédula..."
+                               value="{{ search if search else '' }}">
+                        {% if search %}
+                        <a href="{{ url_for('vendedor.vendedor_clientes') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-8 col-md-4">
+                    <select class="form-select" name="ruta">
+                        <option value="">Todas las rutas</option>
+                        {% for ruta in rutas %}
+                        <option value="{{ ruta.ID_Ruta }}" {% if ruta_seleccionada|int == ruta.ID_Ruta %}selected{% endif %}>
+                            {{ ruta.Nombre_Ruta }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-4 col-md-2 d-grid">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-funnel me-1"></i> Filtrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- VISTA DE CLIENTES -->
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            
+            <!-- VERSIÓN MÓVIL: CARDS -->
+            <div class="d-block d-md-none">
+                {% for cliente in clientes %}
+                <div class="card border-0 border-bottom rounded-0">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1 fw-bold">{{ cliente.Nombre }}</h6>
+                                {% if cliente.RUC_CEDULA %}
+                                <small class="text-muted d-block">
+                                    <i class="bi bi-card-text me-1"></i>{{ cliente.RUC_CEDULA }}
+                                </small>
+                                {% endif %}
+                            </div>
+                            <div>
+                                {% if cliente.Saldo_Pendiente_Total and cliente.Saldo_Pendiente_Total > 0 %}
+                                <span class="fw-bold text-danger fs-5">
+                                    C${{ "{:,.2f}".format(cliente.Saldo_Pendiente_Total) }}
+                                </span>
+                                {% else %}
+                                <span class="text-muted fs-6">C$0.00</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row g-2 mb-2">
+                            {% if cliente.Telefono %}
+                            <div class="col-6">
+                                <small class="text-muted d-block">Teléfono</small>
+                                <a href="tel:{{ cliente.Telefono }}" class="text-decoration-none small">
+                                    <i class="bi bi-telephone me-1"></i>{{ cliente.Telefono }}
+                                </a>
+                            </div>
+                            {% endif %}
+                            
+                            {% if cliente.Nombre_Ruta %}
+                            <div class="col-6">
+                                <small class="text-muted d-block">Ruta</small>
+                                <span class="badge bg-info">{{ cliente.Nombre_Ruta }}</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mt-2 d-flex gap-2">
+                            <a href="{{ url_for('vendedor.vendedor_cliente_detalle', id_cliente=cliente.ID_Cliente) }}" class="btn btn-outline-primary flex-grow-1">
+                                <i class="bi bi-eye me-1"></i> Detalle
+                            </a>
+                            {% if cliente.Saldo_Pendiente_Total and cliente.Saldo_Pendiente_Total > 0 %}
+                            <button class="btn btn-success flex-grow-1" 
+                                    onclick="abrirModalAbono({{ cliente.ID_Cliente }}, '{{ cliente.Nombre|replace("'", "\\'") }}', {{ cliente.Saldo_Pendiente_Total }})">
+                                <i class="bi bi-cash-stack me-1"></i> Abono
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-people fs-1 text-muted mb-3 d-block"></i>
+                    <p class="mb-0 text-muted">No se encontraron clientes</p>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- VERSIÓN DESKTOP: TABLA -->
+            <div class="d-none d-md-block">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4">#</th>
+                                <th>Nombre</th>
+                                <th>Teléfono</th>
+                                <th>Ruta</th>
+                                <th class="text-end pe-4">Saldo Pendiente</th>
+                                <th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cliente in clientes %}
+                            <tr>
+                                <td class="ps-4 fw-bold">{{ loop.index + (page-1)*per_page }}</td>
+                                <td>
+                                    <strong>{{ cliente.Nombre }}</strong>
+                                    {% if cliente.RUC_CEDULA %}
+                                    <br><small class="text-muted">{{ cliente.RUC_CEDULA }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if cliente.Telefono %}
+                                    <a href="tel:{{ cliente.Telefono }}" class="text-decoration-none">
+                                        <i class="bi bi-telephone me-1 text-muted"></i>{{ cliente.Telefono }}
+                                    </a>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if cliente.Nombre_Ruta %}
+                                    <span class="badge bg-info">{{ cliente.Nombre_Ruta }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end pe-4">
+                                    {% if cliente.Saldo_Pendiente_Total and cliente.Saldo_Pendiente_Total > 0 %}
+                                    <span class="fw-bold text-danger">
+                                        C${{ "{:,.2f}".format(cliente.Saldo_Pendiente_Total) }}
+                                    </span>
+                                    {% else %}
+                                    <span class="text-muted">C$0.00</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <div class="d-flex justify-content-center gap-1">
+                                        <a href="{{ url_for('vendedor.vendedor_cliente_detalle', id_cliente=cliente.ID_Cliente) }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-eye"></i> Detalle
+                                        </a>
+                                        {% if cliente.Saldo_Pendiente_Total and cliente.Saldo_Pendiente_Total > 0 %}
+                                        <button class="btn btn-sm btn-success" 
+                                                onclick="abrirModalAbono({{ cliente.ID_Cliente }}, '{{ cliente.Nombre|replace("'", "\\'") }}', {{ cliente.Saldo_Pendiente_Total }})">
+                                            <i class="bi bi-cash-stack me-1"></i> Abono
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center py-4">
+                                    <i class="bi bi-people fs-1 text-muted mb-2"></i>
+                                    <p class="mb-0">No se encontraron clientes</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- PAGINACIÓN -->
+            {% if total_pages > 1 %}
+            <div class="card-footer bg-white">
+                <div class="d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2 py-2">
+                    <small class="text-muted text-center text-sm-start">
+                        Mostrando {{ ((page-1)*per_page) + 1 }} - {{ [page*per_page, total]|min }} de {{ total }} clientes
+                    </small>
+                    <nav>
+                        <ul class="pagination pagination-sm mb-0 flex-wrap justify-content-center">
+                            <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+                                <a class="page-link" href="{{ url_for('vendedor.vendedor_clientes', page=page-1, q=search, ruta=ruta_seleccionada) if page > 1 else '#' }}">
+                                    <i class="bi bi-chevron-left"></i>
+                                </a>
+                            </li>
+                            {% for p in range([1, page-2]|max, [total_pages, page+2]|min + 1) %}
+                                <li class="page-item {% if p == page %}active{% endif %}">
+                                    <a class="page-link" href="{{ url_for('vendedor.vendedor_clientes', page=p, q=search, ruta=ruta_seleccionada) }}">{{ p }}</a>
+                                </li>
+                            {% endfor %}
+                            <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+                                <a class="page-link" href="{{ url_for('vendedor.vendedor_clientes', page=page+1, q=search, ruta=ruta_seleccionada) if page < total_pages else '#' }}">
+                                    <i class="bi bi-chevron-right"></i>
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- MODAL PARA ABONOS PUROS (CORREGIDO - VERSIÓN DEFINITIVA) -->
+<div class="modal fade" id="modalAbono" tabindex="-1" aria-labelledby="modalAbonoLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="modalAbonoLabel">
+                    <i class="bi bi-cash-stack me-2"></i>Registrar Abono
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="card mb-3">
+                    <div class="card-body bg-light">
+                        <div class="row">
+                            <div class="col-12 col-sm-8 mb-2 mb-sm-0">
+                                <small class="text-muted">CLIENTE</small>
+                                <h5 id="modalClienteNombre" class="mb-0 mt-1">-</h5>
+                            </div>
+                            <div class="col-12 col-sm-4">
+                                <small class="text-muted">SALDO ACTUAL</small>
+                                <h4 id="modalSaldoPendiente" class="text-danger mb-0 mt-1">C$0.00</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Monto del Abono</label>
+                    <div class="input-group">
+                        <span class="input-group-text">C$</span>
+                        <input type="number" class="form-control form-control-lg" id="montoAbono" step="0.01" min="0.01" placeholder="0.00">
+                    </div>
+                    <small class="text-muted" id="montoMaxHint"></small>
+                </div>
+                
+                <!-- SELECTOR DE MÉTODO DE PAGO -->
+                <div class="mb-3">
+                    <label class="form-label fw-bold">
+                        <i class="bi bi-credit-card me-1"></i>Método de Pago
+                    </label>
+                    <select class="form-select form-select-lg" id="metodoPago" required>
+                        <option value="">Seleccione método de pago</option>
+                        {% if metodos_pago %}
+                            {% for metodo in metodos_pago %}
+                            <option value="{{ metodo.ID_MetodoPago }}">{{ metodo.Nombre }}</option>
+                            {% endfor %}
+                        {% else %}
+                            <option value="" disabled>No hay métodos de pago disponibles</option>
+                        {% endif %}
+                    </select>
+                    <div class="form-text" id="infoMetodoPago">
+                        <i class="bi bi-info-circle me-1"></i>
+                        <span id="infoMetodoTexto">Seleccione cómo realizó el pago el cliente</span>
+                    </div>
+                </div>
+                
+                <!-- Panel de información específica según método -->
+                <div id="infoAdicional" class="alert" style="display:none;">
+                    <i class="bi bi bi-info-circle-fill me-2"></i>
+                    <span id="infoAdicionalTexto"></span>
+                </div>
+                
+                <div id="errorAbono" class="alert alert-danger" style="display:none"></div>
+                <div id="successAbono" class="alert alert-success" style="display:none"></div>
+            </div>
+            <div class="modal-footer flex-column flex-sm-row gap-2">
+                <button type="button" class="btn btn-secondary w-100 w-sm-auto" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success w-100 w-sm-auto" id="btnProcesarAbono">
+                    <i class="bi bi-check-circle me-1"></i>Procesar Abono
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ============================================
+// SISTEMA DE ABONOS PUROS - VERSIÓN CORREGIDA
+// CON DEPURACIÓN Y MANEJO DE ERRORES MEJORADO
+// ============================================
+
+let clienteSeleccionado = null;
+
+function formatCurrency(value) {
+    const numero = parseFloat(value);
+    if (isNaN(numero)) return 'C$0.00';
+    return 'C$' + numero.toLocaleString('es-NI', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+}
+
+window.abrirModalAbono = function(id, nombre, saldo) {
+    console.log('🔓 Abriendo modal para cliente:', {id, nombre, saldo});
+    
+    const modalClienteNombre = document.getElementById('modalClienteNombre');
+    const modalSaldoPendiente = document.getElementById('modalSaldoPendiente');
+    const montoAbono = document.getElementById('montoAbono');
+    const montoMaxHint = document.getElementById('montoMaxHint');
+    const metodoPago = document.getElementById('metodoPago');
+    const errorAbono = document.getElementById('errorAbono');
+    const successAbono = document.getElementById('successAbono');
+    const infoAdicional = document.getElementById('infoAdicional');
+    
+    if (!modalClienteNombre || !modalSaldoPendiente) {
+        console.error('Elementos del modal no encontrados');
+        return;
+    }
+    
+    clienteSeleccionado = {
+        id: parseInt(id),
+        nombre: nombre,
+        saldo: parseFloat(saldo)
+    };
+    
+    modalClienteNombre.textContent = nombre;
+    modalSaldoPendiente.textContent = formatCurrency(parseFloat(saldo));
+    
+    if (montoAbono) {
+        montoAbono.value = '';
+        montoAbono.max = parseFloat(saldo);
+        if (montoMaxHint) {
+            montoMaxHint.textContent = `Monto máximo: ${formatCurrency(parseFloat(saldo))}`;
+        }
+    }
+    
+    if (metodoPago) metodoPago.value = '';
+    if (infoAdicional) infoAdicional.style.display = 'none';
+    if (errorAbono) errorAbono.style.display = 'none';
+    if (successAbono) successAbono.style.display = 'none';
+    
+    // Remover clases de validación previas
+    if (montoAbono) montoAbono.classList.remove('is-invalid', 'is-valid');
+    
+    const modalElement = document.getElementById('modalAbono');
+    if (modalElement) {
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+        setTimeout(() => {
+            if (montoAbono) montoAbono.focus();
+        }, 500);
+    }
+}
+
+function mostrarInfoMetodoPago(metodoId, metodoNombre) {
+    const infoAdicional = document.getElementById('infoAdicional');
+    const infoAdicionalTexto = document.getElementById('infoAdicionalTexto');
+    
+    if (!infoAdicional || !infoAdicionalTexto) return;
+    
+    infoAdicional.classList.remove('alert-info', 'alert-warning', 'alert-success');
+    
+    switch(parseInt(metodoId)) {
+        case 1:
+            infoAdicional.classList.add('alert-success');
+            infoAdicionalTexto.innerHTML = `<strong>💰 Pago en EFECTIVO</strong><br>✅ Este pago SE REGISTRARÁ en su caja del día.`;
+            infoAdicional.style.display = 'block';
+            break;
+        case 2:
+            infoAdicional.classList.add('alert-info');
+            infoAdicionalTexto.innerHTML = `<strong>🏦 Pago por TRANSFERENCIA</strong><br>⚠️ Este pago NO se registrará en su caja física.`;
+            infoAdicional.style.display = 'block';
+            break;
+        case 3:
+            infoAdicional.classList.add('alert-info');
+            infoAdicionalTexto.innerHTML = `<strong>🏦 Pago por DEPÓSITO</strong><br>⚠️ Este pago NO se registrará en su caja física.`;
+            infoAdicional.style.display = 'block';
+            break;
+        case 4:
+            infoAdicional.classList.add('alert-warning');
+            infoAdicionalTexto.innerHTML = `<strong>📦 Pago con PRODUCTOS</strong><br>⚠️ Este pago NO se registrará en su caja física.`;
+            infoAdicional.style.display = 'block';
+            break;
+        default:
+            infoAdicional.style.display = 'none';
+            break;
+    }
+}
+
+async function procesarAbono() {
+    const montoInput = document.getElementById('montoAbono');
+    const metodoPagoSelect = document.getElementById('metodoPago');
+    
+    if (!montoInput) return;
+    
+    const monto = parseFloat(montoInput.value);
+    const idMetodoPagoRaw = metodoPagoSelect ? metodoPagoSelect.value : '';
+    
+    // Validaciones
+    if (!clienteSeleccionado) {
+        mostrarError('No hay cliente seleccionado');
+        return;
+    }
+    
+    if (isNaN(monto) || monto <= 0) {
+        mostrarError('Ingrese un monto válido mayor a 0');
+        montoInput.focus();
+        return;
+    }
+    
+    if (monto > clienteSeleccionado.saldo) {
+        mostrarError(`El monto no puede ser mayor al saldo pendiente (${formatCurrency(clienteSeleccionado.saldo)})`);
+        montoInput.focus();
+        return;
+    }
+    
+    if (!idMetodoPagoRaw) {
+        mostrarError('Por favor seleccione un método de pago');
+        metodoPagoSelect.focus();
+        return;
+    }
+    
+    // Depuración detallada
+    console.log('📤 Enviando abono:', {
+        id_cliente: clienteSeleccionado.id,
+        monto_abono: monto,
+        id_metodo_pago_raw: idMetodoPagoRaw,
+        id_metodo_pago_int: parseInt(idMetodoPagoRaw),
+        tipo_id_metodo: typeof idMetodoPagoRaw
+    });
+    
+    const btn = document.getElementById('btnProcesarAbono');
+    if (!btn) return;
+    
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando...';
+    btn.disabled = true;
+    
+    try {
+        // Intentar enviar como número primero
+        let requestData = {
+            id_cliente: clienteSeleccionado.id,
+            monto_abono: monto,
+            id_metodo_pago: parseInt(idMetodoPagoRaw)
+        };
+        
+        let response = await fetch('/vendedor/api/vendedor/procesar_abono', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify(requestData)
+        });
+        
+        // Si falla con 400, intentar como string
+        if (response.status === 400) {
+            console.warn('⚠️ Falló con número, intentando como string...');
+            requestData.id_metodo_pago = idMetodoPagoRaw;
+            response = await fetch('/vendedor/api/vendedor/procesar_abono', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify(requestData)
+            });
+        }
+        
+        // Verificar respuesta
+        if (!response.ok) {
+            let errorMsg = `Error ${response.status}`;
+            try {
+                const errorData = await response.json();
+                errorMsg = errorData.error || errorMsg;
+            } catch(e) {
+                const errorText = await response.text();
+                errorMsg = errorText.substring(0, 100);
+            }
+            throw new Error(errorMsg);
+        }
+        
+        const data = await response.json();
+        console.log('✅ Respuesta exitosa:', data);
+        
+        if (data.success) {
+            let detalleHtml = '';
+            let mensajeAdicional = '';
+            
+            if (data.detalle && data.detalle.length > 0) {
+                detalleHtml = '<div class="mt-2 small">';
+                data.detalle.forEach(item => {
+                    detalleHtml += `✓ Factura ${item.factura}: ${formatCurrency(item.monto)}<br>`;
+                });
+                detalleHtml += '</div>';
+            }
+            
+            if (data.registro_caja) {
+                mensajeAdicional = `<br><strong class="text-success">💰 Este abono SE REGISTRÓ en su caja del día</strong>`;
+            } else {
+                mensajeAdicional = `<br><strong class="text-info">ℹ️ Este abono NO afectó su caja física</strong>`;
+            }
+            
+            mostrarExito(`✅ ${data.mensaje}<br>Monto: ${formatCurrency(data.monto_abono)}<br>Método: ${data.metodo_pago}${mensajeAdicional}${detalleHtml}`);
+            
+            const idAbono = data.id_abono || data.id_movimiento;
+            
+            // Cerrar modal
+            const modalElement = document.getElementById('modalAbono');
+            const modal = bootstrap.Modal.getInstance(modalElement);
+            if (modal) modal.hide();
+            
+            // Redirigir al recibo después de 2 segundos
+            setTimeout(() => {
+                window.location.href = `/vendedor/abono/${idAbono}/recibo?autoPrint=1`;
+            }, 2000);
+            
+        } else {
+            mostrarError(data.error || 'Error al procesar el abono');
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    } catch (error) {
+        console.error('❌ Error en proceso de abono:', error);
+        mostrarError('Error: ' + error.message);
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+function mostrarError(mensaje) {
+    const errorDiv = document.getElementById('errorAbono');
+    const successDiv = document.getElementById('successAbono');
+    
+    if (errorDiv) {
+        errorDiv.innerHTML = `<i class="bi bi-exclamation-triangle me-2"></i>${mensaje}`;
+        errorDiv.style.display = 'block';
+    }
+    if (successDiv) successDiv.style.display = 'none';
+    
+    // Auto-ocultar después de 5 segundos
+    setTimeout(() => {
+        if (errorDiv) errorDiv.style.display = 'none';
+    }, 5000);
+}
+
+function mostrarExito(mensaje) {
+    const successDiv = document.getElementById('successAbono');
+    const errorDiv = document.getElementById('errorAbono');
+    
+    if (successDiv) {
+        successDiv.innerHTML = `<i class="bi bi-check-circle me-2"></i>${mensaje}`;
+        successDiv.style.display = 'block';
+    }
+    if (errorDiv) errorDiv.style.display = 'none';
+}
+
+// ============================================
+// INICIALIZACIÓN - SIN DUPLICACIÓN DE EVENTOS
+// ============================================
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Inicializando sistema de abonos puros');
+    
+    // Evento: cambio de método de pago
+    const metodoPagoSelect = document.getElementById('metodoPago');
+    if (metodoPagoSelect) {
+        // Remover event listeners anteriores si existen (por seguridad)
+        const newMetodoPago = metodoPagoSelect.cloneNode(true);
+        metodoPagoSelect.parentNode.replaceChild(newMetodoPago, metodoPagoSelect);
+        
+        newMetodoPago.addEventListener('change', function() {
+            const metodoId = this.value;
+            const metodoNombre = this.options[this.selectedIndex]?.text;
+            console.log('🔄 Método de pago seleccionado:', {metodoId, metodoNombre});
+            if (metodoId) {
+                mostrarInfoMetodoPago(metodoId, metodoNombre);
+            } else {
+                const infoAdicional = document.getElementById('infoAdicional');
+                if (infoAdicional) infoAdicional.style.display = 'none';
+            }
+        });
+    }
+    
+    // Evento: botón procesar abono
+    const btnProcesar = document.getElementById('btnProcesarAbono');
+    if (btnProcesar) {
+        // Remover event listeners anteriores para evitar duplicados
+        const newBtn = btnProcesar.cloneNode(true);
+        btnProcesar.parentNode.replaceChild(newBtn, btnProcesar);
+        newBtn.addEventListener('click', procesarAbono);
+    }
+    
+    // Evento: Enter en el campo monto
+    const montoInput = document.getElementById('montoAbono');
+    if (montoInput) {
+        // Remover event listeners anteriores
+        const newMontoInput = montoInput.cloneNode(true);
+        montoInput.parentNode.replaceChild(newMontoInput, montoInput);
+        
+        newMontoInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                procesarAbono();
+            }
+        });
+        
+        newMontoInput.addEventListener('input', function() {
+            if (clienteSeleccionado) {
+                const valor = parseFloat(this.value);
+                if (valor > clienteSeleccionado.saldo) {
+                    this.classList.add('is-invalid');
+                } else {
+                    this.classList.remove('is-invalid');
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

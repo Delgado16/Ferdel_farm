@@ -1,0 +1,26 @@
+"""
+Módulo de utilidades y funciones auxiliares
+"""
+from .bitacora import (
+    registrar_bitacora,
+    registrar_login_exitoso,
+    registrar_login_fallido,
+    registrar_logout,
+    bitacora_decorator
+)
+from .validators import validate_username, validate_password
+from .formatters import apply_filters
+from .export import exportar_csv, exportar_json
+
+__all__ = [
+    'registrar_bitacora',
+    'registrar_login_exitoso',
+    'registrar_login_fallido',
+    'registrar_logout',
+    'bitacora_decorator',
+    'validate_username',
+    'validate_password',
+    'apply_filters',
+    'exportar_csv',
+    'exportar_json'
+]

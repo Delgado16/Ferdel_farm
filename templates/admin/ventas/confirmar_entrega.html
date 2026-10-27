@@ -1,0 +1,427 @@
+{% extends "layout.html" %}
+
+{% block title %}Confirmar Entrega - Factura #{{ factura.ID_Factura }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    .required-star::after {
+        content: " *";
+        color: #ef4444;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <!-- Encabezado -->
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-truck-loading text-warning me-2"></i>Confirmar Entrega y Liquidar
+            </h3>
+            <p class="text-muted small mb-0">Factura #{{ factura.ID_Factura }} — Cliente: {{ factura.Cliente or 'Consumidor Final' }}</p>
+        </div>
+        <div>
+            <a href="{{ url_for('admin.admin_ventas_salidas') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-arrow-left me-1"></i> Volver a Ventas
+            </a>
+        </div>
+    </div>
+
+    <form id="formConfirmarEntrega" method="POST" action="{{ url_for('admin.admin_confirmar_entrega', id_factura=factura.ID_Factura) }}">
+    <div class="row g-4">
+        <!-- Columna Izquierda: Ajuste de Productos y Cantidades -->
+        <div class="col-lg-8">
+            <div class="card-premium-section">
+                <div class="card-premium-header d-flex justify-content-between align-items-center">
+                    <h6 class="fw-bold text-slate-800 mb-0">
+                        <i class="fas fa-boxes text-primary me-2"></i>Ajuste de Cantidades Entregadas
+                    </h6>
+                    <span class="badge bg-light text-dark border rounded-pill">{{ total_productos }} productos</span>
+                </div>
+                <div class="card-body p-4">
+                    <div class="alert alert-info border-0 small rounded-3 mb-4">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Ajuste la cantidad que el cliente realmente aceptó. La diferencia se registrará automáticamente como <strong>Devolución</strong> de inventario.
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover table-modern align-middle mb-0" id="tablaConfirmarProductos">
+                            <thead>
+                                <tr>
+                                    <th>Producto</th>
+                                    <th class="text-center" style="width: 15%;">Cant. Facturada</th>
+                                    <th class="text-center" style="width: 20%;">Cant. Entregada</th>
+                                    <th class="text-center" style="width: 15%;">Devolución</th>
+                                    <th class="text-end" style="width: 15%;">Precio Unit.</th>
+                                    <th class="text-end" style="width: 15%;">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for det in detalles %}
+                                <tr class="producto-fila" data-producto-id="{{ det.ID_Producto }}" data-precio="{{ det.Costo }}">
+                                    <td>
+                                        <div class="fw-bold text-slate-800">{{ det.Descripcion }}</div>
+                                        <small class="text-muted">COD: {{ det.COD_Producto }}</small>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-light text-dark border cant-billed" data-original-qty="{{ det.Cantidad }}">
+                                            {{ det.Cantidad }}
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        {% if det.ID_Producto == 11 %}
+                                        <!-- Separadores se calculan automáticamente -->
+                                        <span class="badge bg-light text-dark border font-monospace" id="span_separadores" data-original-qty="{{ det.Cantidad }}">
+                                            {{ det.Cantidad }}
+                                        </span>
+                                        <input type="hidden" name="cantidad_11" id="input_separadores" value="{{ det.Cantidad }}">
+                                        {% else %}
+                                        <input type="number" 
+                                               name="cantidad_{{ det.ID_Producto }}" 
+                                               class="form-control form-control-premium text-center cant-entregada-input mx-auto" 
+                                               value="{{ det.Cantidad }}" 
+                                               min="0" 
+                                               max="{{ det.Cantidad }}" 
+                                               step="any"
+                                               style="max-width: 100px;">
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-light text-dark border cant-devuelta-badge">0</span>
+                                    </td>
+                                    <td class="text-end fw-semibold text-slate-700">C$ {{ det.Costo | cantidad }}</td>
+                                    <td class="text-end fw-bold text-slate-800 subtotal-celda">
+                                        C$ {{ det.Total | cantidad }}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Columna Derecha: Resolución de Pago -->
+        <div class="col-lg-4">
+            <div class="card-premium-section sticky-top" style="top: 24px;">
+                <div class="card-premium-header bg-warning-soft">
+                    <h6 class="fw-bold text-warning mb-0">
+                        <i class="fas fa-cash-register me-2"></i>Detalle de Liquidación
+                    </h6>
+                </div>
+                <div class="card-body p-4">
+                    <!-- Cliente Info -->
+                    <div class="mb-4 bg-light p-3 rounded-3 border">
+                        <label class="form-label-premium filter-label-premium mb-1">Cliente</label>
+                        <div class="fw-bold text-slate-800">{{ factura.Cliente or 'Consumidor Final' }}</div>
+                        <small class="text-muted d-block"><i class="fas fa-id-card me-1"></i>{{ factura.RUC_Cliente or 'N/A' }}</small>
+                        <small class="text-muted d-block"><i class="fas fa-tag me-1"></i>Perfil: {{ factura.perfil_cliente or 'Mercado' }}</small>
+                    </div>
+
+                    <!-- Tipo de Venta Final -->
+                    <div class="mb-4">
+                        <label class="form-label-premium filter-label-premium d-block mb-2">Tipo de Venta Final</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="tipo_venta" id="contado" value="contado" checked>
+                            <label class="btn btn-outline-success py-2 rounded-start" for="contado">
+                                <i class="fas fa-money-bill-wave me-1"></i> Contado
+                            </label>
+                            <input type="radio" class="btn-check" name="tipo_venta" id="credito" value="credito">
+                            <label class="btn btn-outline-warning py-2 rounded-end" for="credito">
+                                <i class="fas fa-credit-card me-1"></i> Crédito
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Panel Contado: Métodos de Pago -->
+                    <div id="panelContado" class="mb-4">
+                        <label class="form-label-premium filter-label-premium d-block mb-2">Métodos de Pago</label>
+                        <div class="bg-light p-3 rounded-3 border">
+                            {% for mp in metodos_pago %}
+                            <div class="row align-items-center mb-3">
+                                <div class="col-6">
+                                    <span class="fw-bold text-slate-700 small">{{ mp.Nombre }}</span>
+                                    <input type="hidden" name="metodo_pago_id[]" value="{{ mp.ID_MetodoPago }}">
+                                    <input type="hidden" name="metodo_pago_nombre[]" value="{{ mp.Nombre }}">
+                                </div>
+                                <div class="col-6">
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light text-muted py-1 px-2 border-end-0" style="font-size: 0.8rem;">C$</span>
+                                        <input type="number" 
+                                               name="monto_pago[]" 
+                                               class="form-control form-control-premium border-start-0 text-end monto-pago-input py-1 px-2" 
+                                               placeholder="0.00" 
+                                               step="any" 
+                                               min="0"
+                                               style="font-size: 0.85rem;"
+                                               data-metodo-nombre="{{ mp.Nombre }}">
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            <div class="mt-2 text-end">
+                                <button type="button" class="btn btn-sm btn-outline-secondary rounded-3" id="btnSaldarEfectivo">
+                                    Saldar en Efectivo
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Panel Crédito: Fecha Vencimiento -->
+                    <div id="panelCredito" class="mb-4 d-none">
+                        <div class="mb-3">
+                            <label for="fecha_vencimiento" class="form-label-premium filter-label-premium required-star">Fecha de Vencimiento</label>
+                            <input type="date" class="form-control form-control-premium" id="fecha_vencimiento" name="fecha_vencimiento">
+                            <div class="form-text">Por defecto vence en 30 días.</div>
+                        </div>
+                    </div>
+
+                    <!-- Observaciones -->
+                    <div class="mb-4">
+                        <label for="observacion_adicional" class="form-label-premium filter-label-premium">Observación Adicional</label>
+                        <textarea class="form-control form-control-premium" id="observacion_adicional" name="observacion_adicional" rows="2" placeholder="Notas sobre la entrega..."></textarea>
+                    </div>
+
+                    <!-- Resumen Financiero -->
+                    <div class="bg-light border mb-4 p-3 rounded-3">
+                        <div class="d-flex justify-content-between mb-2 small text-slate-600">
+                            <span>Total Facturado:</span>
+                            <span class="fw-bold text-slate-800">C$ {{ factura.Total or 0 | cantidad }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2 border-bottom pb-2 small text-slate-600">
+                            <span>Total Devolución:</span>
+                            <span class="text-danger fw-bold" id="resumenDevolucion">C$ 0.00</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center pt-1">
+                            <span class="fw-bold text-slate-800" style="font-size: 0.85rem;">TOTAL FINAL:</span>
+                            <h4 class="mb-0 text-success fw-bold font-monospace" id="resumenTotalFinal">C$ {{ factura.Total or 0 | cantidad }}</h4>
+                        </div>
+                    </div>
+
+                    <!-- Botones de Acción -->
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-warning py-2 fw-bold text-dark rounded-3" id="btnConfirmar">
+                            <i class="fas fa-check-circle me-1"></i> Confirmar Entrega
+                        </button>
+                        <a href="{{ url_for('admin.admin_ventas_salidas') }}" class="btn btn-outline-secondary py-2 rounded-3">
+                            Cancelar
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const table = document.getElementById('tablaConfirmarProductos');
+    const inputs = table.querySelectorAll('.cant-entregada-input');
+    const panelContado = document.getElementById('panelContado');
+    const panelCredito = document.getElementById('panelCredito');
+    const radioContado = document.getElementById('contado');
+    const radioCredito = document.getElementById('credito');
+    const fechaVencimientoInput = document.getElementById('fecha_vencimiento');
+    const btnSaldarEfectivo = document.getElementById('btnSaldarEfectivo');
+    const montoInputs = document.querySelectorAll('.monto-pago-input');
+
+    // Inicializar fecha de vencimiento a 30 días
+    const fechaDefault = new Date();
+    fechaDefault.setDate(fechaDefault.getDate() + 30);
+    fechaVencimientoInput.value = fechaDefault.toLocaleDateString('sv-SE');
+
+    // Alternar paneles de pago
+    radioContado.addEventListener('change', function() {
+        if (this.checked) {
+            panelContado.classList.remove('d-none');
+            panelCredito.classList.add('d-none');
+        }
+    });
+
+    radioCredito.addEventListener('change', function() {
+        if (this.checked) {
+            panelContado.classList.add('d-none');
+            panelCredito.classList.remove('d-none');
+        }
+    });
+
+    // Función para recalcular todo
+    function recalcularTodo() {
+        let totalFinal = 0;
+        let totalDevolucion = 0;
+        let totalOriginal = 0;
+        let totalCajillasHuevos = 0;
+
+        table.querySelectorAll('.producto-fila').forEach(row => {
+            const prodId = parseInt(row.getAttribute('data-producto-id'));
+            const precio = parseFloat(row.getAttribute('data-precio')) || 0;
+            const billedSpan = row.querySelector('.cant-billed');
+            if (!billedSpan) return;
+            const cantBilled = parseFloat(billedSpan.getAttribute('data-original-qty')) || 0;
+
+            totalOriginal += cantBilled * precio;
+
+            if (prodId === 11) {
+                // El separador se calcula después
+                return;
+            }
+
+            const input = row.querySelector('.cant-entregada-input');
+            let cantEntregada = parseFloat(input.value) || 0;
+
+            // Validación de límites
+            if (cantEntregada < 0) {
+                cantEntregada = 0;
+                input.value = 0;
+            } else if (cantEntregada > cantBilled) {
+                cantEntregada = cantBilled;
+                input.value = cantBilled;
+            }
+
+            const cantDevuelta = cantBilled - cantEntregada;
+            row.querySelector('.cant-devuelta-badge').textContent = cantDevuelta > 0 ? cantDevuelta.toFixed(1) : '0';
+            
+            // Colorear badge
+            if (cantDevuelta > 0) {
+                row.querySelector('.cant-devuelta-badge').className = "badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 cant-devuelta-badge";
+            } else {
+                row.querySelector('.cant-devuelta-badge').className = "badge bg-light text-dark border cant-devuelta-badge";
+            }
+
+            const subtotal = cantEntregada * precio;
+            row.querySelector('.subtotal-celda').textContent = "C$ " + subtotal.toFixed(2);
+
+            totalFinal += subtotal;
+            totalDevolucion += cantDevuelta * precio;
+
+            // Suponemos que id_categoria o producto es huevo. En esta vista simplificada, detectamos por descripción
+            const desc = row.querySelector('.fw-bold').textContent.toLowerCase();
+            if (desc.includes('huevo') || desc.includes('cajilla')) {
+                totalCajillasHuevos += cantEntregada;
+            }
+        });
+
+        // Recalcular separadores (ID 11)
+        const filaSeparador = table.querySelector('.producto-fila[data-producto-id="11"]');
+        if (filaSeparador) {
+            const spanSep = document.getElementById('span_separadores');
+            const inputSep = document.getElementById('input_separadores');
+            const billedSep = parseFloat(spanSep.getAttribute('data-original-qty')) || 0;
+            
+            // Fórmula: 1 por cajilla + 2 por cada 10 cajillas
+            const nuevosSeparadores = totalCajillasHuevos + Math.floor(totalCajillasHuevos / 10) * 2;
+            const entregadosSeparadores = Math.min(nuevosSeparadores, billedSep);
+            
+            spanSep.textContent = entregadosSeparadores;
+            inputSep.value = entregadosSeparadores;
+
+            const devSep = billedSep - entregadosSeparadores;
+            filaSeparador.querySelector('.cant-devuelta-badge').textContent = devSep > 0 ? devSep : '0';
+            if (devSep > 0) {
+                filaSeparador.querySelector('.cant-devuelta-badge').className = "badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 cant-devuelta-badge";
+            } else {
+                filaSeparador.querySelector('.cant-devuelta-badge').className = "badge bg-light text-dark border cant-devuelta-badge";
+            }
+        }
+
+        // Actualizar resumen
+        document.getElementById('resumenDevolucion').textContent = "C$ " + totalDevolucion.toFixed(2);
+        document.getElementById('resumenTotalFinal').textContent = "C$ " + totalFinal.toFixed(2);
+        
+        return totalFinal;
+    }
+
+    // Agregar listeners a inputs
+    inputs.forEach(input => {
+        input.addEventListener('input', recalcularTodo);
+        input.addEventListener('change', recalcularTodo);
+    });
+
+    // Botón para saldar en efectivo automáticamente
+    btnSaldarEfectivo.addEventListener('click', function() {
+        const total = recalcularTodo();
+        montoInputs.forEach(input => {
+            const nombre = input.getAttribute('data-metodo-nombre').toUpperCase();
+            if (nombre.includes('EFECTIVO') || nombre === 'CASH') {
+                input.value = total.toFixed(2);
+            } else {
+                input.value = '';
+            }
+        });
+    });
+
+    // Formulario submit
+    document.getElementById('formConfirmarEntrega').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const totalFinal = recalcularTodo();
+        const tipo = radioContado.checked ? 'contado' : 'credito';
+        
+        // Si es contado, validar que sume el total
+        if (tipo === 'contado') {
+            let pagado = 0;
+            montoInputs.forEach(input => {
+                pagado += parseFloat(input.value) || 0;
+            });
+            
+            // Asumir efectivo si no se llenó nada
+            if (pagado === 0) {
+                montoInputs.forEach(input => {
+                    const nombre = input.getAttribute('data-metodo-nombre').toUpperCase();
+                    if (nombre.includes('EFECTIVO')) {
+                        input.value = totalFinal.toFixed(2);
+                        pagado = totalFinal;
+                    }
+                });
+            }
+            
+            const diff = Math.abs(pagado - totalFinal);
+            if (diff > 0.01) {
+                Swal.fire(`Error: La suma de los métodos de pago (C$ ${pagado.toFixed(2, '', 'info')}) debe coincidir exactamente con el TOTAL FINAL de la venta (C$ ${totalFinal.toFixed(2)}).`);
+                return;
+            }
+        }
+
+        const btn = document.getElementById('btnConfirmar');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Procesando...';
+
+        // Enviar vía fetch
+        const formData = new FormData(this);
+        
+        fetch(this.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = data.redirect_url;
+            } else {
+                Swal.fire('Error al confirmar: ' + data.error, '', 'info');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-check-circle me-1"></i> Confirmar Entrega';
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            Swal.fire('Ocurrió un error en el servidor al enviar la solicitud.', '', 'info');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-check-circle me-1"></i> Confirmar Entrega';
+        });
+    });
+
+    // Calcular por primera vez
+    recalcularTodo();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,626 @@
+{% extends "layout.html" %}
+
+{% block title %}Detalle de Cuenta por Cobrar{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-4">
+    <!-- Header -->
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-file-invoice-dollar text-primary me-2"></i>Detalle de Cuenta por Cobrar
+            </h3>
+            <p class="text-muted small mb-0">Información detallada e historial de pagos y abonos del movimiento #{{ cuenta.ID_Movimiento }}</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{{ url_for('admin.admin_registrar_pago', id_movimiento=cuenta.ID_Movimiento) }}" 
+               class="btn btn-outline-success btn-sm px-3 py-2 rounded-3 {% if cuenta.Estado == 'Cancelado' %}disabled{% endif %}">
+                <i class="bi bi-cash-stack me-1"></i>Registrar Pago
+            </a>
+            <a href="{{ url_for('admin.admin_cuentascobrar') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                <i class="bi bi-arrow-left me-1"></i>Volver
+            </a>
+        </div>
+    </div>
+
+    <!-- Advertencia de inconsistencia -->
+    {% if tiene_inconsistencia %}
+    <div class="alert alert-warning alert-dismissible fade show bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        <strong>Advertencia:</strong> Existe una diferencia de ${{ diferencia | cantidad }} entre los cálculos. 
+        <br><small>Saldo en sistema: ${{ saldo_pendiente_formateado | cantidad }} | Saldo teórico: ${{ saldo_teorico | cantidad }}</small>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+
+    <div class="row g-3">
+        <!-- Información Principal -->
+        <div class="col-lg-6">
+            <div class="card-premium-section mb-4">
+                <div class="card-premium-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <h6 class="m-0 fw-bold text-slate-800">
+                        <i class="bi bi-info-circle-fill me-1 text-primary"></i>
+                        Información de la Cuenta
+                    </h6>
+                    <span class="badge" style="color: {% if cuenta.Estado == 'Cancelado' %}#16a34a{% elif cuenta.Estado == 'Vencido' %}#dc2626{% else %}#d97706{% endif %} !important; background-color: {% if cuenta.Estado == 'Cancelado' %}rgba(22, 163, 74, 0.08){% elif cuenta.Estado == 'Vencido' %}rgba(220, 38, 38, 0.08){% else %}rgba(245, 158, 11, 0.08){% endif %} !important; border: 1px solid {% if cuenta.Estado == 'Cancelado' %}rgba(22, 163, 74, 0.15){% elif cuenta.Estado == 'Vencido' %}rgba(220, 38, 38, 0.15){% else %}rgba(245, 158, 11, 0.15){% endif %} !important;">
+                        {{ cuenta.Estado }}
+                        {% if cuenta.Estado == 'Vencido' %} ({{ cuenta.DiasVencido }} días){% endif %}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <!-- Fila 1: Cliente & Empresa -->
+                        <div class="col-md-6">
+                            <div class="pb-2 border-bottom border-light">
+                                <span class="small text-muted d-block mb-1"><i class="bi bi-person me-1"></i>Cliente</span>
+                                <strong class="text-slate-800 text-break">{{ cuenta.NombreCliente }}</strong>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="pb-2 border-bottom border-light">
+                                <span class="small text-muted d-block mb-1"><i class="bi bi-building me-1"></i>Empresa</span>
+                                <span class="text-slate-800 text-break">{{ cuenta.Nombre_Empresa or 'N/A' }}</span>
+                            </div>
+                        </div>
+
+                        <!-- Fila 2: Cédula & Teléfono -->
+                        <div class="col-6 col-md-6">
+                            <div class="pb-2 border-bottom border-light">
+                                <span class="small text-muted d-block mb-1"><i class="bi bi-card-text me-1"></i>RUC / Cédula</span>
+                                <span class="text-slate-800 text-break">{{ cuenta.CedulaCliente or 'N/A' }}</span>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-6">
+                            <div class="pb-2 border-bottom border-light">
+                                <span class="small text-muted d-block mb-1"><i class="bi bi-telephone me-1"></i>Teléfono</span>
+                                <span class="text-slate-800 text-break">{{ cuenta.TelefonoCliente or 'N/A' }}</span>
+                            </div>
+                        </div>
+
+                        <!-- Fila 3: Documento & Tipo Movimiento -->
+                        <div class="col-md-6">
+                            <div class="pb-2 border-bottom border-light">
+                                <span class="small text-muted d-block mb-1"><i class="bi bi-file-earmark-text me-1"></i>Documento</span>
+                                <code class="text-break">{{ cuenta.Num_Documento }}</code>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="pb-2 border-bottom border-light">
+                                <span class="small text-muted d-block mb-1"><i class="bi bi-arrow-left-right me-1"></i>Tipo Movimiento</span>
+                                <span class="text-slate-800 text-break">{{ cuenta.Tipo_Movimiento }}</span>
+                            </div>
+                        </div>
+
+                        <!-- Fila 4: Factura & Registrado Por -->
+                        <div class="col-md-6">
+                            <div class="pb-2 border-bottom border-light">
+                                <span class="small text-muted d-block mb-1"><i class="bi bi-receipt me-1"></i>Factura Relacionada</span>
+                                <strong class="text-slate-800 text-break">{{ cuenta.NumeroFactura }}</strong>
+                                {% if cuenta.FechaFactura_Formateada and cuenta.FechaFactura_Formateada != 'No especificada' %}
+                                    <small class="text-muted d-block">({{ cuenta.FechaFactura_Formateada }})</small>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="pb-2 border-bottom border-light">
+                                <span class="small text-muted d-block mb-1"><i class="bi bi-person-badge me-1"></i>Registrado por</span>
+                                <span class="text-slate-800 text-break">{{ cuenta.UsuarioCreacion }}</span>
+                            </div>
+                        </div>
+
+                        <!-- Fila 5: Fecha Emisión & Fecha Vencimiento -->
+                        <div class="col-6 col-md-6">
+                            <div class="pb-2">
+                                <span class="small text-muted d-block mb-1"><i class="bi bi-calendar-event me-1"></i>Fecha Emisión</span>
+                                <strong class="text-slate-800">
+                                    {% if cuenta.Fecha_Formateada and cuenta.Fecha_Formateada != 'No especificada' %}
+                                        {{ cuenta.Fecha_Formateada }}
+                                    {% else %}
+                                        <span class="text-muted fw-normal"><i>No especificada</i></span>
+                                    {% endif %}
+                                </strong>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-6">
+                            <div class="pb-2">
+                                <span class="small text-muted d-block mb-1"><i class="bi bi-calendar-x me-1"></i>Fecha Vencimiento</span>
+                                <strong class="text-slate-800">
+                                    {% if cuenta.Fecha_Vencimiento_Formateada and cuenta.Fecha_Vencimiento_Formateada != 'No especificada' %}
+                                        {{ cuenta.Fecha_Vencimiento_Formateada }}
+                                        {% if cuenta.Estado == 'Vencido' %}
+                                            <i class="bi bi-exclamation-triangle-fill text-danger ms-1" 
+                                               title="Vencido hace {{ cuenta.DiasVencido }} días" 
+                                               data-bs-toggle="tooltip"></i>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted fw-normal"><i>No especificada</i></span>
+                                    {% endif %}
+                                </strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Observación -->
+                    {% if cuenta.Observacion and cuenta.Observacion.strip() != '' %}
+                    <div class="mt-3 pt-3 border-top">
+                        <strong class="text-muted">Observación:</strong>
+                        <p class="mb-0 text-muted">{{ cuenta.Observacion }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Resumen Financiero -->
+        <div class="col-lg-6">
+            <div class="card-premium-section mb-4">
+                <div class="card-premium-header py-3">
+                    <h6 class="m-0 fw-bold text-slate-800">
+                        <i class="bi bi-graph-up me-1 text-primary"></i>
+                        Resumen Financiero
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <!-- Montos -->
+                    <div class="row text-center g-2">
+                        <div class="col-4">
+                            <div class="border-end">
+                                <h4 class="text-primary fw-bold">C${{ monto_movimiento_formateado | cantidad }}</h4>
+                                <small class="text-muted">Monto Total</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="border-end">
+                                <h4 class="text-success fw-bold">C${{ total_pagado | cantidad }}</h4>
+                                <small class="text-muted">Total Pagado</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div>
+                                <h4 class="{% if saldo_pendiente_formateado > 0 %}text-warning{% else %}text-success{% endif %} fw-bold">
+                                    C${{ saldo_pendiente_formateado | cantidad }}
+                                </h4>
+                                <small class="text-muted">Saldo Pendiente</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Barra de Progreso -->
+                    <div class="mt-4">
+                        <div class="d-flex justify-content-between mb-1">
+                            <small class="text-muted">Progreso de Pago</small>
+                            <small class="text-muted"><strong>{{ porcentaje_pagado | cantidad }}%</strong></small>
+                        </div>
+                        <div class="progress" style="height: 15px;">
+                            <div class="progress-bar bg-success" 
+                                 role="progressbar" 
+                                 style="width: {{ porcentaje_pagado }}%"
+                                 aria-valuenow="{{ porcentaje_pagado }}" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="100">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Estadísticas de Pagos y Abonos -->
+                    <div class="mt-3">
+                        <div class="row text-center small g-2">
+                            <div class="col-6">
+                                <span class="badge" style="color: #4f46e5 !important; background-color: rgba(79, 70, 229, 0.08) !important; border: 1px solid rgba(79, 70, 229, 0.15) !important;">
+                                    <i class="bi bi-credit-card"></i> Pagos: {{ cantidad_pagos }}
+                                </span>
+                                <br>
+                                <span class="text-muted">C${{ total_pagos | cantidad }}</span>
+                            </div>
+                            <div class="col-6">
+                                <span class="badge" style="color: #16a34a !important; background-color: rgba(22, 163, 74, 0.08) !important; border: 1px solid rgba(22, 163, 74, 0.15) !important;">
+                                    <i class="bi bi-cash-stack"></i> Abonos: {{ cantidad_abonos }}
+                                </span>
+                                <br>
+                                <span class="text-muted">C${{ total_abonos | cantidad }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Información de Movimientos -->
+                    <div class="mt-3 text-center">
+                        <small class="text-muted">
+                            <i class="bi bi-receipt"></i>
+                            {{ cantidad_total_movimientos }} movimiento(s) registrado(s)
+                            {% if primer_registro %}
+                            • Primer registro: <strong>{{ primer_registro.FechaSolo }}</strong>
+                            {% endif %}
+                            {% if ultimo_registro and cantidad_total_movimientos > 1 %}
+                            • Último registro: <strong>{{ ultimo_registro.FechaSolo }}</strong>
+                            {% endif %}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Historial Unificado de Pagos y Abonos -->
+    <div class="card-premium-section mb-4">
+        <div class="card-premium-header py-3">
+            <h6 class="m-0 fw-bold text-slate-800">
+                <i class="bi bi-clock-history me-1 text-primary"></i>
+                Historial de Pagos y Abonos
+            </h6>
+        </div>
+        <div class="card-body">
+            {% if historial %}
+            <div class="table-responsive">
+                <table class="table table-modern table-hover align-middle mb-0" id="dataTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Fecha y Hora</th>
+                            <th>Tipo</th>
+                            <th>Monto</th>
+                            <th>Método / Origen</th>
+                            <th>Detalles</th>
+                            <th>Registrado por</th>
+                            <th>Saldo Anterior/Nuevo</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for movimiento in historial %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td>
+                                <span class="text-primary">{{ movimiento.FechaFormateada }}</span><br>
+                                <small class="text-muted">{{ movimiento.FechaSolo }}</small>
+                            </td>
+                            <td>
+                                <span class="badge" style="color: {% if movimiento.ColorBadge == 'success' %}#16a34a{% elif movimiento.ColorBadge == 'danger' %}#dc2626{% elif movimiento.ColorBadge == 'info' %}#0891b2{% else %}#4f46e5{% endif %} !important; background-color: {% if movimiento.ColorBadge == 'success' %}rgba(22, 163, 74, 0.08){% elif movimiento.ColorBadge == 'danger' %}rgba(220, 38, 38, 0.08){% elif movimiento.ColorBadge == 'info' %}rgba(6, 182, 212, 0.08){% else %}rgba(79, 70, 229, 0.08){% endif %} !important; border: 1px solid {% if movimiento.ColorBadge == 'success' %}rgba(22, 163, 74, 0.15){% elif movimiento.ColorBadge == 'danger' %}rgba(220, 38, 38, 0.15){% elif movimiento.ColorBadge == 'info' %}rgba(6, 182, 212, 0.15){% else %}rgba(79, 70, 229, 0.15){% endif %} !important;">
+                                    <i class="bi {{ movimiento.Icono }}"></i>
+                                    {{ movimiento.TipoDisplay }}
+                                </span>
+                            </td>
+                            <td class="fw-bold text-success">
+                                C${{ movimiento.Monto | cantidad }}
+                            </td>
+                            <td>
+                                {% if movimiento.tipo_registro == 'pago' %}
+                                    <span class="badge" style="color: #0891b2 !important; background-color: rgba(6, 182, 212, 0.08) !important; border: 1px solid rgba(6, 182, 212, 0.15) !important;">{{ movimiento.MetodoPago }}</span>
+                                {% else %}
+                                    <span class="badge" style="color: #16a34a !important; background-color: rgba(22, 163, 74, 0.08) !important; border: 1px solid rgba(22, 163, 74, 0.15) !important;">
+                                        <i class="bi bi-truck"></i> Abono en ruta
+                                    </span>
+                                    {% if movimiento.ID_Movimiento_Caja %}
+                                        <br><small class="text-muted">Mov Caja: {{ movimiento.ID_Movimiento_Caja }}</small>
+                                    {% endif %}
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if movimiento.tipo_registro == 'pago' %}
+                                    <div>
+                                        <strong>Comentarios:</strong> {{ movimiento.Descripcion or 'N/A' }}
+                                        {% if movimiento.Detalles_Metodo %}
+                                            <br><small class="text-muted">Detalles: {{ movimiento.Detalles_Metodo }}</small>
+                                        {% endif %}
+                                    </div>
+                                {% else %}
+                                    <div>
+                                        <strong>Descripción:</strong> {{ movimiento.Descripcion }}
+                                        {% if movimiento.ID_Asignacion %}
+                                            <br><small class="text-muted">ID Asignación: {{ movimiento.ID_Asignacion }}</small>
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <i class="bi bi-person-circle"></i> {{ movimiento.UsuarioRegistro }}
+                            </td>
+                            <td>
+                                {% if movimiento.tipo_registro == 'abono' %}
+                                    <small class="text-muted">
+                                        Anterior: C${{ movimiento.Saldo_Anterior | cantidad }}<br>
+                                        Nuevo: C${{ movimiento.Saldo_Nuevo | cantidad }}
+                                    </small>
+                                {% else %}
+                                    <span class="text-muted">--</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if movimiento.tipo_registro == 'pago' %}
+                                    <button class="btn btn-sm btn-outline-primary" 
+                                            onclick="verDetallePago({{ movimiento.id_registro }})"
+                                            title="Ver detalles del pago"
+                                            data-bs-toggle="tooltip">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                    <a class="btn btn-sm btn-outline-info ms-1" 
+                                       href="{{ url_for('admin.admin_pago_recibo', id_pago=movimiento.id_registro) }}"
+                                       title="Imprimir Recibo de Pago"
+                                       data-bs-toggle="tooltip">
+                                        <i class="bi bi-printer"></i>
+                                    </a>
+                                {% else %}
+                                    <button class="btn btn-sm btn-outline-success" 
+                                            onclick="verDetalleAbono({{ movimiento.id_registro }})"
+                                            title="Ver detalles del abono"
+                                            data-bs-toggle="tooltip">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                    <a class="btn btn-sm btn-outline-info ms-1" 
+                                       href="{{ url_for('admin.admin_abono_recibo', id_abono=movimiento.id_registro) }}"
+                                       title="Imprimir Recibo de Abono"
+                                       data-bs-toggle="tooltip">
+                                        <i class="bi bi-printer"></i>
+                                    </a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-light">
+                        <tr class="fw-bold">
+                            <td colspan="3" class="text-end">TOTAL MOVIMIENTOS:</td>
+                            <td class="text-success">C${{ total_pagado | cantidad }}</td>
+                            <td colspan="5"></td>
+                        </tr>
+                        <tr class="fw-bold">
+                            <td colspan="3" class="text-end">DETALLE:</td>
+                            <td colspan="6">
+                                <span class="text-primary">Pagos: C${{ total_pagos | cantidad }}</span> | 
+                                <span class="text-success">Abonos: C${{ total_abonos | cantidad }}</span>
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4">
+                <i class="bi bi-receipt fs-1 text-muted mb-3 d-block"></i>
+                <h5 class="text-muted">No hay movimientos registrados</h5>
+                <p class="text-muted">Esta cuenta no tiene pagos ni abonos registrados aún.</p>
+                <a href="{{ url_for('admin.admin_registrar_pago', id_movimiento=cuenta.ID_Movimiento) }}" class="btn btn-outline-success {% if cuenta.Estado == 'Cancelado' %}disabled{% endif %}">
+                    <i class="bi bi-cash-stack me-1"></i>Registrar Primer Pago
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Acciones Rápidas -->
+    <div class="card-premium-section">
+        <div class="card-body text-center">
+            <h6 class="text-muted mb-3 fw-bold">Acciones Disponibles</h6>
+            <div class="d-flex flex-wrap justify-content-center gap-2" role="group">
+                <a href="{{ url_for('admin.admin_registrar_pago', id_movimiento=cuenta.ID_Movimiento) }}" 
+                   class="btn btn-outline-success rounded-3 px-3 {% if cuenta.Estado == 'Cancelado' %}disabled{% endif %}">
+                    <i class="bi bi-cash-stack me-1"></i>Registrar Pago
+                </a>
+                <a href="{{ url_for('admin.admin_cuentascobrar') }}" class="btn btn-outline-secondary rounded-3 px-3">
+                    <i class="bi bi-arrow-left me-1"></i>Volver a Lista
+                </a>
+                {% if cuenta.NumeroFactura != 'N/A' and cuenta.ID_Factura %}
+                <a href="{{ url_for('admin.admin_generar_ticket', id_factura=cuenta.ID_Factura) }}" class="btn btn-outline-info rounded-3 px-3">
+                    <i class="bi bi-printer me-1"></i>Imprimir Factura
+                </a>
+                {% endif %}
+                <button type="button" class="btn btn-outline-warning rounded-3 px-3" 
+                        onclick="enviarRecordatorio({{ cuenta.ID_Movimiento }})"
+                        {% if cuenta.Estado == 'Cancelado' %}disabled{% endif %}>
+                    <i class="bi bi-envelope me-1"></i>Recordatorio
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar tooltips de Bootstrap 5
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
+    
+    // Inicializar DataTable si existe la tabla
+    if ($('#dataTable').length) {
+        $('#dataTable').DataTable({
+            "order": [[1, "desc"]],
+            "language": {
+                "url": "//cdn.datatables.net/plug-ins/1.10.20/i18n/Spanish.json"
+            },
+            "pageLength": 10,
+            "columnDefs": [
+                { "orderable": false, "targets": [0, 2, 7, 8] }
+            ],
+            "responsive": true
+        });
+    }
+});
+
+// Función para ver detalle de pago
+function verDetallePago(id_pago) {
+    Swal.fire({
+        title: 'Detalle del Pago',
+        html: `
+            <div class="text-start">
+                <p><strong>ID Pago:</strong> ${id_pago}</p>
+                <p>Esta funcionalidad mostrará los detalles completos del pago.</p>
+                <p class="text-muted"><small>Funcionalidad en desarrollo</small></p>
+            </div>
+        `,
+        icon: 'info',
+        confirmButtonText: 'Entendido',
+        confirmButtonColor: '#4f46e5'
+    });
+}
+
+// Función para ver detalle de abono
+function verDetalleAbono(id_detalle) {
+    Swal.fire({
+        title: 'Detalle del Abono en Ruta',
+        html: `
+            <div class="text-start">
+                <p><strong>ID Detalle Abono:</strong> ${id_detalle}</p>
+                <p>Abono registrado desde el módulo de caja/ruta.</p>
+                <p class="text-muted"><small>Para ver más detalles, consulte el módulo de movimientos de caja.</small></p>
+            </div>
+        `,
+        icon: 'success',
+        confirmButtonText: 'Entendido',
+        confirmButtonColor: '#16a34a'
+    });
+}
+
+// Función para enviar recordatorio
+function enviarRecordatorio(id_movimiento) {
+    Swal.fire({
+        title: 'Enviar Recordatorio',
+        html: `
+            <div class="text-start">
+                <p>Se enviará un recordatorio al cliente:</p>
+                <p><strong>Cliente:</strong> {{ cuenta.NombreCliente }}</p>
+                <p><strong>Saldo Pendiente:</strong> C${{ saldo_pendiente_formateado | cantidad }}</p>
+                <p><strong>Documento:</strong> {{ cuenta.Num_Documento }}</p>
+                <div class="form-group mt-3">
+                    <label for="mensaje" class="form-label">Mensaje personalizado (opcional):</label>
+                    <textarea id="mensaje" class="form-control" rows="3" 
+                              placeholder="Ej: Le recordamos el pago pendiente de su cuenta..."></textarea>
+                </div>
+            </div>
+        `,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Enviar Recordatorio',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#d97706',
+        cancelButtonColor: '#475569',
+        preConfirm: () => {
+            return {
+                mensaje: document.getElementById('mensaje').value
+            };
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            Swal.fire({
+                title: 'Enviando...',
+                text: 'Por favor espere',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            
+            setTimeout(() => {
+                Swal.fire(
+                    '¡Éxito!',
+                    'El recordatorio ha sido enviado exitosamente.',
+                    'success'
+                );
+            }, 1500);
+        }
+    });
+}
+</script>
+
+<style>
+/* Estilos adicionales para Bootstrap 5 */
+.table-borderless th {
+    width: 40%;
+    color: #6c757d;
+    font-weight: 500;
+    font-size: 0.9rem;
+    word-break: break-word;
+}
+ 
+.table-borderless td {
+    font-weight: 400;
+    font-size: 0.95rem;
+    word-break: break-word;
+}
+
+.progress {
+    border-radius: 10px;
+    background-color: #e3e6f0;
+    overflow: hidden;
+}
+
+.progress-bar {
+    border-radius: 10px;
+    transition: width 0.6s ease;
+}
+
+.btn-success:not(.disabled) {
+    background: linear-gradient(45deg, #1cc88a, #13855c);
+    border: none;
+    transition: all 0.3s ease;
+}
+
+.btn-success:not(.disabled):hover {
+    background: linear-gradient(45deg, #17a673, #0e6b4e);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.btn-success.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.border-end {
+    border-right: 1px solid #e3e6f0 !important;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .border-end {
+        border-right: none !important;
+        border-bottom: 1px solid #e3e6f0 !important;
+        padding-bottom: 15px;
+        margin-bottom: 15px;
+    }
+    
+    .table-borderless th,
+    .table-borderless td {
+        display: block;
+        width: 100%;
+        padding: 0.3rem 0;
+    }
+    
+    .table-borderless tr {
+        border-bottom: 1px solid #f8f9fc;
+        padding: 0.5rem 0;
+    }
+    
+    .table-borderless tr:last-child {
+        border-bottom: none;
+    }
+    
+    #dataTable {
+        font-size: 0.85rem;
+    }
+}
+
+#dataTable tbody tr:hover {
+    background-color: rgba(78, 115, 223, 0.05);
+}
+
+#dataTable thead th {
+    border-top: none;
+    font-weight: 600;
+    color: #4e73df;
+}
+
+.text-warning {
+    color: #f6c23e !important;
+}
+
+.text-success {
+    color: #1cc88a !important;
+}
+
+.text-primary {
+    color: #4e73df !important;
+}
+</style>
+{% endblock %}

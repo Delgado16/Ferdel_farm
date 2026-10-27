@@ -1,0 +1,311 @@
+{% extends "layout.html" %}
+
+{% block title %}Reporte de Utilidad y Margen de Ventas - FerDel{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="bi bi-wallet2"></i> Utilidad y Margen de Ventas
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('admin.reportes') }}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Volver
+        </a>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-light py-3 d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-funnel-fill text-secondary"></i> <strong>Filtros de Búsqueda</strong></span>
+    </div>
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('admin.reporte_utilidad_ventas') }}" class="row g-3">
+            <div class="col-md-5">
+                <label class="form-label small fw-semibold">Fecha Inicio</label>
+                <input type="date" name="fecha_inicio" class="form-control form-control-sm" value="{{ fecha_inicio }}">
+            </div>
+            <div class="col-md-5">
+                <label class="form-label small fw-semibold">Fecha Fin</label>
+                <input type="date" name="fecha_fin" class="form-control form-control-sm" value="{{ fecha_fin }}">
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-sm btn-dark w-100 py-2">
+                    <i class="bi bi-search"></i> Consultar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tarjetas de Resumen General -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-secondary text-white shadow-sm">
+            <div class="card-body">
+                <h6 class="card-title">Costo Acumulado</h6>
+                <h3>C${{ "{:,.2f}".format(resumen.Costo_Acumulado|default(0)|float) }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-primary text-white shadow-sm">
+            <div class="card-body">
+                <h6 class="card-title">Venta Acumulada</h6>
+                <h3>C${{ "{:,.2f}".format(resumen.Venta_Acumulada|default(0)|float) }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white shadow-sm">
+            <div class="card-body">
+                <h6 class="card-title">Utilidad Acumulada</h6>
+                <h3>C${{ "{:,.2f}".format(resumen.Utilidad_Acumulada|default(0)|float) }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white shadow-sm">
+            <div class="card-body">
+                <h6 class="card-title">Margen Promedio</h6>
+                <h3>{{ resumen.Margen_Promedio|default(0) }}%</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Gráficos de Utilidades -->
+<div class="row mb-4">
+    <div class="col-md-5 mb-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white py-3">
+                <i class="bi bi-bar-chart-fill text-primary me-2"></i><strong>Rentabilidad por Canal (Local vs Ruta)</strong>
+            </div>
+            <div class="card-body">
+                <div style="position: relative; height: 260px; width: 100%;">
+                    <canvas id="channelProfitChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-7 mb-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white py-3">
+                <i class="bi bi-graph-up text-success me-2"></i><strong>Tendencia de Rentabilidad Diaria</strong>
+            </div>
+            <div class="card-body">
+                <div style="position: relative; height: 260px; width: 100%;">
+                    <canvas id="profitTrendChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de Detalles -->
+<div class="card shadow-sm">
+    <div class="card-header bg-white">
+        <i class="bi bi-table"></i> <strong>Detalle de Utilidad por Venta</strong>
+        <span class="badge bg-secondary float-end">{{ resultados|length }} registros</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Canal</th>
+                        <th>Fecha</th>
+                        <th>Documento</th>
+                        <th>Cliente</th>
+                        <th>Producto</th>
+                        <th class="text-center">Cant (Cajas)</th>
+                        <th class="text-end">Costo Total</th>
+                        <th class="text-end">Venta Total</th>
+                        <th class="text-end">Utilidad</th>
+                        <th class="text-center">Margen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in resultados %}
+                    <tr>
+                        <td>
+                            <span class="badge {% if item.Canal == 'Local' %}bg-primary{% else %}bg-success{% endif %}">
+                                <i class="bi {% if item.Canal == 'Local' %}bi-building{% else %}bi-truck{% endif %}"></i>
+                                {{ item.Canal }}
+                            </span>
+                        </td>
+                        <td>{{ item.Fecha.strftime('%d/%m/%Y') if item.Fecha is not string else item.Fecha }}</td>
+                        <td><code>{{ item.Documento_ID }}</code></td>
+                        <td>{{ item.Cliente }}</td>
+                        <td>{{ item.Producto }}</td>
+                        <td class="text-center">{{ item.Cantidad_Vendidas | cantidad }}</td>
+                        <td class="text-end text-muted">C${{ "{:,.2f}".format(item.Costo_Total|float) }}</td>
+                        <td class="text-end text-primary">C${{ "{:,.2f}".format(item.Venta_Total|float) }}</td>
+                        <td class="text-end text-success fw-bold">C${{ "{:,.2f}".format(item.Utilidad_Neta|float) }}</td>
+                        <td class="text-center fw-bold text-info">{{ item.Porcentaje_Margen }}%</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="10" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox fs-1"></i><br>
+                            No hay registros para el período seleccionado
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Parsear resultados a JS
+    const rawResultados = [
+        {% for item in resultados %}
+        {
+            canal: "{{ item.Canal }}",
+            fecha: "{{ item.Fecha.strftime('%d/%m/%Y') if item.Fecha is not string else item.Fecha }}",
+            costo: {{ item.Costo_Total|default(0)|float }},
+            venta: {{ item.Venta_Total|default(0)|float }},
+            utilidad: {{ item.Utilidad_Neta|default(0)|float }}
+        },
+        {% endfor %}
+    ];
+
+    // 1. Procesar datos para Canal (Local vs Ruta)
+    const channelData = {
+        Local: { venta: 0, utilidad: 0 },
+        Ruta: { venta: 0, utilidad: 0 }
+    };
+    rawResultados.forEach(item => {
+        if (channelData[item.canal]) {
+            channelData[item.canal].venta += item.venta;
+            channelData[item.canal].utilidad += item.utilidad;
+        }
+    });
+
+    const ctxChannel = document.getElementById('channelProfitChart').getContext('2d');
+    new Chart(ctxChannel, {
+        type: 'bar',
+        data: {
+            labels: ['Local (Oficina)', 'Ruta (Distribución)'],
+            datasets: [
+                {
+                    label: 'Ventas',
+                    data: [channelData.Local.venta, channelData.Ruta.venta],
+                    backgroundColor: '#3b82f6',
+                    borderRadius: 6
+                },
+                {
+                    label: 'Utilidad Neta',
+                    data: [channelData.Local.utilidad, channelData.Ruta.utilidad],
+                    backgroundColor: '#10b981',
+                    borderRadius: 6
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top', labels: { font: { family: 'Outfit, sans-serif' } } },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': C$ ' + context.raw.toLocaleString('es-NI', { maximumFractionDigits: 0 });
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return 'C$' + value.toLocaleString('es-NI');
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // 2. Procesar datos para Tendencia Diaria
+    const dailyData = {};
+    rawResultados.forEach(item => {
+        if (!item.fecha) return;
+        if (!dailyData[item.fecha]) {
+            dailyData[item.fecha] = { venta: 0, costo: 0, utilidad: 0 };
+        }
+        dailyData[item.fecha].venta += item.venta;
+        dailyData[item.fecha].costo += item.costo;
+        dailyData[item.fecha].utilidad += item.utilidad;
+    });
+
+    // Ordenar fechas cronológicamente
+    const sortedDates = Object.keys(dailyData).sort((a, b) => {
+        const da = a.split('/').reverse().join('');
+        const db = b.split('/').reverse().join('');
+        return da.localeCompare(db);
+    });
+
+    const ctxTrend = document.getElementById('profitTrendChart').getContext('2d');
+    new Chart(ctxTrend, {
+        type: 'line',
+        data: {
+            labels: sortedDates,
+            datasets: [
+                {
+                    label: 'Ventas Totales',
+                    data: sortedDates.map(d => dailyData[d].venta),
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'transparent',
+                    tension: 0.3
+                },
+                {
+                    label: 'Costos Totales',
+                    data: sortedDates.map(d => dailyData[d].costo),
+                    borderColor: '#94a3b8',
+                    backgroundColor: 'transparent',
+                    tension: 0.3
+                },
+                {
+                    label: 'Utilidad Neta',
+                    data: sortedDates.map(d => dailyData[d].utilidad),
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.05)',
+                    fill: true,
+                    tension: 0.3
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top', labels: { font: { family: 'Outfit, sans-serif' } } },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': C$ ' + context.raw.toLocaleString('es-NI', { maximumFractionDigits: 0 });
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return 'C$' + value.toLocaleString('es-NI');
+                        }
+                    }
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

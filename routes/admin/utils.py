@@ -1,0 +1,404 @@
+"""
+Funciones compartidas entre módulos del administrador
+"""
+import json
+from decimal import Decimal
+from datetime import datetime, date
+from config.database import get_db_cursor
+
+
+def obtener_metricas_kpis():
+    """Obtiene las métricas principales del dashboard"""
+    with get_db_cursor() as cursor:
+        # Usuarios y empresas activos en una sola consulta
+        cursor.execute("""
+            SELECT 
+                (SELECT COUNT(*) FROM usuarios WHERE UPPER(Estado) = 'ACTIVO') AS usuarios_count,
+                (SELECT COUNT(*) FROM empresa WHERE Estado = 'Activo') AS empresas_count
+        """)
+        conteos = cursor.fetchone() or {}
+        usuarios_count = conteos.get('usuarios_count', 0)
+        empresas_count = conteos.get('empresas_count', 0)
+        
+        # Ventas de hoy (solo contado)
+        cursor.execute("""
+            SELECT COALESCE(SUM(Ventas_Totales), 0) AS Total_Ventas_Contado_Hoy
+            FROM (
+                SELECT COALESCE(SUM(df.Total), 0) AS Ventas_Totales 
+                FROM detalle_facturacion df
+                INNER JOIN facturacion fac ON df.ID_Factura = fac.ID_Factura
+                WHERE fac.Fecha_Creacion >= CURDATE() 
+                AND fac.Fecha_Creacion < CURDATE() + INTERVAL 1 DAY
+                AND fac.Estado = 'Activa'
+                AND fac.Credito_Contado = 0
+                
+                UNION ALL
+                
+                SELECT COALESCE(SUM(dfr.Total), 0) AS Ventas_Totales 
+                FROM detalle_facturacion_ruta dfr
+                INNER JOIN facturacion_ruta facr ON dfr.ID_FacturaRuta = facr.ID_FacturaRuta
+                WHERE facr.Fecha_Creacion >= CURDATE()
+                AND facr.Fecha_Creacion < CURDATE() + INTERVAL 1 DAY
+                AND facr.Estado = 'Activa'
+                AND facr.Credito_Contado = 1
+            ) AS Ventas
+        """)
+        ventas_hoy = cursor.fetchone()['Total_Ventas_Contado_Hoy'] or 0
+        
+        # Cobros de hoy (únicamente en efectivo - ID_MetodoPago = 1)
+        cursor.execute("""
+            SELECT COALESCE(SUM(Monto_Cobrado), 0) AS Total_Cobrado_Hoy
+            FROM (
+                SELECT Monto_Aplicado AS Monto_Cobrado
+                FROM abonos_detalle
+                WHERE DATE(Fecha) = CURDATE()
+                AND ID_MetodoPago = 1
+                
+                UNION ALL
+                
+                SELECT Monto_Aplicado AS Monto_Cobrado
+                FROM abonos_general
+                WHERE DATE(Fecha) = CURDATE()
+                AND ID_MetodoPago = 1
+                
+                UNION ALL
+                
+                SELECT pc.Monto AS Monto_Cobrado
+                FROM pagos_cuentascobrar pc
+                INNER JOIN cuentas_por_cobrar cxc ON pc.ID_Movimiento = cxc.ID_Movimiento
+                WHERE DATE(pc.Fecha) = CURDATE()
+                AND pc.ID_MetodoPago = 1
+                AND cxc.Estado != 'Anulada'
+            ) AS Cobros
+        """)
+        cobros_hoy = cursor.fetchone()['Total_Cobrado_Hoy'] or 0
+        
+        # Saldo pendiente y facturas vencidas en una sola consulta
+        cursor.execute("""
+            SELECT 
+                COALESCE(SUM(CASE WHEN Estado IN ('Pendiente', 'Vencida') THEN Saldo_Pendiente ELSE 0 END), 0) AS Saldo_Total_Pendiente,
+                COUNT(CASE WHEN Estado = 'Vencida' AND Saldo_Pendiente > 0 THEN 1 END) AS Facturas_Vencidas
+            FROM cuentas_por_cobrar
+        """)
+        cxc_res = cursor.fetchone() or {}
+        saldo_pendiente = cxc_res.get('Saldo_Total_Pendiente', 0)
+        facturas_vencidas = cxc_res.get('Facturas_Vencidas', 0)
+        
+        # Productos con stock bajo (solo productos activos y bodega principal ID_Bodega = 1)
+        cursor.execute("""
+            SELECT COUNT(*) as count
+            FROM inventario_bodega ib
+            INNER JOIN productos p ON ib.ID_Producto = p.ID_Producto
+            WHERE ib.ID_Bodega = 1
+            AND p.Estado = 'Activo'
+            AND ib.Existencias <= p.Stock_Minimo
+        """)
+        productos_bajo_stock = cursor.fetchone()['count'] or 0
+
+        # Saldo en caja actual (del día activo)
+        cursor.execute("""
+            SELECT 
+                COALESCE(SUM(CASE 
+                    WHEN Tipo_Movimiento = 'ENTRADA' THEN Monto 
+                    WHEN Tipo_Movimiento = 'SALIDA' THEN -Monto 
+                    ELSE 0 
+                END), 0) as saldo_caja,
+                CASE 
+                    WHEN EXISTS (
+                        SELECT 1 FROM caja_movimientos 
+                        WHERE Tipo_Movimiento = 'ENTRADA' 
+                        AND Descripcion LIKE '%%Apertura%%'
+                        AND DATE(Fecha) = CURDATE()
+                        AND Estado = 'ACTIVO'
+                    ) THEN 'ABIERTA'
+                    ELSE 'CERRADA'
+                END as estado_caja
+            FROM caja_movimientos
+            WHERE DATE(Fecha) = CURDATE()
+            AND Estado = 'ACTIVO'
+        """)
+        caja_info = cursor.fetchone() or {}
+        saldo_caja = caja_info.get('saldo_caja') or 0
+        estado_caja = caja_info.get('estado_caja') or 'CERRADA'
+    
+    return {
+        'usuarios_count': usuarios_count,
+        'empresas_count': empresas_count,
+        'ventas_hoy': float(ventas_hoy),
+        'cobros_hoy': float(cobros_hoy),
+        'saldo_caja': float(saldo_caja),
+        'estado_caja': estado_caja,
+        'saldo_pendiente': float(saldo_pendiente),
+        'facturas_vencidas': facturas_vencidas,
+        'productos_bajo_stock': productos_bajo_stock
+    }
+
+def obtener_ventas_mes():
+    """Obtiene datos de ventas del mes actual para gráficos"""
+    with get_db_cursor() as cursor:
+        cursor.execute("""
+            SELECT 
+                DAY(fac.Fecha_Creacion) AS Dia,
+                COALESCE(SUM(df.Total), 0) AS Total_Vendido
+            FROM facturacion fac
+            INNER JOIN detalle_facturacion df ON fac.ID_Factura = df.ID_Factura
+            WHERE MONTH(fac.Fecha_Creacion) = MONTH(CURDATE()) 
+              AND YEAR(fac.Fecha_Creacion) = YEAR(CURDATE())
+              AND fac.Estado = 'Activa'
+            GROUP BY DAY(fac.Fecha_Creacion)
+            ORDER BY Dia ASC
+        """)
+        return cursor.fetchall()
+
+def obtener_top_clientes_deudores():
+    """Obtiene los 5 clientes con mayor deuda"""
+    with get_db_cursor() as cursor:
+        cursor.execute("""
+            SELECT 
+                c.Nombre AS Cliente,
+                c.Telefono,
+                COALESCE(SUM(cxc.Saldo_Pendiente), 0) AS Deuda_Total
+            FROM cuentas_por_cobrar cxc
+            INNER JOIN clientes c ON cxc.ID_Cliente = c.ID_Cliente
+            WHERE cxc.Estado IN ('Pendiente', 'Vencida')
+            GROUP BY c.ID_Cliente
+            ORDER BY Deuda_Total DESC
+            LIMIT 5
+        """)
+        return cursor.fetchall()
+
+def obtener_productos_bajo_stock():
+    """Obtiene productos con stock bajo (solo activos y de la bodega principal ID_Bodega = 1)"""
+    with get_db_cursor() as cursor:
+        cursor.execute("""
+            SELECT 
+                p.Descripcion AS Producto,
+                p.COD_Producto,
+                ib.Existencias AS Stock_Actual,
+                p.Stock_Minimo,
+                (p.Stock_Minimo - ib.Existencias) AS Faltante
+            FROM inventario_bodega ib
+            INNER JOIN productos p ON ib.ID_Producto = p.ID_Producto
+            WHERE ib.ID_Bodega = 1
+              AND p.Estado = 'Activo'
+              AND ib.Existencias <= p.Stock_Minimo
+            ORDER BY ib.Existencias ASC
+            LIMIT 10
+        """)
+        return cursor.fetchall()
+
+def obtener_gastos_mes():
+    """Obtiene gastos del mes por categoría"""
+    with get_db_cursor() as cursor:
+        cursor.execute("""
+            SELECT 
+                tg.Nombre AS Tipo_Gasto,
+                COALESCE(SUM(gg.Monto), 0) AS Total_Gastado
+            FROM gastos_generales gg
+            INNER JOIN tipos_gasto tg ON gg.ID_Tipo_Gasto = tg.ID_Tipo_Gasto
+            WHERE MONTH(gg.Fecha) = MONTH(CURDATE()) 
+              AND YEAR(gg.Fecha) = YEAR(CURDATE())
+              AND gg.Estado = 'Activo'
+            GROUP BY tg.ID_Tipo_Gasto
+            ORDER BY Total_Gastado DESC
+            LIMIT 5
+        """)
+        return cursor.fetchall()
+
+def obtener_ventas_vendedores():
+    """Obtiene ventas por vendedor del día actual"""
+    with get_db_cursor() as cursor:
+        cursor.execute("""
+            SELECT 
+                u.NombreUsuario AS Vendedor,
+                COUNT(DISTINCT fr.ID_FacturaRuta) AS Facturas,
+                COALESCE(SUM(dfr.Total), 0) AS Total_Vendido
+            FROM facturacion_ruta fr
+            INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+            INNER JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
+            INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+            WHERE DATE(fr.Fecha_Creacion) = CURDATE() AND fr.Estado = 'Activa'
+            GROUP BY u.ID_Usuario
+            ORDER BY Total_Vendido DESC
+            LIMIT 5
+        """)
+        return cursor.fetchall()
+
+def obtener_rutas_activas():
+    """Obtiene rutas activas con vendedor y vehículo"""
+    with get_db_cursor() as cursor:
+        cursor.execute("""
+            SELECT 
+                r.Nombre_Ruta AS Ruta,
+                u.NombreUsuario AS Vendedor,
+                v.Placa AS Vehiculo,
+                av.Estado
+            FROM asignacion_vendedores av
+            INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+            INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+            LEFT JOIN vehiculos v ON av.ID_Vehiculo = v.ID_Vehiculo
+            WHERE av.Estado = 'Activa'
+        """)
+        return cursor.fetchall()
+
+def obtener_ventas_7dias():
+    """Obtiene ventas de los últimos 7 días"""
+    with get_db_cursor() as cursor:
+        cursor.execute("""
+            SELECT 
+                DATE(fac.Fecha_Creacion) AS Fecha,
+                COALESCE(SUM(df.Total), 0) AS Total_Vendido
+            FROM facturacion fac
+            INNER JOIN detalle_facturacion df ON fac.ID_Factura = df.ID_Factura
+            WHERE fac.Fecha_Creacion >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+              AND fac.Estado = 'Activa'
+            GROUP BY DATE(fac.Fecha_Creacion)
+            ORDER BY Fecha ASC
+        """)
+        return cursor.fetchall()
+
+def obtener_movimientos_caja():
+    """Obtiene movimientos de caja del día actual"""
+    with get_db_cursor() as cursor:
+        cursor.execute("""
+            SELECT 
+                Tipo,
+                COUNT(*) as Cantidad,
+                COALESCE(SUM(Monto), 0) as Total
+            FROM movimientos_caja_ruta
+            WHERE DATE(Fecha) = CURDATE() AND Estado = 'ACTIVO'
+            GROUP BY Tipo
+        """)
+        return cursor.fetchall()
+
+def obtener_proximos_vencimientos():
+    """Obtiene facturas con próximos vencimientos (7 días)"""
+    with get_db_cursor() as cursor:
+        cursor.execute("""
+            SELECT 
+                c.Nombre AS Cliente,
+                cxc.Num_Documento,
+                cxc.Fecha_Vencimiento,
+                cxc.Saldo_Pendiente
+            FROM cuentas_por_cobrar cxc
+            INNER JOIN clientes c ON cxc.ID_Cliente = c.ID_Cliente
+            WHERE cxc.Fecha_Vencimiento BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+              AND cxc.Estado = 'Pendiente'
+              AND cxc.Saldo_Pendiente > 0
+            ORDER BY cxc.Fecha_Vencimiento ASC
+            LIMIT 5
+        """)
+        return cursor.fetchall()
+
+def preparar_datos_graficos(ventas_mes, ventas_7dias, gastos_mes, movimientos_caja):
+    """Prepara datos JSON para los gráficos del dashboard"""
+    # Datos para gráfico de ventas del mes
+    ventas_mes_data = {
+        'dias': [v['Dia'] for v in ventas_mes],
+        'totales': [float(v['Total_Vendido']) for v in ventas_mes]
+    }
+    
+    # Datos para gráfico de tendencia 7 días
+    ventas_7dias_data = {
+        'fechas': [v['Fecha'].strftime('%d/%m') for v in ventas_7dias],
+        'totales': [float(v['Total_Vendido']) for v in ventas_7dias]
+    }
+    
+    # Datos para gráfico de gastos
+    gastos_mes_data = {
+        'categorias': [g['Tipo_Gasto'] for g in gastos_mes],
+        'montos': [float(g['Total_Gastado']) for g in gastos_mes]
+    }
+    
+    return {
+        'ventas_mes_json': json.dumps(ventas_mes_data),
+        'ventas_7dias_json': json.dumps(ventas_7dias_data),
+        'gastos_mes_json': json.dumps(gastos_mes_data)
+    }
+
+
+def safe_float(val, default=0.0):
+    """Convierte valor a float de manera segura"""
+    if val is None or val == '':
+        return float(default)
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return float(default)
+
+
+def safe_int(val, default=0):
+    """Convierte valor a int de manera segura"""
+    if val is None or val == '':
+        return int(default)
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        return int(default)
+
+
+def obtener_catalogos_productos_admin(cursor):
+    """Obtiene categorías, empresas, bodegas y unidades para filtros y formularios"""
+    cursor.execute("SELECT ID_Categoria, Descripcion FROM categorias_producto ORDER BY Descripcion")
+    categorias = [{'id': c['ID_Categoria'], 'nombre': c['Descripcion']} for c in cursor.fetchall()]
+
+    cursor.execute("SELECT ID_Empresa, Nombre_Empresa FROM empresa WHERE Estado = 'Activo' ORDER BY Nombre_Empresa")
+    empresas = [{'id': e['ID_Empresa'], 'nombre': e['Nombre_Empresa']} for e in cursor.fetchall()]
+
+    cursor.execute("""
+        SELECT b.ID_Bodega, b.Nombre, b.ID_Empresa, e.Nombre_Empresa 
+        FROM bodegas b 
+        JOIN empresa e ON b.ID_Empresa = e.ID_Empresa 
+        WHERE b.Estado = 'activa'
+        ORDER BY e.Nombre_Empresa, b.Nombre
+    """)
+    bodegas = [{
+        'id': b['ID_Bodega'],
+        'nombre': b['Nombre'],
+        'id_empresa': b['ID_Empresa'],
+        'empresa': b['Nombre_Empresa']
+    } for b in cursor.fetchall()]
+
+    cursor.execute("SELECT ID_Unidad, Descripcion, Abreviatura FROM unidades_medida ORDER BY ID_Unidad")
+    unidades = [{
+        'id': u['ID_Unidad'],
+        'nombre': u['Descripcion'],
+        'abreviatura': u['Abreviatura'] or ''
+    } for u in cursor.fetchall()]
+
+    return {
+        'categorias': categorias,
+        'empresas': empresas,
+        'bodegas': bodegas,
+        'unidades': unidades
+    }
+
+
+def formatear_producto_para_listado(producto):
+    """Formatea un registro de producto desde MySQL para renderizado en tabla"""
+    stock_val = safe_float(producto.get('Stock'), 0.0)
+    unidad_medida = producto.get('Unidad_Medida')
+    
+    if unidad_medida == 1:
+        cajillas = int(stock_val)
+        unidades = int(round((stock_val - cajillas) * 100))
+        stock_display = f"{cajillas}.{unidades:02d}"
+    else:
+        stock_display = f"{stock_val:g}"
+        
+    return {
+        'id': producto.get('ID_Producto'),
+        'codigo': producto.get('COD_Producto') or 'N/A',
+        'nombre': producto.get('Descripcion') or '',
+        'unidad': producto.get('Unidad') or 'Und',
+        'stock': stock_val,
+        'stock_display': stock_display,
+        'desglose_bodegas': producto.get('Desglose_Bodegas') or '',
+        'estado': producto.get('Estado') or 'activo',
+        'categoria': producto.get('Categoria') or 'Sin categoría',
+        'precio_mercado': safe_float(producto.get('Precio_Mercado'), 0.0),
+        'precio_mayorista': safe_float(producto.get('Precio_Mayorista'), 0.0),
+        'precio_ruta': safe_float(producto.get('Precio_Ruta'), 0.0),
+        'empresa': producto.get('Empresa') or 'Sin empresa',
+        'stock_minimo': safe_float(producto.get('Stock_Minimo'), 5.0)
+    }

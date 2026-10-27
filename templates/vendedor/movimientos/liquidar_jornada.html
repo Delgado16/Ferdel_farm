@@ -1,0 +1,303 @@
+{% extends "layout.html" %}
+
+{% block title %}Liquidar Jornada - FerDel{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4 fade-in-up">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb bg-transparent p-0 mb-0">
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('vendedor.vendedor_dashboard') }}" class="text-decoration-none text-muted small">
+                    <i class="fas fa-home me-1"></i> Dashboard
+                </a>
+            </li>
+            <li class="breadcrumb-item active small text-slate-800 fw-bold" aria-current="page">
+                <i class="fas fa-hand-holding-usd me-1"></i> Liquidar Jornada
+            </li>
+        </ol>
+    </nav>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-9 col-xl-8">
+            <!-- Ficha informativa y formulario de liquidación -->
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4 bg-white">
+                <!-- Encabezado -->
+                <div class="p-4 border-bottom bg-gradient" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: #ffffff;">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <div>
+                            <span class="badge bg-danger text-white px-3 py-1.5 rounded-pill fw-semibold mb-2">
+                                <i class="fas fa-flag-checkered me-1"></i> Cierre de Jornada
+                            </span>
+                            <h4 class="fw-bold text-white mb-0">
+                                Liquidación de Ruta y Entrega
+                            </h4>
+                        </div>
+                        <div class="text-end">
+                            <small class="text-white-50 d-block text-uppercase fw-semibold" style="font-size: 0.72rem; letter-spacing: 0.05em;">Asignación Activa</small>
+                            <span class="badge bg-white bg-opacity-10 text-white border border-white border-opacity-25 fs-6 px-3 py-1 rounded-pill">
+                                #{{ asignacion.ID_Asignacion }} &bull; {{ asignacion.Nombre_Ruta or 'Ruta' }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-body p-4 p-md-5">
+                    
+                    <!-- SECCIÓN: EFECTIVO GENERADO Y CAJA -->
+                    <div class="mb-5">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="bg-success bg-opacity-10 text-success rounded-circle p-2 me-2 d-inline-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
+                                <i class="fas fa-coins fa-lg"></i>
+                            </div>
+                            <h5 class="fw-bold text-slate-800 mb-0">Resumen de Efectivo Recaudado</h5>
+                        </div>
+
+                        <!-- Tarjeta principal de efectivo generado -->
+                        <div class="p-4 rounded-4 mb-3 border position-relative overflow-hidden" 
+                             style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-color: #86efac !important;">
+                            <div class="row align-items-center">
+                                <div class="col-md-7">
+                                    <span class="text-uppercase fw-bold text-success" style="font-size: 0.75rem; letter-spacing: 0.05em;">
+                                        <i class="fas fa-hand-holding-usd me-1"></i> Efectivo Generado en Ruta (Cobros)
+                                    </span>
+                                    <h2 class="fw-black text-success font-monospace mb-1" style="font-size: 2.3rem;">
+                                        C$ {{ (desglose_caja.total_efectivo_generado or 0) | cantidad }}
+                                    </h2>
+                                    <p class="text-muted small mb-0">
+                                        Total recibido de clientes (Ventas de contado + Cobros de abonos).
+                                    </p>
+                                </div>
+                                <div class="col-md-5 mt-3 mt-md-0 border-start-md ps-md-4">
+                                    <div class="p-3 bg-white bg-opacity-90 rounded-3 border border-success border-opacity-25 shadow-xs">
+                                        <small class="text-slate-600 d-block fw-semibold mb-1">
+                                            <i class="fas fa-cash-register me-1 text-primary"></i> Efectivo a Entregar al Local
+                                        </small>
+                                        <h3 class="fw-bold text-slate-900 font-monospace mb-1">
+                                            C$ {{ (monto_cierre_real if caja_cerrada else saldo_caja) | cantidad }}
+                                        </h3>
+                                        <div class="small text-muted" style="font-size: 0.75rem;">
+                                            Saldo Esperado Sistema: <strong>C$ {{ saldo_caja | cantidad }}</strong>
+                                        </div>
+
+                                        {% if caja_cerrada %}
+                                            {% if diferencia_cierre > 0.01 %}
+                                            <div class="badge bg-success bg-opacity-10 text-success border border-success d-block text-start p-2 mt-2">
+                                                <i class="fas fa-arrow-up me-1"></i> <strong>Sobrante: + C$ {{ diferencia_cierre | cantidad }}</strong>
+                                                <div class="text-muted fw-normal" style="font-size: 0.72rem;">El efectivo físico en caja es mayor al esperado</div>
+                                            </div>
+                                            {% elif diferencia_cierre < -0.01 %}
+                                            <div class="badge bg-danger bg-opacity-10 text-danger border border-danger d-block text-start p-2 mt-2">
+                                                <i class="fas fa-arrow-down me-1"></i> <strong>Faltante: - C$ {{ (diferencia_cierre|abs) | cantidad }}</strong>
+                                                <div class="text-muted fw-normal" style="font-size: 0.72rem;">El efectivo físico en caja es menor al esperado</div>
+                                            </div>
+                                            {% else %}
+                                            <div class="badge bg-success bg-opacity-10 text-success border border-success d-block text-start p-2 mt-2">
+                                                <i class="fas fa-check-circle me-1"></i> <strong>Caja Cuadrada (C$ 0.00)</strong>
+                                                <div class="text-muted fw-normal" style="font-size: 0.72rem;">El saldo esperado coincide con el efectivo en caja</div>
+                                            </div>
+                                            {% endif %}
+                                        {% else %}
+                                            <div class="badge bg-warning bg-opacity-10 text-warning border border-warning d-block text-start p-2 mt-2">
+                                                <i class="fas fa-clock me-1"></i> <strong>Arqueo físico pendiente</strong>
+                                                <div class="text-muted fw-normal" style="font-size: 0.72rem;">Puedes ingresar el arqueo antes de confirmar abajo</div>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Mini desglose transparente -->
+                        <div class="row g-2 text-center">
+                            <div class="col-6 col-md-3">
+                                <div class="p-2.5 bg-light rounded-3 border">
+                                    <small class="text-muted d-block" style="font-size: 0.75rem;">Fondo Inicial (Apertura)</small>
+                                    <span class="fw-bold text-slate-700 font-monospace">C$ {{ (desglose_caja.apertura or 0) | cantidad }}</span>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="p-2.5 bg-light rounded-3 border">
+                                    <small class="text-muted d-block" style="font-size: 0.75rem;">Ventas de Contado</small>
+                                    <span class="fw-bold text-success font-monospace">+ C$ {{ (desglose_caja.ventas_contado or 0) | cantidad }}</span>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="p-2.5 bg-light rounded-3 border">
+                                    <small class="text-muted d-block" style="font-size: 0.75rem;">Abonos Cobrados</small>
+                                    <span class="fw-bold text-primary font-monospace">+ C$ {{ (desglose_caja.abonos or 0) | cantidad }}</span>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="p-2.5 bg-light rounded-3 border">
+                                    <small class="text-muted d-block" style="font-size: 0.75rem;">Gastos Registrados</small>
+                                    <span class="fw-bold text-danger font-monospace">- C$ {{ (desglose_caja.gastos or 0) | cantidad }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-4 text-muted opacity-25">
+
+                    <!-- SECCIÓN: PRODUCTOS QUE SOBRARON EN EL CAMIÓN -->
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-primary bg-opacity-10 text-primary rounded-circle p-2 me-2 d-inline-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
+                                    <i class="fas fa-boxes fa-lg"></i>
+                                </div>
+                                <div>
+                                    <h5 class="fw-bold text-slate-800 mb-0">Productos que Sobraron (Inventario en Camión)</h5>
+                                    <small class="text-muted">Se reintegrarán automáticamente a la bodega central</small>
+                                </div>
+                            </div>
+                            {% if inventario %}
+                            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2.5 py-1.5 rounded-pill fw-semibold">
+                                {{ inventario|length }} producto(s)
+                            </span>
+                            {% endif %}
+                        </div>
+
+                        {% if inventario %}
+                        <div class="table-responsive border rounded-3 overflow-hidden shadow-xs mb-3">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead style="background: #f8fafc;">
+                                    <tr class="text-slate-600" style="font-size: 0.8rem; letter-spacing: 0.05em; text-transform: uppercase;">
+                                        <th class="ps-3 py-3">Código</th>
+                                        <th class="py-3">Producto</th>
+                                        <th class="text-center py-3">Unidad</th>
+                                        <th class="text-end pe-3 py-3">Cantidad que Sobró</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in inventario %}
+                                    <tr>
+                                        <td class="ps-3">
+                                            <span class="badge bg-light text-secondary font-monospace border fw-normal px-2 py-1">
+                                                {{ item.COD_Producto or 'N/A' }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div class="fw-bold text-slate-800">{{ item.Producto }}</div>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-light text-dark border px-2 py-1 fw-semibold small" style="color: #334155 !important;">
+                                                {{ item.Unidad_Medida or 'PZA' }}
+                                            </span>
+                                        </td>
+                                        <td class="text-end pe-3">
+                                            <span class="fw-bold text-primary font-monospace fs-6">
+                                                {{ item.Cantidad | cantidad }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="text-center py-4 bg-light rounded-3 border mb-3">
+                            <i class="fas fa-truck-loading text-success fa-3x mb-2 opacity-75"></i>
+                            <h6 class="fw-bold text-slate-800 mb-1">Sin sobrantes en el camión</h6>
+                            <p class="text-muted small mb-0">Has vendido o devuelto todo el inventario asignado.</p>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Mensaje informativo de confirmación -->
+                    <div class="alert alert-warning border-0 bg-warning bg-opacity-10 text-slate-800 rounded-3 p-3 mb-4 d-flex align-items-start gap-3">
+                        <i class="fas fa-exclamation-triangle text-warning fa-lg mt-1"></i>
+                        <div class="small">
+                            <strong>Aviso importante:</strong> Al confirmar la liquidación, el inventario sobrante retornará a la <strong>Bodega Central</strong> y el saldo neto en efectivo se registrará en la caja general del local. Esta acción finalizará tu jornada activa.
+                        </div>
+                    </div>
+
+                    <!-- Formulario de Liquidación -->
+                    <form method="POST">
+                        {% if not caja_cerrada %}
+                        <!-- Sección para realizar arqueo físico si no se hizo previamente -->
+                        <div class="card border border-warning bg-light rounded-3 p-3 mb-4 shadow-xs">
+                            <div class="d-flex align-items-center mb-2">
+                                <div class="bg-warning bg-opacity-20 text-warning p-2 rounded-circle me-2">
+                                    <i class="fas fa-cash-register fa-lg"></i>
+                                </div>
+                                <div>
+                                    <h6 class="fw-bold mb-0 text-slate-800">Validación y Arqueo Físico de Caja</h6>
+                                    <small class="text-muted">Ingresa el dinero físico que tienes en mano para validar si coincide con el saldo esperado</small>
+                                </div>
+                            </div>
+                            <div class="row g-3 mt-1">
+                                <div class="col-md-6">
+                                    <label for="monto_real" class="form-label small fw-bold">Efectivo Físico Contado en Caja (C$):</label>
+                                    <input type="number" step="0.01" class="form-control font-monospace fw-bold fs-5" id="monto_real" name="monto_real" value="{{ '%.2f'|format(saldo_caja) }}" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="observacion_cierre" class="form-label small fw-bold">Observación / Detalle de Cierre (Opcional):</label>
+                                    <input type="text" class="form-control" id="observacion_cierre" name="observacion_cierre" placeholder="Ej. Billetes completos, cambio exacto...">
+                                </div>
+                                <div class="col-12">
+                                    <div id="arqueoStatus" class="alert mb-0 py-2 small fw-bold"></div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 pt-2">
+                            <a href="{{ url_for('vendedor.vendedor_dashboard') }}" class="btn btn-outline-secondary px-4 py-2.5 rounded-3 fw-bold">
+                                <i class="fas fa-arrow-left me-1"></i> Volver al Dashboard
+                            </a>
+                            <button type="submit" class="btn btn-danger px-4 py-2.5 rounded-3 fw-bold shadow-sm" 
+                                    onclick="event.preventDefault(); Swal.fire({
+                                        title: '¿Confirmar liquidación y cierre?',
+                                        text: 'Se devolverán los productos sobrantes a bodega y se registrará la entrega del efectivo.',
+                                        icon: 'warning',
+                                        showCancelButton: true,
+                                        confirmButtonColor: '#dc2626',
+                                        cancelButtonColor: '#64748b',
+                                        confirmButtonText: 'Sí, liquidar jornada',
+                                        cancelButtonText: 'Cancelar'
+                                    }).then((result) => { 
+                                        if (result.isConfirmed) { 
+                                            this.closest('form').submit(); 
+                                        } 
+                                    });">
+                                <i class="fas fa-check-circle me-1"></i> Confirmar Liquidación y Cierre
+                            </button>
+                        </div>
+                    </form>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if not caja_cerrada %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const montoInput = document.getElementById('monto_real');
+    const statusDiv = document.getElementById('arqueoStatus');
+    const saldoEsperado = {{ saldo_caja }};
+    
+    if (montoInput && statusDiv) {
+        function actualizarEstado() {
+            const monto = parseFloat(montoInput.value) || 0;
+            const diff = Math.round((monto - saldoEsperado) * 100) / 100;
+            if (Math.abs(diff) <= 0.01) {
+                statusDiv.className = 'alert alert-success mb-0 py-2 small fw-bold';
+                statusDiv.innerHTML = '<i class="fas fa-check-circle me-1"></i> Caja Cuadrada: El efectivo físico coincide exactamente con el saldo esperado (C$ 0.00).';
+            } else if (diff > 0.01) {
+                statusDiv.className = 'alert alert-success mb-0 py-2 small fw-bold';
+                statusDiv.innerHTML = `<i class="fas fa-arrow-up me-1"></i> Sobrante en Caja: + C$ ${diff.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} (El saldo en caja es mayor al esperado).`;
+            } else {
+                statusDiv.className = 'alert alert-danger mb-0 py-2 small fw-bold';
+                statusDiv.innerHTML = `<i class="fas fa-arrow-down me-1"></i> Faltante en Caja: - C$ ${Math.abs(diff).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} (El saldo en caja es menor al esperado).`;
+            }
+        }
+        montoInput.addEventListener('input', actualizarEstado);
+        actualizarEstado();
+    }
+});
+</script>
+{% endif %}
+{% endblock %}

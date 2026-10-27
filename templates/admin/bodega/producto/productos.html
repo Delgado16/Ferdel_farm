@@ -1,0 +1,685 @@
+{% extends "layout.html" %}
+
+{% block title %}Gestión de Productos - FerDel{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    /* Estilos compactos y profesionales premium */
+    .stats-card-premium {
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 1.25rem;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.03);
+        text-align: center;
+        transition: all 0.2s ease;
+    }
+    
+    .stats-card-premium:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px -2px rgba(15, 23, 42, 0.08);
+    }
+    
+    .stats-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+        font-size: 1.2rem;
+    }
+
+    .stats-number {
+        font-size: 1.75rem;
+        font-weight: 800;
+        margin-bottom: 0.20rem;
+        color: #1e293b;
+    }
+
+    .stats-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #64748b;
+    }
+
+    .badge-stock {
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .badge-critical {
+        background-color: #fee2e2;
+        color: #b91c1c;
+        border: 1px solid #fca5a5;
+    }
+
+    .badge-low {
+        background-color: #fef3c7;
+        color: #b45309;
+        border: 1px solid #fde68a;
+    }
+
+    .badge-normal {
+        background-color: #dcfce7;
+        color: #15803d;
+        border: 1px solid #bbf7d0;
+    }
+
+    .badge-out {
+        background-color: #f1f5f9;
+        color: #475569;
+        border: 1px solid #cbd5e1;
+    }
+
+    .required-star::after {
+        content: " *";
+        color: #ef4444;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <!-- Encabezado -->
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-boxes text-primary me-2"></i>Gestión de Productos
+            </h3>
+            <p class="text-muted small mb-0">Listado general de productos, precios y existencias en inventario</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            {% if estado_seleccionado == 'inactivo' %}
+            <a href="{{ url_for('admin.admin_productos', estado='activo') }}" class="btn btn-outline-success btn-sm px-3 py-2 rounded-3 fw-bold">
+                <i class="fas fa-check-circle me-1"></i> Ver Activos ({{ stats.total_activos|default(0) }})
+            </a>
+            {% else %}
+            <a href="{{ url_for('admin.admin_productos', estado='inactivo') }}" class="btn btn-outline-danger btn-sm px-3 py-2 rounded-3 fw-bold">
+                <i class="fas fa-eye-slash me-1"></i> Ver Inactivos ({{ stats.total_inactivos|default(0) }})
+            </a>
+            {% endif %}
+            <button type="button" class="btn btn-outline-danger btn-sm px-3 py-2 rounded-3 fw-bold" data-bs-toggle="modal" data-bs-target="#modalReportePDF" title="Generar PDF de Existencias">
+                <i class="fas fa-file-pdf me-1"></i> PDF Existencias
+            </button>
+            <button type="button" class="btn btn-primary btn-sm px-3 py-2 rounded-3 fw-bold" data-bs-toggle="modal"
+                data-bs-target="#modalCrearProducto">
+                <i class="fas fa-plus-circle me-1"></i> Nuevo Producto
+            </button>
+        </div>
+    </div>
+
+    <!-- Tarjetas de estadísticas -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="stats-card-premium">
+                <div class="stats-icon text-primary bg-primary bg-opacity-10 mb-2">
+                    <i class="fas fa-box"></i>
+                </div>
+                <div class="stats-number">{{ stats.total|default(0) }}</div>
+                <div class="stats-label">Total Productos</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stats-card-premium">
+                <div class="stats-icon text-warning bg-warning bg-opacity-10 mb-2">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <div class="stats-number text-warning">{{ stats.critico|default(0) }}</div>
+                <div class="stats-label">Stock Crítico</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stats-card-premium">
+                <div class="stats-icon text-danger bg-danger bg-opacity-10 mb-2">
+                    <i class="fas fa-times-circle"></i>
+                </div>
+                <div class="stats-number text-danger">{{ stats.sin_stock|default(0) }}</div>
+                <div class="stats-label">Sin Stock</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stats-card-premium">
+                <div class="stats-icon text-success bg-success bg-opacity-10 mb-2">
+                    <i class="fas fa-cubes"></i>
+                </div>
+                <div class="stats-number text-success">{{ stats.total_stock|default(0) | cantidad }}</div>
+                <div class="stats-label">Total Unidades</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barra de Filtros -->
+    <div class="card-premium-section">
+        <div class="card-premium-header">
+            <h6 class="fw-bold text-slate-800 mb-0">
+                <i class="fas fa-filter text-primary me-2"></i>Filtros de Búsqueda
+            </h6>
+        </div>
+        <div class="card-body p-4">
+            <form method="GET" action="{{ url_for('admin.admin_productos') }}" id="filterForm" class="row g-3">
+                <div class="col-12 col-md-6 col-lg-3">
+                    <label class="form-label-premium filter-label-premium">Categoría</label>
+                    <select name="categoria" class="form-select form-select-premium" onchange="this.form.submit()">
+                        <option value="todos" {% if categoria_seleccionada=='todos' %}selected{% endif %}>Todas</option>
+                        {% for cat in categorias %}
+                        <option value="{{ cat.id }}" {% if categoria_seleccionada|string==cat.id|string %}selected{% endif %}>
+                            {{ cat.nombre }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-12 col-md-6 col-lg-3">
+                    <label class="form-label-premium filter-label-premium">Empresa</label>
+                    <select name="empresa" class="form-select form-select-premium" onchange="this.form.submit()">
+                        <option value="todas" {% if empresa_seleccionada=='todas' %}selected{% endif %}>Todas</option>
+                        {% for emp in empresas %}
+                        <option value="{{ emp.id }}" {% if empresa_seleccionada|string==emp.id|string %}selected{% endif %}>
+                            {{ emp.nombre }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-12 col-md-6 col-lg-3">
+                    <label class="form-label-premium filter-label-premium">Bodega</label>
+                    <select name="bodega" class="form-select form-select-premium" onchange="this.form.submit()">
+                        <option value="todas" {% if bodega_seleccionada=='todas' %}selected{% endif %}>Todas</option>
+                        {% for bod in bodegas %}
+                        <option value="{{ bod.id }}" {% if bodega_seleccionada|string==bod.id|string %}selected{% endif %}>
+                            {{ bod.nombre }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-12 col-md-6 col-lg-3">
+                    <label class="form-label-premium filter-label-premium">Estado Stock</label>
+                    <select name="stock" class="form-select form-select-premium" onchange="this.form.submit()">
+                        <option value="todos" {% if stock_seleccionado=='todos' %}selected{% endif %}>Todos</option>
+                        <option value="critico" {% if stock_seleccionado=='critico' %}selected{% endif %}>🔴 Crítico</option>
+                        <option value="bajo" {% if stock_seleccionado=='bajo' %}selected{% endif %}>🟡 Bajo</option>
+                        <option value="normal" {% if stock_seleccionado=='normal' %}selected{% endif %}>🟢 Normal</option>
+                        <option value="sin_stock" {% if stock_seleccionado=='sin_stock' %}selected{% endif %}>⚪ Sin Stock</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-6 col-lg-6">
+                    <label class="form-label-premium filter-label-premium">Buscar Producto</label>
+                    <div class="position-relative">
+                        <input type="text" id="searchInput" name="search" class="form-control form-control-premium ps-5"
+                            placeholder="Buscar por código o descripción..." value="{{ search_term }}">
+                        <i class="fas fa-search position-absolute start-0 top-50 translate-middle-y ms-3 text-muted"></i>
+                    </div>
+                </div>
+                <div class="col-12 col-md-6 col-lg-3">
+                    <label class="form-label-premium filter-label-premium">Estado Producto</label>
+                    <select name="estado" class="form-select form-select-premium" onchange="this.form.submit()">
+                        <option value="activo" {% if estado_seleccionado=='activo' %}selected{% endif %}>Activos</option>
+                        <option value="inactivo" {% if estado_seleccionado=='inactivo' %}selected{% endif %}>Inactivos</option>
+                        <option value="todos" {% if estado_seleccionado=='todos' %}selected{% endif %}>Todos</option>
+                    </select>
+                </div>
+                {% if categoria_seleccionada != 'todos' or empresa_seleccionada != 'todas' or bodega_seleccionada != 'todas' or stock_seleccionado != 'todos' or search_term or estado_seleccionado != 'activo' %}
+                <div class="col-12 col-md-6 col-lg-3 d-flex align-items-end">
+                    <a href="{{ url_for('admin.admin_productos') }}" class="btn btn-outline-secondary btn-sm w-100 rounded-3 py-2">
+                        <i class="fas fa-eraser me-1"></i> Limpiar Filtros
+                    </a>
+                </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+
+    <!-- Resultados -->
+    <div class="card-premium-section">
+        <div class="card-premium-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div class="d-flex align-items-center gap-2">
+                <h6 class="fw-bold text-slate-800 mb-0">
+                    <i class="fas fa-list text-primary me-2"></i>Productos Registrados
+                </h6>
+                <span class="badge {% if estado_seleccionado == 'inactivo' %}bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25{% else %}bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25{% endif %} rounded-pill px-2.5 py-1 fw-bold">
+                    {{ productos|length }} {{ 'Inactivos' if estado_seleccionado == 'inactivo' else ('Activos' if estado_seleccionado == 'activo' else 'Totales') }}
+                </span>
+            </div>
+            <div class="btn-group btn-group-sm" role="group">
+                <a href="{{ url_for('admin.admin_productos', estado='activo', categoria=categoria_seleccionada if categoria_seleccionada != 'todos' else None, bodega=bodega_seleccionada if bodega_seleccionada != 'todas' else None, empresa=empresa_seleccionada if empresa_seleccionada != 'todas' else None, stock=stock_seleccionado if stock_seleccionado != 'todos' else None, search=search_term if search_term else None) }}"
+                   class="btn {% if estado_seleccionado == 'activo' %}btn-success text-white fw-bold{% else %}btn-outline-secondary{% endif %}">
+                    <i class="fas fa-check-circle me-1"></i> Activos ({{ stats.total_activos|default(0) }})
+                </a>
+                <a href="{{ url_for('admin.admin_productos', estado='inactivo', categoria=categoria_seleccionada if categoria_seleccionada != 'todos' else None, bodega=bodega_seleccionada if bodega_seleccionada != 'todas' else None, empresa=empresa_seleccionada if empresa_seleccionada != 'todas' else None, stock=stock_seleccionado if stock_seleccionado != 'todos' else None, search=search_term if search_term else None) }}"
+                   class="btn {% if estado_seleccionado == 'inactivo' %}btn-danger text-white fw-bold{% else %}btn-outline-secondary{% endif %}">
+                    <i class="fas fa-ban me-1"></i> Inactivos ({{ stats.total_inactivos|default(0) }})
+                </a>
+                <a href="{{ url_for('admin.admin_productos', estado='todos', categoria=categoria_seleccionada if categoria_seleccionada != 'todos' else None, bodega=bodega_seleccionada if bodega_seleccionada != 'todas' else None, empresa=empresa_seleccionada if empresa_seleccionada != 'todas' else None, stock=stock_seleccionado if stock_seleccionado != 'todos' else None, search=search_term if search_term else None) }}"
+                   class="btn {% if estado_seleccionado == 'todos' %}btn-primary text-white fw-bold{% else %}btn-outline-secondary{% endif %}">
+                    <i class="fas fa-list me-1"></i> Todos
+                </a>
+            </div>
+        </div>
+        {% if estado_seleccionado == 'inactivo' %}
+        <div class="alert alert-warning border border-warning border-opacity-25 m-3 mb-0 rounded-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-exclamation-triangle text-warning me-2 fs-5"></i>
+                <span>Estás visualizando los <strong>productos inactivos / desactivados</strong>. Puedes reactivarlos usando el botón verde (<i class="fas fa-check"></i>) en la columna de acciones.</span>
+            </div>
+            <a href="{{ url_for('admin.admin_productos', estado='activo') }}" class="btn btn-sm btn-outline-dark rounded-pill px-3">
+                <i class="fas fa-arrow-left me-1"></i> Volver a Activos
+            </a>
+        </div>
+        {% endif %}
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-modern align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width: 100px;">Código</th>
+                            <th>Producto</th>
+                            <th>Unidad</th>
+                            <th>Estado Stock</th>
+                            <th class="text-center" style="width: 100px;">Estado</th>
+                            <th>Precio</th>
+                            <th>Categoría</th>
+                            <th>Empresa</th>
+                            <th class="text-center" style="width: 100px;">Stock Mín</th>
+                            <th class="text-center" style="width: 120px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for prod in productos %}
+                        {% set stock_class = 'normal' %}
+                        {% if prod.stock == 0 %}
+                        {% set stock_class = 'out' %}
+                        {% elif prod.stock <= prod.stock_minimo %}
+                        {% set stock_class = 'critical' %}
+                        {% elif prod.stock <= prod.stock_minimo * 2 %}
+                        {% set stock_class = 'low' %}
+                        {% endif %}
+                        <tr {% if prod.estado != 'activo' %}class="bg-light text-muted"{% endif %}>
+                            <td>
+                                <code class="small text-primary fw-bold">{{ prod.codigo }}</code>
+                            </td>
+                            <td>
+                                <strong class="text-slate-800">{{ prod.nombre }}</strong>
+                            </td>
+                            <td><span class="text-muted">{{ prod.unidad }}</span></td>
+                            <td>
+                                {% if prod.stock == 0 %}
+                                <span class="badge-stock badge-out"><i class="fas fa-times-circle me-1"></i>Sin Stock</span>
+                                {% elif prod.stock <= prod.stock_minimo %}
+                                <span class="badge-stock badge-critical" title="{{ prod.desglose_bodegas }}"><i class="fas fa-exclamation-triangle me-1"></i>Crítico ({{ prod.stock_display }})</span>
+                                {% elif prod.stock <= prod.stock_minimo * 2 %}
+                                <span class="badge-stock badge-low" title="{{ prod.desglose_bodegas }}"><i class="fas fa-exclamation-circle me-1"></i>Bajo ({{ prod.stock_display }})</span>
+                                {% else %}
+                                <span class="badge-stock badge-normal" title="{{ prod.desglose_bodegas }}"><i class="fas fa-check-circle me-1"></i>Normal ({{ prod.stock_display }})</span>
+                                {% endif %}
+                                
+                                {% if prod.desglose_bodegas %}
+                                <div class="small text-muted mt-1" style="font-size: 0.75rem;">
+                                    <i class="fas fa-boxes me-1 text-primary"></i> {{ prod.desglose_bodegas }}
+                                </div>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if prod.estado == 'activo' %}
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2.5 py-1 fw-bold">
+                                    <i class="fas fa-check-circle me-1"></i>Activo
+                                </span>
+                                {% else %}
+                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2.5 py-1 fw-bold">
+                                    <i class="fas fa-ban me-1"></i>Inactivo
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td><span class="fw-bold text-slate-800">C${{ prod.precio_mercado | cantidad }}</span></td>
+                            <td>{{ prod.categoria }}</td>
+                            <td>{{ prod.empresa }}</td>
+                            <td class="text-center">{{ prod.stock_minimo | cantidad }}</td>
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{{ url_for('admin.admin_editar_producto', id_producto=prod.id) }}"
+                                        class="btn btn-outline-primary" title="Editar">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    {% if prod.estado == 'activo' %}
+                                    <form method="POST"
+                                        action="{{ url_for('admin.admin_desactivar_producto', id_producto=prod.id) }}"
+                                        class="d-inline" onsubmit="event.preventDefault(); Swal.fire({title: '¿Desactivar este producto?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí', cancelButtonText: 'No'}).then((result) => { if (result.isConfirmed) { this.submit(); } });">
+                                        <button type="submit" class="btn btn-outline-danger" title="Desactivar">
+                                            <i class="fas fa-ban"></i>
+                                        </button>
+                                    </form>
+                                    {% else %}
+                                    <form method="POST"
+                                        action="{{ url_for('admin.admin_activar_producto', id_producto=prod.id) }}"
+                                        class="d-inline" onsubmit="event.preventDefault(); Swal.fire({title: '¿Activar este producto?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí', cancelButtonText: 'No'}).then((result) => { if (result.isConfirmed) { this.submit(); } });">
+                                        <button type="submit" class="btn btn-outline-success" title="Activar">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="10" class="text-center py-5 text-muted">
+                                <i class="fas fa-box-open fa-3x mb-3 d-block opacity-40"></i>
+                                No hay productos registrados
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Crear Producto -->
+<div class="modal fade" id="modalCrearProducto" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-md">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
+            <form method="POST" action="{{ url_for('admin.admin_crear_producto') }}" id="createProductForm">
+                <div class="modal-header bg-primary text-white" style="border-radius: 16px 16px 0 0; border-bottom: none;">
+                    <h6 class="modal-title fw-bold"><i class="fas fa-plus-circle me-2"></i>Crear Nuevo Producto</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <!-- Datos básicos -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-12">
+                            <label class="form-label-premium filter-label-premium">Código Producto</label>
+                            <input type="text" class="form-control form-control-premium" name="COD_Producto"
+                                placeholder="Ej: PROD-001">
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-12">
+                            <label class="form-label-premium filter-label-premium required-star">Descripción</label>
+                            <input type="text" class="form-control form-control-premium" name="Descripcion" required placeholder="Nombre o descripción del producto...">
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-6">
+                            <label class="form-label-premium filter-label-premium required-star">Unidad de Medida</label>
+                            <select class="form-select form-select-premium" name="Unidad_Medida" required>
+                                <option value="">Seleccionar</option>
+                                {% for unidad in unidades %}
+                                <option value="{{ unidad.id }}">{{ unidad.nombre }} ({{ unidad.abreviatura }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label-premium filter-label-premium required-star">Categoría</label>
+                            <select class="form-select form-select-premium" name="ID_Categoria" required>
+                                <option value="">Seleccionar</option>
+                                {% for cat in categorias %}
+                                <option value="{{ cat.id }}">{{ cat.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Precios y stock -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-4">
+                            <label class="form-label-premium filter-label-premium">Stock Inicial</label>
+                            <input type="number" class="form-control form-control-premium" name="Cantidad_Inicial" value="0"
+                                step="0.01">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label-premium filter-label-premium">Stock Mínimo</label>
+                            <input type="number" class="form-control form-control-premium" name="Stock_Minimo" value="5"
+                                step="0.01">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label-premium filter-label-premium">Estado</label>
+                            <select class="form-select form-select-premium" name="Estado">
+                                <option value="activo">Activo</option>
+                                <option value="inactivo">Inactivo</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-4">
+                            <label class="form-label-premium filter-label-premium">Precio Mercado</label>
+                            <input type="number" class="form-control form-control-premium" name="Precio_Mercado" value="0"
+                                step="0.01">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label-premium filter-label-premium">Precio Mayorista</label>
+                            <input type="number" class="form-control form-control-premium" name="Precio_Mayorista" value="0"
+                                step="0.01">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label-premium filter-label-premium">Precio Ruta</label>
+                            <input type="number" class="form-control form-control-premium" name="Precio_Ruta" value="0"
+                                step="0.01">
+                        </div>
+                    </div>
+
+                    <!-- Empresa y bodega -->
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <label class="form-label-premium filter-label-premium required-star">Empresa</label>
+                            <select class="form-select form-select-premium" name="ID_Empresa" id="empresaSelect" required>
+                                <option value="">Seleccionar</option>
+                                {% for emp in empresas %}
+                                <option value="{{ emp.id }}">{{ emp.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label-premium filter-label-premium required-star">Bodega</label>
+                            <select class="form-select form-select-premium" name="ID_Bodega" id="bodegaSelect" required
+                                disabled>
+                                <option value="">Primero seleccione empresa</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light" style="border-radius: 0 0 16px 16px;">
+                    <button type="button" class="btn btn-secondary rounded-3" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary px-4 fw-bold rounded-3">Crear Producto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<!-- Modal Reporte PDF -->
+<div class="modal fade" id="modalReportePDF" tabindex="-1" aria-labelledby="modalReportePDFLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-danger text-white border-0">
+                <h5 class="modal-title fw-bold" id="modalReportePDFLabel">
+                    <i class="fas fa-file-pdf me-2"></i>Generar Reporte de Existencias
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="GET" action="{{ url_for('admin.admin_productos_pdf_existencias') }}" target="_blank">
+                <div class="modal-body bg-light p-4">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label-premium">Bodega</label>
+                            <select name="bodega" class="form-select form-select-premium">
+                                <option value="todas" {% if bodega_seleccionada == 'todas' %}selected{% endif %}>Todas las Bodegas</option>
+                                {% for bod in bodegas %}
+                                <option value="{{ bod.id }}" {% if bodega_seleccionada|string == bod.id|string %}selected{% endif %}>{{ bod.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label-premium">Categoría</label>
+                            <select name="categoria" class="form-select form-select-premium">
+                                <option value="todos" {% if categoria_seleccionada == 'todos' %}selected{% endif %}>Todas las Categorías</option>
+                                {% for cat in categorias %}
+                                <option value="{{ cat.id }}" {% if categoria_seleccionada|string == cat.id|string %}selected{% endif %}>{{ cat.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label-premium">Empresa</label>
+                            <select name="empresa" class="form-select form-select-premium">
+                                <option value="todas" {% if empresa_seleccionada == 'todas' %}selected{% endif %}>Todas las Empresas</option>
+                                {% for emp in empresas %}
+                                <option value="{{ emp.id }}" {% if empresa_seleccionada|string == emp.id|string %}selected{% endif %}>{{ emp.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label-premium">Estado de Stock</label>
+                            <select name="stock" class="form-select form-select-premium">
+                                <option value="todos" {% if stock_seleccionado == 'todos' %}selected{% endif %}>Todos</option>
+                                <option value="critico" {% if stock_seleccionado == 'critico' %}selected{% endif %}>🔴 Crítico</option>
+                                <option value="bajo" {% if stock_seleccionado == 'bajo' %}selected{% endif %}>🟡 Bajo</option>
+                                <option value="normal" {% if stock_seleccionado == 'normal' %}selected{% endif %}>🟢 Normal</option>
+                                <option value="sin_stock" {% if stock_seleccionado == 'sin_stock' %}selected{% endif %}>⚪ Sin Stock</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label-premium">Estado del Producto</label>
+                            <select name="estado" class="form-select form-select-premium">
+                                <option value="activo" {% if estado_seleccionado == 'activo' %}selected{% endif %}>Activos</option>
+                                <option value="inactivo" {% if estado_seleccionado == 'inactivo' %}selected{% endif %}>Inactivos</option>
+                                <option value="todos" {% if estado_seleccionado == 'todos' %}selected{% endif %}>Todos</option>
+                            </select>
+                        </div>
+                        <input type="hidden" name="search" value="{{ search_term }}">
+                    </div>
+                </div>
+                <div class="modal-footer border-0 bg-light">
+                    <button type="button" class="btn btn-secondary px-4 fw-bold rounded-3" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger px-4 fw-bold rounded-3">
+                        <i class="fas fa-download me-2"></i>Generar PDF
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Filtro de bodegas por empresa
+    const empresaSelect = document.getElementById('empresaSelect');
+    const bodegaSelect = document.getElementById('bodegaSelect');
+    const bodegasData = {{ bodegas| tojson }};
+
+    if (empresaSelect && bodegaSelect) {
+        empresaSelect.addEventListener('change', function () {
+            const empresaId = this.value;
+            bodegaSelect.innerHTML = '<option value="">Seleccionar bodega</option>';
+
+            if (empresaId) {
+                const bodegasFiltradas = bodegasData.filter(b => b.id_empresa == empresaId);
+
+                if (bodegasFiltradas.length === 0) {
+                    const option = document.createElement('option');
+                    option.value = '';
+                    option.textContent = 'No hay bodegas disponibles';
+                    bodegaSelect.appendChild(option);
+                    bodegaSelect.disabled = true;
+                } else {
+                    bodegasFiltradas.forEach(bodega => {
+                        const option = document.createElement('option');
+                        option.value = bodega.id;
+                        option.textContent = bodega.nombre;
+                        bodegaSelect.appendChild(option);
+                    });
+                    bodegaSelect.disabled = false;
+                }
+            } else {
+                bodegaSelect.disabled = true;
+            }
+        });
+    }
+
+    // Búsqueda en tiempo real
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        let searchTimeout;
+        searchInput.addEventListener('keyup', function () {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                const searchTerm = encodeURIComponent(this.value);
+                const currentUrl = new URL(window.location.href);
+                if (searchTerm) {
+                    currentUrl.searchParams.set('search', searchTerm);
+                } else {
+                    currentUrl.searchParams.delete('search');
+                }
+                window.location.href = currentUrl.toString();
+            }, 500);
+        });
+    }
+
+    // Validación del formulario
+    document.getElementById('createProductForm')?.addEventListener('submit', function (e) {
+        const descripcion = this.querySelector('input[name="Descripcion"]');
+        const unidad = this.querySelector('select[name="Unidad_Medida"]');
+        const categoria = this.querySelector('select[name="ID_Categoria"]');
+        const empresa = this.querySelector('select[name="ID_Empresa"]');
+        const bodega = document.getElementById('bodegaSelect');
+        const precioMercado = parseFloat(this.querySelector('input[name="Precio_Mercado"]').value || 0);
+        const precioMayorista = parseFloat(this.querySelector('input[name="Precio_Mayorista"]').value || 0);
+        const precioRuta = parseFloat(this.querySelector('input[name="Precio_Ruta"]').value || 0);
+
+        if (!descripcion.value.trim()) {
+            e.preventDefault();
+            Swal.fire('La descripción es obligatoria', '', 'info');
+            descripcion.focus();
+            return false;
+        }
+
+        if (!unidad.value) {
+            e.preventDefault();
+            Swal.fire('La unidad de medida es obligatoria', '', 'info');
+            unidad.focus();
+            return false;
+        }
+
+        if (!categoria.value) {
+            e.preventDefault();
+            Swal.fire('La categoría es obligatoria', '', 'info');
+            categoria.focus();
+            return false;
+        }
+
+        if (!empresa.value) {
+            e.preventDefault();
+            Swal.fire('La empresa es obligatoria', '', 'info');
+            empresa.focus();
+            return false;
+        }
+
+        if (!bodega.value || bodega.disabled) {
+            e.preventDefault();
+            Swal.fire('Debe seleccionar una bodega válida', '', 'info');
+            bodega.focus();
+            return false;
+        }
+
+        if (precioMercado <= 0 && precioMayorista <= 0 && precioRuta <= 0) {
+            e.preventDefault();
+            Swal.fire('Debe ingresar al menos un precio mayor a 0', '', 'info');
+            this.querySelector('input[name="Precio_Mercado"]').focus();
+            return false;
+        }
+
+        return true;
+    });
+</script>
+{% endblock %}

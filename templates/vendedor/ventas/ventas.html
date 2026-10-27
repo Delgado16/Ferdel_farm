@@ -1,0 +1,965 @@
+{% extends "layout.html" %}
+
+{% block title %}Mis Ventas{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-2 mt-md-4 px-2 px-md-3">
+    <!-- ============================================ -->
+    <!-- ENCABEZADO                                   -->
+    <!-- ============================================ -->
+    <div
+        class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 mb-md-4">
+        <div class="mb-2 mb-md-0">
+            <h1 class="h3 h2-md mb-1">
+                <i class="fas fa-shopping-cart text-primary me-2"></i>
+                Mis Ventas
+            </h1>
+            <p class="text-muted small mb-0">
+                Gestiona y consulta tus ventas realizadas
+            </p>
+        </div>
+        <a href="{{ url_for('vendedor.vendedor_venta_crear') }}" class="btn btn-primary btn-sm">
+            <i class="fas fa-plus me-1"></i>
+            <span class="d-none d-sm-inline">Nueva Venta</span>
+            <span class="d-sm-none">Nueva</span>
+        </a>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- FILTROS RESPONSIVOS                          -->
+    <!-- ============================================ -->
+    <div class="card shadow mb-3 mb-md-4">
+        <div class="card-header py-2 py-md-3 bg-primary bg-opacity-10">
+            <h6 class="m-0 font-weight-bold text-primary">
+                <i class="fas fa-filter me-2"></i>
+                <span class="d-none d-sm-inline">Filtrar Ventas</span>
+                <span class="d-sm-none">Filtros</span>
+            </h6>
+        </div>
+        <div class="card-body p-2 p-md-3">
+            <div class="row g-2">
+                <div class="col-12 col-sm-6 col-md-4">
+                    <label class="small fw-bold mb-1">
+                        <i class="fas fa-calendar me-1"></i> Fecha:
+                    </label>
+                    <select class="form-select form-select-sm" id="filtro_fecha">
+                        <option value="hoy" selected>Hoy</option>
+                        <option value="ayer">Ayer</option>
+                        <option value="semana">Últimos 7 días</option>
+                        <option value="mes">Últimos 30 días</option>
+                        <option value="todos">Todos los días</option>
+                        <option value="personalizado">Personalizado</option>
+                    </select>
+                </div>
+
+                <div class="col-12 col-sm-6 col-md-4" id="rango_fechas" style="display: none;">
+                    <label class="small fw-bold mb-1">
+                        <i class="fas fa-calendar-alt me-1"></i> Rango:
+                    </label>
+                    <div class="d-flex gap-1">
+                        <input type="date" class="form-control form-control-sm" id="fecha_inicio"
+                            value="{{ fecha_actual_iso }}">
+                        <span class="mx-1 align-self-center">a</span>
+                        <input type="date" class="form-control form-control-sm" id="fecha_fin"
+                            value="{{ fecha_actual_iso }}">
+                    </div>
+                </div>
+
+                <div class="col-8 col-sm-6 col-md-3">
+                    <label class="small fw-bold mb-1">
+                        <i class="fas fa-route me-1"></i> Ruta:
+                    </label>
+                    <select class="form-select form-select-sm" id="filtro_ruta">
+                        <option value="">Todas las rutas</option>
+                        {% for asig in asignaciones %}
+                        <option value="{{ asig.ID_Asignacion }}">
+                            {{ asig.Nombre_Ruta }}
+                            <span class="d-none d-md-inline">({{ asig.Fecha_Asignacion }})</span>
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-4 col-sm-6 col-md-1 d-flex align-items-end">
+                    <button class="btn btn-primary btn-sm w-100" onclick="filtrarVentas()">
+                        <i class="fas fa-search me-1"></i>
+                        <span class="d-none d-sm-inline">Filtrar</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- TARJETAS DE RESUMEN RESPONSIVAS              -->
+    <!-- ============================================ -->
+    <div class="row g-2 g-md-3 mb-3 mb-md-4">
+        <!-- Total Ventas -->
+        <div class="col-6 col-xl-3">
+            <div class="card border-left-primary shadow h-100">
+                <div class="card-body p-2 p-md-3">
+                    <div class="row g-0 align-items-center">
+                        <div class="col-8">
+                            <div class="text-xs text-primary text-uppercase fw-bold mb-1">
+                                Total Ventas
+                            </div>
+                            <div class="h5 h4-md mb-0 fw-bold text-gray-800" id="total_ventas">
+                                {{ ventas|length }}
+                            </div>
+                        </div>
+                        <div class="col-4 text-end">
+                            <i class="fas fa-shopping-cart fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Monto -->
+        <div class="col-6 col-xl-3">
+            <div class="card border-left-success shadow h-100">
+                <div class="card-body p-2 p-md-3">
+                    <div class="row g-0 align-items-center">
+                        <div class="col-8">
+                            <div class="text-xs text-success text-uppercase fw-bold mb-1">
+                                Total C$
+                            </div>
+                            <div class="h5 h4-md mb-0 fw-bold text-gray-800" id="total_monto">
+                                C$ {{ "{:,.2f}".format(ventas|sum(attribute='Total_Venta')) if ventas else "0.00" }}
+                            </div>
+                        </div>
+                        <div class="col-4 text-end">
+                            <i class="fas fa-dollar-sign fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ventas Contado -->
+        <div class="col-6 col-xl-3">
+            <div class="card border-left-info shadow h-100">
+                <div class="card-body p-2 p-md-3">
+                    <div class="row g-0 align-items-center">
+                        <div class="col-8">
+                            <div class="text-xs text-info text-uppercase fw-bold mb-1">
+                                Contado
+                            </div>
+                            <div class="h5 h4-md mb-0 fw-bold text-gray-800" id="total_contado">
+                                C$ {{ "{:,.2f}".format(ventas|selectattr('Tipo_Venta', 'equalto',
+                                'CONTADO')|sum(attribute='Total_Venta')) if ventas else "0.00" }}
+                            </div>
+                        </div>
+                        <div class="col-4 text-end">
+                            <i class="fas fa-money-bill fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ventas Crédito -->
+        <div class="col-6 col-xl-3">
+            <div class="card border-left-warning shadow h-100">
+                <div class="card-body p-2 p-md-3">
+                    <div class="row g-0 align-items-center">
+                        <div class="col-8">
+                            <div class="text-xs text-warning text-uppercase fw-bold mb-1">
+                                Crédito
+                            </div>
+                            <div class="h5 h4-md mb-0 fw-bold text-gray-800" id="total_credito">
+                                C$ {{ "{:,.2f}".format(ventas|selectattr('Tipo_Venta', 'equalto',
+                                'CRÉDITO')|sum(attribute='Total_Venta')) if ventas else "0.00" }}
+                            </div>
+                        </div>
+                        <div class="col-4 text-end">
+                            <i class="fas fa-credit-card fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- TABLA DE VENTAS RESPONSIVA                   -->
+    <!-- ============================================ -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-2 py-md-3 bg-primary bg-opacity-10">
+            <h6 class="m-0 font-weight-bold text-primary">
+                <i class="fas fa-list me-2"></i>
+                <span class="d-none d-sm-inline">Listado de Ventas</span>
+                <span class="d-sm-none">Ventas</span>
+                <span class="badge bg-primary ms-2" id="contador_ventas">{{ ventas|length }}</span>
+            </h6>
+        </div>
+        <div class="card-body p-0">
+            <div id="contenedor_lista_ventas" {% if not ventas %}style="display: none;" {% endif %}>
+                <!-- VISTA MÓVIL: Tarjetas de ventas -->
+                <div class="d-block d-lg-none">
+                    {% for venta in ventas %}
+                    <div class="venta-card p-3 border-bottom" data-id="{{ venta.ID_FacturaRuta }}"
+                        data-fecha="{{ venta.Fecha }}" data-tipo="{{ venta.Tipo_Venta }}"
+                        data-monto="{{ venta.Total_Venta }}">
+
+                        <!-- Cabecera de la tarjeta -->
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <span class="fw-bold fs-6">#{{ venta.ID_FacturaRuta }}</span>
+                                <span
+                                    class="badge {% if venta.Tipo_Venta == 'CONTADO' %}bg-success{% else %}bg-warning text-dark{% endif %} ms-2">
+                                    {% if venta.Tipo_Venta == 'CONTADO' %}
+                                    <i class="fas fa-money-bill me-1"></i> Contado
+                                    {% else %}
+                                    <i class="fas fa-clock me-1"></i> Crédito
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <span
+                                class="badge {% if venta.Estado == 'Activa' %}bg-success{% else %}bg-danger{% endif %}">
+                                {{ venta.Estado }}
+                            </span>
+                        </div>
+
+                        <!-- Información del cliente -->
+                        <div class="mb-2">
+                            <strong class="fs-6">{{ venta.Cliente }}</strong>
+                            {% if venta.Telefono %}
+                            <br><small class="text-muted"><i class="fas fa-phone me-1"></i>{{ venta.Telefono }}</small>
+                            {% endif %}
+                        </div>
+
+                        <!-- Detalles de la venta -->
+                        <div class="row g-2 mb-2">
+                            <div class="col-5">
+                                <small class="text-muted d-block">Fecha/Hora</small>
+                                <span class="small">{{ venta.Fecha }} {{ venta.Hora }}</span>
+                            </div>
+                            <div class="col-4">
+                                <small class="text-muted d-block">Ruta</small>
+                                <span class="badge bg-info">{{ venta.Nombre_Ruta }}</span>
+                            </div>
+                            <div class="col-3">
+                                <small class="text-muted d-block">Total</small>
+                                <strong class="text-success">C$ {{ "{:,.2f}".format(venta.Total_Venta) }}</strong>
+                            </div>
+                        </div>
+
+                        <!-- Saldo pendiente si existe -->
+                        {% if venta.Saldo_Pendiente > 0 %}
+                        <div class="alert alert-danger py-2 px-2 mb-2 small">
+                            <i class="fas fa-exclamation-triangle me-1"></i>
+                            Saldo pendiente: C$ {{ "{:,.2f}".format(venta.Saldo_Pendiente) }}
+                        </div>
+                        {% endif %}
+
+                        <!-- Acciones -->
+                        <div class="d-flex gap-2 mt-2">
+                            <a href="{{ url_for('vendedor.vendedor_venta_detalle', id_venta=venta.ID_FacturaRuta) }}"
+                                class="btn btn-info btn-sm flex-fill">
+                                <i class="fas fa-eye me-1"></i> Ver detalle
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- VISTA DESKTOP: Tabla de ventas -->
+                <div class="table-responsive d-none d-lg-block">
+                    <table class="table table-bordered table-hover mb-0" id="tablaVentas" width="100%" cellspacing="0">
+                        <thead class="table-light">
+                            <tr>
+                                <th># Factura</th>
+                                <th>Fecha/Hora</th>
+                                <th>Cliente</th>
+                                <th>RUC/Cédula</th>
+                                <th>Ruta</th>
+                                <th class="text-end">Total</th>
+                                <th class="text-center">Tipo</th>
+                                <th class="text-center">Estado</th>
+                                <th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for venta in ventas %}
+                            <tr class="venta-row" data-id="{{ venta.ID_FacturaRuta }}" data-fecha="{{ venta.Fecha }}"
+                                data-tipo="{{ venta.Tipo_Venta }}" data-monto="{{ venta.Total_Venta }}">
+                                <td class="fw-bold">#{{ venta.ID_FacturaRuta }}</td>
+                                <td class="small">{{ venta.Fecha }}<br><small class="text-muted">{{ venta.Hora
+                                        }}</small>
+                                </td>
+                                <td>
+                                    <strong>{{ venta.Cliente }}</strong>
+                                    {% if venta.Telefono %}
+                                    <br><small class="text-muted"><i class="fas fa-phone me-1"></i>{{ venta.Telefono
+                                        }}</small>
+                                    {% endif %}
+                                </td>
+                                <td class="small">{{ venta.RUC_CEDULA or 'N/A' }}</td>
+                                <td><span class="badge bg-info">{{ venta.Nombre_Ruta }}</span></td>
+                                <td class="text-end">
+                                    <strong class="text-success">C$ {{ "{:,.2f}".format(venta.Total_Venta) }}</strong>
+                                    {% if venta.Saldo_Pendiente > 0 %}
+                                    <br><small class="text-danger">Saldo: C$ {{ "{:,.2f}".format(venta.Saldo_Pendiente)
+                                        }}</small>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if venta.Tipo_Venta == 'CONTADO' %}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-money-bill me-1"></i> Contado
+                                    </span>
+                                    {% else %}
+                                    <span class="badge bg-warning text-dark">
+                                        <i class="fas fa-clock me-1"></i> Crédito
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if venta.Estado == 'Activa' %}
+                                    <span class="badge bg-success">Activa</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">Anulada</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{{ url_for('vendedor.vendedor_venta_detalle', id_venta=venta.ID_FacturaRuta) }}"
+                                            class="btn btn-info" title="Ver detalle">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="text-center py-4 py-md-5" id="sin_ventas_placeholder" {% if ventas %}style="display: none;" {%
+                endif %}>
+                <i class="fas fa-shopping-cart fa-2x fa-md-3x text-muted mb-2 mb-md-3"></i>
+                <p class="text-muted small mb-2">No hay ventas registradas</p>
+                <a href="{{ url_for('vendedor.vendedor_venta_crear') }}" class="btn btn-primary btn-sm">
+                    <i class="fas fa-plus me-1"></i> Registrar primera venta
+                </a>
+            </div>
+        </div>
+
+        <!-- Footer con información adicional -->
+        {% if ventas %}
+        <div class="card-footer bg-light py-2">
+            <div class="row">
+                <div class="col-12 col-md-6">
+                    <small class="text-muted d-block d-md-inline">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Última actualización: {{ now.strftime('%d/%m/%Y %H:%M') }}
+                    </small>
+                </div>
+                <div class="col-12 col-md-6 text-md-end mt-1 mt-md-0">
+                    <small class="text-muted d-block d-md-inline">
+                        <i class="fas fa-chart-line me-1"></i>
+                        Total registros: {{ ventas|length }}
+                    </small>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- MODAL PARA ANULAR VENTA                      -->
+<!-- ============================================ -->
+<div class="modal fade" id="modalAnular" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white py-2">
+                <h5 class="modal-title h6">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Anular Venta
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formAnular" method="POST">
+                <div class="modal-body p-3">
+                    <p class="small">¿Está seguro que desea anular esta venta?</p>
+                    <div class="alert alert-warning py-2 small">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Solo se pueden anular ventas del día actual
+                    </div>
+                    <div class="mb-3">
+                        <label for="motivo_anulacion" class="form-label small fw-bold">
+                            Motivo de anulación:
+                        </label>
+                        <textarea class="form-control form-control-sm" id="motivo_anulacion" name="motivo" rows="2"
+                            required placeholder="Describa el motivo de la anulación..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-danger btn-sm">
+                        <i class="fas fa-trash me-1"></i> Anular Venta
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- SweetAlert2 para alertas -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+    // ============================================
+    // VARIABLES GLOBALES
+    // ============================================
+    var fechaActualGlobal = "{{ fecha_actual }}";
+
+    // ============================================
+    // FUNCIONES GLOBALES
+    // ============================================
+
+    function filtrarVentas() {
+        var fecha = document.getElementById('filtro_fecha').value;
+        var ruta = document.getElementById('filtro_ruta').value;
+        var fechaInicio = document.getElementById('fecha_inicio') ? document.getElementById('fecha_inicio').value : '';
+        var fechaFin = document.getElementById('fecha_fin') ? document.getElementById('fecha_fin').value : '';
+
+        // Mostrar loading
+        Swal.fire({
+            title: 'Filtrando...',
+            text: 'Por favor espere',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        // CONVERTIR fechas de YYYY-MM-DD a DD/MM/YYYY para el backend
+        if (fechaInicio && fechaInicio !== '') {
+            var partesInicio = fechaInicio.split('-');
+            fechaInicio = partesInicio[2] + '/' + partesInicio[1] + '/' + partesInicio[0];
+        }
+        if (fechaFin && fechaFin !== '') {
+            var partesFin = fechaFin.split('-');
+            fechaFin = partesFin[2] + '/' + partesFin[1] + '/' + partesFin[0];
+        }
+
+        fetch("{{ url_for('vendedor.api_filtrar_ventas') }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+                'fecha': fecha,
+                'ruta': ruta,
+                'fecha_inicio': fechaInicio,
+                'fecha_fin': fechaFin
+            })
+        })
+            .then(response => response.json())
+            .then(response => {
+                Swal.close();
+                if (response.success) {
+                    actualizarVista(response.ventas);
+                    actualizarResumen(response.ventas);
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: response.error || 'Error al filtrar las ventas'
+                    });
+                }
+            })
+            .catch(error => {
+                Swal.close();
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error de conexión',
+                    text: 'No se pudo conectar con el servidor. Por favor, intente nuevamente.'
+                });
+                console.error('Error en filtrarVentas:', error);
+            });
+    }
+
+    function actualizarVista(ventas) {
+        // Actualizar contador
+        var contadorElement = document.getElementById('contador_ventas');
+        if (contadorElement) contadorElement.textContent = ventas.length;
+
+        var listaContainer = document.getElementById('contenedor_lista_ventas');
+        var placeholder = document.getElementById('sin_ventas_placeholder');
+
+        if (ventas.length === 0) {
+            // Ocultar listado y mostrar mensaje de no resultados
+            if (listaContainer) listaContainer.style.display = 'none';
+            if (placeholder) {
+                placeholder.style.display = 'block';
+                placeholder.innerHTML = `
+                    <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                    <p class="text-muted mb-0">No hay ventas para los filtros seleccionados</p>
+                    <small class="text-muted">Intente con otros criterios de búsqueda</small>
+                `;
+            }
+
+            // Actualizar resumen a cero
+            document.getElementById('total_ventas').textContent = '0';
+            document.getElementById('total_monto').textContent = 'C$ 0.00';
+            document.getElementById('total_contado').textContent = 'C$ 0.00';
+            document.getElementById('total_credito').textContent = 'C$ 0.00';
+            return;
+        }
+
+        // Mostrar listado y ocultar placeholder
+        if (listaContainer) listaContainer.style.display = 'block';
+        if (placeholder) placeholder.style.display = 'none';
+
+        // Actualizar vista móvil
+        actualizarVistaMovil(ventas);
+
+        // Actualizar vista desktop
+        actualizarVistaDesktop(ventas);
+    }
+
+    function actualizarVistaMovil(ventas) {
+        var container = document.querySelector('.d-block.d-lg-none');
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        ventas.forEach(function (v) {
+            var tipoClass = v.Tipo_Venta === 'CONTADO' ? 'bg-success' : 'bg-warning text-dark';
+            var tipoIcon = v.Tipo_Venta === 'CONTADO' ? 'fa-money-bill' : 'fa-clock';
+            var estadoClass = v.Estado === 'Activa' ? 'bg-success' : 'bg-danger';
+            var tipoTexto = v.Tipo_Venta === 'CONTADO' ? 'Contado' : 'Crédito';
+
+            var card = document.createElement('div');
+            card.className = 'venta-card p-3 border-bottom';
+            card.setAttribute('data-id', v.ID_FacturaRuta);
+            card.setAttribute('data-fecha', v.Fecha);
+            card.setAttribute('data-tipo', v.Tipo_Venta);
+            card.setAttribute('data-monto', v.Total_Venta);
+
+            card.innerHTML = `
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                    <span class="fw-bold fs-6">#${v.ID_FacturaRuta}</span>
+                    <span class="badge ${tipoClass} ms-2">
+                        <i class="fas ${tipoIcon} me-1"></i> ${tipoTexto}
+                    </span>
+                </div>
+                <span class="badge ${estadoClass}">${v.Estado}</span>
+            </div>
+            
+            <div class="mb-2">
+                <strong class="fs-6">${escapeHtml(v.Cliente)}</strong>
+                ${v.Telefono ? '<br><small class="text-muted"><i class="fas fa-phone me-1"></i>' + escapeHtml(v.Telefono) + '</small>' : ''}
+            </div>
+            
+            <div class="row g-2 mb-2">
+                <div class="col-5">
+                    <small class="text-muted d-block">Fecha/Hora</small>
+                    <span class="small">${v.Fecha} ${v.Hora}</span>
+                </div>
+                <div class="col-4">
+                    <small class="text-muted d-block">Ruta</small>
+                    <span class="badge bg-info">${escapeHtml(v.Nombre_Ruta)}</span>
+                </div>
+                <div class="col-3">
+                    <small class="text-muted d-block">Total</small>
+                    <strong class="text-success">C$ ${formatNumber(v.Total_Venta)}</strong>
+                </div>
+            </div>
+            
+            ${v.Saldo_Pendiente > 0 ? `
+            <div class="alert alert-danger py-2 px-2 mb-2 small">
+                <i class="fas fa-exclamation-triangle me-1"></i>
+                Saldo pendiente: C$ ${formatNumber(v.Saldo_Pendiente)}
+            </div>
+            ` : ''}
+            
+            <div class="d-flex gap-2 mt-2">
+                <a href="/vendedor/vendedor/venta/${v.ID_FacturaRuta}/detalle" 
+                   class="btn btn-info btn-sm flex-fill">
+                    <i class="fas fa-eye me-1"></i> Ver detalle
+                </a>
+                ${v.Estado === 'Activa' && v.Fecha === fechaActualGlobal ? `
+                <button type="button" 
+                        class="btn btn-danger btn-sm flex-fill" 
+                        onclick="confirmarAnulacion(${v.ID_FacturaRuta})">
+                    <i class="fas fa-times me-1"></i> Anular
+                </button>
+                ` : ''}
+            </div>
+        `;
+            container.appendChild(card);
+        });
+    }
+
+    function actualizarVistaDesktop(ventas) {
+        var container = document.querySelector('.d-none.d-lg-block');
+        if (!container) return;
+
+        // Verificar si existe la tabla, si no, crearla
+        var tabla = document.getElementById('tablaVentas');
+        if (!tabla) {
+            container.innerHTML = `
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover mb-0" id="tablaVentas" width="100%" cellspacing="0">
+                    <thead class="table-light">
+                        <tr>
+                            <th># Factura</th>
+                            <th>Fecha/Hora</th>
+                            <th>Cliente</th>
+                            <th>RUC/Cédula</th>
+                            <th>Ruta</th>
+                            <th class="text-end">Total</th>
+                            <th class="text-center">Tipo</th>
+                            <th class="text-center">Estado</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        `;
+            tabla = document.getElementById('tablaVentas');
+        }
+
+        var tbody = tabla.querySelector('tbody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        ventas.forEach(function (v) {
+            var tipoClass = v.Tipo_Venta === 'CONTADO' ? 'bg-success' : 'bg-warning text-dark';
+            var tipoIcon = v.Tipo_Venta === 'CONTADO' ? 'fa-money-bill' : 'fa-clock';
+            var estadoClass = v.Estado === 'Activa' ? 'bg-success' : 'bg-danger';
+            var tipoTexto = v.Tipo_Venta === 'CONTADO' ? 'Contado' : 'Crédito';
+
+            var row = tbody.insertRow();
+            row.className = 'venta-row';
+            row.setAttribute('data-id', v.ID_FacturaRuta);
+            row.setAttribute('data-fecha', v.Fecha);
+            row.setAttribute('data-tipo', v.Tipo_Venta);
+            row.setAttribute('data-monto', v.Total_Venta);
+
+            row.innerHTML = `
+            <td class="fw-bold">#${v.ID_FacturaRuta}</td>
+            <td class="small">${v.Fecha}<br><small class="text-muted">${v.Hora}</small></td>
+            <td>
+                <strong>${escapeHtml(v.Cliente)}</strong>
+                ${v.Telefono ? '<br><small class="text-muted"><i class="fas fa-phone me-1"></i>' + escapeHtml(v.Telefono) + '</small>' : ''}
+            </td>
+            <td class="small">${escapeHtml(v.RUC_CEDULA || 'N/A')}</td>
+            <td><span class="badge bg-info">${escapeHtml(v.Nombre_Ruta)}</span></td>
+            <td class="text-end">
+                <strong class="text-success">C$ ${formatNumber(v.Total_Venta)}</strong>
+                ${v.Saldo_Pendiente > 0 ? '<br><small class="text-danger">Saldo: C$ ' + formatNumber(v.Saldo_Pendiente) + '</small>' : ''}
+            </td>
+            <td class="text-center">
+                <span class="badge ${tipoClass}">
+                    <i class="fas ${tipoIcon} me-1"></i> ${tipoTexto}
+                </span>
+            </td>
+            <td class="text-center">
+                <span class="badge ${estadoClass}">${v.Estado}</span>
+            </td>
+            <td class="text-center">
+                <div class="btn-group btn-group-sm">
+                    <a href="/vendedor/vendedor/venta/${v.ID_FacturaRuta}/detalle" 
+                       class="btn btn-info" title="Ver detalle">
+                        <i class="fas fa-eye"></i>
+                    </a>
+                    ${v.Estado === 'Activa' && v.Fecha === fechaActualGlobal ? `
+                    <button type="button" 
+                            class="btn btn-danger" 
+                            onclick="confirmarAnulacion(${v.ID_FacturaRuta})"
+                            title="Anular venta">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    ` : ''}
+                </div>
+            </td>
+        `;
+        });
+    }
+
+    function formatNumber(number) {
+        if (isNaN(number) || number === null || number === undefined) {
+            return '0.00';
+        }
+        return new Intl.NumberFormat('es-NI', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(parseFloat(number));
+    }
+
+    function actualizarResumen(ventas) {
+        var totalVentas = ventas.length;
+        var totalMonto = 0;
+        var totalContado = 0;
+        var totalCredito = 0;
+
+        ventas.forEach(function (v) {
+            var monto = parseFloat(v.Total_Venta) || 0;
+            totalMonto += monto;
+
+            if (v.Tipo_Venta === 'CONTADO') {
+                totalContado += monto;
+            } else {
+                totalCredito += monto;
+            }
+        });
+
+        document.getElementById('total_ventas').textContent = totalVentas;
+        document.getElementById('total_monto').textContent = 'C$ ' + formatNumber(totalMonto);
+        document.getElementById('total_contado').textContent = 'C$ ' + formatNumber(totalContado);
+        document.getElementById('total_credito').textContent = 'C$ ' + formatNumber(totalCredito);
+    }
+
+    function confirmarAnulacion(idVenta) {
+        var form = document.getElementById('formAnular');
+        if (form) {
+            form.action = '/vendedor/venta/' + idVenta + '/anular';
+        }
+        var modal = document.getElementById('modalAnular');
+        if (modal) {
+            var bsModal = new bootstrap.Modal(modal);
+            bsModal.show();
+        }
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        var map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return String(text).replace(/[&<>"']/g, function (m) { return map[m]; });
+    }
+
+    // ============================================
+    // INICIALIZACIÓN
+    // ============================================
+    document.addEventListener('DOMContentLoaded', function () {
+        // Mostrar/ocultar rango de fechas
+        var filtroFecha = document.getElementById('filtro_fecha');
+        if (filtroFecha) {
+            filtroFecha.addEventListener('change', function () {
+                var rangoFechas = document.getElementById('rango_fechas');
+                if (this.value === 'personalizado') {
+                    if (rangoFechas) rangoFechas.style.display = 'block';
+                } else {
+                    if (rangoFechas) rangoFechas.style.display = 'none';
+                    filtrarVentas();
+                }
+            });
+        }
+
+        // Detectar cambio de orientación en móviles
+        window.addEventListener('resize', function () {
+            setTimeout(function () {
+                // Puedes agregar lógica adicional si es necesario
+            }, 200);
+        });
+    });
+</script>
+
+<style>
+    /* Estilos responsive mejorados */
+    @media (max-width: 991.98px) {
+
+        /* Tarjetas de ventas en móvil */
+        .venta-card {
+            background-color: white;
+            transition: background-color 0.2s ease;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .venta-card:hover {
+            background-color: #f8f9fa;
+        }
+
+        .venta-card:active {
+            background-color: #e9ecef;
+        }
+
+        .venta-card .badge {
+            font-size: 0.7rem;
+            padding: 0.3rem 0.5rem;
+        }
+
+        .venta-card .btn-sm {
+            padding: 0.4rem;
+            font-size: 0.75rem;
+        }
+
+        /* Ajustes de espaciado */
+        .border-left-primary,
+        .border-left-success,
+        .border-left-info,
+        .border-left-warning {
+            border-left-width: 0.15rem !important;
+        }
+    }
+
+    /* Ajustes para tablets */
+    @media (min-width: 768px) and (max-width: 991.98px) {
+        .h4-md {
+            font-size: 1.25rem;
+        }
+
+        .card-body {
+            padding: 0.75rem;
+        }
+    }
+
+    /* Estilos para desktop */
+    @media (min-width: 992px) {
+        .table td {
+            vertical-align: middle;
+            font-size: 0.9rem;
+        }
+
+        .table th {
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+
+        .btn-group-sm .btn {
+            padding: 0.25rem 0.5rem;
+        }
+    }
+
+    /* Animaciones */
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(5px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Estilos para las tarjetas de resumen */
+    .border-left-primary {
+        border-left: 0.25rem solid #4e73df !important;
+    }
+
+    .border-left-success {
+        border-left: 0.25rem solid #1cc88a !important;
+    }
+
+    .border-left-info {
+        border-left: 0.25rem solid #36b9cc !important;
+    }
+
+    .border-left-warning {
+        border-left: 0.25rem solid #f6c23e !important;
+    }
+
+    .text-gray-300 {
+        color: #dddfeb !important;
+    }
+
+    .text-gray-800 {
+        color: #5a5c69 !important;
+    }
+
+    /* Estilo para badges */
+    .badge {
+        font-size: 0.85rem;
+        padding: 0.4rem 0.6rem;
+    }
+
+    .badge.bg-success {
+        background-color: #1cc88a !important;
+    }
+
+    .badge.bg-warning {
+        background-color: #f6c23e !important;
+    }
+
+    .badge.bg-info {
+        background-color: #36b9cc !important;
+    }
+
+    .badge.bg-danger {
+        background-color: #e74a3b !important;
+    }
+
+    /* Estilo para el modal */
+    .modal-header.bg-danger {
+        background-color: #e74a3b !important;
+    }
+
+    /* Ajustes para móviles pequeños */
+    @media (max-width: 575.98px) {
+        .h2-md {
+            font-size: 1.3rem;
+        }
+
+        .btn-sm {
+            padding: 0.3rem 0.5rem;
+            font-size: 0.75rem;
+        }
+
+        .small {
+            font-size: 0.7rem;
+        }
+
+        .venta-card {
+            padding: 0.75rem !important;
+        }
+
+        .venta-card .badge {
+            font-size: 0.65rem;
+        }
+
+        .card-header {
+            padding: 0.5rem;
+        }
+    }
+
+    /* Mejora visual para saldos pendientes */
+    .alert-danger {
+        background-color: #f8d7da;
+        border-color: #f5c6cb;
+        color: #721c24;
+    }
+
+    /* Tooltips en desktop */
+    @media (min-width: 768px) {
+        [title] {
+            cursor: help;
+        }
+    }
+
+    /* Contador de ventas */
+    #contador_ventas {
+        font-size: 0.75rem;
+        vertical-align: middle;
+    }
+
+    /* Separador entre filtros */
+    .gap-1 {
+        gap: 0.25rem;
+    }
+
+    /* Mejora visual para el rango de fechas */
+    #rango_fechas .form-control-sm {
+        font-size: 0.8rem;
+        padding: 0.25rem;
+    }
+</style>
+{% endblock %}

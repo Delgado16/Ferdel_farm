@@ -1,0 +1,524 @@
+{% extends "layout.html" %}
+
+{% block title %}Detalle de Inventario - {{ bodega.Nombre }}{% endblock %}
+
+{% block extra_css %}
+<!-- DataTables Bootstrap 5 CSS -->
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css">
+<style>
+    /* Estilos Premium para Detalle de Inventario */
+    .animate-up {
+        animation: fadeInUp 0.4s ease-out forwards;
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(15px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Metadata cards */
+    .info-card-premium {
+        background: #ffffff;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        border-radius: 12px;
+        padding: 1rem;
+        transition: all 0.25s ease;
+        height: 100%;
+    }
+
+    .info-card-premium:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px -4px rgba(15, 23, 42, 0.06);
+        border-color: #3b82f6;
+    }
+
+    .info-card-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #94a3b8;
+        margin-bottom: 0.35rem;
+        display: block;
+    }
+
+    .info-card-value {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 0;
+    }
+
+    /* Stats Cards */
+    .stats-card-premium {
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 1.25rem;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.03);
+        text-align: center;
+        transition: all 0.2s ease;
+    }
+    
+    .stats-card-premium:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px -2px rgba(15, 23, 42, 0.08);
+    }
+    
+    .stats-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+        font-size: 1.2rem;
+    }
+
+    .stats-number {
+        font-size: 1.75rem;
+        font-weight: 800;
+        margin-bottom: 0.20rem;
+        color: #1e293b;
+    }
+
+    .stats-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #64748b;
+    }
+
+    .row-warning {
+        background-color: rgba(245, 158, 11, 0.04) !important;
+    }
+
+    .row-warning:hover {
+        background-color: rgba(245, 158, 11, 0.08) !important;
+    }
+
+    /* Badges status */
+    .badge-stock {
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .badge-critical {
+        background-color: #fee2e2;
+        color: #b91c1c;
+        border: 1px solid #fca5a5;
+    }
+
+    .badge-normal {
+        background-color: #dcfce7;
+        color: #15803d;
+        border: 1px solid #bbf7d0;
+    }
+
+    /* Modal Premium Styling */
+    .modal-content-premium {
+        border-radius: 20px;
+        border: none;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        overflow: hidden;
+    }
+
+    .modal-header-premium {
+        background: var(--primary-gradient, linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%));
+        color: #ffffff;
+        padding: 1.25rem 1.5rem;
+        border-bottom: none;
+    }
+
+    .modal-body-premium {
+        padding: 1.5rem;
+    }
+
+    .modal-info-item {
+        background: #f8fafc;
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+        margin-bottom: 0.75rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border: 1px solid rgba(226, 232, 240, 0.5);
+    }
+
+    .modal-info-label {
+        font-weight: 700;
+        color: #64748b;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .modal-info-value {
+        font-weight: 700;
+        color: #1e293b;
+        font-size: 0.875rem;
+    }
+
+    .btn-action-premium {
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.875rem;
+        padding: 0.5rem 1rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.2s ease;
+    }
+
+    .btn-action-premium:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+    }
+
+    /* DataTables Overrides for premium feel */
+    .dataTables_wrapper .dataTables_paginate .paginate_button {
+        padding: 0.3em 0.8em !important;
+        border-radius: 6px !important;
+        margin-left: 2px !important;
+        border: 1px solid transparent !important;
+    }
+
+    .dataTables_wrapper .dataTables_paginate .paginate_button.current,
+    .dataTables_wrapper .dataTables_paginate .paginate_button.current:hover {
+        background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%) !important;
+        color: white !important;
+        border-color: transparent !important;
+    }
+
+    .dataTables_wrapper .dataTables_filter input {
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 10px !important;
+        padding: 0.45rem 0.75rem !important;
+        font-size: 0.875rem !important;
+        outline: none !important;
+        transition: all 0.2s ease !important;
+    }
+
+    .dataTables_wrapper .dataTables_filter input:focus {
+        border-color: #3b82f6 !important;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3 animate-up">
+    <!-- Encabezado -->
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-warehouse text-primary me-2"></i>Inventario - {{ bodega.Nombre }}
+            </h3>
+            <p class="text-muted small mb-0">Visualización y control de existencias de productos almacenados en esta bodega</p>
+        </div>
+        <div>
+            <a href="{{ url_for('admin.admin_bodega') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-arrow-left me-1"></i> Volver a Bodegas
+            </a>
+        </div>
+    </div>
+
+    <!-- Panel de Información General -->
+    <div class="card-premium-section mb-4">
+        <div class="card-premium-header">
+            <h6 class="fw-bold text-slate-800 mb-0">
+                <i class="fas fa-info-circle text-primary me-2"></i>Información General de la Bodega
+            </h6>
+        </div>
+        <div class="card-body p-4">
+            <div class="row g-3 mb-4">
+                <div class="col-md-3 col-sm-6">
+                    <div class="info-card-premium">
+                        <span class="info-card-label">Nombre Bodega</span>
+                        <p class="info-card-value">{{ bodega.Nombre }}</p>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="info-card-premium">
+                        <span class="info-card-label">Empresa</span>
+                        <p class="info-card-value">{{ bodega.Nombre_Empresa }}</p>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="info-card-premium">
+                        <span class="info-card-label">Ubicación</span>
+                        <p class="info-card-value text-truncate" title="{{ bodega.Ubicacion or 'No especificada' }}">
+                            {{ bodega.Ubicacion or 'No especificada' }}
+                        </p>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="info-card-premium">
+                        <span class="info-card-label">Estado</span>
+                        <p class="info-card-value">
+                            {% if bodega.Estado == 'activa' %}
+                            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-3 py-1 fw-bold" style="font-size: 0.75rem;">
+                                <i class="fas fa-check me-1"></i>Activa
+                            </span>
+                            {% else %}
+                            <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-3 py-1 fw-bold" style="font-size: 0.75rem;">
+                                <i class="fas fa-times me-1"></i>Inactiva
+                            </span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-md-3 col-sm-6">
+                    <div class="info-card-premium">
+                        <span class="info-card-label">ID Bodega</span>
+                        <p class="info-card-value text-muted">#{{ bodega.ID_Bodega }}</p>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="info-card-premium">
+                        <span class="info-card-label">ID Empresa</span>
+                        <p class="info-card-value text-muted">#{{ bodega.ID_Empresa }}</p>
+                    </div>
+                </div>
+                <div class="col-md-6 col-sm-12">
+                    <div class="info-card-premium">
+                        <span class="info-card-label">Fecha de Creación</span>
+                        <p class="info-card-value">
+                            {{ bodega.Fecha_Creacion.strftime('%d/%m/%Y %H:%M') if bodega.Fecha_Creacion else 'No registrada' }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tarjetas de Estadísticas -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-md-4">
+            <div class="stats-card-premium">
+                <div class="stats-icon text-primary bg-primary bg-opacity-10 mb-2">
+                    <i class="fas fa-boxes"></i>
+                </div>
+                <div class="stats-number">{{ total_productos }}</div>
+                <div class="stats-label">Total Productos</div>
+            </div>
+        </div>
+        <div class="col-12 col-md-4">
+            <div class="stats-card-premium">
+                <div class="stats-icon text-success bg-success bg-opacity-10 mb-2">
+                    <i class="fas fa-cubes"></i>
+                </div>
+                <div class="stats-number text-success">{{ total_unidades }}</div>
+                <div class="stats-label">Total Unidades</div>
+            </div>
+        </div>
+        <div class="col-12 col-md-4">
+            <div class="stats-card-premium">
+                <div class="stats-icon text-warning bg-warning bg-opacity-10 mb-2">
+                    <i class="fas fa-dollar-sign"></i>
+                </div>
+                <div class="stats-number text-warning">
+                    C${{ '{:,.2f}'.format(valor_total).replace(',', '.') }}
+                </div>
+                <div class="stats-label">Valor Total</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de Existencias -->
+    <div class="card-premium-section">
+        <div class="card-premium-header">
+            <h6 class="fw-bold text-slate-800 mb-0">
+                <i class="fas fa-list text-primary me-2"></i>Lista de Existencias
+            </h6>
+        </div>
+        <div class="card-body p-0">
+            <div class="p-3">
+                {% if inventario %}
+                <table class="table table-hover table-modern align-middle mb-0" id="dataTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 100px;">Código</th>
+                            <th>Descripción</th>
+                            <th class="text-center" style="width: 120px;">Stock Mínimo</th>
+                            <th class="text-center" style="width: 120px;">Existencias</th>
+                            <th class="text-end" style="width: 130px;">Precio Mercado</th>
+                            <th class="text-end" style="width: 140px;">Valor Total</th>
+                            <th class="text-center" style="width: 130px;">Estado</th>
+                            <th class="text-center" style="width: 90px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in inventario %}
+                        {% set stock_under = item.Existencias <= item.Stock_Minimo %}
+                        <tr class="{% if stock_under %}row-warning{% endif %}">
+                            <td><code class="small text-primary fw-bold">{{ item.COD_Producto }}</code></td>
+                            <td><strong class="text-slate-800">{{ item.Descripcion }}</strong></td>
+                            <td class="text-center">{{ item.Stock_Minimo }}</td>
+                            <td class="text-center"><strong>{{ item.Existencias_Display }}</strong></td>
+                            <td class="text-end fw-semibold text-slate-800">C${{ '{:,.2f}'.format(item.Precio_Mercado or 0).replace(',', '.') }}</td>
+                            <td class="text-end fw-bold text-slate-800">C${{ '{:,.2f}'.format(item.Valor_Total if item.Valor_Total is defined else ((item.Precio_Mercado|float or 0) * (item.Existencias|float or 0))).replace(',', '.') }}</td>
+                            <td class="text-center">
+                                {% if stock_under %}
+                                <span class="badge-stock badge-critical"><i class="fas fa-exclamation-triangle me-1"></i>Stock Bajo</span>
+                                {% else %}
+                                <span class="badge-stock badge-normal"><i class="fas fa-check-circle me-1"></i>Normal</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <button type="button"
+                                    class="btn btn-outline-primary btn-sm rounded-3 px-3 py-1"
+                                    data-bs-toggle="modal" data-bs-target="#modalProducto{{ item.ID_Producto }}">
+                                    <i class="fas fa-eye me-1"></i>Ver
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="bg-light">
+                        <tr style="border-top: 2px solid #dee2e6;">
+                            <th colspan="5" class="text-end fw-bold">TOTALES:</th>
+                            <th class="text-end font-monospace fw-bold text-primary">C${{ '{:,.2f}'.format(valor_total).replace(',', '.') }}</th>
+                            <th colspan="2"></th>
+                        </tr>
+                    </tfoot>
+                </table>
+                {% else %}
+                <div class="alert alert-info text-center py-5 border-0 shadow-sm m-3" style="border-radius: 12px; background-color: rgba(13, 110, 253, 0.05);">
+                    <i class="fas fa-info-circle fa-2x mb-3 text-info"></i>
+                    <p class="mb-0 fw-medium">No hay productos con existencias en esta bodega.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modales para cada producto (Compatibilidad Bootstrap 5) -->
+{% for item in inventario %}
+<div class="modal fade" id="modalProducto{{ item.ID_Producto }}" tabindex="-1"
+    aria-labelledby="modalLabel{{ item.ID_Producto }}" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-content-premium">
+            <div class="modal-header modal-header-premium">
+                <h5 class="modal-title fw-bold" id="modalLabel{{ item.ID_Producto }}">
+                    <i class="fas fa-box me-2"></i>Detalle del Producto
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
+            </div>
+            <div class="modal-body modal-body-premium">
+                <div class="modal-info-item">
+                    <span class="modal-info-label">Código:</span>
+                    <span class="modal-info-value"><code class="small text-primary fw-bold">{{ item.COD_Producto }}</code></span>
+                </div>
+                <div class="modal-info-item">
+                    <span class="modal-info-label">Descripción:</span>
+                    <span class="modal-info-value text-end" style="max-width: 60%;">{{ item.Descripcion }}</span>
+                </div>
+                <div class="modal-info-item">
+                    <span class="modal-info-label">Stock Mínimo:</span>
+                    <span class="modal-info-value">{{ item.Stock_Minimo }} unidades</span>
+                </div>
+                <div class="modal-info-item">
+                    <span class="modal-info-label">Existencias Actuales:</span>
+                    <span class="modal-info-value">
+                        <span class="badge-stock {% if item.Existencias <= item.Stock_Minimo %}badge-critical{% else %}badge-normal{% endif %}">
+                            {{ item.Existencias_Display }} unidades
+                        </span>
+                    </span>
+                </div>
+                <div class="modal-info-item">
+                    <span class="modal-info-label">Precio Mercado:</span>
+                    <span class="modal-info-value">C${{ '{:,.2f}'.format(item.Precio_Mercado or 0).replace(',', '.') }}</span>
+                </div>
+                <div class="modal-info-item" style="background: rgba(59, 130, 246, 0.05); border-color: rgba(59, 130, 246, 0.2);">
+                    <span class="modal-info-label text-primary fw-bold">Valor Total en Bodega:</span>
+                    <span class="modal-info-value text-primary fw-bold">C${{ '{:,.2f}'.format(item.Valor_Total if item.Valor_Total is defined else ((item.Precio_Mercado|float or 0) * (item.Existencias|float or 0))).replace(',', '.') }}</span>
+                </div>
+                <div class="modal-info-item">
+                    <span class="modal-info-label">Estado del Stock:</span>
+                    <span class="modal-info-value">
+                        {% if item.Existencias <= item.Stock_Minimo %} 
+                        <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill px-3 py-1 fw-bold" style="font-size: 0.75rem;">
+                            <i class="fas fa-exclamation-triangle me-1"></i>Stock Bajo
+                        </span>
+                        {% else %}
+                        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-3 py-1 fw-bold" style="font-size: 0.75rem;">
+                            <i class="fas fa-check-circle me-1"></i>Stock Normal
+                        </span>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="modal-info-item">
+                    <span class="modal-info-label">Bodega:</span>
+                    <span class="modal-info-value">{{ bodega.Nombre }}</span>
+                </div>
+                <div class="modal-info-item">
+                    <span class="modal-info-label">Empresa:</span>
+                    <span class="modal-info-value">{{ bodega.Nombre_Empresa }}</span>
+                </div>
+                {% if bodega.Ubicacion %}
+                <div class="modal-info-item">
+                    <span class="modal-info-label">Ubicación:</span>
+                    <span class="modal-info-value text-end" style="max-width: 60%;">{{ bodega.Ubicacion }}</span>
+                </div>
+                {% endif %}
+            </div>
+            <div class="modal-footer border-0 bg-light" style="background-color: #f9fafb; padding: 1rem 1.5rem; border-radius: 0 0 20px 20px;">
+                <button type="button" class="btn btn-secondary rounded-3" data-bs-dismiss="modal">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}
+
+{% block scripts %}
+<!-- jQuery y DataTables JS -->
+<script type="text/javascript" src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
+<script>
+    $(document).ready(function () {
+        $('#dataTable').DataTable({
+            language: {
+                "sProcessing": "Procesando...",
+                "sLengthMenu": "Mostrar _MENU_ registros",
+                "sZeroRecords": "No se encontraron resultados",
+                "sEmptyTable": "Ningún dato disponible en esta tabla",
+                "sInfo": "Mostrando registros del _START_ al _END_ de un total de _TOTAL_ registros",
+                "sInfoEmpty": "Mostrando registros del 0 al 0 de un total de 0 registros",
+                "sInfoFiltered": "(filtrado de un total de _MAX_ registros)",
+                "sSearch": "Buscar:",
+                "sInfoThousands": ",",
+                "oPaginate": {
+                    "sFirst": "Primero",
+                    "sLast": "Último",
+                    "sNext": "Siguiente",
+                    "sPrevious": "Anterior"
+                }
+            },
+            "order": [[0, "asc"]],
+            "pageLength": 25
+        });
+    });
+</script>
+{% endblock %}

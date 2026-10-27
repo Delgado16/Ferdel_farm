@@ -1,0 +1,294 @@
+{% extends "layout.html" %}
+
+{% block title %}Reporte de Inventario - FerDel{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="bi bi-box-seam"></i> Reporte de Inventario y Stock
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('admin.reportes') }}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Volver
+        </a>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-light py-3 d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-funnel-fill text-secondary"></i> <strong>Filtros de Inventario</strong></span>
+    </div>
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('admin.reporte_inventario') }}" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label small fw-semibold">Categoría</label>
+                <select name="categoria_id" class="form-select form-select-sm">
+                    <option value="">Todas las categorías</option>
+                    {% for cat in categorias %}
+                    <option value="{{ cat.id_categoria }}" {% if categoria_id|int == cat.id_categoria %}selected{% endif %}>
+                        {{ cat.descripcion }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small fw-semibold">Estado de Stock</label>
+                <select name="stock_status" class="form-select form-select-sm">
+                    <option value="todos" {% if stock_status == 'todos' %}selected{% endif %}>Todos</option>
+                    <option value="critico" {% if stock_status == 'critico' %}selected{% endif %}>Stock Crítico (bajo mínimo)</option>
+                    <option value="minimo" {% if stock_status == 'minimo' %}selected{% endif %}>Stock Mínimo</option>
+                    <option value="normal" {% if stock_status == 'normal' %}selected{% endif %}>Stock Normal</option>
+                </select>
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <button type="submit" class="btn btn-sm btn-dark w-100 py-2">
+                    <i class="bi bi-search"></i> Consultar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tarjetas de Resumen -->
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <h6 class="card-title">Total Productos</h6>
+                <h3>{{ resumen.Total_Productos|default(0) }}</h3>
+                <small>Activos en inventario</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card bg-danger text-white">
+            <div class="card-body">
+                <h6 class="card-title">Stock Crítico</h6>
+                <h3>{{ resumen.Stock_Critico|default(0) }}</h3>
+                <small>Productos bajo mínimo</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card bg-warning text-dark">
+            <div class="card-body">
+                <h6 class="card-title">Stock Cero</h6>
+                <h3>{{ resumen.Stock_Cero|default(0) }}</h3>
+                <small>Productos agotados</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Gráficos de Inventario -->
+<div class="row mb-4">
+    <div class="col-md-6 mb-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white py-3">
+                <i class="bi bi-pie-chart-fill text-primary me-2"></i><strong>Distribución del Stock por Estado</strong>
+            </div>
+            <div class="card-body">
+                <div style="position: relative; height: 260px; width: 100%;">
+                    <canvas id="stockStatusChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white py-3">
+                <i class="bi bi-bar-chart-fill text-success me-2"></i><strong>Top 5 Productos con Mayor Stock en Almacén</strong>
+            </div>
+            <div class="card-body">
+                <div style="position: relative; height: 260px; width: 100%;">
+                    <canvas id="topStockChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de Inventario -->
+<div class="card shadow-sm">
+    <div class="card-header bg-white">
+        <i class="bi bi-table"></i> <strong>Detalle de Productos</strong>
+        <span class="badge bg-primary float-end">{{ inventario|length }} productos</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table id="tablaReporteInventario" class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Código</th>
+                        <th>Producto</th>
+                        <th>Categoría</th>
+                        <th>Bodegas (Stock)</th>
+                        <th>Stock Mínimo</th>
+                        <th>Estado Stock</th>
+                        <th>Vendido (30 días)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in inventario %}
+                    <tr class="{% if item.Estado_Stock == 'STOCK BAJO' %}table-danger{% elif item.Estado_Stock == 'STOCK MINIMO' %}table-warning{% endif %}">
+                        <td><code>{{ item.Codigo or '-' }}</code></td>
+                        <td><strong>{{ item.Producto }}</strong></td>
+                        <td>{{ item.Categoria }}</td>
+                        <td>
+                            {% if item.Bodegas_Stock %}
+                                {% for b_s in item.Bodegas_Stock.split('; ') %}
+                                    {% set b_parts = b_s.split(': ') %}
+                                    <span class="badge bg-secondary text-white mb-1" style="font-size: 0.85em;">
+                                        {{ b_parts[0] }}: <strong class="text-warning">{{ b_parts[1]|float | cantidad }}</strong>
+                                    </span>
+                                {% endfor %}
+                            {% else %}
+                                <span class="text-muted small">Sin bodega asignada</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ item.Stock_Minimo | cantidad }}</td>
+                        <td>
+                            <span class="badge {% if item.Estado_Stock == 'STOCK BAJO' %}bg-danger{% elif item.Estado_Stock == 'STOCK MINIMO' %}bg-warning{% else %}bg-success{% endif %}">
+                                {{ item.Estado_Stock }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if item.Vendido_Ultimo_Mes > 0 %}
+                                {{ item.Vendido_Ultimo_Mes | cantidad }} unidades
+                            {% else %}
+                                <span class="text-muted">Sin ventas</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted">
+                            <i class="bi bi-box"></i> No hay productos que coincidan con los filtros
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Productos con Stock Crítico - Alertas -->
+{% set productos_criticos = inventario|selectattr('Estado_Stock', 'eq', 'STOCK BAJO')|list %}
+{% if productos_criticos|length > 0 %}
+<div class="alert alert-danger mt-4">
+    <i class="bi bi-exclamation-octagon"></i>
+    <strong>¡Atención!</strong> Hay <strong>{{ productos_criticos|length }} productos</strong> con stock crítico.
+    <a href="#" class="alert-link">Revisar lista de productos por reabastecer</a>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<!-- DataTables CSS y JS -->
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css">
+<script type="text/javascript" src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Parsear inventario de Python a JS
+    const rawInventario = [
+        {% for item in inventario %}
+        {
+            producto: "{{ item.Producto }}",
+            stock: parseFloat("{{ item.Stock_Actual|default(0)|float }}"),
+            minimo: parseFloat("{{ item.Stock_Minimo|default(0)|float }}"),
+            estado: "{{ item.Estado_Stock }}"
+        },
+        {% endfor %}
+    ];
+
+    // Procesar datos para Gráfico de Rosca
+    const counts = { 'STOCK BAJO': 0, 'STOCK MINIMO': 0, 'NORMAL': 0 };
+    rawInventario.forEach(item => {
+        if (counts[item.estado] !== undefined) counts[item.estado]++;
+    });
+
+    const ctxStatus = document.getElementById('stockStatusChart').getContext('2d');
+    new Chart(ctxStatus, {
+        type: 'doughnut',
+        data: {
+            labels: ['Stock Bajo (Crítico)', 'Stock Mínimo', 'Stock Normal'],
+            datasets: [{
+                data: [counts['STOCK BAJO'], counts['STOCK MINIMO'], counts['NORMAL']],
+                backgroundColor: ['#ef4444', '#f59e0b', '#10b981'],
+                borderWidth: 2,
+                borderColor: '#ffffff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { font: { family: 'Outfit, sans-serif' } }
+                }
+            }
+        }
+    });
+
+    // Procesar datos para Top 5 Productos con Mayor Stock
+    const sortedProducts = [...rawInventario]
+        .sort((a, b) => b.stock - a.stock)
+        .slice(0, 5);
+
+    const ctxValue = document.getElementById('topStockChart').getContext('2d');
+    new Chart(ctxValue, {
+        type: 'bar',
+        data: {
+            labels: sortedProducts.map(p => p.producto.substring(0, 18) + (p.producto.length > 18 ? '...' : '')),
+            datasets: [{
+                label: 'Stock Actual',
+                data: sortedProducts.map(p => p.stock),
+                backgroundColor: '#10b981',
+                borderRadius: 6,
+                maxBarThickness: 35
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.raw.toLocaleString('es-NI', { maximumFractionDigits: 0 }) + ' unidades';
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return value.toLocaleString('es-NI') + ' und';
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Inicializar DataTable
+    $(document).ready(function() {
+        $('#tablaReporteInventario').DataTable({
+            "language": {
+                "url": "//cdn.datatables.net/plug-ins/1.11.5/i18n/es-ES.json"
+            },
+            "pageLength": 10,
+            "responsive": true,
+            "ordering": true
+        });
+    });
+</script>
+{% endblock %}

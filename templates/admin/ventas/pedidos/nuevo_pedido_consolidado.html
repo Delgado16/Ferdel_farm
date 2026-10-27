@@ -1,0 +1,1522 @@
+{% extends "layout.html" %}
+
+{% block title %}Nuevo Pedido Consolidado{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ============================================ */
+    /* ESTILOS PROFESIONALES Y SOBRIOS              */
+    /* ============================================ */
+    
+    :root {
+        --spacing-xs: 0.25rem;
+        --spacing-sm: 0.5rem;
+        --spacing-md: 1rem;
+        --spacing-lg: 1.5rem;
+        --spacing-xl: 2rem;
+        --border-radius-sm: 6px;
+        --border-radius-md: 10px;
+        --border-radius-lg: 12px;
+        --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+        --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
+        --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1);
+        --transition-fast: 150ms ease;
+        --transition-normal: 250ms ease;
+        --color-primary: #374151;
+        --color-primary-dark: #1f2937;
+        --color-gray-50: #f9fafb;
+        --color-gray-100: #f3f4f6;
+        --color-gray-200: #e5e7eb;
+        --color-gray-300: #d1d5db;
+        --color-gray-400: #9ca3af;
+        --color-gray-500: #6b7280;
+        --color-gray-600: #4b5563;
+        --color-gray-700: #374151;
+        --color-gray-800: #1f2937;
+        --color-success: #10b981;
+        --color-danger: #ef4444;
+        --color-warning: #f59e0b;
+        --color-info: #06b6d4;
+    }
+    
+    /* Cards mejoradas */
+    .card-custom {
+        background: rgba(255, 255, 255, 0.7) !important;
+        backdrop-filter: blur(10px);
+        border-radius: var(--border-radius-lg) !important;
+        border: 1px solid rgba(0, 0, 0, 0.08) !important;
+        box-shadow: var(--shadow-sm);
+        transition: all var(--transition-normal);
+        overflow: hidden;
+    }
+    
+    .card-custom:hover {
+        box-shadow: var(--shadow-md);
+    }
+    
+    .card-header-custom {
+        background: rgba(0, 0, 0, 0.015) !important;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+        padding: var(--spacing-md) var(--spacing-lg);
+    }
+    
+    .card-header-custom h5, 
+    .card-header-custom h6 {
+        font-weight: 600;
+        color: var(--color-gray-800);
+        margin: 0;
+        font-size: 0.95rem;
+    }
+    
+    /* Badges profesionales */
+    .badge {
+        font-weight: 500;
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.7rem;
+    }
+    
+    .badge-success {
+        background: #d1fae5;
+        color: #065f46;
+    }
+    
+    .badge-warning {
+        background: #fef3c7;
+        color: #92400e;
+    }
+    
+    .badge-danger {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+    
+    .badge-info {
+        background: #e0e7ff;
+        color: #3730a3;
+    }
+    
+    .badge-primary {
+        background: var(--color-gray-100);
+        color: var(--color-gray-700);
+    }
+    
+    .badge-secondary {
+        background: var(--color-gray-100);
+        color: var(--color-gray-600);
+    }
+    
+    /* Alertas mejoradas */
+    .alert-custom {
+        border: none;
+        border-radius: var(--border-radius-md);
+        padding: var(--spacing-md) var(--spacing-lg);
+    }
+    
+    .alert-info-custom {
+        background: #eff6ff;
+        color: #1e40af;
+        border-left: 4px solid var(--color-info);
+    }
+    
+    .alert-primary-custom {
+        background: #f0fdf4;
+        color: #166534;
+        border-left: 4px solid var(--color-success);
+    }
+    
+    .alert-warning-custom {
+        background: #fef3c7;
+        color: #92400e;
+        border-left: 4px solid var(--color-warning);
+    }
+    
+    /* Formularios */
+    .form-label {
+        font-weight: 500;
+        font-size: 0.75rem;
+        margin-bottom: 0.4rem;
+        color: var(--color-gray-700);
+    }
+    
+    .form-control, .form-select {
+        border: 1px solid var(--color-gray-200);
+        border-radius: var(--border-radius-sm);
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+        transition: all var(--transition-fast);
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: var(--color-gray-400);
+        box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.1);
+        outline: none;
+    }
+    
+    .input-group-text {
+        background: var(--color-gray-50);
+        border: 1px solid var(--color-gray-200);
+        color: var(--color-gray-500);
+        font-size: 0.75rem;
+    }
+    
+    /* Botones */
+    .btn {
+        padding: 0.5rem 1rem;
+        font-size: 0.8rem;
+        font-weight: 500;
+        border-radius: var(--border-radius-sm);
+        transition: all var(--transition-fast);
+    }
+    
+    .btn-sm {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.7rem;
+    }
+    
+    .btn-primary {
+        background-color: transparent;
+        border: 1px solid var(--color-primary);
+        color: var(--color-primary);
+    }
+    
+    .btn-primary:hover {
+        background-color: rgba(55, 65, 81, 0.05);
+        color: var(--color-primary-dark);
+        transform: translateY(-1px);
+    }
+    
+    .btn-info {
+        background-color: transparent;
+        border: 1px solid var(--color-info);
+        color: var(--color-info);
+    }
+    
+    .btn-info:hover {
+        background-color: rgba(6, 182, 212, 0.05);
+        color: #0891b2;
+        transform: translateY(-1px);
+    }
+    
+    .btn-outline-secondary {
+        border: 1px solid var(--color-gray-300);
+        color: var(--color-gray-600);
+    }
+    
+    .btn-outline-secondary:hover {
+        background: var(--color-gray-100);
+        border-color: var(--color-gray-400);
+        transform: translateY(-1px);
+    }
+    
+    .btn-outline-info {
+        border: 1px solid var(--color-info);
+        color: var(--color-info);
+    }
+    
+    .btn-outline-info:hover {
+        background: #e0f2fe;
+        border-color: var(--color-info);
+        transform: translateY(-1px);
+        color: #0369a1;
+    }
+    
+    /* Tabla */
+    .table-custom {
+        margin-bottom: 0;
+    }
+    
+    .table-custom thead th {
+        background: var(--color-gray-50);
+        font-weight: 600;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--color-gray-600);
+        border-bottom: 1px solid var(--color-gray-200);
+        padding: var(--spacing-md);
+    }
+    
+    .table-custom tbody td {
+        padding: var(--spacing-md);
+        vertical-align: middle;
+        border-bottom: 1px solid var(--color-gray-100);
+        color: var(--color-gray-700);
+        font-size: 0.8rem;
+    }
+    
+    .table-custom tbody tr:hover {
+        background: var(--color-gray-50);
+    }
+    
+    /* Info Ruta */
+    .info-ruta-card {
+        background: var(--color-gray-50);
+        border-radius: var(--border-radius-md);
+        padding: var(--spacing-md);
+        border: 1px solid var(--color-gray-200);
+    }
+    
+    /* Product Cards */
+    .producto-card {
+        border: 1px solid var(--color-gray-200);
+        border-radius: var(--border-radius-md);
+        transition: all var(--transition-normal);
+        background: white;
+        height: 100%;
+    }
+    
+    .producto-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-md);
+    }
+    
+    /* Animaciones */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .fade-in-up {
+        animation: fadeInUp 0.4s ease-out;
+    }
+    
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: var(--color-gray-100);
+        border-radius: 3px;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: var(--color-gray-400);
+        border-radius: 3px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: var(--color-gray-500);
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .container-fluid {
+            padding-left: 12px;
+            padding-right: 12px;
+        }
+        
+        .card-header-custom {
+            padding: var(--spacing-sm) var(--spacing-md);
+        }
+        
+        .badge {
+            font-size: 0.6rem;
+            padding: 0.25rem 0.5rem;
+        }
+        
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.65rem;
+        }
+    }
+    
+    /* Categorías como Pills */
+    .categoria-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--spacing-sm);
+        padding: 0.5rem 1rem;
+        background: white;
+        border: 1px solid var(--color-gray-200);
+        border-radius: 40px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: var(--color-gray-600);
+        transition: all var(--transition-fast);
+        cursor: pointer;
+    }
+    
+    .categoria-pill:hover {
+        background: var(--color-gray-100);
+        border-color: var(--color-gray-300);
+        transform: translateY(-1px);
+    }
+    
+    /* Breadcrumb */
+    .breadcrumb {
+        background-color: transparent;
+        padding: 0;
+        margin-bottom: 0.5rem;
+    }
+    
+    .breadcrumb-item a {
+        color: var(--color-gray-500);
+        text-decoration: none;
+        transition: color var(--transition-fast);
+    }
+    
+    .breadcrumb-item a:hover {
+        color: var(--color-primary);
+    }
+    
+    .breadcrumb-item.active {
+        color: var(--color-gray-700);
+    }
+    
+    /* Contenedor con scroll y cabecera pegajosa */
+    .table-responsive-scroll {
+        max-height: 420px;
+        overflow-y: auto;
+        border: 1px solid var(--color-gray-200);
+        border-radius: var(--border-radius-sm);
+    }
+    
+    .table-responsive-scroll thead th {
+        position: sticky;
+        top: 0;
+        background-color: var(--color-gray-50) !important;
+        z-index: 10;
+        box-shadow: inset 0 -1px 0 var(--color-gray-200);
+    }
+    
+    .extra-small {
+        font-size: 0.75rem;
+    }
+    
+    /* Estilos responsivos y premium para inputs de la tabla */
+    .precio-input-container {
+        position: relative;
+        display: flex;
+        align-items: center;
+        width: 100%;
+        min-width: 120px;
+    }
+    
+    .precio-simbolo {
+        position: absolute;
+        left: 10px;
+        color: var(--color-gray-500);
+        font-size: 0.85rem;
+        font-weight: 500;
+        pointer-events: none;
+    }
+    
+    .precio-input {
+        width: 100%;
+        padding: 0.4rem 0.5rem 0.4rem 1.8rem !important; /* Espaciado extra a la izquierda para el símbolo */
+        font-size: 0.85rem;
+        border: 1px solid var(--color-gray-200);
+        border-radius: var(--border-radius-sm);
+        text-align: right;
+        font-weight: 600;
+        color: var(--color-gray-800);
+        transition: all var(--transition-fast);
+        background-color: var(--color-gray-50);
+    }
+    
+    .precio-input:focus {
+        background-color: white;
+        border-color: var(--color-info);
+        box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.1);
+        outline: none;
+    }
+    
+    .cantidad-input-container {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        min-width: 120px;
+        border: 1px solid var(--color-gray-200);
+        border-radius: var(--border-radius-sm);
+        background-color: var(--color-gray-50);
+        overflow: hidden;
+        transition: all var(--transition-fast);
+    }
+    
+    .cantidad-input-container:focus-within {
+        background-color: white;
+        border-color: var(--color-info);
+        box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.1);
+    }
+    
+    .cantidad-input {
+        border: none !important;
+        background: transparent !important;
+        text-align: center;
+        width: 100%;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--color-gray-800);
+        padding: 0.4rem 0.2rem;
+    }
+    
+    .cantidad-input:focus {
+        outline: none !important;
+        box-shadow: none !important;
+    }
+    
+    .btn-cantidad {
+        border: none !important;
+        background: transparent;
+        color: var(--color-gray-500);
+        padding: 0.4rem 0.6rem;
+        font-size: 0.75rem;
+        transition: all var(--transition-fast);
+        cursor: pointer;
+    }
+    
+    .btn-cantidad:hover {
+        background-color: var(--color-gray-100);
+        color: var(--color-gray-800);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3 py-md-4 px-2 px-md-3 fade-in-up">
+    <!-- ============================================ -->
+    <!-- ENCABEZADO RESPONSIVO                        -->
+    <!-- ============================================ -->
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-layer-group text-primary me-2"></i>Nuevo Pedido Consolidado
+            </h3>
+            <p class="text-muted small mb-0">Genere un nuevo pedido consolidado agrupado por ruta</p>
+            <div class="alert alert-info mt-2 mb-0 bg-info bg-opacity-10 text-info border border-info border-opacity-20">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Pedido Consolidado:</strong> Agrupa productos para entrega por ruta, sin asignar a un cliente específico. 
+                <span class="badge" style="color: #0369a1 !important; background-color: rgba(3, 105, 161, 0.08) !important; border: 1px solid rgba(3, 105, 161, 0.15) !important;">SIEMPRE usa Precio Ruta</span>
+            </div>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{{ url_for('admin.admin_pedidos_venta') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-arrow-left me-1"></i> Cancelar
+            </a>
+        </div>
+    </div>
+    
+    <!-- ============================================ -->
+    <!-- ESTRUCTURA REORGANIZADA DE DOS PANELES       -->
+    <!-- ============================================ -->
+    <form id="formPedidoConsolidado">
+        <div class="row g-4">
+            <!-- PANEL IZQUIERDO: Datos y Ruta -->
+            <div class="col-lg-4 col-md-5">
+                <!-- Tarjeta 1: Información General -->
+                <div class="card-custom mb-4">
+                    <div class="card-header-custom">
+                        <h5><i class="fas fa-info-circle me-2"></i>Información General</h5>
+                    </div>
+                    <div class="card-body p-3">
+                        <div class="row g-3">
+                            <div class="col-md-6 col-12">
+                                <label class="form-label fw-bold">Fecha <span class="text-danger">*</span></label>
+                                <input type="date" id="fechaPedido" class="form-control" required 
+                                       value="{{ now.strftime('%Y-%m-%d') }}">
+                            </div>
+                            <div class="col-md-6 col-12">
+                                <label class="form-label fw-bold">Prioridad <span class="text-danger">*</span></label>
+                                <select id="selectPrioridad" class="form-select" required>
+                                    {% for prioridad in prioridades %}
+                                    <option value="{{ prioridad }}" {% if prioridad == 'Normal' %}selected{% endif %}>
+                                        {{ prioridad }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-bold">Empresa <span class="text-danger">*</span></label>
+                                <select id="selectEmpresa" class="form-select" required>
+                                    <option value="">Seleccione empresa...</option>
+                                    {% for empresa in empresas %}
+                                    <option value="{{ empresa.ID_Empresa }}">
+                                        {{ empresa.Nombre_Empresa }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-bold">Ruta <span class="text-danger">*</span></label>
+                                <select id="selectRuta" class="form-select" required>
+                                    <option value="">Seleccione una ruta...</option>
+                                    {% for ruta in rutas %}
+                                    <option value="{{ ruta.ID_Ruta }}" 
+                                            data-descripcion="{{ ruta.Descripcion or 'Sin descripción' }}"
+                                            data-total-clientes="{{ ruta.Total_Clientes }}">
+                                        {{ ruta.Nombre_Ruta }}
+                                        {% if ruta.Descripcion %} - {{ ruta.Descripcion }}{% endif %}
+                                        ({{ ruta.Total_Clientes }} clientes)
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <small class="text-muted d-block mt-1">
+                                    <i class="fas fa-route me-1"></i>
+                                    Ruta obligatoria para consolidado
+                                </small>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-bold">Observaciones:</label>
+                                <textarea id="observacionPedido" class="form-control" rows="2" 
+                                          placeholder="Agregue observaciones o notas adicionales..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tarjeta 2: Entrega y Precios -->
+                <div class="card-custom mb-4">
+                    <div class="card-header-custom">
+                        <h5><i class="fas fa-truck me-2"></i>Información de Entrega</h5>
+                    </div>
+                    <div class="card-body p-3">
+                        <div id="infoRutaContainer" class="info-ruta-card mb-3" style="display: none;">
+                            <div id="infoRutaContent"></div>
+                        </div>
+                        
+                        <div id="noRutaContainer" class="info-ruta-card mb-3">
+                            <div class="text-center py-4">
+                                <i class="fas fa-route fa-3x mb-3" style="color: var(--color-gray-400);"></i>
+                                <p class="mb-0 text-muted small">Seleccione una ruta para ver su información</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Información de Precios -->
+                        <div class="alert-custom alert-primary-custom p-3 mb-0">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-tag fa-lg me-3"></i>
+                                <div>
+                                    <h6 class="mb-1" style="font-size: 0.85rem; font-weight: 600;">Tipo de Precio</h6>
+                                    <p class="mb-0 small" style="font-size: 0.75rem;">
+                                        Los pedidos consolidados <span class="badge badge-info py-0 px-2">SIEMPRE</span> utilizan precio ruta.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Indicador de prioridad urgente -->
+                        <div class="mt-3" id="indicadorPrioridad" style="display: none;">
+                            <div class="alert-custom alert-warning-custom p-3 mb-0">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-exclamation-triangle fa-lg me-3"></i>
+                                    <div>
+                                        <h6 class="mb-1" style="font-size: 0.85rem; font-weight: 600;">Pedido Urgente</h6>
+                                        <p class="mb-0 small" style="font-size: 0.75rem;">
+                                            Prioridad máxima en procesamiento y entrega.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tarjeta 3: Botones de Acción (Siempre visibles y accesibles) -->
+                <div class="card-custom mb-4">
+                    <div class="card-body p-3">
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-info py-2 fw-bold" id="btnGuardar" disabled>
+                                <i class="fas fa-save me-2"></i>Guardar Pedido
+                            </button>
+                            <a href="{{ url_for('admin.admin_pedidos_venta') }}" class="btn btn-outline-secondary py-2">
+                                <i class="fas fa-times me-2"></i>Cancelar
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- PANEL DERECHO: Catálogo y Productos Seleccionados -->
+            <div class="col-lg-8 col-md-7">
+                <div class="card-custom h-100">
+                    <div class="card-header-custom d-flex justify-content-between align-items-center flex-wrap gap-2 py-3">
+                        <h5 class="mb-0"><i class="fas fa-boxes me-2"></i>Productos del Pedido</h5>
+                        <div class="d-flex align-items-center gap-2">
+                            <span id="contadorProductos" class="badge badge-primary">0 productos</span>
+                            <span id="indicadorTotal" class="badge badge-success">Total: C$ 0.00</span>
+                        </div>
+                    </div>
+                    
+                    <div class="card-body p-3 p-md-4">
+                        <!-- Búsqueda rápida de productos -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Búsqueda rápida de productos:</label>
+                            <div class="input-group">
+                                <input type="text" id="buscarProducto" class="form-control" 
+                                       placeholder="Buscar producto por nombre o código...">
+                                <button class="btn btn-info text-white" type="button" id="btnBuscarProducto">
+                                    <i class="fas fa-search me-1"></i> Buscar
+                                </button>
+                            </div>
+                            <div id="resultadosBusqueda" class="mt-2" style="display: none; max-height: 250px; overflow-y: auto;"></div>
+                        </div>
+                        
+                        <!-- Categorías -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Categorías de productos:</label>
+                            <div id="categoriasContainer" class="d-flex flex-wrap gap-2">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Cargando...</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Productos por Categoría -->
+                        <div id="productosContainer" class="mb-4" style="display: none;">
+                            <div id="productosCategoriaContainer"></div>
+                        </div>
+                        
+                        <!-- Tabla de Productos Seleccionados -->
+                        <div class="mt-4 border-top pt-4">
+                            <h6 class="mb-3"><i class="fas fa-shopping-cart me-2"></i>Detalle de Productos Seleccionados:</h6>
+                            <div class="table-responsive-scroll">
+                                <table class="table table-custom align-middle" id="tablaProductosSeleccionados">
+                                    <thead>
+                                        <tr>
+                                            <th width="40">#</th>
+                                            <th>Producto</th>
+                                            <th width="140">Precio Unitario</th>
+                                            <th width="130">Cantidad</th>
+                                            <th width="140">Subtotal</th>
+                                            <th width="180" class="text-center">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tbodyProductos">
+                                        <tr id="filaVacia">
+                                            <td colspan="6" class="text-center py-5" style="color: var(--color-gray-400);">
+                                                <i class="fas fa-box-open fa-2x mb-3 d-block"></i>
+                                                No hay productos seleccionados para el consolidado
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                    <tfoot id="tfootTotales" style="display: none;">
+                                        <tr class="table-active">
+                                            <td colspan="4" class="text-end fw-bold">TOTAL CONSOLIDADO:</td>
+                                            <td class="fw-bold" style="color: var(--color-success); font-size: 1.1rem;" id="totalPedido">C$ 0.00</td>
+                                            <td></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- ============================================ -->
+<!-- MODALES                                       -->
+<!-- ============================================ -->
+
+<!-- Modal para ver stock detallado -->
+<div class="modal fade" id="modalStockDetalle" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-warehouse me-2"></i>Stock Disponible por Bodega
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <h6 id="modalProductoNombre" class="mb-3"></h6>
+                <div id="contenidoStock" class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para confirmar -->
+<div class="modal fade" id="modalConfirmacion" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-layer-group me-2"></i>Confirmar Pedido Consolidado
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert-custom alert-info-custom">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 me-3">
+                            <i class="fas fa-info-circle fa-2x"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h6 class="alert-heading mb-1">Resumen del pedido consolidado</h6>
+                            <p class="mb-0 small">
+                                El pedido se creará con estado "Pendiente" y tipo "Consolidado".
+                                <span class="badge badge-info ms-2">PRECIO RUTA</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div id="resumenPedido" class="mt-3"></div>
+                
+                <div class="mt-3">
+                    <h6 class="mb-3">Detalle de productos consolidados:</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-custom" id="tablaResumenProductos">
+                            <thead>
+                                <tr>
+                                    <th>Producto</th>
+                                    <th class="text-center">Cantidad Total</th>
+                                    <th class="text-end">Precio Unit.</th>
+                                    <th class="text-end">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyResumenProductos"></tbody>
+                            <tfoot>
+                                <tr class="table-active">
+                                    <td colspan="3" class="text-end fw-bold">TOTAL CONSOLIDADO:</td>
+                                    <td class="text-end fw-bold" style="color: var(--color-success);" id="totalResumen">C$ 0.00</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i> Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" id="btnConfirmarGuardar">
+                    <i class="fas fa-save me-1"></i> Confirmar y Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ============================================
+// URLs DE API - Generadas con url_for
+// ============================================
+const API_URLS = {
+    categoriasVisibles: "{{ url_for('admin.obtener_categorias_visibles') }}",
+    productosCategoria: "{{ url_for('admin.obtener_productos_categoria') }}",
+    buscarProductos: "{{ url_for('admin.buscar_productos') }}",
+    stockProducto: "{{ url_for('admin.obtener_stock_producto', producto_id=999999) }}".replace('999999', ''),
+    guardarPedido: "{{ url_for('admin.nuevo_pedido_consolidado') }}",
+    verPedido: "{{ url_for('admin.ver_pedido', id_pedido=999999) }}".replace('999999', '')
+};
+
+// ============================================
+// VARIABLES GLOBALES
+// ============================================
+let productosSeleccionados = [];
+const tipoClienteActual = 'Comun';
+const perfilClienteActual = 'Ruta';
+
+// ============================================
+// FUNCIONES DE UTILIDAD
+// ============================================
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('es-NI', {
+        style: 'currency',
+        currency: 'NIO',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(amount).replace('NIO', 'C$');
+}
+
+function formatNumber(number) {
+    return new Intl.NumberFormat('es-NI').format(number);
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function getBadgeClassPrioridad(prioridad) {
+    switch(prioridad) {
+        case 'Urgente': return 'badge-danger';
+        case 'Normal': return 'badge-info';
+        case 'Bajo': return 'badge-secondary';
+        default: return 'badge-info';
+    }
+}
+
+function getIconoPrioridad(prioridad) {
+    switch(prioridad) {
+        case 'Urgente': return 'fas fa-exclamation-triangle';
+        case 'Normal': return 'fas fa-bars';
+        case 'Bajo': return 'fas fa-angle-down';
+        default: return 'fas fa-info-circle';
+    }
+}
+
+// ============================================
+// INICIALIZACIÓN
+// ============================================
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('API URLs configuradas:', API_URLS);
+    
+    const fechaInput = document.getElementById('fechaPedido');
+    if (fechaInput && !fechaInput.value) {
+        fechaInput.value = new Date().toISOString().split('T')[0];
+    }
+    
+    cargarCategoriasConsolidado();
+    
+    document.getElementById('selectPrioridad').addEventListener('change', function() {
+        mostrarIndicadorPrioridad(this.value);
+        validarFormulario();
+    });
+    
+    document.getElementById('selectRuta').addEventListener('change', function() {
+        mostrarInfoRuta();
+        validarFormulario();
+    });
+    
+    document.getElementById('selectEmpresa').addEventListener('change', validarFormulario);
+    document.getElementById('fechaPedido').addEventListener('change', validarFormulario);
+    
+    document.getElementById('btnBuscarProducto').addEventListener('click', buscarProductos);
+    document.getElementById('buscarProducto').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            buscarProductos();
+        }
+    });
+    
+    const modalStock = document.getElementById('modalStockDetalle');
+    modalStock.addEventListener('hidden.bs.modal', function() {
+        document.getElementById('contenidoStock').innerHTML = 
+            '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div>';
+    });
+    
+    const modalConfirmacion = document.getElementById('modalConfirmacion');
+    modalConfirmacion.addEventListener('hidden.bs.modal', function () {
+        const btnGuardar = document.getElementById('btnConfirmarGuardar');
+        if (btnGuardar) {
+            btnGuardar.disabled = false;
+            btnGuardar.innerHTML = '<i class="fas fa-save me-1"></i> Confirmar y Guardar';
+        }
+    });
+    
+    mostrarIndicadorPrioridad(document.getElementById('selectPrioridad').value);
+    
+    document.getElementById('formPedidoConsolidado').addEventListener('submit', function(e) {
+        e.preventDefault();
+        validarYConfirmarPedido();
+    });
+    
+    document.getElementById('btnConfirmarGuardar').addEventListener('click', function() {
+        guardarPedido();
+    });
+    
+    actualizarContadorProductos();
+    validarFormulario();
+});
+
+// ============================================
+// FUNCIONES DE RUTA
+// ============================================
+function mostrarInfoRuta() {
+    const select = document.getElementById('selectRuta');
+    const option = select.options[select.selectedIndex];
+    const infoContainer = document.getElementById('infoRutaContainer');
+    const noRutaContainer = document.getElementById('noRutaContainer');
+    
+    if (select.value) {
+        const descripcion = option.getAttribute('data-descripcion') || 'Sin descripción';
+        const totalClientes = option.getAttribute('data-total-clientes') || '0';
+        const nombreRuta = option.text.split('(')[0].trim();
+        
+        document.getElementById('infoRutaContent').innerHTML = `
+            <div class="d-flex align-items-center mb-3">
+                <i class="fas fa-route fa-2x me-3" style="color: var(--color-info);"></i>
+                <div>
+                    <h6 class="mb-0">${nombreRuta}</h6>
+                    <small class="text-muted">Ruta seleccionada</small>
+                </div>
+            </div>
+            <div class="row g-2">
+                <div class="col-12">
+                    <div class="info-row">
+                        <span class="info-label">Descripción:</span>
+                        <span class="info-value">${descripcion}</span>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="info-row">
+                        <span class="info-label">Clientes asignados:</span>
+                        <span class="info-value"><span class="badge badge-info">${totalClientes} clientes</span></span>
+                    </div>
+                </div>
+            </div>
+            <div class="alert-custom alert-info-custom mt-3 py-2">
+                <i class="fas fa-check-circle me-2"></i>
+                Este pedido consolidado será asignado a la ruta seleccionada
+            </div>
+        `;
+        infoContainer.style.display = 'block';
+        noRutaContainer.style.display = 'none';
+    } else {
+        infoContainer.style.display = 'none';
+        noRutaContainer.style.display = 'block';
+    }
+}
+
+function mostrarIndicadorPrioridad(prioridad) {
+    const indicador = document.getElementById('indicadorPrioridad');
+    indicador.style.display = prioridad === 'Urgente' ? 'block' : 'none';
+}
+
+// ============================================
+// FUNCIONES DE CATEGORÍAS Y PRODUCTOS
+// ============================================
+function cargarCategoriasConsolidado() {
+    const container = document.getElementById('categoriasContainer');
+    container.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div>';
+    
+    fetch(`${API_URLS.categoriasVisibles}?tipo_cliente=${tipoClienteActual}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                container.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+                return;
+            }
+            
+            if (data.categorias.length === 0) {
+                container.innerHTML = `<div class="alert alert-warning">No hay categorías disponibles</div>`;
+                document.getElementById('productosContainer').style.display = 'none';
+                return;
+            }
+            
+            container.innerHTML = '';
+            data.categorias.forEach(categoria => {
+                const boton = document.createElement('button');
+                boton.type = 'button';
+                boton.className = 'categoria-pill';
+                boton.innerHTML = `<i class="fas fa-folder me-2"></i>${categoria.nombre}`;
+                boton.onclick = () => cargarProductosCategoria(categoria.id, categoria.nombre);
+                container.appendChild(boton);
+            });
+            
+            document.getElementById('productosContainer').style.display = 'block';
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            container.innerHTML = `<div class="alert alert-danger">Error al cargar categorías: ${error.message}</div>`;
+        });
+}
+
+function cargarProductosCategoria(categoriaId, categoriaNombre) {
+    const container = document.getElementById('productosCategoriaContainer');
+    container.innerHTML = `
+        <div class="card-custom">
+            <div class="card-header-custom">
+                <h6 class="mb-0">
+                    <i class="fas fa-folder me-2"></i>${categoriaNombre}
+                    <span class="badge badge-info float-end">Precio Ruta</span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary float-end me-2" 
+                            onclick="cerrarProductosCategoria()">
+                        <i class="fas fa-times me-1"></i> Cerrar
+                    </button>
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row" id="productosGrid-${categoriaId}">
+                    <div class="col-12 text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando productos...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    
+    fetch(`${API_URLS.productosCategoria}?categoria_id=${categoriaId}&tipo_cliente=${tipoClienteActual}&perfil_cliente=${perfilClienteActual}`)
+        .then(response => response.json())
+        .then(data => {
+            const grid = document.getElementById(`productosGrid-${categoriaId}`);
+            if (!grid) return;
+            
+            if (data.error) {
+                grid.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+                return;
+            }
+            
+            if (data.productos.length === 0) {
+                grid.innerHTML = `<div class="alert alert-info">No hay productos disponibles en esta categoría</div>`;
+                return;
+            }
+            
+            grid.innerHTML = '';
+            data.productos.forEach(producto => {
+                const col = document.createElement('div');
+                col.className = 'col-md-6 col-lg-4 mb-3';
+                col.innerHTML = `
+                    <div class="producto-card">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="mb-0">${producto.nombre}</h6>
+                                <span class="badge badge-info">Precio Ruta</span>
+                            </div>
+                            <div class="mb-2">
+                                <span class="badge badge-secondary">${producto.codigo || 'N/A'}</span>
+                                <span class="badge badge-info ms-1">${producto.unidad_abreviatura || 'Und'}</span>
+                            </div>
+                            <div class="mb-2">
+                                <small class="text-muted"><i class="fas fa-box me-1"></i> Stock total: </small>
+                                <span class="badge badge-success">${formatNumber(producto.stock)}</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-2">
+                                <div>
+                                    <span class="fw-bold" style="color: var(--color-success);">${formatCurrency(producto.precio)}</span>
+                                </div>
+                                <div>
+                                    <button type="button" class="btn btn-sm btn-outline-info me-1" 
+                                            onclick="verStockProducto(${producto.id}, '${escapeHtml(producto.nombre)}')"
+                                            title="Ver stock por bodega">
+                                        <i class="fas fa-warehouse me-1"></i> Stock
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-primary" 
+                                            onclick="agregarProducto(${producto.id}, '${escapeHtml(producto.nombre).replace(/'/g, "\\'")}', '${escapeHtml(producto.codigo || '').replace(/'/g, "\\'")}', ${producto.precio}, ${producto.stock}, '${escapeHtml(producto.unidad_abreviatura || 'Unidad').replace(/'/g, "\\'")}')">
+                                        <i class="fas fa-plus me-1"></i> Agregar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+                grid.appendChild(col);
+            });
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            const grid = document.getElementById(`productosGrid-${categoriaId}`);
+            if (grid) grid.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+        });
+}
+
+function cerrarProductosCategoria() {
+    document.getElementById('productosCategoriaContainer').innerHTML = '';
+}
+
+// ============================================
+// BÚSQUEDA DE PRODUCTOS
+// ============================================
+function buscarProductos() {
+    const termino = document.getElementById('buscarProducto').value.trim();
+    if (termino.length < 2) {
+        showAlert('warning', 'Ingrese al menos 2 caracteres para buscar');
+        return;
+    }
+    
+    const resultadosDiv = document.getElementById('resultadosBusqueda');
+    resultadosDiv.innerHTML = '<div class="text-center py-3"><div class="spinner-border text-primary" role="status"></div></div>';
+    resultadosDiv.style.display = 'block';
+    
+    fetch(`${API_URLS.buscarProductos}?q=${encodeURIComponent(termino)}&tipo_cliente=${tipoClienteActual}&perfil_cliente=${perfilClienteActual}`)
+        .then(response => response.json())
+        .then(productos => {
+            if (productos.length === 0) {
+                resultadosDiv.innerHTML = `<div class="alert alert-warning">No se encontraron productos</div>`;
+                return;
+            }
+            
+            let html = '<div class="list-group">';
+            productos.forEach(producto => {
+                html += `
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">${escapeHtml(producto.nombre)}</h6>
+                                <small class="text-muted">
+                                    Código: ${escapeHtml(producto.codigo || 'N/A')} | 
+                                    Stock: ${formatNumber(producto.stock)} |
+                                    Categoría: ${escapeHtml(producto.categoria || 'N/A')}
+                                </small>
+                            </div>
+                            <div class="text-end">
+                                <span class="fw-bold me-2" style="color: var(--color-success);">${formatCurrency(producto.precio)}</span>
+                                <span class="badge badge-info me-2">Precio Ruta</span>
+                                <button type="button" class="btn btn-sm btn-outline-info me-1" 
+                                        onclick="verStockProducto(${producto.id}, '${escapeHtml(producto.nombre)}')">
+                                    <i class="fas fa-warehouse me-1"></i> Stock
+                                </button>
+                                <button type="button" class="btn btn-sm btn-primary" 
+                                        onclick="agregarProducto(${producto.id}, '${escapeHtml(producto.nombre).replace(/'/g, "\\'")}', '${escapeHtml(producto.codigo || '').replace(/'/g, "\\'")}', ${producto.precio}, ${producto.stock}, '${escapeHtml(producto.unidad_abreviatura || 'Unidad').replace(/'/g, "\\'")}')">
+                                    <i class="fas fa-plus me-1"></i> Agregar
+                                </button>
+                            </div>
+                        </div>
+                    </div>`;
+            });
+            html += '</div>';
+            resultadosDiv.innerHTML = html;
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            resultadosDiv.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+        });
+}
+
+// ============================================
+// STOCK
+// ============================================
+function verStockProducto(productoId, productoNombre) {
+    const modal = new bootstrap.Modal(document.getElementById('modalStockDetalle'));
+    document.getElementById('modalProductoNombre').textContent = productoNombre;
+    
+    fetch(`${API_URLS.stockProducto}${productoId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                document.getElementById('contenidoStock').innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+                return;
+            }
+            
+            let html = `
+                <div class="mb-3">
+                    <p><strong>Código:</strong> ${data.codigo || 'N/A'}</p>
+                    <p><strong>Stock Total:</strong> <span class="badge badge-success">${formatNumber(data.stock_total)}</span></p>
+                    <p><strong>Precio Ruta:</strong> <span class="badge badge-info">${formatCurrency(data.precios?.ruta || 0)}</span></p>
+                </div>`;
+            
+            if (data.bodegas && data.bodegas.length > 0) {
+                html += `<h6 class="mb-3">Stock por Bodega:</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead><tr><th>Bodega</th><th class="text-end">Existencias</th></tr></thead>
+                            <tbody>`;
+                data.bodegas.forEach(bodega => {
+                    html += `<tr><td>${bodega.Nombre_Bodega}</td><td class="text-end"><span class="badge badge-primary">${formatNumber(bodega.Existencias)}</span></td></tr>`;
+                });
+                html += `</tbody>}</div>`;
+            } else {
+                html += `<div class="alert alert-warning">No hay stock registrado en bodegas</div>`;
+            }
+            
+            document.getElementById('contenidoStock').innerHTML = html;
+        })
+        .catch(error => {
+            document.getElementById('contenidoStock').innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+        });
+    
+    modal.show();
+}
+
+// ============================================
+// GESTIÓN DE PRODUCTOS SELECCIONADOS - FUNCIÓN CORREGIDA
+// ============================================
+function agregarProducto(id, nombre, codigo, precio, stock, unidad) {
+    console.log('Agregando producto:', {id, nombre, precio, stock});
+    
+    const index = productosSeleccionados.findIndex(p => p.id === id);
+    
+    if (index !== -1) {
+        const nuevaCantidad = productosSeleccionados[index].cantidad + 1;
+        if (nuevaCantidad > stock) {
+            showAlert('warning', `Stock insuficiente. Disponible: ${formatNumber(stock)}`);
+            return;
+        }
+        productosSeleccionados[index].cantidad = nuevaCantidad;
+        productosSeleccionados[index].subtotal = precio * nuevaCantidad;
+        actualizarTablaProductos();
+        return;
+    }
+    
+    if (1 > stock) {
+        showAlert('warning', `Stock insuficiente. Disponible: ${formatNumber(stock)}`);
+        return;
+    }
+    
+    productosSeleccionados.push({
+        id: id,
+        nombre: nombre,
+        codigo: codigo || 'N/A',
+        precio: precio,
+        cantidad: 1,
+        stock: stock,
+        unidad: unidad || 'Unidad',
+        subtotal: precio,
+        tipoPrecio: 'Precio Ruta',
+        tipoPrecioClase: 'badge-info'
+    });
+    
+    console.log('Productos después de agregar:', productosSeleccionados);
+    actualizarTablaProductos();
+    showToast('success', 'Producto agregado', `${nombre} agregado al pedido consolidado`);
+}
+
+function actualizarTablaProductos() {
+    const tbody = document.getElementById('tbodyProductos');
+    const tfoot = document.getElementById('tfootTotales');
+    
+    console.log('Actualizando tabla con', productosSeleccionados.length, 'productos');
+    
+    // Limpiar el tbody completamente
+    tbody.innerHTML = '';
+    
+    if (productosSeleccionados.length === 0) {
+        tbody.innerHTML = `
+            <tr id="filaVacia">
+                <td colspan="6" class="text-center py-5" style="color: var(--color-gray-400);">
+                    <i class="fas fa-box-open fa-2x mb-3 d-block"></i>
+                    No hay productos seleccionados para el consolidado
+                </td>
+            </tr>
+        `;
+        tfoot.style.display = 'none';
+        actualizarContadorProductos();
+        validarFormulario();
+        return;
+    }
+    
+    productosSeleccionados.sort((a, b) => a.nombre.localeCompare(b.nombre));
+    let total = 0;
+    let html = '';
+    
+    productosSeleccionados.forEach((producto, index) => {
+        total += producto.subtotal;
+        html += `
+            <tr>
+                <td>${index + 1}</td>
+                <td>
+                    <div class="fw-bold">${escapeHtml(producto.nombre)}</div>
+                    <small class="text-muted">Código: ${escapeHtml(producto.codigo || 'N/A')} | Unidad: ${escapeHtml(producto.unidad)} | Stock: ${formatNumber(producto.stock)}</small>
+                </td>
+                <td>
+                    <div class="precio-input-container">
+                        <span class="precio-simbolo">C$</span>
+                        <input type="number" class="precio-input" value="${producto.precio.toFixed(2)}" step="0.01" min="0.01" data-index="${index}" onchange="actualizarPrecio(${index}, this.value)">
+                    </div>
+                </td>
+                <td>
+                    <div class="cantidad-input-container">
+                        <button class="btn-cantidad" type="button" onclick="modificarCantidad(${index}, -1)"><i class="fas fa-minus"></i></button>
+                        <input type="number" class="cantidad-input" value="${producto.cantidad}" step="1" min="1" max="${producto.stock}" data-index="${index}" onchange="actualizarCantidad(${index}, this.value)">
+                        <button class="btn-cantidad" type="button" onclick="modificarCantidad(${index}, 1)"><i class="fas fa-plus"></i></button>
+                    </div>
+                    <small class="text-muted d-block mt-1 extra-small">Disponible: ${formatNumber(producto.stock)}</small>
+                </td>
+                <td class="fw-bold" style="color: var(--color-success);">${formatCurrency(producto.subtotal)}</td>
+                <td>
+                    <div class="d-flex gap-1 justify-content-center">
+                        <button type="button" class="btn btn-sm btn-outline-info" onclick="verStockProducto(${producto.id}, '${escapeHtml(producto.nombre)}')" title="Ver Stock"><i class="fas fa-warehouse me-1"></i> Stock</button>
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="eliminarProducto(${index})" title="Quitar"><i class="fas fa-trash me-1"></i> Quitar</button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+    
+    tbody.innerHTML = html;
+    const totalFormateado = formatCurrency(total);
+    document.getElementById('totalPedido').textContent = totalFormateado;
+    document.getElementById('indicadorTotal').textContent = `Total: ${totalFormateado}`;
+    tfoot.style.display = '';
+    actualizarContadorProductos();
+    validarFormulario();
+}
+
+function actualizarContadorProductos() {
+    const contador = document.getElementById('contadorProductos');
+    contador.textContent = `${productosSeleccionados.length} producto${productosSeleccionados.length !== 1 ? 's' : ''}`;
+    contador.className = `badge ${productosSeleccionados.length > 0 ? 'badge-success' : 'badge-primary'}`;
+}
+
+function modificarCantidad(index, cambio) {
+    const producto = productosSeleccionados[index];
+    const nuevaCantidad = producto.cantidad + cambio;
+    if (nuevaCantidad < 1) return;
+    if (nuevaCantidad > producto.stock) {
+        showAlert('warning', `Stock insuficiente. Disponible: ${formatNumber(producto.stock)}`);
+        return;
+    }
+    producto.cantidad = nuevaCantidad;
+    producto.subtotal = producto.precio * nuevaCantidad;
+    actualizarTablaProductos();
+}
+
+function actualizarPrecio(index, nuevoPrecio) {
+    nuevoPrecio = parseFloat(nuevoPrecio);
+    if (isNaN(nuevoPrecio) || nuevoPrecio < 0.01) nuevoPrecio = productosSeleccionados[index].precio;
+    productosSeleccionados[index].precio = nuevoPrecio;
+    productosSeleccionados[index].subtotal = nuevoPrecio * productosSeleccionados[index].cantidad;
+    actualizarTablaProductos();
+}
+
+function actualizarCantidad(index, nuevaCantidad) {
+    nuevaCantidad = parseInt(nuevaCantidad);
+    if (isNaN(nuevaCantidad) || nuevaCantidad < 1) nuevaCantidad = productosSeleccionados[index].cantidad;
+    if (nuevaCantidad > productosSeleccionados[index].stock) {
+        showAlert('warning', `Stock insuficiente. Disponible: ${formatNumber(productosSeleccionados[index].stock)}`);
+        nuevaCantidad = productosSeleccionados[index].cantidad;
+    }
+    productosSeleccionados[index].cantidad = nuevaCantidad;
+    productosSeleccionados[index].subtotal = productosSeleccionados[index].precio * nuevaCantidad;
+    actualizarTablaProductos();
+}
+
+function eliminarProducto(index) {
+    if (confirm(`¿Eliminar "${productosSeleccionados[index].nombre}" del pedido consolidado?`)) {
+        productosSeleccionados.splice(index, 1);
+        actualizarTablaProductos();
+    }
+}
+
+// ============================================
+// VALIDACIÓN Y CONFIRMACIÓN
+// ============================================
+function validarFormulario() {
+    const valido = document.getElementById('selectEmpresa').value !== '' &&
+                   document.getElementById('fechaPedido').value !== '' &&
+                   document.getElementById('selectPrioridad').value !== '' &&
+                   document.getElementById('selectRuta').value !== '' &&
+                   productosSeleccionados.length > 0;
+    
+    document.getElementById('btnGuardar').disabled = !valido;
+    return valido;
+}
+
+function validarYConfirmarPedido() {
+    if (!validarFormulario()) {
+        let msg = 'Complete todos los campos obligatorios:\n';
+        if (!document.getElementById('selectEmpresa').value) msg += '• Empresa\n';
+        if (!document.getElementById('selectRuta').value) msg += '• Ruta\n';
+        if (!document.getElementById('fechaPedido').value) msg += '• Fecha\n';
+        if (!document.getElementById('selectPrioridad').value) msg += '• Prioridad\n';
+        if (productosSeleccionados.length === 0) msg += '• Al menos un producto\n';
+        showAlert('warning', msg);
+        return;
+    }
+    
+    const prioridad = document.getElementById('selectPrioridad').value;
+    const selectRuta = document.getElementById('selectRuta');
+    const rutaNombre = selectRuta.options[selectRuta.selectedIndex].text.split('(')[0].trim();
+    const totalClientes = selectRuta.options[selectRuta.selectedIndex].getAttribute('data-total-clientes') || '0';
+    
+    document.getElementById('resumenPedido').innerHTML = `
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <div class="card-custom">
+                    <div class="card-header-custom"><h6><i class="fas fa-layer-group me-2"></i>Información del Consolidado</h6></div>
+                    <div class="card-body p-3">
+                        <p><strong>Empresa:</strong> ${document.getElementById('selectEmpresa').options[document.getElementById('selectEmpresa').selectedIndex].text}</p>
+                        <p><strong>Ruta:</strong> ${rutaNombre}</p>
+                        <p><strong>Clientes:</strong> <span class="badge badge-info">${totalClientes}</span></p>
+                        <p><strong>Observaciones:</strong> ${document.getElementById('observacionPedido').value || 'Ninguna'}</p>
+                        <p><strong>Tipo Precio:</strong> <span class="badge badge-info">PRECIO RUTA</span></p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card-custom">
+                    <div class="card-header-custom"><h6><i class="fas fa-info-circle me-2"></i>Detalles del Pedido</h6></div>
+                    <div class="card-body p-3">
+                        <p><strong>Fecha:</strong> ${document.getElementById('fechaPedido').value}</p>
+                        <p><strong>Prioridad:</strong> <span class="badge ${getBadgeClassPrioridad(prioridad)}">${prioridad}</span></p>
+                        <p><strong>Total productos:</strong> <span class="badge badge-success">${productosSeleccionados.length}</span></p>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    
+    let total = 0;
+    let html = '';
+    productosSeleccionados.forEach((p, i) => {
+        total += p.subtotal;
+        html += `<tr><td>${i+1}. ${escapeHtml(p.nombre)}<br><small class="text-muted">Código: ${escapeHtml(p.codigo || 'N/A')}</small></td>
+                 <td class="text-center">${formatNumber(p.cantidad)}</td>
+                 <td class="text-end">${formatCurrency(p.precio)}</td>
+                 <td class="text-end fw-bold" style="color: var(--color-success);">${formatCurrency(p.subtotal)}</td>
+            </tr>`;
+    });
+    document.getElementById('tbodyResumenProductos').innerHTML = html;
+    document.getElementById('totalResumen').textContent = formatCurrency(total);
+    
+    new bootstrap.Modal(document.getElementById('modalConfirmacion')).show();
+}
+
+// ============================================
+// GUARDAR PEDIDO
+// ============================================
+function guardarPedido() {
+    const btn = document.getElementById('btnConfirmarGuardar');
+    const modal = bootstrap.Modal.getInstance(document.getElementById('modalConfirmacion'));
+    
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando...';
+    
+    fetch(API_URLS.guardarPedido, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            empresa_id: document.getElementById('selectEmpresa').value,
+            fecha: document.getElementById('fechaPedido').value,
+            prioridad: document.getElementById('selectPrioridad').value,
+            observacion: document.getElementById('observacionPedido').value,
+            id_ruta: document.getElementById('selectRuta').value,
+            productos: productosSeleccionados.map(p => ({ id: p.id, nombre: p.nombre, precio: p.precio, cantidad: p.cantidad }))
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        modal.hide();
+        if (data.success) {
+            showToast('success', 'Pedido consolidado creado', `Pedido #${data.pedido_id} creado exitosamente`);
+            setTimeout(() => window.location.href = API_URLS.verPedido + data.pedido_id, 1500);
+        } else {
+            showAlert('error', data.message || 'Error al crear el pedido');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-save me-1"></i> Confirmar y Guardar';
+        }
+    })
+    .catch(error => {
+        modal.hide();
+        showAlert('error', 'Error: ' + error.message);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-save me-1"></i> Confirmar y Guardar';
+    });
+}
+
+// ============================================
+// NOTIFICACIONES
+// ============================================
+function showAlert(type, message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 1055; max-width: 400px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.15);';
+    alertDiv.innerHTML = `<div class="d-flex align-items-center"><i class="fas fa-${type === 'success' ? 'check-circle' : type === 'warning' ? 'exclamation-triangle' : 'exclamation-circle'} me-2"></i><div class="flex-grow-1">${message.replace(/\n/g, '<br>')}</div><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`;
+    document.body.appendChild(alertDiv);
+    setTimeout(() => { if (alertDiv.parentNode) alertDiv.remove(); }, 5000);
+}
+
+function showToast(type, title, message) {
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-white bg-${type} border-0 position-fixed`;
+    toast.style.cssText = 'bottom: 20px; right: 20px; z-index: 1055; border-radius: 8px; min-width: 300px;';
+    toast.setAttribute('role', 'alert');
+    toast.innerHTML = `<div class="d-flex"><div class="toast-body"><strong>${title}</strong><br><small>${message}</small></div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
+    document.body.appendChild(toast);
+    const bsToast = new bootstrap.Toast(toast, { delay: 3000 });
+    bsToast.show();
+    toast.addEventListener('hidden.bs.toast', () => toast.remove());
+}
+</script>
+{% endblock %}

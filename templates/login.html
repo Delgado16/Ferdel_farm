@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <title>Granja Avícola FerDel - Iniciar Sesión</title>
+
+    <!-- Bootstrap 5 CSS CDN (Same as layout.html) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Bootstrap Icons (Same as layout.html) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+
+    <!-- Google Fonts: Outfit & Inter (Same as layout.html) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+
+    <!-- FAVICON -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='ferdel.png') }}">
+    <link rel="shortcut icon" type="image/png" href="{{ url_for('static', filename='ferdel.png') }}">
+
+    <style>
+        :root {
+            --primary-color: #2c5e2e;
+            /* Verde Bosque FerDel */
+            --secondary-color: #10b981;
+            /* Verde Esmeralda vibrante */
+            --body-bg: #f8fafc;
+            /* Slate 50 (Same as layout.html) */
+            --text-main: #1e293b;
+            /* Slate 800 */
+            --font-family: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+        }
+
+        * {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--body-bg);
+            color: var(--text-main);
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Animación de entrada suave */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-in {
+            animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        /* Contenedor principal de la tarjeta */
+        .login-container {
+            width: 100%;
+            max-width: 460px;
+            padding: 1.5rem;
+            z-index: 10;
+        }
+
+        /* Tarjeta de login moderna */
+        .login-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 1.25rem;
+            box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.05), 0 10px 10px -5px rgba(15, 23, 42, 0.02);
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .login-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 25px 35px -5px rgba(15, 23, 42, 0.08), 0 12px 15px -5px rgba(15, 23, 42, 0.03);
+        }
+
+        /* Barra de gradiente de color superior */
+        .card-gradient-bar {
+            height: 5px;
+            background: linear-gradient(90deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            width: 100%;
+        }
+
+        /* Contenedor del logotipo */
+        .logo-box {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 1.25rem;
+            padding: 0.75rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(44, 94, 46, 0.05);
+            transition: all 0.3s ease;
+        }
+
+        .logo-box:hover {
+            transform: scale(1.05);
+            border-color: var(--secondary-color);
+            box-shadow: 0 6px 15px rgba(16, 185, 129, 0.12);
+        }
+
+        /* Títulos de sección */
+        .brand-title {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            color: var(--primary-color);
+            letter-spacing: -0.02em;
+        }
+
+        .brand-subtitle {
+            font-family: 'Inter', sans-serif;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #64748b;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        /* Etiquetas de formulario */
+        .form-label-modern {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+            font-size: 0.875rem;
+            color: #475569;
+            margin-bottom: 0.375rem;
+        }
+
+        /* Inputs modernos con soporte para iconos a la izquierda */
+        .input-icon-wrapper {
+            position: relative;
+        }
+
+        .form-control-modern {
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+            border-radius: 0.75rem;
+            padding: 0.75rem 1rem 0.75rem 2.75rem;
+            border: 1px solid #cbd5e1;
+            background-color: #ffffff;
+            color: var(--text-main);
+            transition: all 0.2s ease-in-out;
+        }
+
+        .form-control-modern:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.25rem rgba(44, 94, 46, 0.15);
+            color: #0f172a;
+        }
+
+        .form-control-modern::placeholder {
+            color: #94a3b8;
+        }
+
+        /* Icono dentro del input */
+        .input-icon-wrapper i {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+            font-size: 1.1rem;
+            transition: color 0.2s ease;
+            pointer-events: none;
+        }
+
+        .form-control-modern:focus+i {
+            color: var(--primary-color);
+        }
+
+        /* Botón de acceso */
+        .btn-modern {
+            font-family: 'Outfit', sans-serif;
+            background: linear-gradient(135deg, var(--primary-color) 0%, #1e4620 100%);
+            border: none;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            color: #ffffff;
+            padding: 0.8rem 1.5rem;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(44, 94, 46, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            width: 100%;
+        }
+
+        .btn-modern:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(44, 94, 46, 0.3);
+            background: linear-gradient(135deg, #376f3a 0%, var(--primary-color) 100%);
+            color: #ffffff;
+        }
+
+        .btn-modern:active {
+            transform: translateY(0);
+        }
+
+        /* Enlaces */
+        .link-modern {
+            color: #64748b;
+            font-weight: 500;
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        .link-modern:hover {
+            color: var(--primary-color);
+            text-decoration: underline;
+        }
+
+        /* Checkbox */
+        .form-check-input:checked {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        /* Divisores de diseño */
+        .divider-modern {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            color: #94a3b8;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .divider-modern::before,
+        .divider-modern::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px dashed #e2e8f0;
+        }
+
+        .divider-modern::before {
+            margin-right: 1rem;
+        }
+
+        .divider-modern::after {
+            margin-left: 1rem;
+        }
+
+        /* Tarjetas de contacto de soporte */
+        .contact-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem;
+            padding: 0.6rem 0.4rem;
+            text-align: center;
+            text-decoration: none;
+            color: #64748b;
+            transition: all 0.2s ease;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .contact-card:hover {
+            background: #ffffff;
+            border-color: var(--secondary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(16, 185, 129, 0.08);
+            color: var(--primary-color);
+        }
+
+        .contact-icon {
+            font-size: 1.15rem;
+            color: var(--primary-color);
+            margin-bottom: 0.15rem;
+            transition: transform 0.2s ease;
+        }
+
+        .contact-card:hover .contact-icon {
+            transform: scale(1.1);
+        }
+
+        .contact-text {
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 100%;
+        }
+
+        /* Alertas modernas */
+        .alert-modern {
+            border-radius: 0.75rem;
+            border: none;
+            padding: 0.75rem 1rem;
+            font-size: 0.85rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .alert-modern-success {
+            background-color: rgba(16, 185, 129, 0.08);
+            color: #065f46;
+            border-left: 4px solid #10b981;
+        }
+
+        .alert-modern-danger {
+            background-color: rgba(239, 68, 68, 0.08);
+            color: #991b1b;
+            border-left: 4px solid #ef4444;
+        }
+
+        .alert-modern-warning {
+            background-color: rgba(245, 158, 11, 0.08);
+            color: #92400e;
+            border-left: 4px solid #f59e0b;
+        }
+
+        .alert-modern-info {
+            background-color: rgba(59, 130, 246, 0.08);
+            color: #1e40af;
+            border-left: 4px solid #3b82f6;
+        }
+
+        /* Pie de página */
+        .footer-text {
+            font-size: 0.7rem;
+            color: #94a3b8;
+        }
+
+        /* Placa de Seguridad */
+        .security-badge {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 2rem;
+            padding: 0.4rem 1rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #64748b;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.01);
+            transition: all 0.2s ease;
+        }
+
+        .security-badge:hover {
+            border-color: #cbd5e1;
+            color: var(--primary-color);
+        }
+
+        /* Círculos de luz ambientación (Fondo sutil estilo mesh) */
+        .ambient-glow-1 {
+            position: absolute;
+            width: 350px;
+            height: 350px;
+            top: -100px;
+            left: -100px;
+            background: radial-gradient(circle, rgba(44, 94, 46, 0.06) 0%, rgba(44, 94, 46, 0) 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .ambient-glow-2 {
+            position: absolute;
+            width: 400px;
+            height: 400px;
+            bottom: -150px;
+            right: -100px;
+            background: radial-gradient(circle, rgba(16, 185, 129, 0.06) 0%, rgba(16, 185, 129, 0) 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 1;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Efectos de luz en el fondo -->
+    <div class="ambient-glow-1"></div>
+    <div class="ambient-glow-2"></div>
+
+    <div class="login-container">
+
+        <!-- Tarjeta Principal de Login -->
+        <div class="card login-card animate-in">
+            <!-- Línea de color de marca -->
+            <div class="card-gradient-bar"></div>
+
+            <!-- Cabecera -->
+            <div class="card-body p-4 p-md-5 text-center pb-2">
+                <div class="mb-3">
+                    <div class="logo-box">
+                        <img src="{{ url_for('static', filename='ferdel.png') }}" alt="Logo FerDel" class="img-fluid"
+                            style="width: 55px; height: 55px; object-fit: contain;">
+                    </div>
+                </div>
+
+                <h1 class="h4 brand-title mb-1">Granja Avícola FERDEL</h1>
+                <p class="brand-subtitle mb-4">Sistema de Gestión Integral</p>
+            </div>
+
+            <!-- Cuerpo del Formulario -->
+            <div class="card-body px-4 px-md-5 py-0">
+
+                <!-- Mensajes Flash dinámicos -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                {% for category, message in messages %}
+                <div
+                    class="alert-modern alert-modern-{% if category == 'success' %}success{% elif category == 'danger' %}danger{% elif category == 'warning' %}warning{% else %}info{% endif %} mb-4">
+                    <i class="bi {% if category == 'success' %}bi-check-circle-fill{% elif category == 'danger' %}bi-exclamation-triangle-fill{% elif category == 'warning' %}bi-exclamation-circle-fill{% else %}bi-info-circle-fill{% endif %}"
+                        style="font-size: 1.1rem;"></i>
+                    <span>{{ message }}</span>
+                </div>
+                {% endfor %}
+                {% else %}
+                <!-- Alerta de seguridad por defecto -->
+                <div class="alert-modern alert-modern-info mb-4">
+                    <i class="bi bi-shield-lock-fill" style="font-size: 1.1rem;"></i>
+                    <span>Acceda con sus credenciales institucionales</span>
+                </div>
+                {% endif %}
+                {% endwith %}
+
+                <!-- Formulario -->
+                <form method="POST" action="{{ url_for('auth.login') }}">
+                    {% if form %}
+                    {{ form.hidden_tag() }}
+                    {% endif %}
+
+                    <!-- Usuario -->
+                    <div class="mb-3">
+                        <label for="username" class="form-label form-label-modern">Usuario</label>
+                        <div class="input-icon-wrapper">
+                            <input type="text" id="username" name="username"
+                                class="form-control form-control-modern w-100" placeholder="usuario@ferdel.cl" required
+                                autofocus>
+                            <i class="bi bi-person-badge"></i>
+                        </div>
+                        <div class="form-text text-muted" style="font-size: 0.75rem; margin-top: 0.25rem;">Ingrese su
+                            nombre de usuario</div>
+                    </div>
+
+                    <!-- Contraseña -->
+                    <div class="mb-3">
+                        <label for="password" class="form-label form-label-modern">Contraseña</label>
+                        <div class="input-icon-wrapper">
+                            <input type="password" id="password" name="password"
+                                class="form-control form-control-modern w-100" placeholder="••••••••" required>
+                            <i class="bi bi-key"></i>
+                        </div>
+                    </div>
+
+                    <!-- Botón de Envío -->
+                    <div class="mb-4">
+                        <button type="submit" class="btn btn-modern">
+                            <i class="bi bi-box-arrow-in-right"></i>
+                            <span>Iniciar Sesión</span>
+                            <i class="bi bi-chevron-right ms-auto" style="font-size: 0.75rem;"></i>
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Pie de página de la tarjeta -->
+                <div class="card-footer py-3 text-center bg-light border-top-0">
+                    <p class="footer-text mb-1">
+                        <i class="bi bi-c-circle me-1"></i> 2026 Granja Avícola FERDEL
+                    </p>
+                    <p class="text-muted mb-0" style="font-size: 0.65rem;">
+                        Todos los derechos reservados &bull; Versión 2.0
+                    </p>
+                </div>
+            </div>
+
+            <!-- Auto-cierre de alertas flash -->
+            <script>
+                document.addEventListener('DOMContentLoaded', function () {
+                    setTimeout(function () {
+                        var alerts = document.querySelectorAll('.alert-modern');
+                        alerts.forEach(function (alert) {
+                            // Animación suave de desvanecimiento
+                            alert.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+                            alert.style.opacity = '0';
+                            alert.style.transform = 'translateY(-10px)';
+                            setTimeout(function () {
+                                alert.remove();
+                            }, 400);
+                        });
+                    }, 5000);
+                });
+            </script>
+</body>
+
+</html>

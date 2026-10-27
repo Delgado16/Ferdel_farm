@@ -1,0 +1,422 @@
+{% extends "layout.html" %}
+
+{% block title %}Gestión de Bodegas e Inventario - FerDel{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    :root {
+        --primary-gradient: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+        --success-gradient: linear-gradient(135deg, #059669 0%, #10b981 100%);
+        --warning-gradient: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+        --info-gradient: linear-gradient(135deg, #0284c7 0%, #06b6d4 100%);
+    }
+
+    .stat-card-premium {
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 1.25rem 1.5rem;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.04);
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .stat-card-premium:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 24px -6px rgba(15, 23, 42, 0.08);
+    }
+
+    .stat-card-primary::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--primary-gradient); }
+    .stat-card-success::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--success-gradient); }
+    .stat-card-warning::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--warning-gradient); }
+    .stat-card-info::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--info-gradient); }
+
+    .stat-icon-wrapper {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+    }
+
+    .stat-number {
+        font-size: 2rem;
+        font-weight: 700;
+        line-height: 1.2;
+        color: #0f172a;
+    }
+
+    .stat-label {
+        font-size: 0.825rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #64748b;
+    }
+
+    .warehouse-grid-card {
+        background: #ffffff;
+        border-radius: 16px;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        padding: 1.5rem;
+        transition: all 0.3s ease;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+    .warehouse-grid-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 24px -6px rgba(0, 0, 0, 0.08);
+        border-color: #3b82f6;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3.5rem 1rem;
+        color: #94a3b8;
+    }
+
+    .empty-state i {
+        font-size: 3.5rem;
+        margin-bottom: 1rem;
+        opacity: 0.4;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+
+    <!-- Encabezado Principal -->
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+            <h3 class="fw-bold mb-1 text-slate-800">
+                <i class="fas fa-warehouse text-primary me-2"></i>Gestión de Bodegas e Inventario
+            </h3>
+            <p class="text-muted small mb-0">Control general de almacenes, ubicaciones y consulta detallada de existencias</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-primary btn-sm px-3 py-2 rounded-3 fw-bold" data-bs-toggle="modal" data-bs-target="#crearBodegaModal">
+                <i class="fas fa-plus-circle me-2"></i>Nueva Bodega
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3" onclick="window.location.reload()">
+                <i class="fas fa-sync-alt me-1"></i> Actualizar
+            </button>
+        </div>
+    </div>
+
+    <!-- Tarjetas de Estadísticas Principales -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="stat-card-premium stat-card-primary">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="stat-label">Total Bodegas</div>
+                        <div class="stat-number mt-1">{{ bodegas|length }}</div>
+                    </div>
+                    <div class="stat-icon-wrapper bg-primary bg-opacity-10 text-primary">
+                        <i class="fas fa-warehouse"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="stat-card-premium stat-card-success">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="stat-label">Bodegas Activas</div>
+                        <div class="stat-number mt-1">
+                            {% set bodegas_activas = bodegas|selectattr('Estado', 'equalto', 'activa')|list|length %}
+                            {{ bodegas_activas }}
+                        </div>
+                    </div>
+                    <div class="stat-icon-wrapper bg-success bg-opacity-10 text-success">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="stat-card-premium stat-card-info">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="stat-label">Empresas Asociadas</div>
+                        <div class="stat-number mt-1">{{ empresas|length }}</div>
+                    </div>
+                    <div class="stat-icon-wrapper bg-info bg-opacity-10 text-info">
+                        <i class="fas fa-building"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="stat-card-premium stat-card-warning">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="stat-label">Bodegas Inactivas</div>
+                        <div class="stat-number mt-1">
+                            {% set bodegas_inactivas = bodegas|selectattr('Estado', 'equalto', 'inactiva')|list|length %}
+                            {{ bodegas_inactivas }}
+                        </div>
+                    </div>
+                    <div class="stat-icon-wrapper bg-warning bg-opacity-10 text-warning">
+                        <i class="fas fa-pause-circle"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Acceso Rápido a Inventario por Bodega (Tarjetas de Almacenes) -->
+    <div class="mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold mb-0 text-slate-800">
+                <i class="fas fa-boxes text-info me-2"></i>Acceso Directo a Inventarios
+            </h5>
+            <span class="badge bg-light text-dark border rounded-pill">Seleccione una bodega para consultar existencias</span>
+        </div>
+        <div class="row g-3">
+            {% for bodega in bodegas %}
+            <div class="col-12 col-md-6 col-xl-4 warehouse-card-item">
+                <div class="warehouse-grid-card">
+                    <div>
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="fw-bold text-slate-800 mb-0">
+                                <i class="fas fa-store text-primary me-2"></i>{{ bodega.Nombre }}
+                            </h5>
+                            {% if bodega.Estado == 'activa' %}
+                                <span class="badge-status-active"><i class="fas fa-circle me-1" style="font-size: 6px;"></i>Activa</span>
+                            {% else %}
+                                <span class="badge-status-inactive"><i class="fas fa-circle me-1" style="font-size: 6px;"></i>Inactiva</span>
+                            {% endif %}
+                        </div>
+
+                        <div class="text-muted small mb-3">
+                            <div class="mb-1">
+                                <i class="fas fa-building me-2 text-slate-400"></i><strong>Empresa:</strong> {{ bodega.Nombre_Empresa }}
+                            </div>
+                            <div>
+                                <i class="fas fa-map-marker-alt me-2 text-slate-400"></i><strong>Ubicación:</strong> {{ bodega.Ubicacion or 'No especificada' }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pt-3 border-top d-flex gap-2">
+                        <a href="{{ url_for('admin.admin_detalle_inventario_bodega', id_bodega=bodega.ID_Bodega) }}" 
+                           class="btn btn-primary btn-sm flex-grow-1 rounded-3">
+                            <i class="fas fa-boxes me-1"></i>Ver Inventario Detallado
+                        </a>
+                        <a href="{{ url_for('admin.admin_editar_bodega', id=bodega.ID_Bodega) }}" 
+                           class="btn btn-outline-secondary btn-sm rounded-3" title="Editar Bodega">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="col-12">
+                <div class="empty-state bg-white rounded-3 border">
+                    <i class="fas fa-warehouse text-muted mb-2"></i>
+                    <h5>No existen bodegas registradas</h5>
+                    <p class="text-muted">Haga clic en el botón "Nueva Bodega" para registrar la primera bodega.</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Tabla Consolidada de Bodegas -->
+    <div class="card-premium-section">
+        <div class="card-premium-header d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <h6 class="fw-bold mb-0 text-slate-800">
+                <i class="fas fa-list me-2 text-primary"></i>Listado General de Bodegas
+            </h6>
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+                <select id="filterEstado" class="form-select form-select-premium" style="width: 160px;">
+                    <option value="todos">Todos los estados</option>
+                    <option value="activa">Activas</option>
+                    <option value="inactiva">Inactivas</option>
+                </select>
+                <div class="position-relative" style="min-width: 280px;">
+                    <input type="text" id="searchWarehouse" class="form-control form-control-premium ps-5" placeholder="Buscar bodega, empresa o ubicación...">
+                    <i class="fas fa-search position-absolute start-0 top-50 translate-middle-y ms-3 text-muted"></i>
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-modern align-middle mb-0" id="warehouseTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 70px;">ID</th>
+                            <th>Nombre de Bodega</th>
+                            <th>Empresa</th>
+                            <th>Ubicación</th>
+                            <th class="text-center" style="width: 110px;">Estado</th>
+                            <th class="text-center" style="width: 180px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for bodega in bodegas %}
+                        <tr class="warehouse-row" data-estado="{{ bodega.Estado }}">
+                            <td>
+                                <strong class="text-slate-700">#{{ bodega.ID_Bodega }}</strong>
+                            </td>
+                            <td>
+                                <strong class="text-slate-800">{{ bodega.Nombre }}</strong>
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark border"><i class="fas fa-building me-1 text-muted"></i>{{ bodega.Nombre_Empresa }}</span>
+                            </td>
+                            <td>
+                                {% if bodega.Ubicacion %}
+                                    <span class="text-slate-600"><i class="fas fa-map-marker-alt me-1 text-danger"></i>{{ bodega.Ubicacion }}</span>
+                                {% else %}
+                                    <span class="text-muted small">Sin ubicación registrada</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if bodega.Estado == 'activa' %}
+                                    <span class="badge-status-active"><i class="fas fa-check-circle me-1"></i>Activa</span>
+                                {% else %}
+                                    <span class="badge-status-inactive"><i class="fas fa-minus-circle me-1"></i>Inactiva</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{{ url_for('admin.admin_detalle_inventario_bodega', id_bodega=bodega.ID_Bodega) }}" 
+                                       class="btn btn-outline-primary" 
+                                       title="Inventario">
+                                        <i class="fas fa-boxes"></i>
+                                    </a>
+                                    <a href="{{ url_for('admin.admin_editar_bodega', id=bodega.ID_Bodega) }}" 
+                                       class="btn btn-outline-secondary" 
+                                       title="Editar">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6">
+                                <div class="empty-state">
+                                    <i class="fas fa-warehouse"></i>
+                                    <h5>No se encontraron bodegas</h5>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Crear Nueva Bodega -->
+<div class="modal fade" id="crearBodegaModal" tabindex="-1" aria-labelledby="crearBodegaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
+            <div class="modal-header bg-primary text-white" style="border-radius: 16px 16px 0 0; border-bottom: none;">
+                <h5 class="modal-title fw-bold" id="crearBodegaModalLabel">
+                    <i class="fas fa-plus-circle me-2"></i>Crear Nueva Bodega
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form action="{{ url_for('admin.admin_bodega_crear') }}" method="POST" id="warehouseForm">
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label for="nombre" class="form-label-premium filter-label-premium required-star">Nombre de la Bodega</label>
+                        <input type="text" class="form-control form-control-premium" id="nombre" name="nombre" required 
+                               placeholder="Ejemplo: Bodega Central, Bodega Norte...">
+                        <div class="form-text">Ingrese un nombre claro y descriptivo para la bodega.</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="id_empresa" class="form-label-premium filter-label-premium required-star">Empresa Asociada</label>
+                        <select class="form-select form-select-premium" id="id_empresa" name="id_empresa" required>
+                            <option value="">-- Seleccione una empresa --</option>
+                            {% for empresa in empresas %}
+                            <option value="{{ empresa.ID_Empresa }}">{{ empresa.Nombre_Empresa }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">Seleccione la empresa a la que pertenece la bodega.</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="ubicacion" class="form-label-premium filter-label-premium">Ubicación Física (Opcional)</label>
+                        <textarea class="form-control form-control-premium" id="ubicacion" name="ubicacion" 
+                                  rows="3" placeholder="Dirección o punto de referencia..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light" style="border-radius: 0 0 16px 16px;">
+                    <button type="button" class="btn btn-secondary rounded-3" data-bs-dismiss="modal">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary px-4 fw-bold rounded-3">
+                        <i class="fas fa-save me-1"></i>Guardar Bodega
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchWarehouse');
+    const filterEstado = document.getElementById('filterEstado');
+
+    function filterRows() {
+        const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+        const selectedEstado = filterEstado ? filterEstado.value : 'todos';
+        const rows = document.querySelectorAll('#warehouseTable tbody tr.warehouse-row');
+        
+        rows.forEach(row => {
+            const text = row.textContent.toLowerCase();
+            const estado = row.getAttribute('data-estado');
+            
+            const matchesSearch = text.includes(searchTerm);
+            const matchesEstado = selectedEstado === 'todos' || estado === selectedEstado;
+            
+            if (matchesSearch && matchesEstado) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // Filtrar también las tarjetas en cuadrícula
+        const cards = document.querySelectorAll('.warehouse-card-item');
+        cards.forEach(card => {
+            const text = card.textContent.toLowerCase();
+            const matchesSearch = text.includes(searchTerm);
+            if (matchesSearch) {
+                card.style.display = '';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
+
+    if (searchInput) searchInput.addEventListener('keyup', filterRows);
+    if (filterEstado) filterEstado.addEventListener('change', filterRows);
+
+    const modal = document.getElementById('crearBodegaModal');
+    if (modal) {
+        modal.addEventListener('shown.bs.modal', function() {
+            document.getElementById('nombre').focus();
+        });
+    }
+});
+</script>
+{% endblock %}

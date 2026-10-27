@@ -1,0 +1,775 @@
+{% extends "layout.html" %}
+
+{% block title %}Editar Cliente: {{ cliente.Nombre }} - FerDel{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ==========================================================
+       VARIABLES Y UTILIDADES DE COLOR Y TIPOGRAFÍA (FERDEL)
+       ========================================================== */
+    :root {
+        --ferdel-slate-900: #0f172a;
+        --ferdel-slate-800: #1e293b;
+        --ferdel-slate-700: #334155;
+        --ferdel-slate-600: #475569;
+        --ferdel-slate-500: #64748b;
+        --ferdel-slate-400: #94a3b8;
+        --ferdel-slate-300: #cbd5e1;
+        --ferdel-slate-200: #e2e8f0;
+        --ferdel-slate-100: #f1f5f9;
+        --ferdel-slate-50:  #f8fafc;
+        --ferdel-primary:   #2c5e2e;
+        --ferdel-emerald:   #10b981;
+    }
+
+    /* Clases explícitas de color de texto para asegurar alta legibilidad */
+    .text-slate-900 { color: #0f172a !important; }
+    .text-slate-800 { color: #1e293b !important; }
+    .text-slate-700 { color: #334155 !important; }
+    .text-slate-600 { color: #475569 !important; }
+    .text-slate-500 { color: #64748b !important; }
+    .text-slate-400 { color: #94a3b8 !important; }
+    .text-slate-300 { color: #cbd5e1 !important; }
+    .text-slate-200 { color: #e2e8f0 !important; }
+    .text-slate-100 { color: #f1f5f9 !important; }
+
+    /* ==========================================================
+       HERO HEADER DEL CLIENTE
+       ========================================================== */
+    .form-hero-header {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, var(--primary-color, #2c5e2e) 100%);
+        border-radius: 18px;
+        color: #ffffff;
+        padding: 1.5rem 2rem;
+        box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.35);
+        margin-bottom: 1.75rem;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .form-hero-header::before {
+        content: '';
+        position: absolute;
+        top: -30%;
+        right: -10%;
+        width: 320px;
+        height: 320px;
+        background: radial-gradient(circle, rgba(16, 185, 129, 0.22) 0%, rgba(16, 185, 129, 0) 70%);
+        border-radius: 50%;
+        pointer-events: none;
+    }
+
+    .client-avatar-sm {
+        width: 58px;
+        height: 58px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #10b981 0%, #2c5e2e 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.55rem;
+        font-weight: 800;
+        color: #ffffff;
+        box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        flex-shrink: 0;
+    }
+
+    .hero-meta-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        color: #e2e8f0;
+        font-size: 0.88rem;
+        background: rgba(255, 255, 255, 0.08);
+        padding: 0.35rem 0.75rem;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .hero-meta-item strong {
+        color: #ffffff;
+    }
+
+    /* ==========================================================
+       SECCIONES Y TARJETAS DEL FORMULARIO
+       ========================================================== */
+    .form-section-card {
+        background: #ffffff;
+        border-radius: 16px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 15px -3px rgba(15, 23, 42, 0.04);
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .form-section-card:hover {
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.07);
+    }
+
+    .form-section-header {
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        padding: 1.15rem 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .form-section-body {
+        padding: 1.5rem;
+    }
+
+    .form-section-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 0.85rem;
+        font-size: 1.3rem;
+        flex-shrink: 0;
+    }
+
+    /* ==========================================================
+       CONTROLES DE FORMULARIO DE ALTA CALIDAD
+       ========================================================== */
+    .form-label-premium {
+        color: #334155 !important;
+        font-size: 0.8rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.04em !important;
+        text-transform: uppercase !important;
+        margin-bottom: 0.4rem !important;
+        display: block !important;
+    }
+
+    .form-control-premium,
+    .form-select-premium {
+        border-radius: 10px !important;
+        border: 1px solid #cbd5e1 !important;
+        color: #0f172a !important;
+        font-size: 0.92rem !important;
+        padding: 0.65rem 0.85rem !important;
+        background-color: #ffffff !important;
+        transition: all 0.2s ease !important;
+    }
+
+    .form-control-premium:focus,
+    .form-select-premium:focus {
+        border-color: #10b981 !important;
+        box-shadow: 0 0 0 3.5px rgba(16, 185, 129, 0.2) !important;
+        outline: none !important;
+    }
+
+    .input-group-text {
+        border-radius: 10px 0 0 10px !important;
+        border: 1px solid #cbd5e1 !important;
+        color: #475569 !important;
+        background-color: #f8fafc !important;
+        font-weight: 600 !important;
+    }
+
+    .input-group > .form-control-premium,
+    .input-group > .form-select-premium {
+        border-radius: 0 10px 10px 0 !important;
+    }
+
+    /* Toggle de Anticipos */
+    .anticipo-toggle-box {
+        background: #f8fafc;
+        border: 1.5px dashed #cbd5e1;
+        border-radius: 14px;
+        padding: 1.15rem 1.35rem;
+        transition: all 0.2s ease;
+    }
+
+    .anticipo-toggle-box.active {
+        background: rgba(16, 185, 129, 0.08);
+        border-color: #10b981;
+        border-style: solid;
+    }
+
+    /* Botones */
+    .btn-brand-primary {
+        background: linear-gradient(135deg, #10b981 0%, #2c5e2e 100%);
+        color: #ffffff !important;
+        border: none;
+        font-weight: 600;
+        box-shadow: 0 4px 14px rgba(16, 185, 129, 0.25);
+        transition: all 0.2s ease;
+    }
+
+    .btn-brand-primary:hover {
+        opacity: 0.95;
+        transform: translateY(-1px);
+        box-shadow: 0 6px 18px rgba(16, 185, 129, 0.35);
+    }
+
+    .card-actions-bar {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px -3px rgba(15, 23, 42, 0.05);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4 fade-in-up">
+    
+    <!-- Hero Header -->
+    <div class="form-hero-header">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div class="d-flex align-items-center gap-3">
+                <div class="client-avatar-sm">
+                    {{ (cliente.Nombre[:2] if cliente.Nombre else 'CL')|upper }}
+                </div>
+                <div>
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                        <h4 class="fw-bold mb-0 text-white">{{ cliente.Nombre }}</h4>
+                        <span class="badge bg-white bg-opacity-20 text-white font-monospace border border-white border-opacity-20 px-2.5 py-1 rounded-pill small">
+                            ID #{{ cliente.ID_Cliente }}
+                        </span>
+                        {% if cliente.Estado == 'ACTIVO' %}
+                        <span class="badge bg-success bg-opacity-25 text-white border border-success border-opacity-40 rounded-pill px-2.5 py-1 fw-bold small" style="backdrop-filter: blur(4px);">
+                            <i class="bi bi-shield-check me-1"></i>ACTIVO
+                        </span>
+                        {% else %}
+                        <span class="badge bg-danger bg-opacity-25 text-white border border-danger border-opacity-40 rounded-pill px-2.5 py-1 fw-bold small" style="backdrop-filter: blur(4px);">
+                            <i class="bi bi-slash-circle me-1"></i>{{ cliente.Estado }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    <!-- Metadatos de alta legibilidad -->
+                    <div class="d-flex flex-wrap align-items-center gap-2 pt-1">
+                        <span class="hero-meta-item">
+                            <i class="bi bi-geo-alt text-warning"></i>
+                            <span>Ruta: <strong>{{ cliente.Nombre_Ruta or 'Sin Ruta Asignada' }}</strong></span>
+                        </span>
+                        <span class="hero-meta-item">
+                            <i class="bi bi-person-badge text-info"></i>
+                            <span>Tipo: <strong>{{ cliente.tipo_cliente }} ({{ cliente.perfil_cliente }})</strong></span>
+                        </span>
+                        <span class="hero-meta-item">
+                            <i class="bi bi-wallet2 text-success"></i>
+                            <span>Saldo Total: <strong>C$ {{ "{:,.2f}".format(cliente.Saldo_Pendiente_Total) }}</strong></span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="d-flex flex-wrap gap-2">
+                <a href="{{ url_for('admin.admin_detalle_cliente', id=cliente.ID_Cliente) }}" class="btn btn-light btn-sm px-3 py-2 rounded-3 fw-bold text-slate-800 shadow-sm d-inline-flex align-items-center gap-1.5" title="Ver Expediente Completo">
+                    <i class="bi bi-eye text-primary"></i> <span>Ver Expediente</span>
+                </a>
+                <a href="{{ url_for('admin.admin_clientes') }}" class="btn btn-outline-light btn-sm px-3 py-2 rounded-3 fw-semibold d-inline-flex align-items-center gap-1.5" title="Regresar al Catálogo">
+                    <i class="bi bi-arrow-left"></i> <span>Volver a Clientes</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulario Principal -->
+    <form method="post" action="{{ url_for('admin.admin_editar_cliente', id=cliente.ID_Cliente) }}" 
+          id="editarClienteForm" novalidate>
+        
+        <div class="row g-4">
+            <!-- COLUMNA IZQUIERDA: Identificación y Clasificación -->
+            <div class="col-lg-7">
+                
+                <!-- SECCIÓN 1: DATOS GENERALES Y CONTACTO -->
+                <div class="form-section-card">
+                    <div class="form-section-header">
+                        <div class="d-flex align-items-center">
+                            <div class="form-section-icon bg-primary bg-opacity-10 text-primary">
+                                <i class="bi bi-person-lines-fill"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold text-slate-900 mb-0">Identificación y Contacto</h6>
+                                <small class="text-slate-500">Información legal y datos de comunicación directa</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-section-body">
+                        <div class="row g-3">
+                            <!-- Nombre Completo -->
+                            <div class="col-md-12">
+                                <label for="nombre" class="form-label-premium">Nombre Completo o Razón Social <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-person text-slate-500"></i></span>
+                                    <input type="text" name="nombre" id="nombre" class="form-control form-control-premium" 
+                                           value="{{ cliente.Nombre }}" 
+                                           required minlength="2" maxlength="255"
+                                           placeholder="Ingrese el nombre completo del cliente">
+                                </div>
+                                <div class="invalid-feedback">El nombre es obligatorio (mínimo 2 caracteres).</div>
+                            </div>
+
+                            <!-- RUC / Cédula -->
+                            <div class="col-md-6">
+                                <label for="ruc_cedula" class="form-label-premium">RUC / Cédula</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-card-heading text-slate-500"></i></span>
+                                    <input type="text" name="ruc_cedula" id="ruc_cedula" class="form-control form-control-premium font-monospace" 
+                                           value="{{ cliente.RUC_CEDULA or '' }}"
+                                           maxlength="20"
+                                           placeholder="Ej: 401-160503-1006T">
+                                </div>
+                                <div class="form-text small text-slate-500">Debe contener al menos una letra si se especifica.</div>
+                            </div>
+
+                            <!-- Teléfono -->
+                            <div class="col-md-6">
+                                <label for="telefono" class="form-label-premium">Teléfono de Contacto <span class="text-muted small">(Opcional)</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-telephone text-slate-500"></i></span>
+                                    <input type="tel" name="telefono" id="telefono" class="form-control form-control-premium" 
+                                           value="{{ cliente.Telefono or '' }}"
+                                           maxlength="20"
+                                           placeholder="Ej: 8888-8888"
+                                           oninput="this.value = this.value.replace(/[^0-9+\-()\s]/g, '')">
+                                </div>
+                                <div class="invalid-feedback">Por favor ingrese un número de teléfono válido si decide ingresarlo.</div>
+                            </div>
+
+                            <!-- Dirección -->
+                            <div class="col-12">
+                                <label for="direccion" class="form-label-premium">Dirección Física / Ubicación</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-geo-alt text-slate-500"></i></span>
+                                    <textarea name="direccion" id="direccion" class="form-control form-control-premium" 
+                                              rows="2" maxlength="200"
+                                              placeholder="Dirección exacta del negocio o domicilio">{{ cliente.Direccion or '' }}</textarea>
+                                </div>
+                                <div class="form-text small text-slate-500">Máximo 200 caracteres</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN 2: CLASIFICACIÓN Y RUTA COMERCIAL -->
+                <div class="form-section-card">
+                    <div class="form-section-header">
+                        <div class="d-flex align-items-center">
+                            <div class="form-section-icon bg-info bg-opacity-10 text-info">
+                                <i class="bi bi-briefcase"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold text-slate-900 mb-0">Clasificación Comercial y Logística</h6>
+                                <small class="text-slate-500">Parámetros de precios, ventas y asignación de ruta</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-section-body">
+                        <div class="row g-3">
+                            <!-- Tipo de Cliente -->
+                            <div class="col-md-6">
+                                <label for="tipo_cliente" class="form-label-premium">Tipo de Cliente <span class="text-danger">*</span></label>
+                                <select name="tipo_cliente" id="tipo_cliente" class="form-select form-select-premium" required>
+                                    <option value="Comun" {% if cliente.tipo_cliente == 'Comun' %}selected{% endif %}>Cliente Común</option>
+                                    <option value="Especial" {% if cliente.tipo_cliente == 'Especial' %}selected{% endif %}>Cliente Especial</option>
+                                </select>
+                                <div class="form-text small text-slate-500">Condición general del cliente</div>
+                            </div>
+
+                            <!-- Perfil de Cliente -->
+                            <div class="col-md-6">
+                                <label for="perfil_cliente" class="form-label-premium">Perfil Comercial <span class="text-danger">*</span></label>
+                                <select name="perfil_cliente" id="perfil_cliente" class="form-select form-select-premium" required>
+                                    <option value="Ruta" {% if cliente.perfil_cliente == 'Ruta' %}selected{% endif %}>Ruta</option>
+                                    <option value="Mayorista" {% if cliente.perfil_cliente == 'Mayorista' %}selected{% endif %}>Mayorista</option>
+                                    <option value="Mercado" {% if cliente.perfil_cliente == 'Mercado' %}selected{% endif %}>Mercado</option>
+                                    <option value="Especial" {% if cliente.perfil_cliente == 'Especial' %}selected{% endif %}>Especial</option>
+                                </select>
+                                <div class="form-text small text-slate-500">Tratamiento de precios en ventas</div>
+                            </div>
+
+                            <!-- Ruta de Entrega -->
+                            <div class="col-md-6">
+                                <label for="id_ruta" class="form-label-premium">Ruta de Entrega Asignada</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-geo-alt text-slate-500"></i></span>
+                                    <select name="id_ruta" id="id_ruta" class="form-select form-select-premium">
+                                        <option value="">Sin ruta asignada</option>
+                                        {% for ruta in rutas %}
+                                        <option value="{{ ruta.ID_Ruta }}" 
+                                                {% if cliente.ID_Ruta == ruta.ID_Ruta %}selected{% endif %}>
+                                            {{ ruta.Nombre_Ruta }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Estado del Cliente -->
+                            <div class="col-md-6">
+                                <label for="estado" class="form-label-premium">Estado en el Sistema <span class="text-danger">*</span></label>
+                                <select name="estado" id="estado" class="form-select form-select-premium" required>
+                                    <option value="ACTIVO" {% if cliente.Estado == 'ACTIVO' %}selected{% endif %}>ACTIVO (Habilitado)</option>
+                                    <option value="INACTIVO" {% if cliente.Estado == 'INACTIVO' %}selected{% endif %}>INACTIVO (Suspendido)</option>
+                                </select>
+                                <div class="form-text small text-slate-500">Clientes inactivos no pueden facturar</div>
+                            </div>
+
+                            <!-- Proveedor Vinculado (Cruce de Cuentas) -->
+                            <div class="col-12 pt-2 border-top">
+                                <label for="id_proveedor_vinculado" class="form-label-premium">
+                                    <i class="bi bi-arrow-left-right text-primary me-1"></i> Proveedor Vinculado (Cruce de Cuentas / Contraparte)
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-building text-slate-500"></i></span>
+                                    <select name="id_proveedor_vinculado" id="id_proveedor_vinculado" class="form-select form-select-premium">
+                                        <option value="">-- Sin proveedor vinculado --</option>
+                                        {% for prov in proveedores %}
+                                        <option value="{{ prov.ID_Proveedor }}" {% if cliente.ID_Proveedor_Vinculado == prov.ID_Proveedor %}selected{% endif %}>
+                                            {{ prov.Nombre }} {% if prov.RUC_CEDULA %}({{ prov.RUC_CEDULA }}){% endif %} - Saldo Deuda: C$ {{ "{:,.2f}".format(prov.Saldo_Pendiente|float) }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="form-text small text-slate-500">
+                                    Si este cliente también es proveedor de la empresa, vincúlelo para habilitar el balance neto cruzado y la compensación directa sin movimientos de efectivo.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- COLUMNA DERECHA: Saldo y Anticipos -->
+            <div class="col-lg-5">
+                
+                <!-- SECCIÓN 3: SALDO Y CARTERA -->
+                <div class="form-section-card">
+                    <div class="form-section-header">
+                        <div class="d-flex align-items-center">
+                            <div class="form-section-icon bg-success bg-opacity-10 text-success">
+                                <i class="bi bi-wallet2"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold text-slate-900 mb-0">Saldo y Cartera</h6>
+                                <small class="text-slate-500">Ajuste manual del saldo pendiente total</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-section-body">
+                        <div class="mb-2">
+                            <label for="saldo_pendiente_total" class="form-label-premium">Saldo Pendiente Total (C$)</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-success bg-opacity-10 text-success fw-bold">C$</span>
+                                <input type="number" class="form-control form-control-premium font-monospace fs-5 fw-bold text-slate-900" 
+                                       id="saldo_pendiente_total" name="saldo_pendiente_total" 
+                                       value="{{ cliente.Saldo_Pendiente_Total or 0 }}" step="0.01" min="0"
+                                       placeholder="0.00">
+                            </div>
+                            <div class="form-text small text-slate-500 mt-2">
+                                <i class="bi bi-info-circle text-info me-1"></i> Modifique este valor únicamente si requiere un ajuste contable directo.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN 4: POLÍTICA DE ANTICIPOS -->
+                <div class="form-section-card">
+                    <div class="form-section-header">
+                        <div class="d-flex align-items-center">
+                            <div class="form-section-icon bg-warning bg-opacity-10 text-warning">
+                                <i class="bi bi-gift"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold text-slate-900 mb-0">Configuración de Anticipos</h6>
+                                <small class="text-slate-500">Control de compras prepagadas de producto</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-section-body">
+                        <!-- Switch Activar Anticipo -->
+                        <div class="anticipo-toggle-box {% if cliente.Anticipo_Activo %}active{% endif %} mb-3" id="anticipoToggleBox">
+                            <div class="form-check form-switch d-flex align-items-center justify-content-between p-0 m-0">
+                                <label class="form-check-label fw-bold text-slate-900 mb-0" for="anticipo_activo" style="cursor: pointer;">
+                                    <i class="bi bi-toggle-on text-success me-1"></i> Habilitar Anticipos
+                                </label>
+                                <input class="form-check-input ms-auto" type="checkbox" id="anticipo_activo" name="anticipo_activo" value="1" 
+                                       style="width: 2.75em; height: 1.4em; cursor: pointer;"
+                                       {% if cliente.Anticipo_Activo %}checked{% endif %}>
+                            </div>
+                            <small class="text-slate-600 d-block mt-1">Permite asociar compras anticipadas y control de cajas</small>
+                        </div>
+
+                        <div id="anticipoCamposContainer" style="{% if not cliente.Anticipo_Activo %}display: none;{% endif %}">
+                            <div class="row g-3">
+                                <!-- Límite de Cajas -->
+                                <div class="col-md-6">
+                                    <label for="limite_anticipo_cajas" class="form-label-premium">Límite de Cajas</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="bi bi-box-seam text-slate-500"></i></span>
+                                        <input type="number" class="form-control form-control-premium font-monospace" 
+                                               id="limite_anticipo_cajas" name="limite_anticipo_cajas" 
+                                               value="{{ cliente.Limite_Anticipo_Cajas or 0 }}" min="0" step="1"
+                                               placeholder="0">
+                                    </div>
+                                    <div class="form-text small text-slate-500">Máx. cajas autorizadas</div>
+                                </div>
+
+                                <!-- Saldo de Anticipos -->
+                                <div class="col-md-6">
+                                    <label for="saldo_anticipos" class="form-label-premium">Saldo a Favor (C$)</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">C$</span>
+                                        <input type="number" class="form-control form-control-premium font-monospace" 
+                                               id="saldo_anticipos" name="saldo_anticipos" 
+                                               value="{{ cliente.Saldo_Anticipos or 0 }}" min="0" step="0.01"
+                                               placeholder="0.00">
+                                    </div>
+                                    <div class="form-text small text-slate-500">Monto prepagado disponible</div>
+                                </div>
+
+                                <!-- Producto Anticipado -->
+                                <div class="col-12">
+                                    <label for="producto_anticipado" class="form-label-premium">Producto Anticipado</label>
+                                    <select class="form-select form-select-premium" id="producto_anticipado" name="producto_anticipado">
+                                        <option value="">Sin producto asignado</option>
+                                        {% for producto in productos %}
+                                        <option value="{{ producto.ID_Producto }}" 
+                                                {% if cliente.Producto_Anticipado == producto.ID_Producto %}selected{% endif %}>
+                                            {{ producto.Descripcion }} {% if producto.COD_Producto %}({{ producto.COD_Producto }}){% endif %}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="form-text small text-slate-500">Producto reservado al anticipo</div>
+                                </div>
+
+                                <!-- Cajas Consumidas -->
+                                <div class="col-12" id="cajas_consumidas_container">
+                                    <label for="cajas_consumidas_anticipo" class="form-label-premium">Cajas Ya Consumidas</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="bi bi-check2-circle text-slate-500"></i></span>
+                                        <input type="number" class="form-control form-control-premium font-monospace" 
+                                               id="cajas_consumidas_anticipo" name="cajas_consumidas_anticipo" 
+                                               value="{{ cliente.Cajas_Consumidas_Anticipo or 0 }}" min="0" step="1"
+                                               placeholder="0">
+                                    </div>
+                                    <div class="form-text small text-slate-500">Cajas entregadas de este anticipo</div>
+                                </div>
+                            </div>
+
+                            <!-- Barra de Progreso del Anticipo Actual -->
+                            {% if cliente.Anticipo_Activo and cliente.Limite_Anticipo_Cajas > 0 %}
+                            <div class="mt-3 p-3 bg-light rounded-3 border">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <small class="text-slate-600 fw-bold">Consumo de cajas:</small>
+                                    <small class="fw-bold text-slate-900 font-monospace">
+                                        {{ cliente.Cajas_Consumidas_Anticipo or 0 }} / {{ cliente.Limite_Anticipo_Cajas }} cajas
+                                        ({{ ((cliente.Cajas_Consumidas_Anticipo or 0) / cliente.Limite_Anticipo_Cajas * 100)|round }}%)
+                                    </small>
+                                </div>
+                                <div class="progress rounded-pill" style="height: 10px;">
+                                    <div class="progress-bar bg-success" style="width: {{ ((cliente.Cajas_Consumidas_Anticipo or 0) / cliente.Limite_Anticipo_Cajas * 100)|round }}%"></div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- BOTONES DE ACCIÓN FLOTANTES / PIE -->
+        <div class="card-actions-bar p-3 mt-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-brand-primary px-4 py-2.5 rounded-3 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5">
+                        <i class="bi bi-check-circle"></i> <span>Guardar Cambios</span>
+                    </button>
+                    <a href="{{ url_for('admin.admin_clientes') }}" class="btn btn-outline-secondary px-3 py-2.5 rounded-3 fw-semibold d-inline-flex align-items-center gap-1.5">
+                        <i class="bi bi-x-lg"></i> <span>Cancelar</span>
+                    </a>
+                </div>
+
+                <div>
+                    {% if cliente.Estado == 'ACTIVO' %}
+                    <button type="button" class="btn btn-outline-danger btn-sm px-3 py-2 rounded-3 fw-semibold d-inline-flex align-items-center gap-1.5" 
+                            data-bs-toggle="modal" data-bs-target="#eliminarClienteModal">
+                        <i class="bi bi-trash"></i> <span>Desactivar Cliente</span>
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Modal de confirmación para desactivar/eliminar -->
+<div class="modal fade" id="eliminarClienteModal" tabindex="-1" aria-labelledby="eliminarClienteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header bg-danger bg-opacity-10 border-0 p-4 pb-2">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="p-2.5 bg-danger text-white rounded-3">
+                        <i class="bi bi-exclamation-triangle-fill fa-lg"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold text-slate-900 mb-0" id="eliminarClienteModalLabel">
+                            Confirmar Desactivación
+                        </h5>
+                        <small class="text-slate-500">Cambiar estado del cliente a Inactivo</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="text-slate-800 mb-3">¿Está seguro que desea desactivar a <strong>{{ cliente.Nombre }}</strong>?</p>
+                
+                {% if cliente.Saldo_Pendiente_Total > 0 %}
+                <div class="alert alert-danger bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-3 p-3 mb-3">
+                    <strong class="d-block mb-1"><i class="bi bi-exclamation-circle me-1"></i> ¡Advertencia de Saldo!</strong>
+                    Este cliente posee un saldo pendiente de <strong>C$ {{ "{:,.2f}".format(cliente.Saldo_Pendiente_Total) }}</strong>.
+                </div>
+                {% endif %}
+                
+                {% if cliente.Anticipo_Activo %}
+                <div class="alert alert-warning bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-3 p-3 mb-3">
+                    <strong class="d-block mb-1"><i class="bi bi-gift me-1"></i> Anticipos Activos</strong>
+                    El cliente tiene saldo de anticipos configurado. Al desactivarlo, los anticipos quedarán congelados.
+                </div>
+                {% endif %}
+                
+                <p class="text-slate-500 small mb-0">
+                    <i class="bi bi-info-circle text-info me-1"></i> El cliente no aparecerá en búsquedas de pedidos ni en facturación activa.
+                </p>
+            </div>
+            <div class="modal-footer bg-light border-0 py-3 px-4">
+                <button type="button" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3" data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+                <form method="POST" action="{{ url_for('admin.admin_eliminar_cliente', id=cliente.ID_Cliente) }}" class="d-inline">
+                    <button type="submit" class="btn btn-danger btn-sm px-3 py-2 rounded-3 fw-bold">
+                        <i class="bi bi-check-lg me-1"></i> Sí, Desactivar
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const editarForm = document.getElementById('editarClienteForm');
+    const telefonoInput = document.getElementById('telefono');
+    const rucCedulaInput = document.getElementById('ruc_cedula');
+    const estadoSelect = document.getElementById('estado');
+    
+    // Elementos de anticipo
+    const anticipoCheckboxEdit = document.getElementById('anticipo_activo');
+    const limiteCajasEdit = document.getElementById('limite_anticipo_cajas');
+    const saldoAnticiposEdit = document.getElementById('saldo_anticipos');
+    const productoAnticipadoEdit = document.getElementById('producto_anticipado');
+    const cajasConsumidasEdit = document.getElementById('cajas_consumidas_anticipo');
+    const anticipoCamposContainer = document.getElementById('anticipoCamposContainer');
+    const anticipoToggleBox = document.getElementById('anticipoToggleBox');
+    
+    // Validación de RUC/Cédula
+    function validateRucCedula() {
+        const val = rucCedulaInput.value.trim();
+        if (!val) {
+            rucCedulaInput.setCustomValidity('');
+            rucCedulaInput.classList.remove('is-invalid');
+            return true;
+        }
+        
+        if (!/[a-zA-Z]/.test(val)) {
+            rucCedulaInput.setCustomValidity('El RUC/Cédula debe contener al menos una letra');
+            rucCedulaInput.classList.add('is-invalid');
+            return false;
+        } else {
+            rucCedulaInput.setCustomValidity('');
+            rucCedulaInput.classList.remove('is-invalid');
+            return true;
+        }
+    }
+    
+    // Validación de Teléfono (Opcional)
+    function validateTelefono() {
+        if (!telefonoInput) return true;
+        const value = telefonoInput.value.trim();
+        if (!value) {
+            telefonoInput.setCustomValidity('');
+            telefonoInput.classList.remove('is-invalid');
+            return true;
+        }
+        
+        if (value.length < 7) {
+            telefonoInput.setCustomValidity('El teléfono debe tener al menos 7 dígitos');
+            telefonoInput.classList.add('is-invalid');
+            return false;
+        } else {
+            telefonoInput.setCustomValidity('');
+            telefonoInput.classList.remove('is-invalid');
+            return true;
+        }
+    }
+    
+    // Toggle de campos de anticipo
+    function toggleAnticipoFieldsEdit() {
+        const isActive = anticipoCheckboxEdit.checked;
+        
+        if (anticipoCamposContainer) {
+            anticipoCamposContainer.style.display = isActive ? 'block' : 'none';
+        }
+        if (anticipoToggleBox) {
+            if (isActive) {
+                anticipoToggleBox.classList.add('active');
+            } else {
+                anticipoToggleBox.classList.remove('active');
+            }
+        }
+        
+        limiteCajasEdit.disabled = !isActive;
+        saldoAnticiposEdit.disabled = !isActive;
+        productoAnticipadoEdit.disabled = !isActive;
+        if (cajasConsumidasEdit) cajasConsumidasEdit.disabled = !isActive;
+    }
+    
+    if (anticipoCheckboxEdit) {
+        anticipoCheckboxEdit.addEventListener('change', toggleAnticipoFieldsEdit);
+        toggleAnticipoFieldsEdit();
+    }
+    
+    if (telefonoInput) telefonoInput.addEventListener('input', validateTelefono);
+    if (rucCedulaInput) rucCedulaInput.addEventListener('input', validateRucCedula);
+    
+    // Validación al enviar formulario
+    if (editarForm) {
+        editarForm.addEventListener('submit', function(event) {
+            if (anticipoCheckboxEdit && anticipoCheckboxEdit.checked) {
+                const limite = parseInt(limiteCajasEdit.value) || 0;
+                const saldo = parseFloat(saldoAnticiposEdit.value) || 0;
+                const prod = productoAnticipadoEdit.value;
+                if (limite === 0 && saldo === 0 && !prod) {
+                    event.preventDefault();
+                    Swal.fire('⚠️ Si activa anticipos, debe configurar al menos el límite de cajas, saldo o producto anticipado.', '', 'info');
+                    return false;
+                }
+            }
+            
+            const isTelValid = validateTelefono();
+            const isRucValid = validateRucCedula();
+            
+            if (!isTelValid || !isRucValid || !editarForm.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            editarForm.classList.add('was-validated');
+        });
+    }
+});
+</script>
+{% endblock %}

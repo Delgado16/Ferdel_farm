@@ -1,0 +1,426 @@
+{% extends "layout.html" %}
+
+{% block title %}Detalle del Movimiento #{{ movimiento.ID_Movimiento }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-2 mt-md-4 px-2 px-md-3">
+    <!-- ============================================ -->
+    <!-- ENCABEZADO                                   -->
+    <!-- ============================================ -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 mb-md-4">
+        <div class="mb-2 mb-md-0">
+            <h2 class="h3 h2-md">
+                <i class="fas fa-file-alt text-primary me-2"></i>
+                Movimiento #{{ movimiento.ID_Movimiento }}
+            </h2>
+            <p class="text-muted small mb-0">
+                Información completa del movimiento de inventario
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('vendedor.vendedor_movimientos_historial') }}" class="btn btn-outline-secondary btn-sm btn-md">
+                <i class="fas fa-arrow-left me-1"></i> Volver al Historial
+            </a>
+            {% if movimiento.Documento_Numero %}
+            <a href="#" class="btn btn-outline-primary btn-sm btn-md" onclick="window.print(); return false;">
+                <i class="fas fa-print me-1"></i> Imprimir
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- INFORMACIÓN GENERAL                         -->
+    <!-- ============================================ -->
+    <div class="row g-2 g-md-3 mb-4">
+        <div class="col-12 col-md-7">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white py-2 py-md-3">
+                    <h5 class="mb-0 h6 h5-md">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Información General
+                    </h5>
+                </div>
+                <div class="card-body p-2 p-md-3">
+                    {% set tipo_display = movimiento.Descripcion_Detallada or movimiento.Tipo_Movimiento_Desc %}
+                    
+                    <!-- Vista móvil -->
+                    <div class="d-block d-md-none">
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <div class="bg-light p-2 rounded">
+                                    <small class="text-muted d-block">ID Movimiento</small>
+                                    <strong>#{{ movimiento.ID_Movimiento }}</strong>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="bg-light p-2 rounded">
+                                    <small class="text-muted d-block">Documento</small>
+                                    <strong>{{ movimiento.Documento_Numero or 'N/A' }}</strong>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="bg-light p-2 rounded">
+                                    <small class="text-muted d-block">Tipo de Movimiento</small>
+                                    {% if tipo_display == 'Carga de Productos' %}
+                                    <span class="badge bg-success p-2 w-100">
+                                        <i class="fas fa-arrow-down me-1"></i> Entrada desde Bodega
+                                    </span>
+                                    {% elif tipo_display == 'Compra' %}
+                                    <span class="badge bg-primary p-2 w-100">
+                                        <i class="fas fa-shopping-cart me-1"></i> Compra
+                                    </span>
+                                    {% elif tipo_display == 'Venta' %}
+                                    <span class="badge bg-success p-2 w-100">
+                                        <i class="fas fa-chart-line me-1"></i> Venta
+                                    </span>
+                                    {% elif tipo_display == 'Devolución' %}
+                                    <span class="badge bg-warning text-dark p-2 w-100">
+                                        <i class="fas fa-arrow-up me-1"></i> Devolución
+                                    </span>
+                                    {% elif tipo_display == 'Merma' %}
+                                    <span class="badge bg-danger p-2 w-100">
+                                        <i class="fas fa-trash me-1"></i> Merma
+                                    </span>
+                                    {% else %}
+                                    <span class="badge bg-secondary p-2 w-100">{{ tipo_display or movimiento.ID_TipoMovimiento }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="bg-light p-2 rounded">
+                                    <small class="text-muted d-block">Fecha</small>
+                                    <strong class="small">{{ movimiento.Fecha_Movimiento.strftime('%d/%m/%Y %H:%M') if movimiento.Fecha_Movimiento else 'N/A' }}</strong>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="bg-light p-2 rounded">
+                                    <small class="text-muted d-block">Ruta</small>
+                                    <strong>{{ movimiento.Nombre_Ruta or 'N/A' }}</strong>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="bg-light p-2 rounded">
+                                    <small class="text-muted d-block">Registrado por</small>
+                                    <strong>{{ movimiento.Usuario_Registra or 'N/A' }}</strong>
+                                </div>
+                            </div>
+                            {% if cliente_info %}
+                            <div class="col-12">
+                                <div class="bg-light p-2 rounded">
+                                    <small class="text-muted d-block">Cliente</small>
+                                    <strong>{{ cliente_info.Nombre }}</strong>
+                                    {% if cliente_info.RUC %}
+                                    <br><small class="text-muted">RUC: {{ cliente_info.RUC }}</small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% if movimiento.Credito_Contado %}
+                            <div class="col-12">
+                                <div class="bg-light p-2 rounded">
+                                    <small class="text-muted d-block">Tipo de Venta</small>
+                                    <span class="badge bg-info p-2 w-100">{{ movimiento.Credito_Contado }}</span>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Vista desktop -->
+                    <table class="table table-sm table-borderless d-none d-md-table">
+                        <tr><th width="30%" class="text-muted">ID Movimiento:</th><td class="fw-bold">#{{ movimiento.ID_Movimiento }}</td></tr>
+                        <tr><th class="text-muted">Tipo de Movimiento:</th>
+                            <td>
+                                {% if tipo_display == 'Compra' %}
+                                <span class="badge bg-primary p-2"><i class="fas fa-shopping-cart me-1"></i> Compra</span>
+                                {% elif tipo_display == 'Venta' %}
+                                <span class="badge bg-success p-2"><i class="fas fa-chart-line me-1"></i> Venta</span>
+                                {% elif tipo_display == 'Carga de Productos' %}
+                                <span class="badge bg-info p-2"><i class="fas fa-arrow-down me-1"></i> Carga de Productos</span>
+                                {% elif tipo_display == 'Devolución' %}
+                                <span class="badge bg-warning p-2"><i class="fas fa-arrow-up me-1"></i> Devolución</span>
+                                {% elif tipo_display == 'Merma' %}
+                                <span class="badge bg-danger p-2"><i class="fas fa-trash me-1"></i> Merma</span>
+                                {% else %}
+                                <span class="badge bg-secondary p-2">{{ tipo_display or movimiento.ID_TipoMovimiento }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr><th class="text-muted">Fecha:</th><td>{{ movimiento.Fecha_Movimiento.strftime('%d/%m/%Y %H:%M:%S') if movimiento.Fecha_Movimiento else 'N/A' }}</td></tr>
+                        <tr><th class="text-muted">Documento:</th><td>{{ movimiento.Documento_Numero or 'N/A' }}</td></tr>
+                        <tr><th class="text-muted">Ruta:</th><td>{{ movimiento.Nombre_Ruta or 'N/A' }}</td></tr>
+                        <tr><th class="text-muted">Registrado por:</th><td>{{ movimiento.Usuario_Registra or 'N/A' }}</td></tr>
+                        {% if cliente_info %}
+                        <tr class="table-info">
+                            <th class="text-muted">Cliente:</th>
+                            <td>
+                                <strong>{{ cliente_info.Nombre }}</strong><br>
+                                {% if cliente_info.RUC %}<small class="text-muted">RUC: {{ cliente_info.RUC }}</small>{% endif %}
+                                {% if cliente_info.Direccion %}<br><small>{{ cliente_info.Direccion }}</small>{% endif %}
+                                {% if cliente_info.Telefono %}<br><small>Tel: {{ cliente_info.Telefono }}</small>{% endif %}
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% if movimiento.Credito_Contado %}
+                        <tr class="table-info">
+                            <th class="text-muted">💰 Tipo de Venta:</th>
+                            <td><span class="badge bg-info p-2">{{ movimiento.Credito_Contado }}</span></td>
+                        </tr>
+                        {% endif %}
+                        <tr>
+                            <th class="text-muted">Estado:</th>
+                            <td><span class="badge bg-{{ 'success' if movimiento.Estado == 'ACTIVO' else 'danger' }}">{{ movimiento.Estado or 'ACTIVO' }}</span></td>
+                        </tr>
+                        {% if asignacion_info %}
+                        <tr>
+                            <th class="text-muted">Asignación:</th>
+                            <td>
+                                Vendedor: {{ asignacion_info.Vendedor_Nombre or 'N/A' }}<br>
+                                Período: {{ asignacion_info.Fecha_Asignacion.strftime('%d/%m/%Y') if asignacion_info.Fecha_Asignacion else 'N/A' }} 
+                                {% if asignacion_info.Fecha_Finalizacion %}hasta {{ asignacion_info.Fecha_Finalizacion.strftime('%d/%m/%Y') }}{% endif %}
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-5">
+            <!-- Resumen del Movimiento -->
+            <div class="card mb-2 mb-md-3">
+                <div class="card-header bg-success text-white py-2 py-md-3">
+                    <h5 class="mb-0 h6 h5-md">
+                        <i class="fas fa-chart-pie me-2"></i>
+                        Resumen
+                    </h5>
+                </div>
+                <div class="card-body p-2 p-md-3">
+                    <div class="row g-2 text-center">
+                        <div class="col-6">
+                            <div class="bg-light p-2 p-md-3 rounded">
+                                <h4 class="h5 h4-md text-primary mb-0">{{ detalles|length }}</h4>
+                                <small class="text-muted d-block d-md-inline">
+                                    {% if detalles|length == 1 %}producto{% else %}productos{% endif %}
+                                </small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="bg-light p-2 p-md-3 rounded">
+                                <h4 class="h5 h4-md text-success mb-0">
+                                    C${{ movimiento.Total_Subtotal|float | cantidad }}
+                                </h4>
+                                <small class="text-muted d-block d-md-inline">total movimiento</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Información Adicional -->
+            <div class="card">
+                <div class="card-header bg-secondary text-white py-2 py-md-3">
+                    <h5 class="mb-0 h6 h5-md">
+                        <i class="fas fa-tag me-2"></i>
+                        Info Adicional
+                    </h5>
+                </div>
+                <div class="card-body p-2 p-md-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted">Estado:</span>
+                        <span class="badge bg-{{ 'success' if movimiento.Estado == 'ACTIVO' else 'warning' }}">{{ movimiento.Estado or 'ACTIVO' }}</span>
+                    </div>
+                    <hr class="my-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted">Tipo letra:</span>
+                        <span>{{ movimiento.Tipo_Letra or 'N/A' }}</span>
+                    </div>
+                    {% if movimiento.Total_Items %}
+                    <hr class="my-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted">Total items:</span>
+                        <span>{{ movimiento.Total_Items }}</span>
+                    </div>
+                    {% endif %}
+                    {% if asignacion_info %}
+                    <hr class="my-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted">Ruta:</span>
+                        <span>{{ asignacion_info.Nombre_Ruta or 'N/A' }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- PRODUCTOS DEL MOVIMIENTO                     -->
+    <!-- ============================================ -->
+    <div class="card">
+        <div class="card-header bg-dark text-white py-2 py-md-3">
+            <h5 class="mb-0 h6 h5-md">
+                <i class="fas fa-list me-2"></i>
+                Productos del Movimiento
+                <span class="badge bg-info ms-2">{{ detalles|length }} items</span>
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            {% if detalles %}
+            <!-- Vista móvil: Tarjetas de productos -->
+            <div class="d-block d-md-none">
+                {% for det in detalles %}
+                <div class="producto-detalle-card p-3 border-bottom">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <span class="badge bg-secondary">{{ det.COD_Producto }}</span>
+                            <span class="badge bg-info ms-1">#{{ loop.index }}</span>
+                        </div>
+                        <span class="badge bg-primary fs-6">
+                            <i class="fas fa-boxes me-1"></i>
+                            {{ det.Cantidad|float | cantidad }} {{ det.Unidad_Medida or 'PZA' }}
+                        </span>
+                    </div>
+                    
+                    <h6 class="mb-2 fw-bold">{{ det.Producto_Nombre }}</h6>
+                    
+                    <div class="row g-2 mt-2">
+                        <div class="col-6">
+                            <div class="bg-light p-2 rounded text-center">
+                                <small class="text-muted d-block">Precio Unitario</small>
+                                <span class="fw-bold text-danger">
+                                    C${{ det.Precio_Unitario|float | cantidad }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="bg-light p-2 rounded text-center">
+                                <small class="text-muted d-block">Subtotal</small>
+                                <span class="fw-bold text-primary">
+                                    C${{ det.Subtotal|float | cantidad }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Vista desktop: Tabla de productos -->
+            <div class="table-responsive d-none d-md-block">
+                <table class="table table-bordered table-hover mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th width="5%" class="text-center">#</th>
+                            <th width="15%">Código</th>
+                            <th width="40%">Producto</th>
+                            <th width="10%" class="text-center">Cantidad</th>
+                            <th width="15%" class="text-end">Precio Unitario</th>
+                            <th width="15%" class="text-end">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for det in detalles %}
+                        <tr>
+                            <td class="text-center fw-bold">{{ loop.index }}</td>
+                            <td><span class="badge bg-secondary">{{ det.COD_Producto }}</span></td>
+                            <td>
+                                {{ det.Producto_Nombre }}
+                                <small class="text-muted d-block">({{ det.Unidad_Medida or 'Unidad' }})</small>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-primary">
+                                    <i class="fas fa-boxes me-1"></i>
+                                    {{ det.Cantidad|float | cantidad }}
+                                </span>
+                            </td>
+                            <td class="text-end text-danger fw-bold">
+                                C${{ det.Precio_Unitario|float | cantidad }}
+                            </td>
+                            <td class="text-end fw-bold text-primary">
+                                C${{ det.Subtotal|float | cantidad }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-info">
+                        <tr>
+                            <td colspan="5" class="text-end fw-bold">TOTAL MOVIMIENTO:</td>
+                            <td class="text-end fw-bold fs-5 text-primary">
+                                C${{ movimiento.Total_Subtotal|float | cantidad }}
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            {% else %}
+            <div class="text-center py-4 py-md-5">
+                <i class="fas fa-box-open fa-2x fa-md-3x text-muted mb-2 mb-md-3"></i>
+                <p class="text-muted small mb-0">No hay productos en este movimiento</p>
+            </div>
+            {% endif %}
+        </div>
+        <div class="card-footer bg-light py-2">
+            <div class="row">
+                <div class="col-12 col-md-6">
+                    <small class="text-muted d-block d-md-inline">
+                        <i class="fas fa-clock me-1"></i>
+                        {{ movimiento.Fecha_Movimiento.strftime('%d/%m/%Y %H:%M:%S') if movimiento.Fecha_Movimiento else 'N/A' }}
+                    </small>
+                </div>
+                <div class="col-12 col-md-6 text-md-end mt-1 mt-md-0">
+                    <small class="text-muted d-block d-md-inline">
+                        <i class="fas fa-user me-1"></i>
+                        {{ movimiento.Usuario_Registra or 'N/A' }}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+@media (max-width: 767.98px) {
+    .container-fluid { padding-left: 8px; padding-right: 8px; }
+    .bg-light.p-2 { background-color: #f8f9fa !important; border: 1px solid #dee2e6; margin-bottom: 4px; }
+    .producto-detalle-card { background-color: white; transition: background-color 0.2s ease; }
+    .producto-detalle-card:hover { background-color: #f8f9fa; }
+    .badge { font-size: 0.7rem; padding: 0.3rem 0.5rem; }
+    .h2-md { font-size: 1.3rem; }
+}
+
+@media (min-width: 768px) and (max-width: 991.98px) {
+    .table td, .table th { padding: 0.5rem; font-size: 0.9rem; }
+    .badge { font-size: 0.8rem; }
+}
+
+@media print {
+    .btn, .btn-group, footer, header, nav { display: none !important; }
+    body { background: white; padding: 15px; font-size: 12pt; }
+    .card { border: 1px solid #000 !important; box-shadow: none !important; }
+    .badge { border: 1px solid #000 !important; background: #f0f0f0 !important; color: #000 !important; }
+}
+
+.card { box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: all 0.3s ease; }
+.card:hover { box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
+.producto-detalle-card { animation: slideIn 0.3s ease; }
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(-10px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (window.innerWidth >= 768) {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function(tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    }
+});
+</script>
+{% endblock %}

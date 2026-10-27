@@ -1,0 +1,376 @@
+{% extends "layout.html" %}
+
+{% block title %}Recibir Carga #{{ carga.ID_Carga }} - {{ carga.Num_Factura }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    .recepcion-header {
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 1.25rem 1.75rem;
+        margin-bottom: 1.5rem;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.03);
+    }
+
+    .card-info-summary {
+        background: #ffffff;
+        border-radius: 16px;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.03);
+        margin-bottom: 1.25rem;
+        overflow: hidden;
+    }
+
+    .card-info-header {
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        padding: 1rem 1.25rem;
+        font-weight: 700;
+        font-size: 0.9rem;
+        color: #1e293b;
+    }
+
+    .info-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #64748b;
+    }
+
+    .info-val {
+        font-weight: 600;
+        color: #0f172a;
+        font-size: 0.925rem;
+    }
+
+    .stat-badge-box {
+        background: #f1f5f9;
+        border-radius: 12px;
+        padding: 0.85rem 1rem;
+        text-align: center;
+    }
+
+    .table-recepcion th {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        background-color: #f8fafc;
+        color: #475569;
+        padding: 0.85rem 1rem;
+        border-bottom: 2px solid #e2e8f0;
+    }
+
+    .table-recepcion td {
+        vertical-align: middle;
+        padding: 0.85rem 1rem;
+    }
+
+    .input-cant-recibida {
+        max-width: 110px;
+        font-weight: 700;
+        border-radius: 8px;
+        border: 2px solid #cbd5e1;
+        text-align: center;
+        transition: all 0.2s ease;
+    }
+
+    .input-cant-recibida:focus {
+        border-color: #10b981;
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+    }
+
+    .input-parcial {
+        border-color: #f59e0b !important;
+        background-color: #fffbeb !important;
+    }
+
+    .summary-floating-box {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        color: #ffffff;
+        border-radius: 16px;
+        padding: 1.25rem 1.5rem;
+        margin-top: 1.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+
+    <!-- Header Principal -->
+    <div class="recepcion-header d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-warning text-dark px-3 py-2 rounded-pill fw-bold">
+                    <i class="fas fa-clock me-1"></i> Pendiente de Recepción
+                </span>
+                <span class="text-muted small">Carga #{{ carga.ID_Carga }}</span>
+            </div>
+            <h3 class="fw-bold text-slate-800 mb-0">Recepción de Mercancía en Bodega</h3>
+        </div>
+        <div>
+            <a href="{{ url_for('bodega.cargas_pendientes') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-arrow-left me-1"></i> Volver a Cargas Pendientes
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Columna Izquierda: Información y Resumen -->
+        <div class="col-12 col-lg-4 col-xl-3">
+            
+            <!-- Ficha de Datos de la Carga -->
+            <div class="card-info-summary">
+                <div class="card-info-header">
+                    <i class="fas fa-file-invoice text-primary me-2"></i>Datos del Documento
+                </div>
+                <div class="card-body p-3">
+                    <div class="mb-3 pb-2 border-bottom">
+                        <span class="info-label d-block">Número de Factura / Doc</span>
+                        <span class="info-val text-primary fs-5"><i class="fas fa-receipt me-1"></i>{{ carga.Num_Factura }}</span>
+                    </div>
+                    <div class="mb-3 pb-2 border-bottom">
+                        <span class="info-label d-block">Proveedor</span>
+                        <span class="info-val"><i class="fas fa-truck text-muted me-1"></i>{{ carga.proveedor_nombre }}</span>
+                    </div>
+                    <div class="mb-3 pb-2 border-bottom">
+                        <span class="info-label d-block">Fecha de Despacho / Carga</span>
+                        <span class="info-val"><i class="fas fa-calendar-alt text-muted me-1"></i>{{ carga.Fecha_Carga.strftime('%d/%m/%Y') if carga.Fecha_Carga else 'N/A' }}</span>
+                    </div>
+                    <div class="mb-3 pb-2 border-bottom">
+                        <span class="info-label d-block">Vendedor / Usuario Registra</span>
+                        <span class="info-val"><i class="fas fa-user text-muted me-1"></i>{{ carga.vendedor_nombre or 'Sistema' }}</span>
+                    </div>
+                    <div>
+                        <span class="info-label d-block">Observaciones de Origen</span>
+                        <span class="small text-muted d-block mt-1">{{ carga.Observaciones or 'Sin observaciones de origen.' }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resumen de Métricas de la Carga -->
+            <div class="card-info-summary">
+                <div class="card-info-header">
+                    <i class="fas fa-chart-pie text-info me-2"></i>Resumen de Carga
+                </div>
+                <div class="card-body p-3">
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <div class="stat-badge-box">
+                                <span class="info-label d-block">Productos</span>
+                                <span class="fw-bold fs-4 text-slate-800">{{ detalles|length }}</span>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="stat-badge-box">
+                                <span class="info-label d-block">Total Cajas/U.</span>
+                                <span class="fw-bold fs-4 text-success">{{ detalles|sum(attribute='Cantidad_Cargada') | cantidad }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Indicaciones Rápidas -->
+            <div class="alert alert-warning border-0 shadow-sm rounded-4 p-3">
+                <div class="d-flex align-items-start gap-2">
+                    <i class="fas fa-exclamation-triangle text-warning fs-5 mt-1"></i>
+                    <div>
+                        <strong class="d-block text-dark">Instrucción para Bodeguero:</strong>
+                        <small class="text-dark opacity-75">Cuente físicamente la mercancía recibida y ajuste el campo "Recibido" si hay diferencias o ítems faltantes.</small>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Columna Derecha: Formulario de Verificación de Productos -->
+        <div class="col-12 col-lg-8 col-xl-9">
+            <div class="card-info-summary">
+                <div class="card-info-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="fas fa-check-double text-success me-2"></i>Detalle de Productos a Verificar
+                    </div>
+                    <span class="badge bg-light text-dark border font-monospace">Moneda: C$</span>
+                </div>
+                <div class="card-body p-0">
+                    <form method="POST" id="formRecepcion">
+                        <div class="table-responsive">
+                            <table class="table table-hover table-recepcion mb-0" id="tablaRecepcion">
+                                <thead>
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th>Código</th>
+                                        <th>Unidad</th>
+                                        <th class="text-end">Cant. Cargada</th>
+                                        <th class="text-end">Costo Unit.</th>
+                                        <th class="text-end">Subtotal Esperado</th>
+                                        <th class="text-center" style="width: 140px;">Cant. Recibida *</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for detalle in detalles %}
+                                    <tr>
+                                        <td>
+                                            <div class="fw-bold text-slate-800">{{ detalle.producto_nombre }}</div>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-light text-dark border font-monospace">{{ detalle.codigo or '-' }}</span>
+                                        </td>
+                                        <td><span class="badge bg-secondary opacity-75">{{ detalle.unidad }}</span></td>
+                                        <td class="text-end fw-bold text-slate-700">
+                                            {{ detalle.Cantidad_Cargada | cantidad }}
+                                        </td>
+                                        <td class="text-end text-muted">
+                                            C$ {{ detalle.Costo_Unitario | cantidad }}
+                                        </td>
+                                        <td class="text-end fw-semibold text-slate-800">
+                                            C$ {{ detalle.Cantidad_Cargada * detalle.Costo_Unitario | cantidad }}
+                                        </td>
+                                        <td class="text-center">
+                                            <input type="number" 
+                                                   name="cantidad_recibida[]" 
+                                                   class="form-control form-control-sm input-cant-recibida mx-auto" 
+                                                   step="0.01" 
+                                                   min="0" 
+                                                   max="{{ detalle.Cantidad_Cargada }}"
+                                                   value="{{ detalle.Cantidad_Cargada }}"
+                                                   data-costo="{{ detalle.Costo_Unitario }}"
+                                                   data-max="{{ detalle.Cantidad_Cargada }}"
+                                                   required>
+                                            <div class="form-text text-muted micro-text mt-1">Máx: {{ detalle.Cantidad_Cargada | cantidad }}</div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Observaciones de Recepción -->
+                        <div class="p-3 border-top bg-light">
+                            <label for="observacion_recepcion" class="form-label fw-bold text-slate-700">
+                                <i class="fas fa-comment-dots me-1 text-primary"></i>Observaciones / Notas de Recepción
+                            </label>
+                            <textarea name="observacion_recepcion" id="observacion_recepcion" class="form-control rounded-3" rows="2" 
+                                      placeholder="Indique si ocurrieron novedades en el conteo (ej: 2 cajas dañadas, producto faltante, etc.)..."></textarea>
+                        </div>
+
+                        <!-- Resumen Flotante y Botones de Acción -->
+                        <div class="summary-floating-box mx-3 my-3">
+                            <div class="row align-items-center g-3">
+                                <div class="col-12 col-md-6">
+                                    <div class="d-flex gap-4">
+                                        <div>
+                                            <span class="text-slate-400 small d-block uppercase fw-bold">Cant. Total a Recibir:</span>
+                                            <span class="fs-4 fw-bold text-success" id="totalCantidadRecibir">0.00</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-slate-400 small d-block uppercase fw-bold">Monto Total Recibido:</span>
+                                            <span class="fs-4 fw-bold text-info" id="totalSubtotalRecibir">C$ 0.00</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-6 d-flex justify-content-md-end gap-2 flex-wrap">
+                                    <button type="button" class="btn btn-outline-danger btn-sm px-3 rounded-3" id="btnRechazar">
+                                        <i class="fas fa-times-circle me-1"></i> Rechazar Carga
+                                    </button>
+                                    <button type="submit" class="btn btn-success px-4 py-2 rounded-3 fw-bold" id="btnRecibir">
+                                        <i class="fas fa-check-circle me-1"></i> Confirmar Recepción
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    function calcularTotales() {
+        let totalCantidad = 0;
+        let totalSubtotal = 0;
+        
+        const inputs = document.querySelectorAll('.input-cant-recibida');
+        
+        inputs.forEach(input => {
+            const cantidad = parseFloat(input.value) || 0;
+            const costo = parseFloat(input.getAttribute('data-costo')) || 0;
+            const max = parseFloat(input.getAttribute('data-max')) || 0;
+            
+            if (cantidad < max) {
+                input.classList.add('input-parcial');
+            } else {
+                input.classList.remove('input-parcial');
+            }
+
+            totalCantidad += cantidad;
+            totalSubtotal += cantidad * costo;
+        });
+        
+        document.getElementById('totalCantidadRecibir').textContent = totalCantidad.toFixed(2);
+        document.getElementById('totalSubtotalRecibir').textContent = `C$ ${totalSubtotal.toFixed(2)}`;
+    }
+
+    document.querySelectorAll('.input-cant-recibida').forEach(input => {
+        input.addEventListener('input', calcularTotales);
+        input.addEventListener('change', function() {
+            let max = parseFloat(this.getAttribute('data-max'));
+            if (parseFloat(this.value) > max) {
+                this.value = max;
+            }
+            if (parseFloat(this.value) < 0 || isNaN(parseFloat(this.value))) {
+                this.value = 0;
+            }
+            calcularTotales();
+        });
+    });
+    
+    calcularTotales();
+
+    const btnRechazar = document.getElementById('btnRechazar');
+    if (btnRechazar) {
+        btnRechazar.addEventListener('click', function() {
+            if (confirm('¿Está seguro de RECHAZAR totalmente esta carga? Ningún producto ingresará a bodega.')) {
+                const form = document.getElementById('formRecepcion');
+                const hiddenInput = document.createElement('input');
+                hiddenInput.type = 'hidden';
+                hiddenInput.name = 'accion';
+                hiddenInput.value = 'RECHAZAR';
+                form.appendChild(hiddenInput);
+                form.submit();
+            }
+        });
+    }
+
+    const form = document.getElementById('formRecepcion');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            let recibido = false;
+            document.querySelectorAll('.input-cant-recibida').forEach(input => {
+                if (parseFloat(input.value) > 0) {
+                    recibido = true;
+                }
+            });
+            
+            if (!recibido) {
+                if (!confirm('Ha ingresado 0 en todos los productos. ¿Desea rechazar la carga completa?')) {
+                    e.preventDefault();
+                    return false;
+                }
+            }
+            return true;
+        });
+    }
+});
+</script>
+{% endblock %}

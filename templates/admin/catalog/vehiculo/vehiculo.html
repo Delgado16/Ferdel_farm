@@ -1,0 +1,366 @@
+{% extends "layout.html" %}
+
+{% block title %}Gestión de Vehículos - FerDel{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4 fade-in-up">
+    <!-- Encabezado con botón de volver -->
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-truck text-primary me-2"></i>Gestión de Vehículos
+            </h3>
+            <p class="text-muted small mb-0">Control de la flota de camiones y vehículos, vigencia del seguro y asignación de empresas</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-arrow-left me-1"></i> Volver al Dashboard
+            </a>
+            <button type="button" class="btn btn-outline-primary btn-sm px-3 py-2 rounded-3" data-bs-toggle="modal" data-bs-target="#modalCrearVehiculo">
+                <i class="fas fa-plus me-1"></i> Nuevo Vehículo
+            </button>
+        </div>
+    </div>
+    
+    <!-- Tabla de vehículos -->
+    <div class="card-premium-section mb-4">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-modern align-middle mb-0" id="dataTable" width="100%">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Placa</th>
+                            <th>Marca</th>
+                            <th>Modelo</th>
+                            <th>Año</th>
+                            <th>Empresa</th>
+                            <th>Combustible</th>
+                            <th>Estado</th>
+                            <th>Vencimiento Seguro</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for vehiculo in vehiculos %}
+                        <tr>
+                            <td><span class="badge bg-light text-dark border">#{{ vehiculo.ID_Vehiculo }}</span></td>
+                            <td><strong class="font-monospace text-slate-800">{{ vehiculo.Placa }}</strong></td>
+                            <td class="text-slate-800">{{ vehiculo.Marca or 'N/A' }}</td>
+                            <td class="text-slate-800">{{ vehiculo.Modelo or 'N/A' }}</td>
+                            <td class="text-slate-800">{{ vehiculo.Anio or 'N/A' }}</td>
+                            <td>
+                                {% if vehiculo.Nombre_Empresa %}
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">{{ vehiculo.Nombre_Empresa }}</span>
+                                {% else %}
+                                <span class="text-muted small">Sin empresa</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if vehiculo.Tipo_Combustible %}
+                                <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">{{ vehiculo.Tipo_Combustible }}</span>
+                                {% else %}
+                                <span class="text-muted small">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if vehiculo.Estado == 'Disponible' %}
+                                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">Disponible</span>
+                                {% elif vehiculo.Estado == 'En Ruta' %}
+                                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">En Ruta</span>
+                                {% elif vehiculo.Estado == 'Mantenimiento' %}
+                                    <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">Mantenimiento</span>
+                                {% else %}
+                                    <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">Inactivo</span>
+                                {% endif %}
+                            </td>
+                            <td class="font-monospace small">
+                                {% if vehiculo.Fecha_Vencimiento_Seguro %}
+                                    {{ vehiculo.Fecha_Vencimiento_Seguro.strftime('%d/%m/%Y') }}
+                                {% else %}
+                                    <span class="text-muted small">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center gap-1">
+                                    <!-- Botón Editar -->
+                                    <a href="{{ url_for('admin.mostrar_editar_vehiculo', id=vehiculo.ID_Vehiculo) }}" 
+                                       class="btn btn-sm btn-outline-warning rounded-3" title="Editar">
+                                        <i class="fas fa-edit me-1"></i> Editar
+                                    </a>
+                                    
+                                    <!-- Botón para cambiar estado - Dropdown -->
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle rounded-3" 
+                                                data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="fas fa-exchange-alt me-1"></i> Estado
+                                        </button>
+                                        <ul class="dropdown-menu border-0 shadow-sm">
+                                            {% for estado_opcion in ['Disponible', 'En Ruta', 'Mantenimiento', 'Inactivo'] %}
+                                            <li>
+                                                <form method="POST" action="{{ url_for('admin.cambiar_estado_vehiculo', id=vehiculo.ID_Vehiculo) }}" 
+                                                      class="dropdown-item-form mb-0">
+                                                    <input type="hidden" name="nuevo_estado" value="{{ estado_opcion }}">
+                                                    <button type="submit" 
+                                                            class="dropdown-item py-2 {{ 'active' if vehiculo.Estado == estado_opcion else '' }}"
+                                                            onclick="event.preventDefault(); Swal.fire({title: '¿Cambiar estado a {{ estado_opcion }}?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí', cancelButtonText: 'No'}).then((result) => { if (result.isConfirmed) { if (this.tagName === 'BUTTON' || this.tagName === 'INPUT') { const form = this.closest('form'); if (form) { form.submit(); } } else { window.location.href = this.href || this.closest('a').href; } } });">
+                                                        {% if estado_opcion == 'Disponible' %}
+                                                            <i class="fas fa-check-circle text-success me-2"></i>
+                                                        {% elif estado_opcion == 'En Ruta' %}
+                                                            <i class="fas fa-truck text-primary me-2"></i>
+                                                        {% elif estado_opcion == 'Mantenimiento' %}
+                                                            <i class="fas fa-tools text-warning me-2"></i>
+                                                        {% else %}
+                                                            <i class="fas fa-ban text-secondary me-2"></i>
+                                                        {% endif %}
+                                                        {{ estado_opcion }}
+                                                    </button>
+                                                </form>
+                                            </li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para crear vehículo -->
+<div class="modal fade" id="modalCrearVehiculo" tabindex="-1" aria-labelledby="modalCrearVehiculoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-3">
+            <form method="POST" action="{{ url_for('admin.crear_vehiculo') }}" id="formCrearVehiculo" class="needs-validation" novalidate>
+                <div class="modal-header border-bottom-0 pb-0">
+                    <h5 class="modal-title fw-bold text-slate-800" id="modalCrearVehiculoLabel">
+                        <i class="fas fa-plus-circle text-primary me-2"></i>Nuevo Vehículo
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="placa" class="form-label-premium fw-bold mb-1">Placa *</label>
+                            <input type="text" class="form-control form-control-premium" id="placa" name="placa" required 
+                                   maxlength="20"
+                                   pattern="^[A-Z0-9-]+$"
+                                   title="Solo letras mayúsculas, números y guiones"
+                                   placeholder="Ej: ABC-123">
+                            <div class="invalid-feedback">Por favor ingrese una placa válida (máx. 20 caracteres)</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="id_empresa" class="form-label-premium fw-bold mb-1">Empresa *</label>
+                            <select class="form-select form-select-premium" id="id_empresa" name="id_empresa" required>
+                                <option value="">Seleccionar empresa</option>
+                                {% for empresa in empresas %}
+                                <option value="{{ empresa.ID_Empresa }}">{{ empresa.Nombre_Empresa }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="invalid-feedback">Por favor seleccione una empresa</div>
+                        </div>
+                    </div>
+                    
+                    <div class="row g-3 mt-1">
+                        <div class="col-md-6">
+                            <label for="marca" class="form-label-premium fw-bold mb-1">Marca</label>
+                            <input type="text" class="form-control form-control-premium" id="marca" name="marca" 
+                                   maxlength="100"
+                                   placeholder="Ej: Toyota, Ford">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="modelo" class="form-label-premium fw-bold mb-1">Modelo</label>
+                            <input type="text" class="form-control form-control-premium" id="modelo" name="modelo" 
+                                   maxlength="100"
+                                   placeholder="Ej: Corolla, Ranger">
+                        </div>
+                    </div>
+                    
+                    <div class="row g-3 mt-1">
+                        <div class="col-md-6">
+                            <label for="anio" class="form-label-premium fw-bold mb-1">Año</label>
+                            <input type="number" class="form-control form-control-premium" id="anio" name="anio" 
+                                   min="1900" max="{{ current_year }}"
+                                   placeholder="Ej: {{ current_year }}">
+                            <div class="form-text small text-muted">Año de fabricación (1900-{{ current_year }})</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="tipo_combustible" class="form-label-premium fw-bold mb-1">Tipo de Combustible *</label>
+                            <select class="form-select form-select-premium" id="tipo_combustible" name="tipo_combustible" required>
+                                <option value="">Seleccionar tipo...</option>
+                                <option value="Gasolina">Gasolina</option>
+                                <option value="Diesel">Diesel</option>
+                            </select>
+                            <div class="invalid-feedback">Por favor seleccione el tipo de combustible</div>
+                        </div>
+                    </div>
+                    
+                    <div class="row g-3 mt-1">
+                        <div class="col-md-6">
+                            <label for="fecha_vencimiento_seguro" class="form-label-premium fw-bold mb-1">Vencimiento Seguro</label>
+                            <input type="date" class="form-control form-control-premium" id="fecha_vencimiento_seguro" 
+                                   name="fecha_vencimiento_seguro">
+                            <div class="form-text small text-muted">Fecha de vencimiento del seguro del vehículo</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0">
+                    <button type="button" class="btn btn-outline-secondary px-3 py-1.5 rounded-3" data-bs-dismiss="modal">
+                        <i class="fas fa-times-circle me-1"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-outline-primary px-3 py-1.5 rounded-3">
+                        <i class="fas fa-save me-1"></i> Guardar Vehículo
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar DataTable
+    $('#dataTable').DataTable({
+        "language": {
+            "url": "//cdn.datatables.net/plug-ins/1.10.25/i18n/Spanish.json"
+        },
+        "order": [[0, "desc"]],
+        "pageLength": 10,
+        "responsive": true,
+        "columnDefs": [
+            { "orderable": false, "targets": [9] } // Deshabilitar orden en columna de acciones
+        ]
+    });
+    
+    // Validación para formulario de creación
+    const formCrear = document.getElementById('formCrearVehiculo');
+    if (formCrear) {
+        formCrear.addEventListener('submit', function(event) {
+            if (!formCrear.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            formCrear.classList.add('was-validated');
+        }, false);
+    }
+    
+    // Configurar máximo año para campo de año en creación
+    const anioInput = document.getElementById('anio');
+    if (anioInput) {
+        anioInput.max = new Date().getFullYear();
+        anioInput.min = 1900;
+        
+        anioInput.addEventListener('input', function() {
+            const currentYear = new Date().getFullYear();
+            if (this.value > currentYear) {
+                this.value = currentYear;
+            }
+            if (this.value < 1900 && this.value !== '') {
+                this.value = 1900;
+            }
+        });
+    }
+    
+    // Auto-uppercase para placa
+    const placaInput = document.getElementById('placa');
+    if (placaInput) {
+        placaInput.addEventListener('input', function(e) {
+            this.value = this.value.toUpperCase().replace(/[^A-Z0-9-]/g, '');
+        });
+    }
+    
+    // Limitar longitud de marca y modelo
+    const marcaInput = document.getElementById('marca');
+    if (marcaInput) {
+        marcaInput.addEventListener('input', function() {
+            if (this.value.length > 100) {
+                this.value = this.value.substring(0, 100);
+            }
+        });
+    }
+    
+    const modeloInput = document.getElementById('modelo');
+    if (modeloInput) {
+        modeloInput.addEventListener('input', function() {
+            if (this.value.length > 100) {
+                this.value = this.value.substring(0, 100);
+            }
+        });
+    }
+    
+    // Limpiar formulario de creación cuando se cierra el modal
+    $('#modalCrearVehiculo').on('hidden.bs.modal', function () {
+        const form = document.getElementById('formCrearVehiculo');
+        if (form) {
+            form.reset();
+            form.classList.remove('was-validated');
+        }
+    });
+    
+    // Prevenir doble envío en formularios de estado
+    document.querySelectorAll('.dropdown-item-form').forEach(form => {
+        form.addEventListener('submit', function(e) {
+            const submitBtn = this.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Procesando...';
+            }
+        });
+    });
+    
+    // Manejar confirmación para cambio de estado
+    document.querySelectorAll('.dropdown-item-form button[type="submit"]').forEach(button => {
+        button.addEventListener('click', function(e) {
+            const form = this.closest('form');
+            const estado = form.querySelector('input[name="nuevo_estado"]').value;
+            
+            if (!confirm(`¿Está seguro de cambiar el estado a "${estado}"?`)) {
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }
+            
+            // Mostrar indicador de carga
+            this.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Cambiando...';
+            this.disabled = true;
+            
+            // Re-habilitar después de 5 segundos si algo falla
+            setTimeout(() => {
+                this.innerHTML = '<i class="fas fa-exchange-alt me-1"></i>';
+                this.disabled = false;
+            }, 5000);
+        });
+    });
+});
+
+// Función para formatear fecha al cargar la página
+function formatearFechas() {
+    document.querySelectorAll('.fecha-vencimiento').forEach(element => {
+        const fecha = element.textContent.trim();
+        if (fecha && fecha !== 'N/A') {
+            try {
+                const [year, month, day] = fecha.split('-');
+                if (year && month && day) {
+                    element.textContent = `${day}/${month}/${year}`;
+                }
+            } catch (e) {
+                console.log('Error formateando fecha:', e);
+            }
+        }
+    });
+}
+
+// Ejecutar cuando el DOM esté listo
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', formatearFechas);
+} else {
+    formatearFechas();
+}
+</script>
+{% endblock %}

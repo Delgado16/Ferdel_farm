@@ -1,0 +1,2381 @@
+# -*- coding: utf-8 -*-
+from datetime import datetime, timedelta, date, time
+import traceback
+from flask import json, jsonify, render_template, flash, redirect, request, url_for, session, Response
+from flask_login import login_required, current_user
+from config.database import get_db_cursor
+from auth.decorators import vendedor_required
+from . import vendedor_bp
+from .utils import convertir_hora_db, procesar_asignacion, procesar_lista_asignaciones
+
+@vendedor_bp.route('/vendedor/movimientos/entrada-bodega', methods=['GET', 'POST'])
+@vendedor_required
+def vendedor_movimiento_entrada_bodega():
+    """
+    Registra una entrada de inventario desde bodega central
+    Usando ID_TipoMovimiento = 13 (Traslado Entrada)
+    """
+
+    id_empresa = session.get('id_empresa', 1)
+
+    if request.method == 'POST':
+        try:
+            # Obtener datos del formulario
+            productos = request.form.getlist('producto_id[]')
+            cantidades = request.form.getlist('cantidad[]')
+            documento = request.form.get('documento_numero', '')
+            
+            with get_db_cursor(True) as cursor:
+                # ============================================
+                # 1. VERIFICAR ASIGNACIÓN ACTIVA
+                # ============================================
+                cursor.execute("""
+                    SELECT 
+                        av.ID_Asignacion,
+                        av.ID_Ruta,
+                        r.Nombre_Ruta
+                    FROM asignacion_vendedores av
+                    LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                    WHERE av.ID_Usuario = %s
+                    AND av.Estado = 'Activa'
+                    ORDER BY av.Fecha_Asignacion DESC
+                    LIMIT 1
+                """, (current_user.id,))
+                
+                asignacion = cursor.fetchone()
+                
+                if not asignacion:
+                    flash('No tienes una asignación activa para hoy', 'error')
+                    return redirect(url_for('vendedor.vendedor_inventario'))
+                
+                id_asignacion = asignacion['ID_Asignacion']
+                
+                # ============================================
+                # 2. DEFINIR TIPO DE MOVIMIENTO (Traslado Entrada)
+                # ============================================
+                ID_TIPO_ENTRADA = 1  # Traslado Entrada
+                
+                # ============================================
+                # 3. PROCESAR PRODUCTOS Y CALCULAR TOTALES
+                # ============================================
+                total_productos = 0
+                total_items = 0
+                total_subtotal = 0
+                productos_procesar = []
+                
+                for i in range(len(productos)):
+                    cant_val = cantidades[i] if i < len(cantidades) else None
+                    if productos[i] and cant_val and float(cant_val or 0) > 0:
+                        id_producto = int(productos[i])
+                        cantidad = float(cant_val or 0)
+                        
+                        # Obtener precio del producto
+                        cursor.execute("""
+                            SELECT COALESCE(Precio_Ruta, 0) as Precio_Ruta 
+                            FROM productos 
+                            WHERE ID_Producto = %s
+                        """, (id_producto,))
+                        
+                        producto_info = cursor.fetchone()
+                        if not producto_info:
+                            continue
+                            
+                        precio = float(producto_info['Precio_Ruta'] or 0.0)
+                        subtotal = cantidad * precio
+                        
+                        productos_procesar.append({
+                            'id_producto': id_producto,
+                            'cantidad': cantidad,
+                            'precio': precio,
+                            'subtotal': subtotal
+                        })
+                        
+                        total_productos += 1
+                        total_items += 1
+                        total_subtotal += subtotal
+                
+                if not productos_procesar:
+                    flash('Debe agregar al menos un producto', 'error')
+                    return redirect(url_for('vendedor.vendedor_movimiento_entrada_bodega'))
+                
+                # ============================================
+                # 4. CREAR MOVIMIENTO CABECERA
+                # ============================================
+                cursor.execute("""
+                    INSERT INTO movimientos_ruta_cabecera 
+                    (ID_Asignacion, ID_TipoMovimiento, ID_Usuario_Registra, 
+                     Documento_Numero, Total_Productos, Total_Items, Total_Subtotal,
+                     ID_Empresa, Estado, Fecha_Movimiento)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'ACTIVO', %s)
+                """, (
+                    id_asignacion, 
+                    ID_TIPO_ENTRADA, 
+                    current_user.id,
+                    documento, 
+                    total_productos, 
+                    total_items, 
+                    total_subtotal,
+                    id_empresa,
+                    datetime.now()
+                ))
+                
+                id_movimiento = cursor.lastrowid
+                
+                # ============================================
+                # 5. CREAR DETALLES Y ACTUALIZAR INVENTARIO
+                # ============================================
+                for prod in productos_procesar:
+                    # Insertar detalle
+                    cursor.execute("""
+                        INSERT INTO movimientos_ruta_detalle
+                        (ID_Movimiento, ID_Producto, Cantidad, Precio_Unitario, Subtotal)
+                        VALUES (%s, %s, %s, %s, %s)
+                    """, (
+                        id_movimiento, 
+                        prod['id_producto'], 
+                        prod['cantidad'], 
+                        prod['precio'], 
+                        prod['subtotal']
+                    ))
+                    
+                    # Actualizar inventario (SUMAR cantidad)
+                    cursor.execute("""
+                        INSERT INTO inventario_ruta 
+                        (ID_Asignacion, ID_Producto, Cantidad)
+                        VALUES (%s, %s, %s)
+                        ON DUPLICATE KEY UPDATE
+                        Cantidad = Cantidad + VALUES(Cantidad)
+                    """, (id_asignacion, prod['id_producto'], prod['cantidad']))
+                
+                flash('Entrada de inventario registrada exitosamente', 'success')
+                return redirect(url_for('vendedor.vendedor_movimiento_detalle', id_movimiento=id_movimiento))
+                    
+        except Exception as e:
+            print(f"Error en movimiento entrada: {str(e)}")
+            traceback.print_exc()
+            flash(f'Error al registrar entrada: {str(e)}', 'error')
+            return redirect(url_for('vendedor.vendedor_inventario'))
+    
+    # ============================================
+    # MÉTODO GET - MOSTRAR FORMULARIO
+    # ============================================
+    try:
+        with get_db_cursor(True) as cursor:
+            # Verificar asignación
+            cursor.execute("""
+                SELECT 
+                    av.ID_Asignacion,
+                    r.Nombre_Ruta
+                FROM asignacion_vendedores av
+                LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                WHERE av.ID_Usuario = %s
+                AND av.Estado = 'Activa'
+                ORDER BY av.Fecha_Asignacion DESC
+                LIMIT 1
+            """, (current_user.id,))
+            
+            asignacion = cursor.fetchone()
+            
+            if not asignacion:
+                flash('No tienes una asignación activa para hoy', 'warning')
+                return redirect(url_for('vendedor.vendedor_inventario'))
+            
+            # Obtener productos activos
+            cursor.execute("""
+                SELECT 
+                    p.ID_Producto,
+                    p.COD_Producto,
+                    p.Descripcion as Nombre_Producto,
+                    COALESCE(p.Precio_Ruta, 0) as Precio_Ruta,
+                    um.Abreviatura as Unidad,
+                    c.Descripcion as Categoria
+                FROM productos p
+                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
+                WHERE p.Estado = 'activo'
+                ORDER BY c.Descripcion, p.Descripcion
+            """)
+            
+            productos = cursor.fetchall()
+            
+            return render_template('vendedor/inventario/movimiento_entrada_bodega.html',
+                                 asignacion=asignacion,
+                                 productos=productos,
+                                 now=datetime.now())
+                                 
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        traceback.print_exc()
+        flash(f'Error al cargar formulario: {str(e)}', 'error')
+        return redirect(url_for('vendedor.vendedor_inventario'))
+
+
+@vendedor_bp.route('/vendedor/movimientos/devolucion-bodega', methods=['GET', 'POST'])
+@vendedor_required
+def vendedor_movimiento_devolucion_bodega():
+    """
+    Registra una devolución de productos no vendidos a bodega central
+    Usando ID_TipoMovimiento = 11 (Devolucion Ruta)
+    """
+
+    id_empresa = session.get('id_empresa', 1)
+
+    if request.method == 'POST':
+        try:
+            productos = request.form.getlist('producto_id[]')
+            cantidades = request.form.getlist('cantidad[]')
+            observacion = request.form.get('observacion', '')
+            documento = request.form.get('documento_numero', '')
+            
+            with get_db_cursor(True) as cursor:
+                # ============================================
+                # 1. VERIFICAR ASIGNACIÓN ACTIVA
+                # ============================================
+                cursor.execute("""
+                    SELECT 
+                        av.ID_Asignacion,
+                        av.ID_Ruta,
+                        r.Nombre_Ruta
+                    FROM asignacion_vendedores av
+                    LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                    WHERE av.ID_Usuario = %s
+                    AND av.Estado = 'Activa'
+                    ORDER BY av.Fecha_Asignacion DESC
+                    LIMIT 1
+                """, (current_user.id,))
+                
+                asignacion = cursor.fetchone()
+                
+                if not asignacion:
+                    flash('No tienes una asignación activa para hoy', 'error')
+                    return redirect(url_for('vendedor.vendedor_inventario'))
+                
+                id_asignacion = asignacion['ID_Asignacion']
+                
+                # ============================================
+                # 2. DEFINIR TIPOS DE MOVIMIENTO
+                # ============================================
+                ID_TIPO_DEVOLUCION_RUTA = 11  # Devolucion Ruta (para tabla de rutas)
+                ID_TIPO_ENTRADA_BODEGA = 11    # Entrada a bodega por devolución (ajusta según tu catálogo)
+                ID_BODEGA_CENTRAL = 1          # ID de la bodega central según tu tabla bodegas
+                
+                # ============================================
+                # 3. VALIDAR STOCK Y CALCULAR TOTALES
+                # ============================================
+                productos_procesar = []
+                total_productos = 0
+                total_items = 0
+                total_subtotal = 0
+                
+                for i in range(len(productos)):
+                    cant_val = cantidades[i] if i < len(cantidades) else None
+                    if productos[i] and cant_val and float(cant_val or 0) > 0:
+                        id_producto = int(productos[i])
+                        cantidad = float(cant_val or 0)
+                        
+                        # Verificar stock actual en ruta
+                        cursor.execute("""
+                            SELECT COALESCE(Cantidad, 0) as Cantidad 
+                            FROM inventario_ruta 
+                            WHERE ID_Asignacion = %s AND ID_Producto = %s
+                        """, (id_asignacion, id_producto))
+                        
+                        stock = cursor.fetchone()
+                        stock_actual = float(stock['Cantidad'] or 0) if stock else 0.0
+                        if not stock or stock_actual < cantidad:
+                            flash(f'Stock insuficiente para devolución. Stock actual: {stock_actual}', 'error')
+                            return redirect(url_for('vendedor.vendedor_movimiento_devolucion_bodega'))
+                        
+                        # Obtener precio del producto (Precio_Ruta)
+                        cursor.execute("""
+                            SELECT COALESCE(Precio_Ruta, 0) as Precio_Ruta 
+                            FROM productos 
+                            WHERE ID_Producto = %s
+                        """, (id_producto,))
+                        
+                        producto_info = cursor.fetchone()
+                        if not producto_info:
+                            continue
+                            
+                        precio_ruta = float(producto_info['Precio_Ruta'] or 0.0)
+                        subtotal = cantidad * precio_ruta
+                        
+                        productos_procesar.append({
+                            'id_producto': id_producto,
+                            'cantidad': cantidad,
+                            'precio_ruta': precio_ruta,
+                            'subtotal': subtotal
+                        })
+                        
+                        total_productos += 1
+                        total_items += 1
+                        total_subtotal += subtotal
+                
+                if not productos_procesar:
+                    flash('Debe agregar al menos un producto', 'error')
+                    return redirect(url_for('vendedor.vendedor_movimiento_devolucion_bodega'))
+                
+                # ============================================
+                # 4. CREAR MOVIMIENTO EN movimientos_ruta_cabecera
+                # ============================================
+                cursor.execute("""
+                    INSERT INTO movimientos_ruta_cabecera 
+                    (ID_Asignacion, ID_TipoMovimiento, ID_Usuario_Registra, 
+                     Documento_Numero, Total_Productos, Total_Items, Total_Subtotal,
+                     ID_Empresa, Estado, Fecha_Movimiento)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'ACTIVO', %s)
+                """, (
+                    id_asignacion, 
+                    ID_TIPO_DEVOLUCION_RUTA, 
+                    current_user.id,
+                    documento, 
+                    total_productos, 
+                    total_items, 
+                    total_subtotal,
+                    id_empresa,
+                    datetime.now()
+                ))
+                
+                id_movimiento_ruta = cursor.lastrowid
+                
+                # ============================================
+                # 5. CREAR MOVIMIENTO EN movimientos_inventario (TABLA GENERAL)
+                # ============================================
+                cursor.execute("""
+                    INSERT INTO movimientos_inventario 
+                    (ID_TipoMovimiento, N_Factura_Externa, Fecha, Observacion, 
+                     ID_Empresa, ID_Bodega, ID_Usuario_Creacion, Estado)
+                    VALUES (%s, %s, CURDATE(), %s, %s, %s, %s, 'Activa')
+                """, (
+                    ID_TIPO_ENTRADA_BODEGA,
+                    documento,
+                    f"Devolución de ruta: {asignacion['Nombre_Ruta']} - {observacion}" if observacion else f"Devolución de ruta: {asignacion['Nombre_Ruta']}",
+                    id_empresa,
+                    ID_BODEGA_CENTRAL,
+                    current_user.id
+                ))
+                
+                id_movimiento_inventario = cursor.lastrowid
+                
+                # ============================================
+                # 6. CREAR DETALLES Y ACTUALIZAR INVENTARIOS
+                # ============================================
+                for prod in productos_procesar:
+                    # Insertar detalle en movimientos_ruta_detalle
+                    cursor.execute("""
+                        INSERT INTO movimientos_ruta_detalle
+                        (ID_Movimiento, ID_Producto, Cantidad, Precio_Unitario, Subtotal)
+                        VALUES (%s, %s, %s, %s, %s)
+                    """, (
+                        id_movimiento_ruta, 
+                        prod['id_producto'], 
+                        prod['cantidad'], 
+                        prod['precio_ruta'], 
+                        prod['subtotal']
+                    ))
+                    
+                    # Insertar detalle en detalle_movimientos_inventario (tabla general)
+                    # Nota: Como no tenemos precio de costo, usamos Precio_Ruta como referencia
+                    cursor.execute("""
+                        INSERT INTO detalle_movimientos_inventario
+                        (ID_Movimiento, ID_Producto, Cantidad, Precio_Unitario, Subtotal, ID_Usuario_Creacion)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    """, (
+                        id_movimiento_inventario,
+                        prod['id_producto'],
+                        prod['cantidad'],
+                        prod['precio_ruta'],  # Precio_Unitario
+                        prod['subtotal'],      # Subtotal
+                        current_user.id
+                    ))
+                    
+                    # Actualizar inventario_ruta (RESTAR cantidad)
+                    cursor.execute("""
+                        UPDATE inventario_ruta 
+                        SET Cantidad = Cantidad - %s
+                        WHERE ID_Asignacion = %s AND ID_Producto = %s
+                    """, (prod['cantidad'], id_asignacion, prod['id_producto']))
+                    
+                    # Actualizar inventario_bodega (SUMAR cantidad)
+                    cursor.execute("""
+                        INSERT INTO inventario_bodega (ID_Bodega, ID_Producto, Existencias)
+                        VALUES (%s, %s, %s)
+                        ON DUPLICATE KEY UPDATE
+                        Existencias = Existencias + %s
+                    """, (
+                        ID_BODEGA_CENTRAL,
+                        prod['id_producto'],
+                        prod['cantidad'],
+                        prod['cantidad']
+                    ))
+                
+                flash('Devolución a bodega registrada exitosamente', 'success')
+                return redirect(url_for('vendedor.vendedor_movimiento_detalle', id_movimiento=id_movimiento_ruta))
+                    
+        except Exception as e:
+            print(f"Error en devolución: {str(e)}")
+            traceback.print_exc()
+            flash(f'Error al registrar devolución: {str(e)}', 'error')
+            return redirect(url_for('vendedor.vendedor_inventario'))
+    
+    # ============================================
+    # MÉTODO GET - MOSTRAR FORMULARIO
+    # ============================================
+    try:
+        with get_db_cursor(True) as cursor:
+            # Verificar asignación
+            cursor.execute("""
+                SELECT 
+                    av.ID_Asignacion,
+                    r.Nombre_Ruta
+                FROM asignacion_vendedores av
+                LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                WHERE av.ID_Usuario = %s
+                AND av.Estado = 'Activa'
+                ORDER BY av.Fecha_Asignacion DESC
+                LIMIT 1
+            """, (current_user.id,))
+            
+            asignacion = cursor.fetchone()
+            
+            if not asignacion:
+                flash('No tienes una asignación activa para hoy', 'warning')
+                return redirect(url_for('vendedor.vendedor_inventario'))
+            
+            # Obtener inventario actual (solo productos con stock)
+            cursor.execute("""
+                SELECT 
+                    ir.ID_Producto,
+                    COALESCE(ir.Cantidad, 0) as Stock_Actual,
+                    p.COD_Producto,
+                    p.Descripcion as Nombre_Producto,
+                    COALESCE(p.Precio_Ruta, 0) as Precio_Ruta,
+                    um.Abreviatura as Unidad,
+                    c.Descripcion as Categoria
+                FROM inventario_ruta ir
+                INNER JOIN productos p ON ir.ID_Producto = p.ID_Producto
+                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
+                WHERE ir.ID_Asignacion = %s
+                AND ir.Cantidad > 0
+                ORDER BY c.Descripcion, p.Descripcion
+            """, (asignacion['ID_Asignacion'],))
+            
+            inventario = cursor.fetchall()
+            
+            return render_template('vendedor/inventario/movimiento_devolucion_bodega.html',
+                                 asignacion=asignacion,
+                                 inventario=inventario,
+                                 now=datetime.now())
+                                 
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        traceback.print_exc()
+        flash(f'Error al cargar formulario: {str(e)}', 'error')
+        return redirect(url_for('vendedor.vendedor_inventario'))
+
+
+@vendedor_bp.route('/vendedor/movimientos/liquidar-jornada', methods=['GET', 'POST'])
+@vendedor_required
+def vendedor_movimiento_liquidar_jornada():
+    """
+    Finaliza la jornada del vendedor, liquidando obligatoriamente todo el inventario restante
+    devolviéndolo a la bodega central e insertando los registros de movimientos.
+    """
+    id_empresa = session.get('id_empresa', 1)
+    user_id = current_user.id
+    
+    try:
+        with get_db_cursor(commit=True) as cursor:
+            # 1. Obtener la asignación activa del vendedor
+            cursor.execute("""
+                SELECT av.ID_Asignacion, av.ID_Ruta, r.Nombre_Ruta, av.ID_Vehiculo, u.NombreUsuario
+                FROM asignacion_vendedores av
+                LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                LEFT JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+                WHERE av.ID_Usuario = %s AND av.Estado = 'Activa'
+                LIMIT 1
+            """, (user_id,))
+            asignacion = cursor.fetchone()
+            
+            if not asignacion:
+                flash('No tienes una asignación activa para liquidar', 'warning')
+                return redirect(url_for('vendedor.vendedor_dashboard'))
+                
+            id_asignacion = asignacion['ID_Asignacion']
+            
+            # Obtener existencias actuales en ruta
+            cursor.execute("""
+                SELECT ir.ID_Producto, ir.Cantidad, p.Descripcion AS Producto, p.COD_Producto,
+                       p.Precio_Ruta, um.Descripcion AS Unidad_Medida
+                FROM inventario_ruta ir
+                INNER JOIN productos p ON ir.ID_Producto = p.ID_Producto
+                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                WHERE ir.ID_Asignacion = %s AND ir.Cantidad > 0
+            """, (id_asignacion,))
+            inventario = cursor.fetchall()
+            
+            # Obtener saldo y desglose de caja de la ruta
+            cursor.execute("""
+                SELECT 
+                    COALESCE(SUM(CASE WHEN Tipo = 'APERTURA' THEN Monto ELSE 0 END), 0) as Apertura,
+                    COALESCE(SUM(CASE WHEN Tipo = 'VENTA' AND (Tipo_Pago = 'CONTADO' OR Tipo_Pago IS NULL) THEN Monto ELSE 0 END), 0) as Ventas_Contado,
+                    COALESCE(SUM(CASE WHEN Tipo = 'ABONO' THEN Monto ELSE 0 END), 0) as Total_Abonos,
+                    COALESCE(SUM(CASE WHEN Tipo = 'GASTO' THEN Monto ELSE 0 END), 0) as Total_Gastos,
+                    COALESCE(SUM(CASE 
+                        WHEN Tipo = 'GASTO' THEN -Monto 
+                        WHEN Tipo = 'CIERRE' THEN 0
+                        ELSE Monto 
+                    END), 0) as Saldo_Calculado
+                FROM movimientos_caja_ruta
+                WHERE ID_Asignacion = %s AND Estado = 'ACTIVO'
+            """, (id_asignacion,))
+            caja_res = cursor.fetchone() or {}
+            saldo_caja = float(caja_res.get('Saldo_Calculado') or 0.0)
+            desglose_caja = {
+                'apertura': float(caja_res.get('Apertura') or 0.0),
+                'ventas_contado': float(caja_res.get('Ventas_Contado') or 0.0),
+                'abonos': float(caja_res.get('Total_Abonos') or 0.0),
+                'gastos': float(caja_res.get('Total_Gastos') or 0.0),
+                'total_efectivo_generado': float(caja_res.get('Ventas_Contado') or 0.0) + float(caja_res.get('Total_Abonos') or 0.0)
+            }
+            
+            # Consultar si ya se cerró la caja con arqueo físico previo
+            cursor.execute("""
+                SELECT Monto, Concepto, Saldo_Acumulado, Fecha
+                FROM movimientos_caja_ruta
+                WHERE ID_Asignacion = %s AND Tipo = 'CIERRE' AND Estado = 'ACTIVO'
+                ORDER BY ID_Movimiento DESC
+                LIMIT 1
+            """, (id_asignacion,))
+            cierre_existente = cursor.fetchone()
+            
+            caja_cerrada = bool(cierre_existente)
+            monto_cierre_real = float(cierre_existente['Monto'] or 0.0) if cierre_existente else saldo_caja
+            diferencia_cierre = round(monto_cierre_real - saldo_caja, 2) if cierre_existente else 0.0
+
+            if request.method == 'POST':
+                # Si la caja no estaba cerrada previamente, permitir ingresar arqueo físico o confirmar
+                if not caja_cerrada:
+                    monto_real_input = request.form.get('monto_real')
+                    if monto_real_input is not None and monto_real_input != '':
+                        try:
+                            monto_cierre_real = float(monto_real_input)
+                        except (ValueError, TypeError):
+                            monto_cierre_real = saldo_caja
+                    else:
+                        monto_cierre_real = saldo_caja
+                        
+                    obs_cierre = request.form.get('observacion_cierre', '').strip()
+                    diferencia_cierre = round(monto_cierre_real - saldo_caja, 2)
+                    concepto = f"Cierre de caja en liquidación - Diferencia: C$ {diferencia_cierre:,.2f}. {obs_cierre}" if obs_cierre else f"Cierre de caja en liquidación - Diferencia: C$ {diferencia_cierre:,.2f}"
+                    concepto = concepto[:200]
+                    
+                    cursor.execute("""
+                        INSERT INTO movimientos_caja_ruta 
+                        (ID_Asignacion, ID_Usuario, Tipo, Concepto, Monto, Saldo_Acumulado, Estado)
+                        VALUES (%s, %s, 'CIERRE', %s, %s, %s, 'ACTIVO')
+                    """, (id_asignacion, user_id, concepto, monto_cierre_real, monto_cierre_real))
+                    caja_cerrada = True
+
+                # Validar si hay productos para devolver
+                if inventario:
+                    ID_TIPO_DEVOLUCION_RUTA = 11  # Devolucion Ruta
+                    ID_TIPO_ENTRADA_BODEGA = 11   # Entrada por devolución
+                    ID_BODEGA_CENTRAL = 1
+                    
+                    total_productos = len(inventario)
+                    total_items = sum(float(item['Cantidad'] or 0) for item in inventario)
+                    total_subtotal = sum(float(item['Cantidad'] or 0) * float(item['Precio_Ruta'] or 0) for item in inventario)
+                    
+                    documento = f"LIQ-{id_asignacion}"
+                    
+                    # 1. Crear cabecera de movimiento en ruta
+                    cursor.execute("""
+                        INSERT INTO movimientos_ruta_cabecera
+                        (ID_Asignacion, ID_TipoMovimiento, ID_Usuario_Registra,
+                        Documento_Numero, Total_Productos, Total_Items, Total_Subtotal,
+                        ID_Empresa, Estado, Fecha_Movimiento)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'ACTIVO', %s)
+                    """, (id_asignacion, ID_TIPO_DEVOLUCION_RUTA, user_id, documento, total_productos, total_items, total_subtotal, id_empresa, datetime.now()))
+                    id_movimiento_ruta = cursor.lastrowid
+                    
+                    # 2. Crear cabecera general en movimientos_inventario
+                    cursor.execute("""
+                        INSERT INTO movimientos_inventario
+                        (ID_TipoMovimiento, N_Factura_Externa, Fecha, Observacion,
+                        ID_Empresa, ID_Bodega, ID_Usuario_Creacion, Estado)
+                        VALUES (%s, %s, CURDATE(), %s, %s, %s, %s, 'Activa')
+                    """, (ID_TIPO_ENTRADA_BODEGA, documento, f"Liquidación automática de asignación #{id_asignacion}", id_empresa, ID_BODEGA_CENTRAL, user_id))
+                    id_movimiento_inventario = cursor.lastrowid
+                    
+                    # 3. Registrar detalles y actualizar tablas
+                    for item in inventario:
+                        subtotal_item = float(item['Cantidad'] or 0) * float(item['Precio_Ruta'] or 0)
+                        
+                        # Detalle ruta
+                        cursor.execute("""
+                            INSERT INTO movimientos_ruta_detalle (ID_Movimiento, ID_Producto, Cantidad, Precio_Unitario, Subtotal)
+                            VALUES (%s, %s, %s, %s, %s)
+                        """, (id_movimiento_ruta, item['ID_Producto'], item['Cantidad'], item['Precio_Ruta'] or 0, subtotal_item))
+                        
+                        # Detalle inventario general
+                        cursor.execute("""
+                            INSERT INTO detalle_movimientos_inventario
+                            (ID_Movimiento, ID_Producto, Cantidad, Precio_Unitario, Subtotal, ID_Usuario_Creacion)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                        """, (id_movimiento_inventario, item['ID_Producto'], item['Cantidad'], item['Precio_Ruta'] or 0, subtotal_item, user_id))
+                        
+                        # Restar inventario en ruta
+                        cursor.execute("""
+                            UPDATE inventario_ruta
+                            SET Cantidad = 0
+                            WHERE ID_Asignacion = %s AND ID_Producto = %s
+                        """, (id_asignacion, item['ID_Producto']))
+                        
+                        # Sumar inventario en bodega central
+                        cursor.execute("""
+                            INSERT INTO inventario_bodega (ID_Bodega, ID_Producto, Existencias)
+                            VALUES (%s, %s, %s)
+                            ON DUPLICATE KEY UPDATE Existencias = Existencias + %s
+                        """, (ID_BODEGA_CENTRAL, item['ID_Producto'], item['Cantidad'], item['Cantidad']))
+                
+                # 4. Consolidar efectivo en caja del local si hay saldo acumulado
+                monto_transferir = monto_cierre_real if caja_cerrada else saldo_caja
+                if monto_transferir > 0:
+                    cursor.execute("""
+                        SELECT ID_Movimiento 
+                        FROM caja_movimientos 
+                        WHERE Referencia_Documento IN (%s, %s) AND Estado = 'ACTIVO'
+                    """, (f"RUTA-{id_asignacion}", f"RUT-LIQ-{id_asignacion}"))
+                    ya_registrado = cursor.fetchone()
+                    
+                    if not ya_registrado:
+                        nombre_ruta = asignacion.get('Nombre_Ruta') or "Ruta"
+                        nombre_vendedor = asignacion.get('NombreUsuario') or getattr(current_user, 'NombreUsuario', None) or getattr(current_user, 'username', None) or "Vendedor"
+                        
+                        desc_dif = ""
+                        if abs(diferencia_cierre) <= 0.01:
+                            desc_dif = " (Caja Cuadrada)"
+                        elif diferencia_cierre > 0.01:
+                            desc_dif = f" (Sobrante: +C$ {diferencia_cierre:,.2f})"
+                        else:
+                            desc_dif = f" (Faltante: -C$ {abs(diferencia_cierre):,.2f})"
+                            
+                        descripcion = f"Consolidado de Ruta: {nombre_ruta} - Vendedor: {nombre_vendedor}{desc_dif}"
+                        cursor.execute("""
+                            INSERT INTO caja_movimientos 
+                            (Fecha, Tipo_Movimiento, Descripcion, Monto, Referencia_Documento, ID_Usuario, Estado)
+                            VALUES (NOW(), 'ENTRADA', %s, %s, %s, %s, 'ACTIVO')
+                        """, (descripcion, monto_transferir, f"RUT-LIQ-{id_asignacion}", user_id))
+                
+                # 5. Finalizar asignación de ruta
+                cursor.execute("""
+                    UPDATE asignacion_vendedores
+                    SET Estado = 'Finalizada',
+                        Fecha_Finalizacion = CURDATE(),
+                        Hora_Fin = CURTIME()
+                    WHERE ID_Asignacion = %s
+                """, (id_asignacion,))
+                
+                # 6. Liberar el vehículo
+                if asignacion.get('ID_Vehiculo'):
+                    cursor.execute("""
+                        UPDATE vehiculos
+                        SET Estado = 'Disponible'
+                        WHERE ID_Vehiculo = %s
+                    """, (asignacion['ID_Vehiculo'],))
+                    
+                if monto_transferir > 0:
+                    if abs(diferencia_cierre) <= 0.01:
+                        flash(f'Liquidación y cierre de jornada realizados con éxito. Caja cuadrada (C$ {monto_transferir:,.2f} transferidos a caja general).', 'success')
+                    elif diferencia_cierre > 0.01:
+                        flash(f'Liquidación y cierre de jornada realizados con éxito. Se registró un SOBRANTE de C$ {diferencia_cierre:,.2f} (Total C$ {monto_transferir:,.2f} transferidos a caja general).', 'success')
+                    else:
+                        flash(f'Liquidación y cierre de jornada realizados con éxito. Se registró un FALTANTE de C$ {abs(diferencia_cierre):,.2f} (Total C$ {monto_transferir:,.2f} transferidos a caja general).', 'warning')
+                else:
+                    flash('Liquidación y cierre de jornada realizados con éxito. No se registró traslado de efectivo (saldo en caja de ruta en C$ 0.00).', 'info')
+                return redirect(url_for('vendedor.vendedor_dashboard', download_pdf=id_asignacion))
+                
+            return render_template('vendedor/movimientos/liquidar_jornada.html',
+                                 asignacion=asignacion,
+                                 inventario=inventario,
+                                 saldo_caja=saldo_caja,
+                                 desglose_caja=desglose_caja,
+                                 caja_cerrada=caja_cerrada,
+                                 monto_cierre_real=monto_cierre_real,
+                                 diferencia_cierre=diferencia_cierre,
+                                 cierre_existente=cierre_existente,
+                                 now=datetime.now())
+                                 
+    except Exception as e:
+        print(f"Error en liquidacion: {str(e)}")
+        traceback.print_exc()
+        flash(f'Error al liquidar jornada: {str(e)}', 'danger')
+        return redirect(url_for('vendedor.vendedor_dashboard'))
+
+
+@vendedor_bp.route('/vendedor/movimientos/merma', methods=['GET', 'POST'])
+@vendedor_required
+def vendedor_movimiento_merma():
+    """
+    Registra una salida por merma/pérdida de productos
+    Usando ID_TipoMovimiento = 7 (Merma)
+    """
+    id_empresa = session.get('id_empresa', 1)
+
+    if request.method == 'POST':
+        try:
+            productos = request.form.getlist('producto_id[]')
+            cantidades = request.form.getlist('cantidad[]')
+            documento = request.form.get('documento_numero', '')
+            
+            with get_db_cursor(True) as cursor:
+                # ============================================
+                # 1. VERIFICAR ASIGNACIÓN ACTIVA
+                # ============================================
+                cursor.execute("""
+                    SELECT 
+                        av.ID_Asignacion,
+                        av.ID_Ruta,
+                        r.Nombre_Ruta
+                    FROM asignacion_vendedores av
+                    LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                    WHERE av.ID_Usuario = %s
+                    AND av.Estado = 'Activa'
+                    ORDER BY av.Fecha_Asignacion DESC
+                    LIMIT 1
+                """, (current_user.id,))
+                
+                asignacion = cursor.fetchone()
+                
+                if not asignacion:
+                    flash('No tienes una asignación activa para hoy', 'error')
+                    return redirect(url_for('vendedor.vendedor_inventario'))
+                
+                id_asignacion = asignacion['ID_Asignacion']
+                
+                # ============================================
+                # 2. DEFINIR TIPO DE MOVIMIENTO (Merma)
+                # ============================================
+                ID_TIPO_MERMA = 6  # Merma (Ajuste Negativo)
+                
+                # ============================================
+                # 3. VALIDAR STOCK Y CALCULAR TOTALES
+                # ============================================
+                productos_procesar = []
+                total_productos = 0
+                total_items = 0
+                total_subtotal = 0
+                
+                for i in range(len(productos)):
+                    cant_val = cantidades[i] if i < len(cantidades) else None
+                    if productos[i] and cant_val and float(cant_val or 0) > 0:
+                        id_producto = int(productos[i])
+                        cantidad = float(cant_val or 0)
+                        
+                        # Verificar stock actual
+                        cursor.execute("""
+                            SELECT COALESCE(Cantidad, 0) as Cantidad 
+                            FROM inventario_ruta 
+                            WHERE ID_Asignacion = %s AND ID_Producto = %s
+                        """, (id_asignacion, id_producto))
+                        
+                        stock = cursor.fetchone()
+                        stock_actual = float(stock['Cantidad'] or 0) if stock else 0.0
+                        if not stock or stock_actual < cantidad:
+                            flash(f'Stock insuficiente para merma. Stock actual: {stock_actual}', 'error')
+                            return redirect(url_for('vendedor.vendedor_movimiento_merma'))
+                        
+                        # Obtener precio del producto
+                        cursor.execute("""
+                            SELECT COALESCE(Precio_Ruta, 0) as Precio_Ruta 
+                            FROM productos 
+                            WHERE ID_Producto = %s
+                        """, (id_producto,))
+                        
+                        producto_info = cursor.fetchone()
+                        if not producto_info:
+                            continue
+                            
+                        precio = float(producto_info['Precio_Ruta'] or 0.0)
+                        subtotal = cantidad * precio
+                        
+                        productos_procesar.append({
+                            'id_producto': id_producto,
+                            'cantidad': cantidad,
+                            'precio': precio,
+                            'subtotal': subtotal
+                        })
+                        
+                        total_productos += 1
+                        total_items += 1
+                        total_subtotal += subtotal
+                
+                if not productos_procesar:
+                    flash('Debe agregar al menos un producto', 'error')
+                    return redirect(url_for('vendedor.vendedor_movimiento_merma'))
+                
+                # ============================================
+                # 4. CREAR MOVIMIENTO CABECERA
+                # ============================================
+                cursor.execute("""
+                    INSERT INTO movimientos_ruta_cabecera 
+                    (ID_Asignacion, ID_TipoMovimiento, ID_Usuario_Registra, 
+                     Documento_Numero, Total_Productos, Total_Items, Total_Subtotal,
+                     ID_Empresa, Estado, Fecha_Movimiento)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'ACTIVO', %s)
+                """, (
+                    id_asignacion, 
+                    ID_TIPO_MERMA, 
+                    current_user.id,
+                    documento, 
+                    total_productos, 
+                    total_items, 
+                    total_subtotal,
+                    id_empresa,
+                    datetime.now()
+                ))
+                
+                id_movimiento = cursor.lastrowid
+                
+                # ============================================
+                # 5. CREAR DETALLES Y ACTUALIZAR INVENTARIO
+                # ============================================
+                for prod in productos_procesar:
+                    # Insertar detalle
+                    cursor.execute("""
+                        INSERT INTO movimientos_ruta_detalle
+                        (ID_Movimiento, ID_Producto, Cantidad, Precio_Unitario, Subtotal)
+                        VALUES (%s, %s, %s, %s, %s)
+                    """, (
+                        id_movimiento, 
+                        prod['id_producto'], 
+                        prod['cantidad'], 
+                        prod['precio'], 
+                        prod['subtotal']
+                    ))
+                    
+                    # Actualizar inventario (RESTAR cantidad)
+                    cursor.execute("""
+                        UPDATE inventario_ruta 
+                        SET Cantidad = Cantidad - %s
+                        WHERE ID_Asignacion = %s AND ID_Producto = %s
+                    """, (prod['cantidad'], id_asignacion, prod['id_producto']))
+                
+                flash('Merma registrada exitosamente', 'success')
+                return redirect(url_for('vendedor.vendedor_movimiento_detalle', id_movimiento=id_movimiento))
+                    
+        except Exception as e:
+            print(f"Error en merma: {str(e)}")
+            traceback.print_exc()
+            flash(f'Error al registrar merma: {str(e)}', 'error')
+            return redirect(url_for('vendedor.vendedor_inventario'))
+    
+    # ============================================
+    # MÉTODO GET - MOSTRAR FORMULARIO
+    # ============================================
+    try:
+        with get_db_cursor(True) as cursor:
+            # Verificar asignación
+            cursor.execute("""
+                SELECT 
+                    av.ID_Asignacion,
+                    r.Nombre_Ruta
+                FROM asignacion_vendedores av
+                LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                WHERE av.ID_Usuario = %s
+                AND av.Estado = 'Activa'
+                ORDER BY av.Fecha_Asignacion DESC
+                LIMIT 1
+            """, (current_user.id,))
+            
+            asignacion = cursor.fetchone()
+            
+            if not asignacion:
+                flash('No tienes una asignación activa para hoy', 'warning')
+                return redirect(url_for('vendedor.vendedor_inventario'))
+            
+            # Obtener inventario actual (solo productos con stock)
+            cursor.execute("""
+                SELECT 
+                    ir.ID_Producto,
+                    COALESCE(ir.Cantidad, 0) as Stock_Actual,
+                    p.COD_Producto,
+                    p.Descripcion as Nombre_Producto,
+                    COALESCE(p.Precio_Ruta, 0) as Precio_Ruta,
+                    um.Abreviatura as Unidad,
+                    c.Descripcion as Categoria
+                FROM inventario_ruta ir
+                INNER JOIN productos p ON ir.ID_Producto = p.ID_Producto
+                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                LEFT JOIN categorias_producto c ON p.ID_Categoria = c.ID_Categoria
+                WHERE ir.ID_Asignacion = %s
+                AND ir.Cantidad > 0
+                ORDER BY c.Descripcion, p.Descripcion
+            """, (asignacion['ID_Asignacion'],))
+            
+            inventario = cursor.fetchall()
+            
+            return render_template('vendedor/inventario/movimiento_merma.html',
+                                 asignacion=asignacion,
+                                 inventario=inventario,
+                                 now=datetime.now())
+                                 
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        traceback.print_exc()
+        flash(f'Error al cargar formulario: {str(e)}', 'error')
+        return redirect(url_for('vendedor.vendedor_inventario'))
+
+
+@vendedor_bp.route('/vendedor/movimientos/historial')
+@vendedor_required
+def vendedor_movimientos_historial():
+    """
+    Muestra el historial de movimientos de inventario del vendedor
+    Incluye traslados de bodega central a ruta
+    """
+    try:
+        with get_db_cursor(True) as cursor:
+            # ============================================
+            # 1. OBTENER ASIGNACION ACTIVA
+            # ============================================
+            from datetime import date
+            hoy_local = date.today()
+            cursor.execute("""
+                SELECT 
+                    av.ID_Asignacion,
+                    av.ID_Ruta,
+                    r.Nombre_Ruta,
+                    av.ID_Empresa,
+                    av.Fecha_Asignacion,
+                    av.Fecha_Finalizacion
+                FROM asignacion_vendedores av
+                LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                WHERE av.ID_Usuario = %s
+                AND av.Estado = 'Activa'
+                AND %s BETWEEN av.Fecha_Asignacion AND COALESCE(av.Fecha_Finalizacion, %s)
+                ORDER BY av.Fecha_Asignacion DESC
+                LIMIT 1
+            """, (current_user.id, hoy_local, hoy_local))
+            
+            asignacion = cursor.fetchone()
+            
+            if not asignacion:
+                flash('No tienes una asignacion activa para hoy', 'warning')
+                return redirect(url_for('vendedor.vendedor_inventario'))
+            
+            # ============================================
+            # 2. OBTENER MOVIMIENTOS (INCLUYENDO TRASLADOS)
+            # ============================================
+            cursor.execute("""
+                SELECT 
+                    mrc.ID_Movimiento,
+                    cm.Descripcion as Tipo_Movimiento,
+                    cm.Letra as Tipo_Letra,
+                    mrc.Fecha_Movimiento,
+                    mrc.Documento_Numero,
+                    CAST(COALESCE(mrc.Total_Productos, 0) AS DECIMAL(12,2)) as Total_Productos,
+                    CAST(COALESCE(mrc.Total_Subtotal, 0) AS DECIMAL(12,2)) as Total_Subtotal,
+                    COALESCE(mrc.Total_Items, 0) as Total_Items,
+                    mrc.Estado,
+                    u.NombreUsuario as Usuario_Registra,
+                    CASE 
+                        WHEN mrc.ID_TipoMovimiento = 13 THEN 'Traslado Entrada (Bodega -> Ruta)'
+                        WHEN mrc.ID_TipoMovimiento = 12 THEN 'Traslado Salida (Bodega -> Ruta)'
+                        WHEN mrc.ID_TipoMovimiento = 6 THEN 'Traslado Interno'
+                        WHEN mrc.ID_TipoMovimiento = 15 THEN 'Entrada por Carga'
+                        WHEN mrc.ID_TipoMovimiento = 7 THEN 'Merma'
+                        WHEN mrc.ID_TipoMovimiento = 11 THEN 'Devolucion Ruta'
+                        WHEN mrc.ID_TipoMovimiento = 1 THEN 'Compra'
+                        WHEN mrc.ID_TipoMovimiento = 2 THEN 'Venta'
+                        WHEN mrc.ID_TipoMovimiento = 3 THEN 'Produccion'
+                        WHEN mrc.ID_TipoMovimiento = 4 THEN 'Consumo'
+                        WHEN mrc.ID_TipoMovimiento = 5 THEN 'Ajuste Salida'
+                        WHEN mrc.ID_TipoMovimiento = 8 THEN 'Ajuste Entrada'
+                        WHEN mrc.ID_TipoMovimiento = 14 THEN 'Salida por Entrega'
+                        ELSE cm.Descripcion
+                    END as Descripcion_Detallada
+                FROM movimientos_ruta_cabecera mrc
+                INNER JOIN catalogo_movimientos cm 
+                    ON mrc.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                INNER JOIN usuarios u 
+                    ON mrc.ID_Usuario_Registra = u.ID_Usuario
+                WHERE mrc.ID_Asignacion = %s
+                    AND mrc.ID_TipoMovimiento IN (1, 2, 3, 4, 5, 6, 7, 8, 11, 12, 13, 14, 15)
+                    AND mrc.Estado = 'ACTIVO'
+                ORDER BY mrc.Fecha_Movimiento DESC
+            """, (asignacion['ID_Asignacion'],))
+            
+            movimientos = cursor.fetchall()
+            
+            # Convertir valores numericos
+            for mov in movimientos:
+                if 'Total_Productos' in mov:
+                    mov['Total_Productos'] = float(mov['Total_Productos']) if mov['Total_Productos'] else 0.0
+                if 'Total_Subtotal' in mov:
+                    mov['Total_Subtotal'] = float(mov['Total_Subtotal']) if mov['Total_Subtotal'] else 0.0
+                if 'Total_Items' in mov:
+                    mov['Total_Items'] = int(mov['Total_Items']) if mov['Total_Items'] else 0
+            
+            # ============================================
+            # 3. RESUMEN SIMPLIFICADO
+            # ============================================
+            cursor.execute("""
+                SELECT 
+                    CASE 
+                        WHEN mrc.ID_TipoMovimiento = 13 THEN 'Traslado Entrada (Bodega -> Ruta)'
+                        WHEN mrc.ID_TipoMovimiento = 12 THEN 'Traslado Salida (Bodega -> Ruta)'
+                        WHEN mrc.ID_TipoMovimiento = 6 THEN 'Traslado Interno'
+                        WHEN mrc.ID_TipoMovimiento = 15 THEN 'Entrada por Carga'
+                        WHEN mrc.ID_TipoMovimiento = 7 THEN 'Merma'
+                        WHEN mrc.ID_TipoMovimiento = 11 THEN 'Devolucion Ruta'
+                        WHEN mrc.ID_TipoMovimiento = 1 THEN 'Compra'
+                        WHEN mrc.ID_TipoMovimiento = 2 THEN 'Venta'
+                        WHEN mrc.ID_TipoMovimiento = 3 THEN 'Produccion'
+                        WHEN mrc.ID_TipoMovimiento = 4 THEN 'Consumo'
+                        WHEN mrc.ID_TipoMovimiento = 5 THEN 'Ajuste Salida'
+                        WHEN mrc.ID_TipoMovimiento = 8 THEN 'Ajuste Entrada'
+                        WHEN mrc.ID_TipoMovimiento = 14 THEN 'Salida por Entrega'
+                        ELSE cm.Descripcion
+                    END as Tipo_Movimiento,
+                    COUNT(*) as Cantidad_Movimientos,
+                    CAST(SUM(COALESCE(mrc.Total_Productos, 0)) AS DECIMAL(12,2)) as Total_Productos
+                FROM movimientos_ruta_cabecera mrc
+                INNER JOIN catalogo_movimientos cm ON mrc.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                WHERE mrc.ID_Asignacion = %s
+                AND mrc.ID_TipoMovimiento IN (1, 2, 3, 4, 5, 6, 7, 8, 11, 12, 13, 14, 15)
+                AND mrc.Estado = 'ACTIVO'
+                GROUP BY Tipo_Movimiento
+                ORDER BY Cantidad_Movimientos DESC
+            """, (asignacion['ID_Asignacion'],))
+            
+            resumen_movimientos = cursor.fetchall()
+            
+            # Convertir valores del resumen
+            for res in resumen_movimientos:
+                if 'Total_Productos' in res:
+                    res['Total_Productos'] = float(res['Total_Productos']) if res['Total_Productos'] else 0.0
+            
+            return render_template('vendedor/inventario/historial_movimientos.html',
+                                 movimientos=movimientos,
+                                 resumen_movimientos=resumen_movimientos,
+                                 asignacion=asignacion,
+                                 now=datetime.now())
+                                 
+    except Exception as e:
+        print(f"Error en vendedor_movimientos_historial: {str(e)}")
+        traceback.print_exc()
+        flash(f'Error al cargar historial: {str(e)}', 'error')
+        return redirect(url_for('vendedor.vendedor_inventario'))
+
+
+@vendedor_bp.route('/movimientos/detalle/<int:id_movimiento>')
+@vendedor_required
+def vendedor_movimiento_detalle(id_movimiento):
+    """
+    Muestra el detalle de un movimiento específico
+    """
+    try:
+        
+        # Validar que el usuario tenga ID válido
+        if not hasattr(current_user, 'id') or not current_user.id:
+            flash('Sesión inválida o usuario no identificado', 'error')
+            return redirect(url_for('vendedor.vendedor_movimientos_historial'))
+        
+        with get_db_cursor(True) as cursor:
+            from datetime import date
+            hoy_local = date.today()
+            # Obtener asignación activa del vendedor primero
+            cursor.execute("""
+                SELECT ID_Asignacion, ID_Ruta
+                FROM asignacion_vendedores 
+                WHERE ID_Usuario = %s 
+                AND Estado = 'Activa'
+                AND %s BETWEEN Fecha_Asignacion AND COALESCE(Fecha_Finalizacion, %s)
+                ORDER BY Fecha_Asignacion DESC
+                LIMIT 1
+            """, (current_user.id, hoy_local, hoy_local))
+            
+            asignacion_activa = cursor.fetchone()
+            id_asignacion_activa = asignacion_activa['ID_Asignacion'] if asignacion_activa else None
+            
+            
+            # CONSULTA PRINCIPAL CORREGIDA
+            # Primero verificamos permisos sin LEFT JOIN problemáticos
+            query_permiso = """
+                SELECT 
+                    mrc.ID_Movimiento,
+                    mrc.ID_Asignacion,
+                    mrc.ID_TipoMovimiento,
+                    mrc.ID_Usuario_Registra
+                FROM movimientos_ruta_cabecera mrc
+                WHERE mrc.ID_Movimiento = %s
+                AND mrc.Estado = 'ACTIVO'
+            """
+            
+            cursor.execute(query_permiso, (id_movimiento,))
+            movimiento_base = cursor.fetchone()
+            
+            if not movimiento_base:
+                flash(f'Movimiento #{id_movimiento} no existe o está anulado', 'error')
+                return redirect(url_for('vendedor.vendedor_movimientos_historial'))
+            
+            # Verificar permisos: 
+            # 1. El movimiento pertenece a la asignación activa del vendedor
+            # 2. O el vendedor fue quien registró el movimiento
+            tiene_permiso = False
+            
+            if movimiento_base['ID_Asignacion'] == id_asignacion_activa:
+                tiene_permiso = True
+            elif movimiento_base['ID_Usuario_Registra'] == current_user.id:
+                tiene_permiso = True
+            else:
+                # Verificar si el movimiento pertenece a alguna asignación anterior del vendedor
+                cursor.execute("""
+                    SELECT COUNT(*) as total
+                    FROM asignacion_vendedores
+                    WHERE ID_Asignacion = %s
+                    AND ID_Usuario = %s
+                """, (movimiento_base['ID_Asignacion'], current_user.id))
+                
+                asignacion_anterior = cursor.fetchone()
+                if asignacion_anterior and asignacion_anterior['total'] > 0:
+                    tiene_permiso = True
+            
+            if not tiene_permiso:
+                flash('No tienes permiso para ver este movimiento', 'error')
+                return redirect(url_for('vendedor.vendedor_movimientos_historial'))
+            
+            # Ahora obtener todos los datos del movimiento con JOINs simplificados
+            query = """
+                SELECT 
+                    mrc.ID_Movimiento,
+                    mrc.ID_Asignacion,
+                    mrc.ID_TipoMovimiento,
+                    mrc.Fecha_Movimiento,
+                    mrc.Documento_Numero,
+                    mrc.Total_Productos,
+                    mrc.Total_Items,
+                    mrc.Total_Subtotal,
+                    mrc.Estado,
+                    mrc.ID_Cliente,
+                    mrc.ID_Pedido,
+                    cm.Descripcion as Tipo_Movimiento_Desc,
+                    cm.Letra as Tipo_Letra,
+                    u.NombreUsuario as Usuario_Registra,
+                    r.Nombre_Ruta,
+                    fr.Credito_Contado,
+                    CASE 
+                        WHEN mrc.ID_TipoMovimiento = 13 THEN 'Carga de Productos'
+                        WHEN mrc.ID_TipoMovimiento = 1 THEN 'Compra'
+                        WHEN mrc.ID_TipoMovimiento = 2 THEN 'Venta'
+                        WHEN mrc.ID_TipoMovimiento = 7 THEN 'Merma'
+                        WHEN mrc.ID_TipoMovimiento = 11 THEN 'Devolución'
+                        ELSE cm.Descripcion
+                    END as Descripcion_Detallada
+                FROM movimientos_ruta_cabecera mrc
+                INNER JOIN catalogo_movimientos cm ON mrc.ID_TipoMovimiento = cm.ID_TipoMovimiento
+                INNER JOIN usuarios u ON mrc.ID_Usuario_Registra = u.ID_Usuario
+                LEFT JOIN asignacion_vendedores av ON mrc.ID_Asignacion = av.ID_Asignacion
+                LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                LEFT JOIN facturacion_ruta fr ON mrc.ID_Movimiento = fr.ID_Movimiento
+                WHERE mrc.ID_Movimiento = %s
+            """
+            
+            cursor.execute(query, (id_movimiento,))
+            movimiento = cursor.fetchone()
+            
+            if not movimiento:
+                flash('Error al cargar datos del movimiento', 'error')
+                return redirect(url_for('vendedor.vendedor_movimientos_historial'))
+            
+            # Convertir valores numéricos
+            movimiento['Total_Productos'] = float(movimiento.get('Total_Productos', 0) or 0)
+            movimiento['Total_Subtotal'] = float(movimiento.get('Total_Subtotal', 0) or 0)
+            
+            # Obtener detalles del movimiento
+            cursor.execute("""
+                SELECT 
+                    mrd.ID_Detalle,
+                    mrd.Cantidad,
+                    mrd.Precio_Unitario,
+                    mrd.Subtotal,
+                    mrd.ID_Producto,
+                    p.COD_Producto,
+                    p.Descripcion as Producto_Nombre,
+                    um.Abreviatura as Unidad_Medida
+                FROM movimientos_ruta_detalle mrd
+                INNER JOIN productos p ON mrd.ID_Producto = p.ID_Producto
+                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                WHERE mrd.ID_Movimiento = %s
+                ORDER BY mrd.ID_Detalle ASC
+            """, (id_movimiento,))
+            
+            detalles = cursor.fetchall()
+            
+            # Convertir valores numéricos en detalles
+            for detalle in detalles:
+                detalle['Cantidad'] = float(detalle['Cantidad'] or 0)
+                detalle['Precio_Unitario'] = float(detalle['Precio_Unitario'] or 0)
+                detalle['Subtotal'] = float(detalle['Subtotal'] or 0)
+            
+            
+            # Obtener información del cliente
+            cliente_info = None
+            if movimiento.get('ID_Cliente') and movimiento['ID_Cliente']:
+                cursor.execute("""
+                    SELECT ID_Cliente, Nombre, RUC_CEDULA as RUC, Direccion, Telefono
+                    FROM clientes WHERE ID_Cliente = %s
+                """, (movimiento['ID_Cliente'],))
+                cliente_info = cursor.fetchone()
+            
+            # Obtener información de la asignación
+            asignacion_info = None
+            if movimiento.get('ID_Asignacion'):
+                cursor.execute("""
+                    SELECT av.ID_Asignacion, av.Fecha_Asignacion, av.Fecha_Finalizacion,
+                           av.Estado as Estado_Asignacion, r.Nombre_Ruta, u.NombreUsuario as Vendedor_Nombre
+                    FROM asignacion_vendedores av
+                    LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                    LEFT JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+                    WHERE av.ID_Asignacion = %s
+                """, (movimiento['ID_Asignacion'],))
+                asignacion_info = cursor.fetchone()
+            
+            return render_template('vendedor/inventario/detalle_movimiento.html',
+                                 movimiento=movimiento,
+                                 detalles=detalles,
+                                 cliente_info=cliente_info,
+                                 asignacion_info=asignacion_info,
+                                 now=datetime.now())
+                                 
+    except Exception as e:
+        print(f"Error en vendedor_movimiento_detalle: {str(e)}")
+        traceback.print_exc()
+        flash(f'Error al cargar detalle del movimiento: {str(e)}', 'error')
+        return redirect(url_for('vendedor.vendedor_movimientos_historial'))
+
+
+@vendedor_bp.route('/vendedor/movimientos/carga-directa-proveedor', methods=['GET', 'POST'])
+@vendedor_required
+def vendedor_carga_directa_proveedor():
+    from datetime import datetime, timedelta
+    import os
+    from werkzeug.utils import secure_filename
+    import traceback
+    
+    id_empresa = session.get('id_empresa', 1)
+    id_usuario = current_user.id
+
+    # Constantes
+    ID_TIPO_COMPRA = 1
+    ID_TIPO_TRASLADO = 6
+    ID_TIPO_ENTRADA_CARGA = 15
+    ID_BODEGA_CENTRAL = 1
+    ID_TIPO_CUENTA_COMPRA = 1
+
+    if request.method == 'POST':
+        try:
+            # Obtener datos del formulario
+            productos = request.form.getlist('producto_id[]')
+            cantidades = request.form.getlist('cantidad[]')
+            costos_unitarios = request.form.getlist('costo_unitario[]')
+            factura_proveedor = request.form.get('factura_proveedor', '').strip()
+            id_proveedor = request.form.get('id_proveedor')
+            tipo_compra = request.form.get('tipo_compra', 'CONTADO')
+            tipo_destino = request.form.get('tipo_destino')
+            observacion = request.form.get('observacion', '')
+            
+            # Validaciones básicas
+            if not factura_proveedor:
+                flash('El número de factura del proveedor es obligatorio', 'error')
+                return redirect(url_for('vendedor.vendedor_carga_directa_proveedor'))
+            
+            if not id_proveedor:
+                flash('Debe seleccionar un proveedor', 'error')
+                return redirect(url_for('vendedor.vendedor_carga_directa_proveedor'))
+            
+            if not tipo_destino or tipo_destino not in ['RUTA', 'BODEGA']:
+                flash('Debe seleccionar el tipo de carga (Ruta o Local/Bodega)', 'error')
+                return redirect(url_for('vendedor.vendedor_carga_directa_proveedor'))
+            
+            # Validar asignación para RUTA
+            id_asignacion = None
+            if tipo_destino == 'RUTA':
+                with get_db_cursor(True) as cursor:
+                    cursor.execute("""
+                        SELECT av.ID_Asignacion, av.ID_Ruta, r.Nombre_Ruta
+                        FROM asignacion_vendedores av
+                        LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                        WHERE av.ID_Usuario = %s
+                        AND av.Estado = 'Activa'
+                        ORDER BY av.Fecha_Asignacion DESC
+                        LIMIT 1
+                    """, (id_usuario,))
+                    
+                    asignacion = cursor.fetchone()
+                    if not asignacion:
+                        flash('No tienes una asignación activa para hoy. No puedes cargar mercancía a tu ruta.', 'error')
+                        return redirect(url_for('vendedor.vendedor_inventario'))
+                    id_asignacion = asignacion['ID_Asignacion']
+            
+            # Procesar productos primero (validaciones y cálculos)
+            with get_db_cursor(True) as cursor:
+                # Verificar factura duplicada
+                cursor.execute("""
+                    SELECT COUNT(*) as total 
+                    FROM movimientos_inventario 
+                    WHERE N_Factura_Externa = %s AND ID_Proveedor = %s AND Estado != 'Anulada'
+                """, (factura_proveedor, id_proveedor))
+                
+                if cursor.fetchone()['total'] > 0:
+                    flash(f'La factura {factura_proveedor} ya fue registrada anteriormente', 'error')
+                    return redirect(url_for('vendedor.vendedor_carga_directa_proveedor'))
+                
+                # Preparar productos
+                productos_procesar = []
+                total_cantidad = 0
+                total_items = 0
+                total_costo_compra = 0
+                
+                for i in range(len(productos)):
+                    cant_val = cantidades[i] if i < len(cantidades) else None
+                    if productos[i] and cant_val and float(cant_val or 0) > 0:
+                        id_producto = int(productos[i])
+                        cantidad = float(cant_val or 0)
+                        costo = float(costos_unitarios[i] or 0) if i < len(costos_unitarios) and costos_unitarios[i] else 0.0
+                        
+                        cantidad = abs(cantidad)
+                        costo = abs(costo)
+                        
+                        cursor.execute("""
+                            SELECT ID_Producto, COALESCE(Precio_Ruta, 0) as Precio_Ruta, Descripcion 
+                            FROM productos 
+                            WHERE ID_Producto = %s AND Estado = 'activo'
+                        """, (id_producto,))
+                        
+                        producto_info = cursor.fetchone()
+                        if not producto_info:
+                            flash(f'Producto ID {id_producto} no existe o está inactivo', 'error')
+                            return redirect(url_for('vendedor.vendedor_carga_directa_proveedor'))
+                        
+                        productos_procesar.append({
+                            'id_producto': id_producto,
+                            'cantidad': cantidad,
+                            'costo': costo,
+                            'precio_ruta': float(producto_info['Precio_Ruta'] or 0.0),
+                            'descripcion': producto_info['Descripcion']
+                        })
+                        total_cantidad += cantidad
+                        total_items += 1
+                        total_costo_compra += cantidad * costo
+                
+                if not productos_procesar:
+                    flash('Debe agregar al menos un producto', 'error')
+                    return redirect(url_for('vendedor.vendedor_carga_directa_proveedor'))
+            
+            # ============================================
+            # PASO 1: REGISTRAR COMPRA Y ACTUALIZAR INVENTARIO
+            # ============================================
+            id_movimiento_entrada = None
+            with get_db_cursor(commit=True) as cursor:
+                try:
+                    # Si el destino es BODEGA, el movimiento se guarda como 'Pendiente'
+                    # hasta que el encargado de bodega confirme la recepción física
+                    estado_movimiento = 'Pendiente' if tipo_destino == 'BODEGA' else 'Activa'
+                    
+                    # Insertar compra
+                    cursor.execute("""
+                        INSERT INTO movimientos_inventario 
+                        (ID_TipoMovimiento, N_Factura_Externa, Fecha, ID_Proveedor, 
+                         Tipo_Compra, Observacion, ID_Empresa, ID_Bodega, 
+                         ID_Usuario_Creacion, Estado)
+                        VALUES (%s, %s, CURDATE(), %s, %s, %s, %s, %s, %s, %s)
+                    """, (ID_TIPO_COMPRA, factura_proveedor, id_proveedor, tipo_compra,
+                          f'CARGA DIRECTA - Tipo: {tipo_destino} - {observacion}'[:500],
+                          id_empresa, ID_BODEGA_CENTRAL, id_usuario, estado_movimiento))
+                    
+                    id_movimiento_entrada = cursor.lastrowid
+                    
+                    # Detalle de compra
+                    for prod in productos_procesar:
+                        subtotal = prod['cantidad'] * prod['costo']
+                        cursor.execute("""
+                            INSERT INTO detalle_movimientos_inventario
+                            (ID_Movimiento, ID_Producto, Cantidad, Costo_Unitario, Subtotal, ID_Usuario_Creacion)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                        """, (id_movimiento_entrada, prod['id_producto'], prod['cantidad'], 
+                              prod['costo'], subtotal, id_usuario))
+                    
+                    # ACTUALIZAR INVENTARIO DE BODEGA (SUMA) SOLO SI NO ES BODEGA PENDIENTE DE RECEPCIÓN
+                    # (Si es BODEGA, la bodega actualizará las existencias reales al recibir la carga)
+                    if tipo_destino != 'BODEGA':
+                        for prod in productos_procesar:
+                            cursor.execute("""
+                                INSERT INTO inventario_bodega (ID_Bodega, ID_Producto, Existencias)
+                                VALUES (%s, %s, %s)
+                                ON DUPLICATE KEY UPDATE Existencias = Existencias + VALUES(Existencias)
+                            """, (ID_BODEGA_CENTRAL, prod['id_producto'], prod['cantidad']))
+                    
+                    # Cuenta por pagar si es crédito
+                    if tipo_compra == 'CREDITO':
+                        cursor.execute("""
+                            INSERT INTO cuentas_por_pagar 
+                            (ID_Movimiento, Fecha, ID_Proveedor, Num_Documento, 
+                             Observacion, Fecha_Vencimiento, Tipo_Movimiento, 
+                             Monto_Movimiento, ID_Empresa, Saldo_Pendiente, 
+                             ID_Usuario_Creacion, Estado)
+                            VALUES (%s, CURDATE(), %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente')
+                        """, (
+                            id_movimiento_entrada,
+                            id_proveedor,
+                            factura_proveedor,
+                            f'Compra a crédito - Tipo: {tipo_destino} - Factura: {factura_proveedor}'[:500],
+                            None,
+                            ID_TIPO_CUENTA_COMPRA,
+                            total_costo_compra,
+                            id_empresa,
+                            total_costo_compra,
+                            id_usuario
+                        ))
+                        
+                        cursor.execute("""
+                            UPDATE proveedores 
+                            SET Saldo_Pendiente = COALESCE(Saldo_Pendiente, 0) + %s
+                            WHERE ID_Proveedor = %s
+                        """, (total_costo_compra, id_proveedor))
+                    
+                    # Guardar foto de factura
+                    if 'foto_factura' in request.files:
+                        foto = request.files['foto_factura']
+                        if foto and foto.filename != '':
+                            upload_folder = os.path.join('static', 'uploads', 'facturas')
+                            os.makedirs(upload_folder, exist_ok=True)
+                            
+                            extension = foto.filename.rsplit('.', 1)[1].lower() if '.' in foto.filename else 'jpg'
+                            nombre_archivo = f"factura_{id_movimiento_entrada}_{factura_proveedor}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{extension}"
+                            nombre_archivo = secure_filename(nombre_archivo)
+                            
+                            ruta_completa = os.path.join(upload_folder, nombre_archivo)
+                            foto.save(ruta_completa)
+                            
+                            ruta_factura = f'uploads/facturas/{nombre_archivo}'
+                            
+                            cursor.execute("""
+                                UPDATE movimientos_inventario 
+                                SET Observacion = CONCAT(Observacion, ' | Factura: ', %s)
+                                WHERE ID_Movimiento = %s
+                            """, (ruta_factura, id_movimiento_entrada))
+                    
+                    # Si es BODEGA, crear carga pendiente y terminar
+                    if tipo_destino == 'BODEGA':
+                        cursor.execute("""
+                            INSERT INTO cargas_pendientes_recepcion
+                            (ID_Movimiento, ID_Proveedor, Num_Factura, Fecha_Carga, 
+                             ID_Usuario_Carga, Estado, Observaciones)
+                            VALUES (%s, %s, %s, CURDATE(), %s, 'PENDIENTE', %s)
+                        """, (id_movimiento_entrada, id_proveedor, factura_proveedor, 
+                              id_usuario, f'Carga pendiente de recepción en bodega - {observacion}'[:500]))
+                        
+                        id_carga_pendiente = cursor.lastrowid
+                        
+                        for prod in productos_procesar:
+                            cursor.execute("""
+                                INSERT INTO cargas_pendientes_detalle
+                                (ID_Carga, ID_Producto, Cantidad_Cargada, Costo_Unitario)
+                                VALUES (%s, %s, %s, %s)
+                            """, (id_carga_pendiente, prod['id_producto'], prod['cantidad'], prod['costo']))
+                        
+                        flash(f'✅ CARGA A BODEGA registrada. Pendiente de recepción por el encargado de bodega. Factura: {factura_proveedor}', 'success')
+                        return redirect(url_for('vendedor.vendedor_inventario'))
+                    
+                except Exception as e:
+                    print(f"❌ Error en compra: {str(e)}")
+                    traceback.print_exc()
+                    raise e
+            
+            # ============================================
+            # PASO 2: PROCESAR TRASLADO A RUTA
+            # ============================================
+            if tipo_destino == 'RUTA':
+                with get_db_cursor(commit=True) as cursor:
+                    try:
+                        # VERIFICAR STOCK DISPONIBLE (DESPUÉS DE LA COMPRA)
+                        for prod in productos_procesar:
+                            cursor.execute("""
+                                SELECT Existencias FROM inventario_bodega 
+                                WHERE ID_Bodega = %s AND ID_Producto = %s
+                            """, (ID_BODEGA_CENTRAL, prod['id_producto']))
+                            existencias = cursor.fetchone()
+                            
+                            stock_actual = existencias['Existencias'] if existencias else 0
+                            
+                            if not existencias or existencias['Existencias'] < prod['cantidad']:
+                                flash(f'⚠️ STOCK INSUFICIENTE en bodega para trasladar {prod["descripcion"]}. Disponible: {stock_actual}, Requerido: {prod["cantidad"]}', 'error')
+                                return redirect(url_for('vendedor.vendedor_inventario'))
+                        
+                        # REGISTRAR TRASLADO (SALIDA DE BODEGA)
+                        cursor.execute("""
+                            INSERT INTO movimientos_inventario 
+                            (ID_TipoMovimiento, Fecha, Observacion, ID_Empresa, ID_Bodega, 
+                             ID_Bodega_Destino, ID_Pedido_Origen, ID_Usuario_Creacion, Estado)
+                            VALUES (%s, CURDATE(), %s, %s, %s, %s, %s, %s, %s)
+                        """, (
+                            ID_TIPO_TRASLADO,
+                            f'TRASLADO A RUTA - Asignacion: {id_asignacion} - Factura: {factura_proveedor}'[:500],
+                            id_empresa,
+                            ID_BODEGA_CENTRAL,
+                            None,
+                            None,
+                            id_usuario,
+                            'Activa'
+                        ))
+                        
+                        id_movimiento_salida = cursor.lastrowid
+                        
+                        # DETALLE DEL TRASLADO
+                        for prod in productos_procesar:
+                            subtotal_salida = prod['cantidad'] * prod['costo']
+                            cursor.execute("""
+                                INSERT INTO detalle_movimientos_inventario
+                                (ID_Movimiento, ID_Producto, Cantidad, Costo_Unitario, Subtotal, ID_Usuario_Creacion)
+                                VALUES (%s, %s, %s, %s, %s, %s)
+                            """, (id_movimiento_salida, prod['id_producto'], prod['cantidad'], 
+                                  prod['costo'], subtotal_salida, id_usuario))
+                        
+                        # RESTAR DE BODEGA
+                        for prod in productos_procesar:
+                            cursor.execute("""
+                                UPDATE inventario_bodega 
+                                SET Existencias = Existencias - %s
+                                WHERE ID_Bodega = %s AND ID_Producto = %s
+                            """, (prod['cantidad'], ID_BODEGA_CENTRAL, prod['id_producto']))
+                            
+                            # Verificar que no quede negativo
+                            cursor.execute("""
+                                SELECT Existencias FROM inventario_bodega 
+                                WHERE ID_Bodega = %s AND ID_Producto = %s
+                            """, (ID_BODEGA_CENTRAL, prod['id_producto']))
+                            existencias_final = cursor.fetchone()
+                            
+                            if existencias_final['Existencias'] < 0:
+                                flash(f'ERROR CRÍTICO: Stock negativo en bodega para producto {prod["descripcion"]}', 'error')
+                                return redirect(url_for('vendedor.vendedor_inventario'))
+                        
+                        # REGISTRAR ENTRADA A RUTA
+                        total_subtotal_venta = sum(p['cantidad'] * p['precio_ruta'] for p in productos_procesar)
+                        
+                        cursor.execute("""
+                            INSERT INTO movimientos_ruta_cabecera 
+                            (ID_Asignacion, ID_TipoMovimiento, ID_Usuario_Registra, 
+                             Documento_Numero, Total_Productos, Total_Items, Total_Subtotal,
+                             ID_Empresa, Estado, Fecha_Movimiento)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """, (id_asignacion, ID_TIPO_ENTRADA_CARGA, id_usuario, factura_proveedor,
+                              total_cantidad, total_items, total_subtotal_venta, id_empresa, 'ACTIVO', datetime.now()))
+                        
+                        id_movimiento_ruta = cursor.lastrowid
+                        
+                        # DETALLE DE RUTA
+                        for prod in productos_procesar:
+                            subtotal = prod['cantidad'] * prod['precio_ruta']
+                            cursor.execute("""
+                                INSERT INTO movimientos_ruta_detalle
+                                (ID_Movimiento, ID_Producto, Cantidad, Precio_Unitario, 
+                                 Subtotal, ID_Movimiento_Origen)
+                                VALUES (%s, %s, %s, %s, %s, %s)
+                            """, (id_movimiento_ruta, prod['id_producto'], prod['cantidad'],
+                                  prod['precio_ruta'], subtotal, id_movimiento_salida))
+                        
+                        # ACTUALIZAR INVENTARIO DE RUTA
+                        for prod in productos_procesar:
+                            cursor.execute("""
+                                INSERT INTO inventario_ruta (ID_Asignacion, ID_Producto, Cantidad)
+                                VALUES (%s, %s, %s)
+                                ON DUPLICATE KEY UPDATE Cantidad = Cantidad + VALUES(Cantidad)
+                            """, (id_asignacion, prod['id_producto'], prod['cantidad']))
+                            
+                            # VERIFICAR INVENTARIO DE RUTA
+                            cursor.execute("""
+                                SELECT Cantidad FROM inventario_ruta 
+                                WHERE ID_Asignacion = %s AND ID_Producto = %s
+                            """, (id_asignacion, prod['id_producto']))
+                            ruta_inventario = cursor.fetchone()
+                            
+                            if ruta_inventario['Cantidad'] < 0:
+                                flash(f'ERROR: Inventario de ruta negativo para producto {prod["descripcion"]}', 'error')
+                                return redirect(url_for('vendedor.vendedor_inventario'))
+                        
+                        flash(f'✅ CARGA A RUTA registrada exitosamente. Stock disponible en tu ruta para venta inmediata. Factura: {factura_proveedor}', 'success')
+                        return redirect(url_for('vendedor.vendedor_movimiento_detalle', id_movimiento=id_movimiento_ruta))
+                        
+                    except Exception as e:
+                        print(f"❌ Error en traslado: {str(e)}")
+                        traceback.print_exc()
+                        # La compra YA está registrada, solo notificar
+                        flash(f'⚠️ COMPRA REGISTRADA (ID: {id_movimiento_entrada}) pero el TRASLADO falló: {str(e)}. La compra queda registrada en bodega central.', 'warning')
+                        return redirect(url_for('vendedor.vendedor_inventario'))
+                    
+        except Exception as e:
+            print(f"Error en carga directa: {str(e)}")
+            traceback.print_exc()
+            flash(f'Error al procesar la carga directa: {str(e)}', 'error')
+            return redirect(url_for('vendedor.vendedor_inventario'))
+    
+    # MÉTODO GET
+    try:
+        with get_db_cursor(True) as cursor:
+            cursor.execute("""
+                SELECT ID_Proveedor, Nombre 
+                FROM proveedores 
+                WHERE Estado = 'ACTIVO' AND ID_Empresa = %s 
+                ORDER BY Nombre
+            """, (id_empresa,))
+            proveedores = cursor.fetchall()
+            
+            cursor.execute("""
+                SELECT 
+                    p.ID_Producto as id,
+                    p.COD_Producto as codigo,
+                    p.Descripcion as nombre,
+                    IFNULL(p.Precio_Ruta, 0) as precio_ruta,
+                    IFNULL(um.Abreviatura, 'PZA') as unidad
+                FROM productos p
+                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                WHERE p.Estado = 'activo' AND p.ID_Empresa = %s
+                ORDER BY p.Descripcion
+            """, (id_empresa,))
+            productos = cursor.fetchall()
+            
+            cursor.execute("""
+                SELECT COUNT(*) as total
+                FROM asignacion_vendedores
+                WHERE ID_Usuario = %s AND Estado = 'Activa'
+            """, (current_user.id,))
+            tiene_asignacion = cursor.fetchone()['total'] > 0
+            
+            return render_template('vendedor/inventario/carga_directa_proveedor.html',
+                                 proveedores=proveedores,
+                                 productos=productos,
+                                 tiene_asignacion=tiene_asignacion,
+                                 now=datetime.now())
+                                 
+    except Exception as e:
+        print(f"Error en GET carga directa: {str(e)}")
+        traceback.print_exc()
+        flash(f'Error al cargar el formulario: {str(e)}', 'error')
+        return redirect(url_for('vendedor.vendedor_inventario'))
+
+
+def agrupar_abonos_cierre(abonos_raw):
+    """
+    Agrupa los abonos de abonos_detalle por transacción/cobro individual
+    para que si un pago se distribuyó entre varias facturas (o saldo manual),
+    se muestre como un único abono consolidado con su monto total en el cierre.
+    """
+    from collections import OrderedDict
+    grouped_dict = OrderedDict()
+    
+    for a in abonos_raw:
+        id_mov_caja = a.get('ID_Movimiento_Caja')
+        if id_mov_caja:
+            # Pagos en efectivo: un único movimiento de caja agrupa todos los desgloses
+            key = ('caja', id_mov_caja)
+        else:
+            # Pagos no-efectivo (transferencia, cheque, etc.): agrupamos por cliente, fecha y método
+            fecha_val = a.get('Fecha')
+            fecha_str = fecha_val.strftime('%Y-%m-%d %H:%M:%S') if hasattr(fecha_val, 'strftime') else str(fecha_val or '')
+            key = ('nocaja', a.get('ID_Cliente'), fecha_str, a.get('MetodoPago'))
+            
+        if key not in grouped_dict:
+            grouped_dict[key] = {
+                'ID_Detalle': a.get('ID_Detalle'),
+                'ID_Movimiento_Caja': id_mov_caja,
+                'ID_Cliente': a.get('ID_Cliente'),
+                'Cliente': a.get('Cliente') or 'Consumidor',
+                'MetodoPago': a.get('MetodoPago') or 'Efectivo',
+                'ID_MetodoPago': a.get('ID_MetodoPago'),
+                'Fecha': a.get('Fecha'),
+                'Monto_Aplicado': 0.0,
+                'Documentos_List': []
+            }
+            
+        grouped_dict[key]['Monto_Aplicado'] += float(a.get('Monto_Aplicado') or 0)
+        doc = a.get('Num_Documento')
+        if doc and doc not in grouped_dict[key]['Documentos_List']:
+            grouped_dict[key]['Documentos_List'].append(doc)
+            
+    abonos_agrupados = []
+    for g in grouped_dict.values():
+        docs = g.pop('Documentos_List')
+        g['Num_Documento'] = ', '.join(docs) if docs else 'Saldo Inicial/Manual'
+        abonos_agrupados.append(g)
+        
+    return abonos_agrupados
+
+
+@vendedor_bp.route('/vendedor/movimientos/pdf_cierre/<int:id_asignacion>')
+@vendedor_required
+def vendedor_pdf_cierre(id_asignacion):
+    """Genera un reporte PDF detallado del cierre de jornada para el vendedor"""
+    try:
+        import io
+        from flask import make_response
+        from reportlab.lib.pagesizes import letter
+        from reportlab.lib import colors
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        
+        with get_db_cursor(True) as cursor:
+            # 1. Obtener datos de la asignación
+            cursor.execute("""
+                SELECT av.ID_Asignacion, av.Fecha_Asignacion, av.Hora_Inicio, av.Hora_Fin, av.Estado,
+                       u.NombreUsuario as Vendedor, r.Nombre_Ruta as Ruta, av.ID_Usuario,
+                       v.Placa, v.Marca, v.Modelo
+                FROM asignacion_vendedores av
+                INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+                INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                LEFT JOIN vehiculos v ON av.ID_Vehiculo = v.ID_Vehiculo
+                WHERE av.ID_Asignacion = %s
+            """, (id_asignacion,))
+            asignacion = cursor.fetchone()
+            
+            if not asignacion:
+                flash('Asignación no encontrada', 'error')
+                return redirect(url_for('vendedor.vendedor_dashboard'))
+                
+            vendedor_id = asignacion['ID_Usuario']
+            fecha_ruta = asignacion['Fecha_Asignacion']
+
+            # 2. Obtener movimientos de caja de la asignación
+            cursor.execute("""
+                SELECT Tipo, Concepto, Monto, Saldo_Acumulado, Fecha
+                FROM movimientos_caja_ruta
+                WHERE ID_Asignacion = %s AND Estado = 'ACTIVO'
+                ORDER BY ID_Movimiento ASC
+            """, (id_asignacion,))
+            movimientos_caja = cursor.fetchall()
+            
+            # 3. Obtener facturas/ventas realizadas en la asignación
+            cursor.execute("""
+                SELECT fr.ID_FacturaRuta, fr.Fecha, fr.Credito_Contado, fr.ID_MetodoPago,
+                       c.Nombre as Cliente, fr.Observacion,
+                       COALESCE(mp.Nombre, 'Efectivo') as MetodoPago,
+                       (SELECT COALESCE(SUM(Cantidad*Precio), 0) 
+                        FROM detalle_facturacion_ruta 
+                        WHERE ID_FacturaRuta = fr.ID_FacturaRuta) as Total
+                FROM facturacion_ruta fr
+                LEFT JOIN clientes c ON fr.ID_Cliente = c.ID_Cliente
+                LEFT JOIN metodos_pago mp ON fr.ID_MetodoPago = mp.ID_MetodoPago
+                WHERE fr.ID_Asignacion = %s AND fr.Estado = 'Activa'
+                ORDER BY fr.ID_FacturaRuta ASC
+            """, (id_asignacion,))
+            ventas = cursor.fetchall()
+            
+            # 4. Obtener abonos recibidos en la asignación (agrupados por cobro/transacción)
+            cursor.execute("""
+                SELECT ad.ID_Detalle, ad.Monto_Aplicado, ad.Saldo_Anterior, ad.Saldo_Nuevo,
+                       c.Nombre as Cliente, COALESCE(mp.Nombre, 'Efectivo') as MetodoPago,
+                       COALESCE(cxc.Num_Documento, 'Saldo Inicial/Manual') as Num_Documento,
+                       ad.Fecha, ad.ID_Movimiento_Caja, ad.ID_Cliente, ad.ID_MetodoPago
+                FROM abonos_detalle ad
+                LEFT JOIN clientes c ON ad.ID_Cliente = c.ID_Cliente
+                LEFT JOIN metodos_pago mp ON ad.ID_MetodoPago = mp.ID_MetodoPago
+                LEFT JOIN cuentas_por_cobrar cxc ON ad.ID_CuentaCobrar = cxc.ID_Movimiento
+                WHERE ad.ID_Asignacion = %s
+                ORDER BY ad.ID_Detalle ASC
+            """, (id_asignacion,))
+            abonos_raw = cursor.fetchall()
+            abonos = agrupar_abonos_cierre(abonos_raw)
+            
+            # 5. Obtener devoluciones y mermas en la asignación
+            cursor.execute("""
+                SELECT mrc.Documento_Numero, mrc.Fecha_Movimiento, mrc.ID_TipoMovimiento,
+                       p.Descripcion as Producto, mrd.Cantidad, mrd.Precio_Unitario, mrd.Subtotal
+                FROM movimientos_ruta_cabecera mrc
+                INNER JOIN movimientos_ruta_detalle mrd ON mrc.ID_Movimiento = mrd.ID_Movimiento
+                INNER JOIN productos p ON mrd.ID_Producto = p.ID_Producto
+                WHERE mrc.ID_Asignacion = %s 
+                  AND mrc.ID_TipoMovimiento IN (7, 11)
+                  AND mrc.Estado = 'ACTIVO'
+                ORDER BY mrc.Fecha_Movimiento ASC
+            """, (id_asignacion,))
+            devoluciones_mermas = cursor.fetchall()
+
+            # 6. Verificar si ya se registró traslado/consolidado a caja central
+            cursor.execute("""
+                SELECT Monto, Descripcion 
+                FROM caja_movimientos 
+                WHERE Referencia_Documento IN (%s, %s) AND Estado = 'ACTIVO'
+                LIMIT 1
+            """, (f"RUTA-{id_asignacion}", f"RUT-LIQ-{id_asignacion}"))
+            consolidado = cursor.fetchone()
+            
+        # Calcular resúmenes de caja
+        apertura = 0.0
+        cierre = 0.0
+        caja_cerrada = False
+        ventas_contado_monto = 0.0
+        abonos_monto = 0.0
+        gastos_monto = 0.0
+        concepto_cierre = ""
+        
+        for mov in movimientos_caja:
+            if mov['Tipo'] == 'APERTURA':
+                apertura = float(mov['Monto'] or 0)
+            elif mov['Tipo'] == 'CIERRE':
+                cierre = float(mov['Monto'] or 0)
+                caja_cerrada = True
+                concepto_cierre = mov['Concepto'] or ""
+            elif mov['Tipo'] == 'GASTO':
+                gastos_monto += float(mov['Monto'] or 0)
+                
+        # Si se liquidó a caja central y no se había registrado un CIERRE explícito, tomar el consolidado
+        if consolidado and not caja_cerrada:
+            cierre = float(consolidado['Monto'] or 0)
+            caja_cerrada = True
+            if not concepto_cierre:
+                concepto_cierre = consolidado.get('Descripcion') or f"Consolidado entregado: C$ {cierre:,.2f}"
+
+        # Calcular montos directamente desde las transacciones reales para evitar inconsistencias
+        ventas_contado_monto = sum(float(v['Total'] or 0) for v in ventas if v['Credito_Contado'] == 1)
+        ventas_contado_efectivo = sum(float(v['Total'] or 0) for v in ventas if v['Credito_Contado'] == 1 and (v.get('ID_MetodoPago') == 1 or not v.get('ID_MetodoPago') or v.get('MetodoPago') == 'Efectivo'))
+        ventas_contado_otros = sum(float(v['Total'] or 0) for v in ventas if v['Credito_Contado'] == 1 and v.get('ID_MetodoPago') and v.get('ID_MetodoPago') != 1)
+
+        abonos_monto = sum(float(a['Monto_Aplicado'] or 0) for a in abonos)
+        abonos_efectivo_monto = sum(float(a['Monto_Aplicado'] or 0) for a in abonos if a['MetodoPago'] == 'Efectivo')
+        abonos_otros_monto = sum(float(a['Monto_Aplicado'] or 0) for a in abonos if a['MetodoPago'] != 'Efectivo')
+
+        # Extraer gastos individuales de caja ruta
+        gastos = [mov for mov in movimientos_caja if mov['Tipo'] == 'GASTO']
+
+        # El saldo esperado de caja física (efectivo) es:
+        # apertura + ventas_contado_efectivo + abonos_efectivo_monto - gastos_monto
+        efectivo_esperado = round(apertura + ventas_contado_efectivo + abonos_efectivo_monto - gastos_monto, 2)
+        
+        saldo_esperado = round(apertura + ventas_contado_monto + abonos_monto - gastos_monto, 2)
+        diferencia = round(cierre - efectivo_esperado, 2) if caja_cerrada else 0.0
+        
+        # ReportLab setup
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(
+            buffer, 
+            pagesize=letter,
+            rightMargin=36, 
+            leftMargin=36, 
+            topMargin=36, 
+            bottomMargin=36
+        )
+        
+        story = []
+        styles = getSampleStyleSheet()
+        
+        # Custom styles
+        title_style = ParagraphStyle(
+            'PdfTitle',
+            parent=styles['Heading1'],
+            fontName='Helvetica-Bold',
+            fontSize=16,
+            textColor=colors.HexColor('#1b5e20'),
+            spaceAfter=4
+        )
+        subtitle_style = ParagraphStyle(
+            'PdfSubTitle',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=9,
+            textColor=colors.HexColor('#475569'),
+            spaceAfter=15
+        )
+        section_style = ParagraphStyle(
+            'PdfSection',
+            parent=styles['Heading2'],
+            fontName='Helvetica-Bold',
+            fontSize=11,
+            textColor=colors.HexColor('#1b5e20'),
+            spaceBefore=12,
+            spaceAfter=5
+        )
+        cell_style = ParagraphStyle(
+            'PdfCell',
+            parent=styles['Normal'],
+            fontName='Helvetica',
+            fontSize=8,
+            leading=10
+        )
+        cell_bold_style = ParagraphStyle(
+            'PdfCellBold',
+            parent=cell_style,
+            fontName='Helvetica-Bold'
+        )
+        cell_right_style = ParagraphStyle(
+            'PdfCellRight',
+            parent=cell_style,
+            alignment=2
+        )
+        cell_center_style = ParagraphStyle(
+            'PdfCellCenter',
+            parent=cell_style,
+            alignment=1
+        )
+        
+        # Header info
+        story.append(Paragraph("REPORTE DE LIQUIDACIÓN Y CIERRE DE JORNADA", title_style))
+        story.append(Paragraph(f"Vendedor: {asignacion['Vendedor']} | Ruta: {asignacion['Ruta']} | Fecha: {asignacion['Fecha_Asignacion'].strftime('%d/%m/%Y')} | Estado: {asignacion['Estado']}", subtitle_style))
+        
+        # Asignacion & Vehiculo Info
+        story.append(Paragraph("DATOS GENERALES DE LA RUTA", section_style))
+        vehiculo_str = f"{asignacion['Marca'] or ''} {asignacion['Modelo'] or ''} (Placa: {asignacion['Placa'] or 'N/A'})" if asignacion['Placa'] else "Sin vehículo asignado"
+        datos_ruta = [
+            [Paragraph("Vendedor:", cell_bold_style), Paragraph(str(asignacion['Vendedor']), cell_style), Paragraph("Vehículo:", cell_bold_style), Paragraph(vehiculo_str, cell_style)],
+            [Paragraph("Hora Inicio:", cell_bold_style), Paragraph(str(asignacion['Hora_Inicio'] or 'N/A'), cell_style), Paragraph("Hora Cierre:", cell_bold_style), Paragraph(str(asignacion['Hora_Fin'] or 'N/A'), cell_style)]
+        ]
+        t_datos = Table(datos_ruta, colWidths=[80, 190, 80, 190])
+        t_datos.setStyle(TableStyle([
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#cbd5e1')),
+            ('PADDING', (0,0), (-1,-1), 4),
+            ('BACKGROUND', (0,0), (0,-1), colors.HexColor('#f8fafc')),
+            ('BACKGROUND', (2,0), (2,-1), colors.HexColor('#f8fafc')),
+        ]))
+        story.append(t_datos)
+        story.append(Spacer(1, 10))
+        
+        # Resumen Financiero de Caja Física
+        story.append(Paragraph("RESUMEN DE CAJA FÍSICA (EFECTIVO Y GASTOS)", section_style))
+        resumen_data = [
+            [Paragraph("Concepto", cell_bold_style), Paragraph("Cálculo", cell_bold_style), Paragraph("Monto (C$)", cell_bold_style)],
+            [Paragraph("Apertura de Caja", cell_style), Paragraph("Monto inicial de apertura", cell_style), Paragraph(f"C$ {apertura:,.2f}", cell_right_style)],
+            [Paragraph("Ventas al Contado (Efectivo)", cell_style), Paragraph("(+) Ingresos por ventas en efectivo físico", cell_style), Paragraph(f"C$ {ventas_contado_efectivo:,.2f}", cell_right_style)],
+            [Paragraph("Abonos de Clientes (Efectivo)", cell_style), Paragraph("(+) Ingresos por cobros en efectivo físico", cell_style), Paragraph(f"C$ {abonos_efectivo_monto:,.2f}", cell_right_style)],
+            [Paragraph("Gastos de Ruta", cell_style), Paragraph("(-) Salidas de caja reportadas", cell_style), Paragraph(f"C$ {gastos_monto:,.2f}", cell_right_style)],
+            [Paragraph("Efectivo de Caja Esperado", cell_bold_style), Paragraph("Apertura + Ventas Efec. + Abonos Efec. - Gastos", cell_bold_style), Paragraph(f"C$ {efectivo_esperado:,.2f}", ParagraphStyle('RightBold', parent=cell_right_style, fontName='Helvetica-Bold'))],
+            [Paragraph("Efectivo de Cierre Real", cell_bold_style), Paragraph("Monto real entregado por vendedor", cell_bold_style), Paragraph(f"C$ {cierre:,.2f}" if caja_cerrada else "PENDIENTE", ParagraphStyle('RightBold', parent=cell_right_style, fontName='Helvetica-Bold'))],
+            [Paragraph("Diferencia de Efectivo", cell_bold_style), Paragraph("Real - Esperado", cell_bold_style), Paragraph(f"C$ {diferencia:,.2f}" if caja_cerrada else "N/A", ParagraphStyle('RightBold', parent=cell_right_style, fontName='Helvetica-Bold', textColor=colors.HexColor('#006600') if diferencia >= 0 else colors.HexColor('#cc0000')))],
+            [Paragraph("Validación de Caja", cell_bold_style), Paragraph("Comparación: Esperado vs Real", cell_bold_style), Paragraph("<b>CUADRADA (Sin diferencia)</b>" if (caja_cerrada and abs(diferencia) <= 0.01) else (f"<b>SOBRANTE (+ C$ {diferencia:,.2f})</b>" if (caja_cerrada and diferencia > 0.01) else (f"<b>FALTANTE (- C$ {abs(diferencia):,.2f})</b>" if caja_cerrada else "<b>PENDIENTE ARQUEO</b>")), ParagraphStyle('ValStyle', parent=cell_right_style, fontName='Helvetica-Bold', textColor=colors.HexColor('#006600') if (caja_cerrada and diferencia >= -0.01) else (colors.HexColor('#cc0000') if caja_cerrada else colors.HexColor('#64748b'))))]
+        ]
+        t_resumen = Table(resumen_data, colWidths=[150, 250, 140])
+        t_resumen.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#e2e8f0')),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#cbd5e1')),
+            ('PADDING', (0,0), (-1,-1), 4),
+            ('BACKGROUND', (0,5), (-1,5), colors.HexColor('#f1f5f9')),
+            ('BACKGROUND', (0,6), (-1,6), colors.HexColor('#e2e8f0')),
+            ('BACKGROUND', (0,7), (-1,7), colors.HexColor('#fee2e2') if diferencia < -0.01 else (colors.HexColor('#dcfce7') if diferencia > 0.01 else colors.white)),
+            ('BACKGROUND', (0,8), (-1,8), colors.HexColor('#fee2e2') if (caja_cerrada and diferencia < -0.01) else (colors.HexColor('#dcfce7') if (caja_cerrada and diferencia > 0.01) else colors.HexColor('#f8fafc'))),
+        ]))
+        story.append(t_resumen)
+        if concepto_cierre:
+            story.append(Spacer(1, 4))
+            story.append(Paragraph(f"<b>Detalles Cierre:</b> {concepto_cierre}", ParagraphStyle('CierreNote', parent=cell_style, textColor=colors.HexColor('#475569'))))
+        
+        # Movimientos Digitales (si existen transferencias o pagos digitales)
+        if ventas_contado_otros > 0 or abonos_otros_monto > 0:
+            story.append(Spacer(1, 6))
+            story.append(Paragraph("MOVIMIENTOS DIGITALES (NO REGISTRADOS EN CAJA FÍSICA)", section_style))
+            dig_data = [
+                [Paragraph("Concepto", cell_bold_style), Paragraph("Detalle", cell_bold_style), Paragraph("Monto (C$)", cell_bold_style)]
+            ]
+            if ventas_contado_otros > 0:
+                dig_data.append([
+                    Paragraph("Ventas por Transferencia / Otros", cell_style),
+                    Paragraph("Ingresos directos a banco / cuentas digitales", cell_style),
+                    Paragraph(f"C$ {ventas_contado_otros:,.2f}", cell_right_style)
+                ])
+            if abonos_otros_monto > 0:
+                dig_data.append([
+                    Paragraph("Abonos por Transferencia / Otros", cell_style),
+                    Paragraph("Cobros recibidos por transferencia / medios digitales", cell_style),
+                    Paragraph(f"C$ {abonos_otros_monto:,.2f}", cell_right_style)
+                ])
+            dig_data.append([
+                Paragraph("<b>Total Ingresos Digitales</b>", cell_bold_style),
+                Paragraph("Total recibido en medios digitales", cell_bold_style),
+                Paragraph(f"<b>C$ {(ventas_contado_otros + abonos_otros_monto):,.2f}</b>", ParagraphStyle('RightBoldDig', parent=cell_right_style, fontName='Helvetica-Bold'))
+            ])
+            t_dig = Table(dig_data, colWidths=[150, 250, 140])
+            t_dig.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#e2e8f0')),
+                ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#cbd5e1')),
+                ('PADDING', (0,0), (-1,-1), 4),
+                ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#f1f5f9')),
+            ]))
+            story.append(t_dig)
+
+        story.append(Spacer(1, 10))
+        
+        # Ventas Realizadas (Facturas)
+        story.append(Paragraph("DETALLE DE VENTAS REALIZADAS", section_style))
+        ventas_headers = ["Factura ID", "Fecha", "Cliente", "Condición", "Total Venta"]
+        t_ventas_data = [[Paragraph(h, cell_bold_style) for h in ventas_headers]]
+        total_ventas_monto = 0.0
+        
+        for v in ventas:
+            if v['Credito_Contado'] == 1:
+                tipo = f"Contado ({v.get('MetodoPago', 'Efectivo')})"
+            else:
+                tipo = "Crédito"
+            total_fact = float(v['Total'] or 0)
+            total_ventas_monto += total_fact
+            t_ventas_data.append([
+                Paragraph(f"R-{v['ID_FacturaRuta']:06d}", cell_style),
+                Paragraph(v['Fecha'].strftime('%d/%m/%Y'), cell_style),
+                Paragraph(v['Cliente'] or 'Consumidor Final', cell_style),
+                Paragraph(tipo, cell_style),
+                Paragraph(f"C$ {total_fact:,.2f}", cell_right_style)
+            ])
+            
+        t_ventas_data.append([
+            Paragraph("<b>TOTAL VENTAS</b>", cell_bold_style),
+            Paragraph("", cell_style),
+            Paragraph("", cell_style),
+            Paragraph("", cell_style),
+            Paragraph(f"<b>C$ {total_ventas_monto:,.2f}</b>", cell_right_style)
+        ])
+        
+        t_ventas = Table(t_ventas_data, colWidths=[90, 80, 200, 80, 90])
+        t_ventas_style = [
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#2c5e2e')),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#cbd5e1')),
+            ('PADDING', (0,0), (-1,-1), 4),
+            ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#f1f5f9')),
+        ]
+        for col_idx in range(len(ventas_headers)):
+            t_ventas_data[0][col_idx].style.textColor = colors.white
+        for i in range(1, len(t_ventas_data) - 1):
+            if i % 2 == 0:
+                t_ventas_style.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#f8fafc')))
+        t_ventas.setStyle(TableStyle(t_ventas_style))
+        story.append(t_ventas)
+        story.append(Spacer(1, 10))
+        
+        # Abonos Recibidos
+        story.append(Paragraph("DETALLE DE ABONOS RECIBIDOS", section_style))
+        abonos_headers = ["Fecha", "Cliente", "Método Pago", "Monto Cobrado"]
+        t_abonos_data = [[Paragraph(h, cell_bold_style) for h in abonos_headers]]
+        total_abonos_monto = 0.0
+        
+        for a in abonos:
+            monto_ap = float(a['Monto_Aplicado'] or 0)
+            total_abonos_monto += monto_ap
+            t_abonos_data.append([
+                Paragraph(a['Fecha'].strftime('%d/%m/%Y %H:%M'), cell_style),
+                Paragraph(a['Cliente'] or 'N/A', cell_style),
+                Paragraph(a['MetodoPago'] or 'N/A', cell_style),
+                Paragraph(f"C$ {monto_ap:,.2f}", cell_right_style)
+            ])
+            
+        t_abonos_data.append([
+            Paragraph("<b>TOTAL ABONOS</b>", cell_bold_style),
+            Paragraph("", cell_style),
+            Paragraph("", cell_style),
+            Paragraph(f"<b>C$ {total_abonos_monto:,.2f}</b>", cell_right_style)
+        ])
+        
+        t_abonos = Table(t_abonos_data, colWidths=[100, 220, 110, 110])
+        t_abonos_style = [
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#2c5e2e')),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#cbd5e1')),
+            ('PADDING', (0,0), (-1,-1), 4),
+            ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#f1f5f9')),
+        ]
+        for col_idx in range(len(abonos_headers)):
+            t_abonos_data[0][col_idx].style.textColor = colors.white
+        for i in range(1, len(t_abonos_data) - 1):
+            if i % 2 == 0:
+                t_abonos_style.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#f8fafc')))
+        t_abonos.setStyle(TableStyle(t_abonos_style))
+        story.append(t_abonos)
+        story.append(Spacer(1, 10))
+        
+        # Devoluciones y Mermas
+        story.append(Paragraph("DEVOLUCIONES Y MERMAS REGISTRADAS", section_style))
+        devs_headers = ["Documento", "Fecha", "Producto", "Tipo", "Cant.", "Precio U.", "Subtotal"]
+        t_devs_data = [[Paragraph(h, cell_bold_style) for h in devs_headers]]
+        total_devs_monto = 0.0
+        
+        for d in devoluciones_mermas:
+            subt = float(d['Subtotal'] or 0)
+            total_devs_monto += subt
+            tipo_mov = "Merma" if d['ID_TipoMovimiento'] == 7 else "Devolución"
+            t_devs_data.append([
+                Paragraph(d['Documento_Numero'], cell_style),
+                Paragraph(d['Fecha_Movimiento'].strftime('%d/%m/%Y'), cell_style),
+                Paragraph(d['Producto'], cell_style),
+                Paragraph(tipo_mov, cell_style),
+                Paragraph(f"{float(d['Cantidad']):.2f}", cell_center_style),
+                Paragraph(f"C$ {float(d['Precio_Unitario'] or 0):,.2f}", cell_right_style),
+                Paragraph(f"C$ {subt:,.2f}", cell_right_style)
+            ])
+            
+        t_devs_data.append([
+            Paragraph("<b>TOTAL VALORIZADO</b>", cell_bold_style),
+            Paragraph("", cell_style),
+            Paragraph("", cell_style),
+            Paragraph("", cell_style),
+            Paragraph("", cell_style),
+            Paragraph("", cell_style),
+            Paragraph(f"<b>C$ {total_devs_monto:,.2f}</b>", cell_right_style)
+        ])
+        
+        t_devs = Table(t_devs_data, colWidths=[80, 65, 145, 80, 50, 60, 60])
+        t_devs_style = [
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#2c5e2e')),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#cbd5e1')),
+            ('PADDING', (0,0), (-1,-1), 4),
+            ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#f1f5f9')),
+        ]
+        for col_idx in range(len(devs_headers)):
+            t_devs_data[0][col_idx].style.textColor = colors.white
+        for i in range(1, len(t_devs_data) - 1):
+            if i % 2 == 0:
+                t_devs_style.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#f8fafc')))
+        t_devs.setStyle(TableStyle(t_devs_style))
+        story.append(t_devs)
+        story.append(Spacer(1, 20))
+        
+        # Firmas
+        story.append(Spacer(1, 15))
+        firmas_data = [
+            [Paragraph("___________________________________<br/><b>Firma Vendedor</b>", cell_center_style), 
+             Paragraph("___________________________________<br/><b>Firma Auditor/Cajero</b>", cell_center_style)]
+        ]
+        t_firmas = Table(firmas_data, colWidths=[270, 270])
+        t_firmas.setStyle(TableStyle([
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('VALIGN', (0,0), (-1,-1), 'BOTTOM'),
+            ('PADDING', (0,0), (-1,-1), 10),
+        ]))
+        story.append(t_firmas)
+        
+        doc.build(story)
+        buffer.seek(0)
+        
+        response = make_response(buffer.getvalue())
+        response.headers['Content-Type'] = 'application/pdf'
+        filename = f"reporte_cierre_ruta_{id_asignacion}_{datetime.now().strftime('%Y%m%d')}.pdf"
+        response.headers['Content-Disposition'] = f'inline; filename={filename}'
+        return response
+        
+    except Exception as e:
+        print(f"Error generando PDF de cierre: {str(e)}")
+        traceback.print_exc()
+        flash(f'Error al generar reporte PDF: {str(e)}', 'error')
+        return redirect(url_for('vendedor.vendedor_dashboard'))
+
+
+@vendedor_bp.route('/vendedor/movimientos/ticket_cierre/<int:id_asignacion>')
+@vendedor_required
+def vendedor_ticket_cierre(id_asignacion):
+    """Genera una vista de ticket HTML detallada de 58mm del cierre de jornada"""
+    try:
+        with get_db_cursor(True) as cursor:
+            # 1. Obtener datos de la asignación
+            cursor.execute("""
+                SELECT av.ID_Asignacion, av.Fecha_Asignacion, av.Hora_Inicio, av.Hora_Fin, av.Estado,
+                       u.NombreUsuario as Vendedor, r.Nombre_Ruta as Ruta, av.ID_Usuario,
+                       v.Placa, v.Marca, v.Modelo, emp.Nombre_Empresa, emp.RUC as RUC_Empresa,
+                       emp.Direccion as Direccion_Empresa, emp.Telefono as Telefono_Empresa
+                FROM asignacion_vendedores av
+                INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+                INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
+                LEFT JOIN vehiculos v ON av.ID_Vehiculo = v.ID_Vehiculo
+                LEFT JOIN empresa emp ON r.ID_Empresa = emp.ID_Empresa
+                WHERE av.ID_Asignacion = %s
+            """, (id_asignacion,))
+            asignacion = cursor.fetchone()
+            
+            if not asignacion:
+                flash('Asignación no encontrada', 'error')
+                return redirect(url_for('vendedor.vendedor_dashboard'))
+                
+            vendedor_id = asignacion['ID_Usuario']
+            fecha_ruta = asignacion['Fecha_Asignacion']
+
+            # 2. Obtener movimientos de caja de la asignación
+            cursor.execute("""
+                SELECT Tipo, Concepto, Monto, Saldo_Acumulado, Fecha
+                FROM movimientos_caja_ruta
+                WHERE ID_Asignacion = %s AND Estado = 'ACTIVO'
+                ORDER BY ID_Movimiento ASC
+            """, (id_asignacion,))
+            movimientos_caja = cursor.fetchall()
+            
+            # 3. Obtener facturas/ventas realizadas en la asignación
+            cursor.execute("""
+                SELECT fr.ID_FacturaRuta, fr.Fecha, fr.Credito_Contado, fr.ID_MetodoPago,
+                       COALESCE(mp.Nombre, 'Efectivo') as MetodoPago,
+                       c.Nombre as Cliente, fr.Observacion,
+                       (SELECT COALESCE(SUM(Cantidad*Precio), 0) 
+                        FROM detalle_facturacion_ruta 
+                        WHERE ID_FacturaRuta = fr.ID_FacturaRuta) as Total
+                FROM facturacion_ruta fr
+                LEFT JOIN clientes c ON fr.ID_Cliente = c.ID_Cliente
+                LEFT JOIN metodos_pago mp ON fr.ID_MetodoPago = mp.ID_MetodoPago
+                WHERE fr.ID_Asignacion = %s AND fr.Estado = 'Activa'
+                ORDER BY fr.ID_FacturaRuta ASC
+            """, (id_asignacion,))
+            ventas = cursor.fetchall()
+            
+            # 4. Obtener abonos recibidos en la asignación (agrupados por cobro/transacción)
+            cursor.execute("""
+                SELECT ad.ID_Detalle, ad.Monto_Aplicado, ad.Saldo_Anterior, ad.Saldo_Nuevo,
+                       c.Nombre as Cliente, COALESCE(mp.Nombre, 'Efectivo') as MetodoPago,
+                       COALESCE(cxc.Num_Documento, 'Saldo Inicial/Manual') as Num_Documento,
+                       ad.Fecha, ad.ID_Movimiento_Caja, ad.ID_Cliente, ad.ID_MetodoPago
+                FROM abonos_detalle ad
+                LEFT JOIN clientes c ON ad.ID_Cliente = c.ID_Cliente
+                LEFT JOIN metodos_pago mp ON ad.ID_MetodoPago = mp.ID_MetodoPago
+                LEFT JOIN cuentas_por_cobrar cxc ON ad.ID_CuentaCobrar = cxc.ID_Movimiento
+                WHERE ad.ID_Asignacion = %s
+                ORDER BY ad.ID_Detalle ASC
+            """, (id_asignacion,))
+            abonos_raw = cursor.fetchall()
+            abonos = agrupar_abonos_cierre(abonos_raw)
+            
+            # 5. Obtener devoluciones y mermas en la asignación
+            cursor.execute("""
+                SELECT mrc.Documento_Numero, mrc.Fecha_Movimiento, mrc.ID_TipoMovimiento,
+                       p.Descripcion as Producto, mrd.Cantidad, mrd.Precio_Unitario, mrd.Subtotal
+                FROM movimientos_ruta_cabecera mrc
+                INNER JOIN movimientos_ruta_detalle mrd ON mrc.ID_Movimiento = mrd.ID_Movimiento
+                INNER JOIN productos p ON mrd.ID_Producto = p.ID_Producto
+                WHERE mrc.ID_Asignacion = %s 
+                  AND mrc.ID_TipoMovimiento IN (7, 11)
+                  AND mrc.Estado = 'ACTIVO'
+                ORDER BY mrc.Fecha_Movimiento ASC
+            """, (id_asignacion,))
+            devoluciones_mermas = cursor.fetchall()
+            
+            # 5b. Obtener sumatoria consolidada de productos vendidos en la ruta
+            cursor.execute("""
+                SELECT p.Descripcion as Producto, p.COD_Producto,
+                       SUM(dfr.Cantidad) as Cantidad_Vendida,
+                       um.Abreviatura as Unidad
+                FROM detalle_facturacion_ruta dfr
+                INNER JOIN facturacion_ruta fr ON dfr.ID_FacturaRuta = fr.ID_FacturaRuta
+                INNER JOIN productos p ON dfr.ID_Producto = p.ID_Producto
+                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                WHERE fr.ID_Asignacion = %s AND fr.Estado = 'Activa'
+                GROUP BY p.ID_Producto, p.Descripcion, p.COD_Producto, um.Abreviatura
+                ORDER BY p.Descripcion ASC
+            """, (id_asignacion,))
+            productos_vendidos = cursor.fetchall()
+
+            # 6. Verificar si ya se registró traslado/consolidado a caja central
+            cursor.execute("""
+                SELECT Monto, Descripcion 
+                FROM caja_movimientos 
+                WHERE Referencia_Documento IN (%s, %s) AND Estado = 'ACTIVO'
+                LIMIT 1
+            """, (f"RUTA-{id_asignacion}", f"RUT-LIQ-{id_asignacion}"))
+            consolidado = cursor.fetchone()
+            
+        # Calcular resúmenes de caja
+        apertura = 0.0
+        cierre = 0.0
+        caja_cerrada = False
+        ventas_contado_monto = 0.0
+        abonos_monto = 0.0
+        gastos_monto = 0.0
+        concepto_cierre = ""
+        
+        for mov in movimientos_caja:
+            if mov['Tipo'] == 'APERTURA':
+                apertura = float(mov['Monto'] or 0)
+            elif mov['Tipo'] == 'CIERRE':
+                cierre = float(mov['Monto'] or 0)
+                caja_cerrada = True
+                concepto_cierre = mov['Concepto'] or ""
+            elif mov['Tipo'] == 'GASTO':
+                gastos_monto += float(mov['Monto'] or 0)
+
+        # Si se liquidó a caja central y no se había registrado un CIERRE explícito, tomar el consolidado
+        if consolidado and not caja_cerrada:
+            cierre = float(consolidado['Monto'] or 0)
+            caja_cerrada = True
+            if not concepto_cierre:
+                concepto_cierre = consolidado.get('Descripcion') or f"Consolidado entregado: C$ {cierre:,.2f}"
+                
+        # Calcular montos directamente desde las transacciones reales para evitar inconsistencias
+        ventas_contado_monto = sum(float(v['Total'] or 0) for v in ventas if v['Credito_Contado'] == 1)
+        ventas_contado_efectivo = sum(float(v['Total'] or 0) for v in ventas if v['Credito_Contado'] == 1 and (v.get('ID_MetodoPago') == 1 or not v.get('ID_MetodoPago') or v.get('MetodoPago') == 'Efectivo'))
+        ventas_contado_otros = sum(float(v['Total'] or 0) for v in ventas if v['Credito_Contado'] == 1 and v.get('ID_MetodoPago') and v.get('ID_MetodoPago') != 1)
+
+        abonos_monto = sum(float(a['Monto_Aplicado'] or 0) for a in abonos)
+        abonos_efectivo_monto = sum(float(a['Monto_Aplicado'] or 0) for a in abonos if a['MetodoPago'] == 'Efectivo')
+        abonos_otros_monto = sum(float(a['Monto_Aplicado'] or 0) for a in abonos if a['MetodoPago'] != 'Efectivo')
+
+        # Extraer gastos individuales de caja ruta
+        gastos = [mov for mov in movimientos_caja if mov['Tipo'] == 'GASTO']
+
+        # El saldo esperado de caja física (efectivo) es:
+        # apertura (efectivo) + ventas_contado_efectivo (efectivo) + abonos_efectivo_monto - gastos_monto (efectivo)
+        efectivo_esperado = round(apertura + ventas_contado_efectivo + abonos_efectivo_monto - gastos_monto, 2)
+        
+        saldo_esperado = round(apertura + ventas_contado_monto + abonos_monto - gastos_monto, 2)
+        diferencia = round(cierre - efectivo_esperado, 2) if caja_cerrada else 0.0 # La diferencia física contra lo entregado en efectivo
+        
+        es_cuadrada = abs(diferencia) <= 0.01 if caja_cerrada else False
+        es_sobrante = diferencia > 0.01 if caja_cerrada else False
+        es_faltante = diferencia < -0.01 if caja_cerrada else False
+        
+        if not caja_cerrada:
+            estado_validacion = 'PENDIENTE'
+            mensaje_validacion = 'Arqueo de caja no registrado'
+        elif es_cuadrada:
+            estado_validacion = 'CUADRADA'
+            mensaje_validacion = 'Saldo esperado es igual al saldo en caja'
+        elif es_sobrante:
+            estado_validacion = 'SOBRANTE'
+            mensaje_validacion = f'Sobrante en caja de + C$ {diferencia:,.2f}'
+        else:
+            estado_validacion = 'FALTANTE'
+            mensaje_validacion = f'Faltante en caja de - C$ {abs(diferencia):,.2f}'
+
+        # Calcular totales
+        total_ventas_monto = sum(float(v['Total'] or 0) for v in ventas)
+        total_abonos_monto = sum(float(a['Monto_Aplicado'] or 0) for a in abonos)
+        total_devs_monto = sum(float(d['Subtotal'] or 0) for d in devoluciones_mermas)
+
+        ticket_data = {
+            'asignacion': asignacion,
+            'apertura': apertura,
+            'cierre': cierre,
+            'caja_cerrada': caja_cerrada,
+            'concepto_cierre': concepto_cierre,
+            'ventas_contado_monto': ventas_contado_monto,
+            'ventas_contado_efectivo': ventas_contado_efectivo,
+            'ventas_contado_otros': ventas_contado_otros,
+            'abonos_monto': abonos_monto,
+            'abonos_efectivo_monto': abonos_efectivo_monto,
+            'abonos_otros_monto': abonos_otros_monto,
+            'gastos_monto': gastos_monto,
+            'gastos': gastos,
+            'saldo_esperado': saldo_esperado,
+            'efectivo_esperado': efectivo_esperado,
+            'diferencia': diferencia,
+            'es_cuadrada': es_cuadrada,
+            'es_sobrante': es_sobrante,
+            'es_faltante': es_faltante,
+            'estado_validacion': estado_validacion,
+            'mensaje_validacion': mensaje_validacion,
+            'ventas': ventas,
+            'abonos': abonos,
+            'devoluciones_mermas': devoluciones_mermas,
+            'productos_vendidos': productos_vendidos,
+            'total_ventas_monto': total_ventas_monto,
+            'total_abonos_monto': total_abonos_monto,
+            'total_devs_monto': total_devs_monto,
+            'fecha_impresion': datetime.now()
+        }
+        
+        return render_template('vendedor/movimientos/ticket_cierre_ruta.html', ticket=ticket_data)
+        
+    except Exception as e:
+        print(f"Error generando ticket de cierre: {str(e)}")
+        traceback.print_exc()
+        flash(f'Error al generar ticket: {str(e)}', 'error')
+        return redirect(url_for('vendedor.vendedor_dashboard'))
+

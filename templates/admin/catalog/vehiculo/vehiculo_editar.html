@@ -1,0 +1,241 @@
+{% extends 'layout.html' %}
+
+{% block title %}Editar Vehículo - {{ vehiculo.Placa }} - FerDel{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4 fade-in-up">
+    <!-- Encabezado con botón de volver -->
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-edit text-primary me-2"></i>Editar Vehículo
+            </h3>
+            <p class="text-muted small mb-0">Modificar placa, marca, modelo, estado, tipo de combustible y fecha de vigencia del seguro</p>
+        </div>
+        <div>
+            <a href="{{ url_for('admin.admin_vehiculos') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-arrow-left me-1"></i> Volver a Vehículos
+            </a>
+        </div>
+    </div>
+
+    <!-- Contenedor del Formulario -->
+    <div class="card-premium-section mb-4">
+        <div class="card-body p-4">
+            <!-- Información del Sistema / Ficha Resumen -->
+            <div class="card-premium-section p-3 border-start border-3 border-primary mb-4">
+                <div class="row g-3 small">
+                    <div class="col-md-4">
+                        <small class="text-muted d-block mb-1">ID del Vehículo:</small>
+                        <span class="badge bg-light text-dark border font-monospace fw-bold">#{{ vehiculo.ID_Vehiculo }}</span>
+                    </div>
+                    <div class="col-md-4">
+                        <small class="text-muted d-block mb-1">Fecha de Creación:</small>
+                        <strong class="text-slate-800 font-monospace d-inline-block">{{ vehiculo.Fecha_Creacion.strftime('%d/%m/%Y %H:%M') }}</strong>
+                    </div>
+                    <div class="col-md-4">
+                        <small class="text-muted d-block mb-1">Empresa Actual:</small>
+                        <strong class="text-primary d-inline-block">{{ vehiculo.Nombre_Empresa or 'Sin empresa' }}</strong>
+                    </div>
+                </div>
+            </div>
+
+            <form id="formEditarVehiculo" method="POST" action="{{ url_for('admin.procesar_editar_vehiculo', id=vehiculo.ID_Vehiculo) }}" novalidate>
+                <div class="row g-3">
+                    <!-- Placa -->
+                    <div class="col-md-6">
+                        <label for="placa" class="form-label-premium fw-bold mb-1">Placa *</label>
+                        <input type="text" 
+                               class="form-control form-control-premium form-control-lg" 
+                               id="placa" 
+                               name="placa" 
+                               value="{{ vehiculo.Placa }}" 
+                               required
+                               maxlength="20"
+                               placeholder="Ej: ABC-123">
+                        <div class="form-text small text-muted">Placa de identificación del vehículo (máx. 20 caracteres)</div>
+                        <div class="invalid-feedback">Por favor ingrese la placa del vehículo.</div>
+                    </div>
+
+                    <!-- Empresa -->
+                    <div class="col-md-6">
+                        <label for="id_empresa" class="form-label-premium fw-bold mb-1">Empresa *</label>
+                        <select class="form-select form-select-premium form-select-lg" 
+                                id="id_empresa" 
+                                name="id_empresa" 
+                                required>
+                            <option value="">Seleccionar empresa...</option>
+                            {% for empresa in empresas %}
+                            <option value="{{ empresa.ID_Empresa }}" 
+                                    {% if empresa.ID_Empresa == vehiculo.ID_Empresa %}selected{% endif %}>
+                                {{ empresa.Nombre_Empresa }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="invalid-feedback">Por favor seleccione una empresa.</div>
+                    </div>
+
+                    <!-- Marca -->
+                    <div class="col-md-4">
+                        <label for="marca" class="form-label-premium fw-bold mb-1">Marca</label>
+                        <input type="text" 
+                               class="form-control form-control-premium" 
+                               id="marca" 
+                               name="marca" 
+                               value="{{ vehiculo.Marca or '' }}" 
+                               maxlength="100"
+                               placeholder="Ej: Toyota">
+                        <div class="form-text small text-muted">Máx. 100 caracteres</div>
+                    </div>
+
+                    <!-- Modelo -->
+                    <div class="col-md-4">
+                        <label for="modelo" class="form-label-premium fw-bold mb-1">Modelo</label>
+                        <input type="text" 
+                               class="form-control form-control-premium" 
+                               id="modelo" 
+                               name="modelo" 
+                               value="{{ vehiculo.Modelo or '' }}" 
+                               maxlength="100"
+                               placeholder="Ej: Corolla">
+                        <div class="form-text small text-muted">Máx. 100 caracteres</div>
+                    </div>
+
+                    <!-- Año -->
+                    <div class="col-md-4">
+                        <label for="anio" class="form-label-premium fw-bold mb-1">Año</label>
+                        <input type="number" 
+                               class="form-control form-control-premium" 
+                               id="anio" 
+                               name="anio" 
+                               value="{{ vehiculo.Anio or '' }}" 
+                               min="1900" 
+                               max="{{ current_year }}"
+                               placeholder="{{ current_year }}">
+                        <div class="form-text small text-muted">Año de fabricación (1900-{{ current_year }})</div>
+                    </div>
+
+                    <!-- Tipo de Combustible -->
+                    <div class="col-md-6">
+                        <label for="tipo_combustible" class="form-label-premium fw-bold mb-1">Tipo de Combustible *</label>
+                        <select class="form-select form-select-premium" 
+                                id="tipo_combustible" 
+                                name="tipo_combustible" 
+                                required>
+                            <option value="">Seleccionar tipo...</option>
+                            <option value="Gasolina" {% if vehiculo.Tipo_Combustible == 'Gasolina' %}selected{% endif %}>Gasolina</option>
+                            <option value="Diesel" {% if vehiculo.Tipo_Combustible == 'Diesel' %}selected{% endif %}>Diesel</option>
+                        </select>
+                        <div class="invalid-feedback">Por favor seleccione el tipo de combustible.</div>
+                    </div>
+
+                    <!-- Estado -->
+                    <div class="col-md-6">
+                        <label for="estado" class="form-label-premium fw-bold mb-1">Estado *</label>
+                        <select class="form-select form-select-premium" 
+                                id="estado" 
+                                name="estado" 
+                                required>
+                            <option value="">Seleccionar estado...</option>
+                            <option value="Disponible" {% if vehiculo.Estado == 'Disponible' %}selected{% endif %}>Disponible</option>
+                            <option value="En Ruta" {% if vehiculo.Estado == 'En Ruta' %}selected{% endif %}>En Ruta</option>
+                            <option value="Mantenimiento" {% if vehiculo.Estado == 'Mantenimiento' %}selected{% endif %}>Mantenimiento</option>
+                            <option value="Inactivo" {% if vehiculo.Estado == 'Inactivo' %}selected{% endif %}>Inactivo</option>
+                        </select>
+                        <div class="invalid-feedback">Por favor seleccione el estado del vehículo.</div>
+                    </div>
+
+                    <!-- Fecha Vencimiento Seguro -->
+                    <div class="col-md-12">
+                        <label for="fecha_vencimiento_seguro" class="form-label-premium fw-bold mb-1">Vencimiento del Seguro</label>
+                        <input type="date" 
+                               class="form-control form-control-premium" 
+                               id="fecha_vencimiento_seguro" 
+                               name="fecha_vencimiento_seguro" 
+                               value="{{ vehiculo.Fecha_Vencimiento_Seguro.strftime('%Y-%m-%d') if vehiculo.Fecha_Vencimiento_Seguro else '' }}">
+                        <div class="form-text small text-muted">Fecha de vencimiento de la póliza de seguro (opcional)</div>
+                    </div>
+                </div>
+
+                <!-- Botones de Acción -->
+                <div class="row mt-4 pt-3 border-top border-light">
+                    <div class="col-md-12">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <a href="{{ url_for('admin.admin_vehiculos') }}" class="btn btn-outline-secondary px-3 py-2 rounded-3">
+                                <i class="fas fa-times-circle me-1"></i> Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-outline-primary px-3 py-2 rounded-3 fw-bold">
+                                <i class="fas fa-save me-1"></i> Guardar Cambios
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('formEditarVehiculo');
+        const currentYear = new Date().getFullYear();
+        const anioInput = document.getElementById('anio');
+        
+        // Validación del año
+        if (anioInput) {
+            anioInput.addEventListener('blur', function() {
+                if (this.value && (this.value < 1900 || this.value > currentYear)) {
+                    this.classList.add('is-invalid');
+                    Swal.fire(`El año debe estar entre 1900 y ${currentYear}`, '', 'info');
+                } else if (this.value) {
+                    this.classList.remove('is-invalid');
+                    this.classList.add('is-valid');
+                }
+            });
+        }
+        
+        // Validación de placa (sin espacios)
+        const placaInput = document.getElementById('placa');
+        if (placaInput) {
+            placaInput.addEventListener('input', function() {
+                this.value = this.value.toUpperCase().replace(/\s+/g, '');
+            });
+        }
+        
+        // Validación al enviar
+        form.addEventListener('submit', function(event) {
+            let isValid = true;
+            
+            // Validar campos requeridos
+            const requiredFields = form.querySelectorAll('[required]');
+            requiredFields.forEach(field => {
+                if (!field.value.trim()) {
+                    field.classList.add('is-invalid');
+                    isValid = false;
+                }
+            });
+            
+            // Validar placa única (simulación)
+            if (placaInput.value.length > 20) {
+                placaInput.classList.add('is-invalid');
+                Swal.fire('La placa no puede exceder 20 caracteres', '', 'info');
+                isValid = false;
+            }
+            
+            if (!isValid) {
+                event.preventDefault();
+                event.stopPropagation();
+                
+                // Desplazarse al primer error
+                const firstInvalid = form.querySelector('.is-invalid');
+                if (firstInvalid) {
+                    firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    firstInvalid.focus();
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

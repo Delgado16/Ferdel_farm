@@ -1,0 +1,329 @@
+{% extends "layout.html" %}
+
+{% block title %}Detalles de Compra #{{ movimiento.ID_Movimiento }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4 fade-in-up">
+    <!-- Encabezado con acciones -->
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-slate-800 mb-1">
+                <i class="fas fa-shopping-cart text-primary me-2"></i>Detalles de Compra #{{ movimiento.ID_Movimiento }}
+            </h3>
+            <p class="text-muted small mb-0">Detalle de la transacción de entrada de mercancía en inventario</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{{ url_for('admin.admin_compras_entradas') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3">
+                <i class="fas fa-arrow-left me-1"></i> Volver a Compras/Entradas
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <!-- Información del Movimiento de Compra -->
+            <div class="card-premium-section mb-4">
+                <div class="card-premium-header d-flex justify-content-between align-items-center">
+                    <h6 class="fw-bold text-slate-800 mb-0">
+                        <i class="fas fa-shopping-cart text-primary me-2"></i>Compra #{{ movimiento.ID_Movimiento }}
+                    </h6>
+                    <span class="badge {% if movimiento.Estado_Movimiento == 'Activa' %}bg-success bg-opacity-10 text-success border border-success border-opacity-25{% else %}bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25{% endif %} rounded-pill px-3 py-2 fw-bold">
+                        {{ movimiento.Estado_Formateado }}
+                    </span>
+                </div>
+                <div class="card-body p-4">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <table class="table table-borderless table-sm mb-0 align-middle">
+                                <tr>
+                                    <th width="40%" class="text-secondary small fw-bold py-2">Fecha:</th>
+                                    <td class="small text-slate-800 py-2">{{ movimiento.Fecha_Formateada or 'N/A' }} ({{
+                                        movimiento.Fecha_Original.strftime('%H:%M') if movimiento.Fecha_Original else 'N/A'
+                                    }})</td>
+                                </tr>
+                                <tr>
+                                    <th class="text-secondary small fw-bold py-2">N° Factura Externa:</th>
+                                    <td class="small fw-bold text-slate-800 py-2">{{ movimiento.N_Factura_Externa or 'N/A' }}</td>
+                                </tr>
+                                <tr>
+                                    <th class="text-secondary small fw-bold py-2">Proveedor:</th>
+                                    <td class="small text-slate-800 py-2">{{ movimiento.Proveedor or 'N/A' }}</td>
+                                </tr>
+                                <tr>
+                                    <th class="text-secondary small fw-bold py-2">RUC/Cédula:</th>
+                                    <td class="small text-slate-800 py-2">{{ movimiento.RUC_Proveedor or 'N/A' }}</td>
+                                </tr>
+                                <tr>
+                                    <th class="text-secondary small fw-bold py-2">Teléfono:</th>
+                                    <td class="small text-slate-800 py-2">{{ movimiento.Telefono_Proveedor or 'N/A' }}</td>
+                                </tr>
+                                <tr>
+                                    <th class="text-secondary small fw-bold py-2">Dirección:</th>
+                                    <td class="small text-slate-800 py-2">{{ movimiento.Direccion_Proveedor or 'N/A' }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <table class="table table-borderless table-sm mb-0 align-middle">
+                                <tr>
+                                    <th width="40%" class="text-secondary small fw-bold py-2">Tipo de Compra:</th>
+                                    <td class="py-2">
+                                        <span class="badge {% if movimiento.Tipo_Compra == 'Crédito' or movimiento.Tipo_Compra == 'CREDITO' %}bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25{% else %}bg-success bg-opacity-10 text-success border border-success border-opacity-25{% endif %} rounded-pill px-2.5 py-1.5 fw-bold">
+                                            {{ movimiento.Tipo_Compra_Formateado }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% if movimiento.Tipo_Compra != 'Crédito' and movimiento.Tipo_Compra != 'CREDITO' %}
+                                <tr>
+                                    <th class="text-secondary small fw-bold py-2">Método de Pago:</th>
+                                    <td class="small text-slate-800 py-2">
+                                        <span class="badge bg-light text-slate-800 border">
+                                            <i class="fas {% if movimiento.Metodo_Pago and ('TRANSF' in movimiento.Metodo_Pago|upper or 'DEPOS' in movimiento.Metodo_Pago|upper) %}fa-university text-primary{% else %}fa-money-bill-wave text-success{% endif %} me-1"></i>
+                                            {{ movimiento.Metodo_Pago or 'Efectivo' }}
+                                        </span>
+                                        {% if movimiento.Referencia_Pago %}
+                                        <small class="text-muted d-block mt-1">Ref: <strong>{{ movimiento.Referencia_Pago }}</strong></small>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                <tr>
+                                    <th class="text-secondary small fw-bold py-2">Bodega:</th>
+                                    <td class="small text-slate-800 py-2">{{ movimiento.Bodega or 'N/A' }}</td>
+                                </tr>
+                                <tr>
+                                    <th class="text-secondary small fw-bold py-2">Ubicación Bodega:</th>
+                                    <td class="small text-slate-800 py-2">{{ movimiento.Direccion_Bodega or 'N/A' }}</td>
+                                </tr>
+                                <tr>
+                                    <th class="text-secondary small fw-bold py-2">Usuario Creación:</th>
+                                    <td class="small text-slate-800 py-2">{{ movimiento.Usuario_Creacion or 'N/A' }}</td>
+                                </tr>
+                                <tr>
+                                    <th class="text-secondary small fw-bold py-2">Fecha Creación:</th>
+                                    <td class="small text-slate-800 py-2">{{ movimiento.Fecha_Creacion.strftime('%d/%m/%Y %H:%M') if movimiento.Fecha_Creacion else 'N/A' }}</td>
+                                </tr>
+                                {% if movimiento.Usuario_Modificacion %}
+                                <tr>
+                                    <th class="text-secondary small fw-bold py-2">Usuario Modificación:</th>
+                                    <td class="small text-slate-800 py-2">{{ movimiento.Usuario_Modificacion or 'N/A' }}</td>
+                                </tr>
+                                <tr>
+                                    <th class="text-secondary small fw-bold py-2">Fecha Modificación:</th>
+                                    <td class="small text-slate-800 py-2">{{ movimiento.Fecha_Modificacion.strftime('%d/%m/%Y %H:%M') if movimiento.Fecha_Modificacion else 'N/A' }}</td>
+                                </tr>
+                                {% endif %}
+                                <tr>
+                                    <th class="text-secondary small fw-bold py-2">Observación:</th>
+                                    <td class="small text-muted py-2"><em>{{ movimiento.Observacion or 'Sin observación' }}</em></td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Productos Comprados -->
+            <div class="card-premium-section mb-4">
+                <div class="card-premium-header d-flex justify-content-between align-items-center">
+                    <h6 class="fw-bold text-slate-800 mb-0">
+                        <i class="fas fa-boxes text-primary me-2"></i>Productos Comprados
+                    </h6>
+                    <span class="badge bg-light text-dark border rounded-pill">{{ total_productos }} productos</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-modern align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th style="width: 50px;">#</th>
+                                    <th>Código</th>
+                                    <th>Producto</th>
+                                    <th class="text-center">Cantidad</th>
+                                    <th class="text-center">Unidad</th>
+                                    <th class="text-end">Costo Unitario</th>
+                                    <th class="text-end">Precio Venta</th>
+                                    <th class="text-end">Existencias Actuales</th>
+                                    <th class="text-end">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for detalle in detalles %}
+                                <tr>
+                                    <td>{{ loop.index }}</td>
+                                    <td class="fw-bold text-slate-800">{{ detalle.COD_Producto or 'N/A' }}</td>
+                                    <td>{{ detalle.Producto_Desc or 'N/A' }}</td>
+                                    <td class="text-center text-slate-800 fw-bold">{{ detalle.Cantidad | cantidad }}</td>
+                                    <td class="text-center"><span class="badge bg-light text-dark border">{{ detalle.Unidad_Medida or detalle.Simbolo_Medida or 'UNIDAD' }}</span></td>
+                                    <td class="text-end">C$ {{ detalle.Costo_Unitario | cantidad }}</td>
+                                    <td class="text-end">C$ {{ detalle.Precio_Unitario | cantidad }}</td>
+                                    <td class="text-end text-slate-800">{{ detalle.Existencias_Actuales | cantidad }}</td>
+                                    <td class="text-end fw-bold text-success">C$ {{ detalle.Subtotal | cantidad }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="table-light border-top">
+                                <tr>
+                                    <th colspan="8" class="text-end fw-bold">TOTAL COMPRA:</th>
+                                    <th class="text-end fw-bold text-success" style="font-size: 1.15rem;">C$ {{ total_compra | cantidad }}</th>
+                                </tr>
+                                <tr>
+                                    <th colspan="8" class="text-end text-muted small">CANTIDAD TOTAL:</th>
+                                    <th class="text-end text-muted small">{{ total_cantidad | cantidad }} unidades</th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <!-- CUENTA POR PAGAR -->
+            <div class="card-premium-section mb-4">
+                <div class="card-premium-header">
+                    <h6 class="fw-bold text-slate-800 mb-0">
+                        <i class="fas fa-money-bill-wave text-primary me-2"></i>Cuenta por Pagar
+                    </h6>
+                </div>
+                <div class="card-body p-4">
+                    {% if cuenta_por_pagar %}
+                        <div class="table-responsive">
+                            <table class="table table-sm table-modern align-middle mb-0">
+                                <tbody>
+                                    <tr>
+                                        <th width="50%" class="text-secondary small fw-bold py-2">Monto Total:</th>
+                                        <td class="text-end fw-bold text-slate-800 font-monospace small">C$ {{ cuenta_por_pagar.Monto_Movimiento | cantidad }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th class="text-secondary small fw-bold py-2">Fecha Vencimiento:</th>
+                                        <td class="text-end py-2">
+                                            {% if cuenta_por_pagar.Fecha_Vencimiento %}
+                                                {% if cuenta_por_pagar.Fecha_Vencimiento < now %}
+                                                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2.5 py-1.5 fw-bold">
+                                                        {{ cuenta_por_pagar.Fecha_Vencimiento.strftime('%d/%m/%Y') }}
+                                                        <i class="fas fa-exclamation-triangle ms-1"></i>
+                                                    </span>
+                                                {% else %}
+                                                    <span class="small text-slate-800 fw-bold">{{ cuenta_por_pagar.Fecha_Vencimiento.strftime('%d/%m/%Y') }}</span>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="small text-muted">N/A</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr style="background-color: rgba(245, 158, 11, 0.03);">
+                                        <th class="text-secondary small fw-bold py-2">Saldo Pendiente:</th>
+                                        <td class="text-end text-danger fw-bold font-monospace small py-2">
+                                            C$ {{ cuenta_por_pagar.Saldo_Pendiente | cantidad }}
+                                        </td>
+                                    </tr>
+                                    <tr style="background-color: rgba(16, 185, 129, 0.03);">
+                                        <th class="text-secondary small fw-bold py-2">Total Pagado:</th>
+                                        <td class="text-end text-success fw-bold font-monospace small py-2">
+                                            C$ {{ total_pagado | cantidad }}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {% if cuenta_por_pagar.Saldo_Pendiente > 0 %}
+                        <div class="alert alert-warning mt-3 mb-0 bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 py-2 px-3 small rounded-3">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Pendiente de pago:</strong> C$ {{ cuenta_por_pagar.Saldo_Pendiente | cantidad }}
+                        </div>
+                        {% else %}
+                        <div class="alert alert-success mt-3 mb-0 bg-success bg-opacity-10 text-success border border-success border-opacity-25 py-2 px-3 small rounded-3">
+                            <i class="fas fa-check-circle me-2"></i>
+                            <strong>Totalmente pagado</strong> - Esta compra está saldada.
+                        </div>
+                        {% endif %}
+
+                    {% else %}
+                        <div class="alert alert-success mb-0 bg-success bg-opacity-10 text-success border border-success border-opacity-25 p-3 rounded-3">
+                            <i class="fas fa-check-circle me-2"></i>
+                            <strong>Compra de Contado</strong> - No hay cuentas por pagar pendientes.
+                            <hr class="my-2">
+                            <div class="text-center fw-bold">
+                                Total pagado: <span class="text-success font-monospace">C$ {{ total_pagado | cantidad }}</span>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Acciones -->
+            <div class="card-premium-section mb-4">
+                <div class="card-premium-header">
+                    <h6 class="fw-bold text-slate-800 mb-0">
+                        <i class="fas fa-cog text-primary me-2"></i>Acciones
+                    </h6>
+                </div>
+                <div class="card-body p-4">
+                    <div class="d-grid gap-2">
+                        <button type="button" 
+                                class="btn btn-outline-primary w-100 rounded-3 py-2"
+                                onclick="window.print();">
+                            <i class="fas fa-print me-1"></i> Imprimir Detalle
+                        </button>
+
+                        {% if movimiento.Estado_Movimiento == 'Activa' %}
+                        <button type="button" 
+                                class="btn btn-outline-danger w-100 rounded-3 py-2" 
+                                onclick="anularCompra({{ movimiento.ID_Movimiento }})">
+                            <i class="fas fa-ban me-1"></i> Anular Compra
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Información de la Empresa -->
+            <div class="card-premium-section mb-4">
+                <div class="card-premium-header">
+                    <h6 class="fw-bold text-slate-800 mb-0">
+                        <i class="fas fa-building text-primary me-2"></i>Información Empresarial
+                    </h6>
+                </div>
+                <div class="card-body p-4">
+                    <small class="text-muted d-block">
+                        <strong class="text-dark">{{ movimiento.Nombre_Empresa or 'Empresa' }}</strong><br>
+                        RUC: {{ movimiento.RUC_Empresa or 'N/A' }}<br>
+                        Tel: {{ movimiento.Telefono_Empresa or 'N/A' }}<br>
+                        Dir: {{ movimiento.Direccion_Empresa or 'N/A' }}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function anularCompra(idMovimiento) {
+    if (confirm('¿Está seguro que desea ANULAR esta compra? Esta acción no se puede deshacer y revertirá el inventario.')) {
+        fetch(`/admin/compras/anular/${idMovimiento}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                Swal.fire(data.message, '', 'info');
+                location.reload();
+            } else {
+                Swal.fire('Error: ' + (data.error || 'Error desconocido', '', 'info'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            Swal.fire('Error al anular la compra', '', 'info');
+        });
+    }
+}
+</script>
+{% endblock %}

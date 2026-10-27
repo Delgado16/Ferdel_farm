@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if es_consolidado %}Factura Consolidada de Entregas{% else %}Comprobante de Entrega{% endif %} - Anticipo #{{ anticipo.ID_Anticipo }}</title>
+    
+    <!-- FAVICON - Logo en la pestaña del navegador -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='ferdel.png') }}">
+    <link rel="shortcut icon" type="image/png" href="{{ url_for('static', filename='ferdel.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='ferdel.png') }}">
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        @media print {
+            @page {
+                margin: 0;
+                size: auto;
+            }
+
+            body {
+                margin: 0;
+                padding: 0;
+                font-family: Arial, Helvetica, sans-serif;
+                font-size: 13.5px !important;
+                line-height: 1.2;
+                color: #000;
+                background: #fff;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+
+            .ticket-container {
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 auto !important;
+                padding: 4px 4px 45px 4px !important;
+                border: none !important;
+                box-shadow: none !important;
+                page-break-inside: avoid;
+            }
+
+            /* Escalar clases de tamaños en impresión */
+            .size-8 { font-size: 10px !important; }
+            .size-9 { font-size: 12px !important; }
+            .size-10 { font-size: 13.5px !important; }
+            .size-11 { font-size: 15px !important; }
+            .size-12 { font-size: 16px !important; }
+            .size-13 { font-size: 18px !important; }
+            .size-14 { font-size: 20px !important; }
+
+            /* Ajustar tablas, productos y detalles */
+            table { font-size: 12px !important; }
+            .product-desc { font-size: 12px !important; }
+            .product-code { font-size: 10px !important; }
+
+            /* Logo */
+            .logo { max-height: 60px !important; }
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 10.5px;
+            margin: 0;
+            padding: 10px;
+            background: #f1f5f9;
+        }
+
+        .top-toolbar {
+            max-width: 650px;
+            margin: 0 auto 15px auto;
+        }
+
+        .ticket-container {
+            width: 58mm;
+            margin: 0 auto;
+            background: white;
+            padding: 6px;
+            border: 1px solid #ddd;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            border-radius: 4px;
+        }
+
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .text-left { text-align: left; }
+        .bold { font-weight: bold; }
+
+        .divider {
+            border-top: 1px dashed #000;
+            margin: 5px 0;
+            padding-top: 5px;
+        }
+
+        .double-divider {
+            border-top: 2px solid #000;
+            margin: 8px 0;
+        }
+
+        .logo-container {
+            text-align: center;
+            margin-bottom: 5px;
+        }
+
+        .logo {
+            max-width: 100%;
+            height: auto;
+            max-height: 40px;
+            margin-bottom: 3px;
+        }
+
+        .logo-text {
+            font-weight: bold;
+            font-size: 14px;
+            text-transform: uppercase;
+            margin-top: 5px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0;
+            font-size: 9px;
+        }
+
+        th, td {
+            padding: 4px 2px;
+            vertical-align: top;
+            line-height: 1.2;
+        }
+
+        .table-header {
+            border-bottom: 1px solid #000;
+        }
+
+        .table-footer {
+            border-top: 1px solid #000;
+            font-weight: bold;
+        }
+
+        .alert-completado {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            padding: 6px;
+            margin: 6px 0;
+            border-radius: 4px;
+            font-size: 9px;
+            color: #155724;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            padding: 6px;
+            margin: 6px 0;
+            border-radius: 4px;
+            font-size: 9px;
+            color: #0c5460;
+        }
+
+        .size-8 { font-size: 8.5px; }
+        .size-9 { font-size: 9.5px; }
+        .size-10 { font-size: 10.5px; }
+        .size-11 { font-size: 11.5px; }
+        .size-12 { font-size: 12.5px; }
+        .size-13 { font-size: 13.5px; }
+        .size-14 { font-size: 14.5px; }
+
+        .print-controls {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+            margin: 2px;
+        }
+
+        .firma-box {
+            border-top: 1px dashed #000;
+            padding-top: 4px;
+            margin-top: 25px;
+            text-align: center;
+            font-size: 8.5px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- BARRA SUPERIOR DE SELECTOR DE VISTA Y FILTRO POR SUCURSALES (NO SE IMPRIME) -->
+    <div class="no-print top-toolbar">
+        <div class="card shadow-sm border-0 rounded-3">
+            <div class="card-body p-3">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                    <div>
+                        <span class="badge {% if anticipo_completado %}bg-success{% else %}bg-primary{% endif %} px-2 py-1">
+                            <i class="bi {% if anticipo_completado %}bi-check-circle-fill{% else %}bi-clock-history{% endif %} me-1"></i>
+                            Anticipo #{{ anticipo.ID_Anticipo }} - {{ anticipo.Estado }}
+                        </span>
+                        <span class="text-muted ms-2 small"><strong>Cliente:</strong> {{ anticipo.Nombre_Cliente }}</span>
+                    </div>
+                    <div>
+                        {% if anticipo_completado %}
+                        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1">
+                            🎉 100% Entregado y Liquidado
+                        </span>
+                        {% else %}
+                        <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-2 py-1">
+                            Pendientes: {{ cajas_pendientes }} cajas
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- SELECTOR DE VISTAS INTELIGENTE -->
+                <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between border-top pt-2 mt-1">
+                    <div class="d-flex flex-wrap gap-1 align-items-center">
+                        <a href="{{ url_for('admin.ticket_entregas', id_anticipo=anticipo.ID_Anticipo, filtro='ultimas_sucursales') }}" 
+                           class="btn btn-sm {% if filtro_param in ['ultimas_sucursales', 'actual', ''] and not es_consolidado and not sucursal_param %}btn-primary text-white fw-bold{% else %}btn-outline-secondary{% endif %}"
+                           title="Muestra el último despacho recibido por cada sucursal">
+                            <i class="bi bi-buildings me-1"></i> 1. Últimas por Sucursal
+                        </a>
+                        <a href="{{ url_for('admin.ticket_entregas', id_anticipo=anticipo.ID_Anticipo, filtro='hoy') }}" 
+                           class="btn btn-sm {% if filtro_param == 'hoy' %}btn-info text-white fw-bold{% else %}btn-outline-secondary{% endif %}"
+                           title="Muestra únicamente las entregas realizadas hoy">
+                            <i class="bi bi-calendar-check me-1"></i> Solo Hoy
+                        </a>
+                        <a href="{{ url_for('admin.ticket_entregas', id_anticipo=anticipo.ID_Anticipo, filtro='todas') }}" 
+                           class="btn btn-sm {% if es_consolidado %}btn-success text-white fw-bold{% else %}btn-outline-secondary{% endif %}"
+                           title="Muestra el historial completo de todas las fechas">
+                            <i class="bi bi-file-earmark-text me-1"></i> 2. Consolidado Total
+                        </a>
+                    </div>
+                    
+                    <!-- SELECTOR DE SUCURSAL ESPECÍFICA -->
+                    {% if todas_las_sucursales_nombres %}
+                    <div class="dropdown d-inline-block">
+                        <button class="btn btn-sm {% if sucursal_param %}btn-warning fw-bold text-dark{% else %}btn-outline-secondary{% endif %} dropdown-toggle" type="button" id="dropdownSucursales" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-geo-alt me-1"></i> {% if sucursal_param %}{{ sucursal_param }}{% else %}Filtrar Sucursal{% endif %}
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="dropdownSucursales">
+                            <li>
+                                <a class="dropdown-item {% if not sucursal_param %}active{% endif %}" href="{{ url_for('admin.ticket_entregas', id_anticipo=anticipo.ID_Anticipo, filtro='ultimas_sucursales') }}">
+                                    <strong>Todas las sucursales</strong> (Último despacho)
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            {% for ns in todas_las_sucursales_nombres %}
+                            <li>
+                                <a class="dropdown-item {% if sucursal_param == ns %}active{% endif %}" href="{{ url_for('admin.ticket_entregas', id_anticipo=anticipo.ID_Anticipo, sucursal=ns) }}">
+                                    📍 {{ ns }}
+                                </a>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    <div class="d-flex gap-1">
+                        <button onclick="imprimirTicket()" class="btn btn-primary btn-sm px-3">
+                            <i class="bi bi-printer me-1"></i> Imprimir
+                        </button>
+                        <a href="{{ url_for('admin.admin_anticipo_entregas') }}" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-arrow-left me-1"></i> Salir
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTENEDOR DEL TICKET / FACTURA -->
+    <div class="ticket-container">
+        <!-- ENCABEZADO EMPRESA -->
+        <div class="logo-container">
+            <img src="{{ url_for('static', filename='ferdel.png') }}" alt="Logo" class="logo"
+                onerror="this.style.display='none'; document.getElementById('logo-text').style.display='block';">
+            <div id="logo-text" class="logo-text" style="display: none;">
+                {{ empresa.Nombre_Empresa if empresa else 'SISTEMA DE VENTAS' }}
+            </div>
+            <div class="size-10 bold">{{ empresa.Nombre_Empresa if empresa else 'SISTEMA DE VENTAS' }}</div>
+            <div class="size-9">RUC: {{ empresa.RUC if empresa else '000-000-000' }}</div>
+            <div class="size-9">{{ empresa.Direccion if empresa else 'Dirección no registrada' }}</div>
+            <div class="size-9">Tel: {{ empresa.Telefono if empresa else '000-0000' }}</div>
+            <div class="double-divider"></div>
+        </div>
+
+        <!-- TÍTULO DE DOCUMENTO -->
+        <div class="text-center">
+            {% if es_consolidado %}
+            <div class="size-13 bold">FACTURA CONSOLIDADA</div>
+            <div class="size-10 bold text-uppercase" style="color: #2c5e2e;">LIQUIDACIÓN DE ENTREGAS</div>
+            {% else %}
+            <div class="size-13 bold">COMPROBANTE DE ENTREGA</div>
+            <div class="size-10 bold text-uppercase" style="color: #333;">DESPACHO A SUCURSALES</div>
+            {% endif %}
+            
+            {% if titulo_rango and not es_consolidado %}
+            <div class="size-9 bold mt-1" style="color: #555;">{{ titulo_rango }}</div>
+            {% endif %}
+            
+            <div class="size-9 mt-1">Emisión: {{ fecha_actual.strftime('%d/%m/%Y') }}</div>
+            {% if bodega_nombre %}
+            <div class="size-9">Bodega Despacho: <strong>{{ bodega_nombre }}</strong></div>
+            {% endif %}
+            <div class="size-9">Atendido por: {{ entregas[0].Registrado_Por if entregas else 'Sistema' }}</div>
+            <div class="divider"></div>
+        </div>
+
+        <!-- DATOS DEL CLIENTE -->
+        <div class="size-9">
+            <div><strong>Cliente:</strong> {{ anticipo.Nombre_Cliente }}</div>
+            <div><strong>RUC/Cédula:</strong> {{ anticipo.RUC_CEDULA or 'No registra' }}</div>
+            <div><strong>Teléfono:</strong> {{ anticipo.Telefono or 'No registra' }}</div>
+            <div><strong>Dirección:</strong> {{ anticipo.Direccion_Cliente or 'No registra' }}</div>
+            <div><strong>Anticipo Ref.:</strong> #{{ anticipo.ID_Anticipo }} ({{ anticipo.Fecha_Anticipo.strftime('%d/%m/%Y') if anticipo.Fecha_Anticipo else 'N/A' }})</div>
+        </div>
+        <div class="divider"></div>
+
+        <!-- INFORMACIÓN DEL PRODUCTO -->
+        <div class="size-9">
+            <div><strong>Producto:</strong> {{ anticipo.Nombre_Producto }}</div>
+            {% if anticipo.COD_Producto %}
+            <div><strong>Código:</strong> {{ anticipo.COD_Producto }}</div>
+            {% endif %}
+            <div><strong>Total Cajas Contratadas:</strong> {{ anticipo.Total_Cajas_Anticipo }} cajas</div>
+        </div>
+        <div class="divider"></div>
+
+        <!-- DESGLOSE CRONOLÓGICO DE FECHAS DE ESTE DESPACHO -->
+        {% if mostrar_detalle or es_consolidado or entregas_por_fecha|length > 1 %}
+        <div class="size-9 bold text-center">HISTORIAL DE ENTREGAS POR FECHA</div>
+        {% for fecha_item, lista_entregas in entregas_por_fecha.items() %}
+        <div class="size-8 bold mt-1" style="border-bottom: 1px dashed #666; padding-bottom: 2px; color: #1e293b;">
+            Fecha: {{ fecha_item }}
+        </div>
+        <table>
+            <tbody>
+                {% for item in lista_entregas %}
+                <tr class="size-8">
+                    <td class="text-left">{{ item.Nombre_Sucursal }}</td>
+                    <td class="text-right bold">{{ item.Cantidad_Cajas }} cajas</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endfor %}
+        <div class="divider"></div>
+        {% endif %}
+
+        <!-- RESUMEN DE SUCURSALES ATENDIDAS -->
+        <div class="size-9 bold text-center">
+            {% if es_consolidado %}TOTAL ENTREGADO POR SUCURSAL{% else %}SUCURSALES ATENDIDAS{% endif %}
+        </div>
+
+        <table>
+            <thead>
+                <tr class="size-9 bold table-header">
+                    <th class="text-left">Sucursal / Fecha</th>
+                    <th class="text-right">Cantidad de Cajas</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for sucursal in sucursales_consolidadas %}
+                <tr>
+                    <td class="text-left">
+                        <strong>{{ sucursal.nombre }}</strong>
+                        {% if sucursal.fechas_str %}
+                        <br><span style="font-size: 8px; color: #475569;">Fecha: {{ sucursal.fechas_str }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-right bold align-middle">{{ sucursal.total_cajas }} cajas</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="2" class="text-center text-muted py-2">No hay entregas registradas para este filtro</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr class="table-footer">
+                    <td class="text-left bold">TOTAL DESPACHO</td>
+                    <td class="text-right bold">{{ total_cajas_rango }} cajas</td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <div class="divider"></div>
+
+        <!-- RESUMEN / LIQUIDACIÓN DEL ANTICIPO (SOLO CANTIDADES FÍSICAS) -->
+        {% if es_consolidado or anticipo_completado %}
+        <div class="{% if anticipo_completado %}alert-completado{% else %}alert-info{% endif %}">
+            <div class="text-center bold size-10">LIQUIDACIÓN DE ENTREGAS</div>
+            <div class="divider" style="margin: 3px 0;"></div>
+            <div style="display: flex; justify-content: space-between;">
+                <span>Total Cajas Contratadas:</span>
+                <span class="bold">{{ anticipo.Total_Cajas_Anticipo }} cajas</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <span>Total Cajas Despachadas:</span>
+                <span class="bold">{{ anticipo.Cajas_Consumidas }} cajas</span>
+            </div>
+            <div class="divider" style="margin: 3px 0;"></div>
+            <div style="display: flex; justify-content: space-between;">
+                <span>Cajas Pendientes:</span>
+                <span class="bold">{% if cajas_pendientes == 0 %}0 cajas (100% Entregado){% else %}{{ cajas_pendientes }} cajas{% endif %}</span>
+            </div>
+        </div>
+        {% else %}
+        <div class="alert-info">
+            <div class="text-center bold size-10">ESTADO DEL ANTICIPO</div>
+            <div class="divider" style="margin: 3px 0;"></div>
+            <div style="display: flex; justify-content: space-between;">
+                <span>Total Anticipado:</span>
+                <span class="bold">{{ anticipo.Total_Cajas_Anticipo }} cajas</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <span>Acumulado Entregado:</span>
+                <span class="bold">{{ anticipo.Cajas_Consumidas }} cajas</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <span>Pendiente por entregar:</span>
+                <span class="bold" style="color: #b45309;">{{ cajas_pendientes }} cajas</span>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- NOTAS -->
+        {% if notas_entregas %}
+        <div class="size-8">
+            <strong>Notas:</strong> {{ notas_entregas }}
+        </div>
+        <div class="divider"></div>
+        {% endif %}
+
+        <!-- FIRMAS -->
+        <div style="margin-top: 20px;">
+            <div style="display: flex; justify-content: space-between; gap: 10px;">
+                <div style="flex: 1;" class="firma-box">
+                    Despachado Por<br>(Bodega)
+                </div>
+                <div style="flex: 1;" class="firma-box">
+                    Recibido Conforme<br>(Cliente / Sucursal)
+                </div>
+            </div>
+        </div>
+
+        <!-- PIE DEL TICKET -->
+        <div class="text-center size-9" style="margin-top: 15px;">
+            <div class="bold">¡Gracias por su preferencia!</div>
+            <div style="margin-top: 4px;">
+                {% if es_consolidado %}
+                <div>--- Liquidación de Anticipo ---</div>
+                <div class="size-8 text-muted">Constancia de entrega completa de cajas</div>
+                {% else %}
+                <div>--- Comprobante de Salida ---</div>
+                <div class="size-8 text-muted">Entrega parcial respaldada por anticipo activo</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- BOTONES DE CONTROL DE IMPRESIÓN (NO SE IMPRIMEN) -->
+    <div class="no-print print-controls">
+        <div class="btn-group" role="group">
+            <button onclick="imprimirTicket()" class="btn btn-primary btn-sm">
+                🖨️ Imprimir Ticket
+            </button>
+            <button onclick="imprimirRapidoRawBT(event)" class="btn btn-warning btn-sm">
+                ⚡ Imprimir Bluetooth
+            </button>
+            {% if not es_consolidado %}
+            <a href="{{ url_for('admin.ticket_entregas', id_anticipo=anticipo.ID_Anticipo, filtro='todas') }}" class="btn btn-success btn-sm">
+                📋 Ver Factura Consolidada
+            </a>
+            {% else %}
+            <a href="{{ url_for('admin.ticket_entregas', id_anticipo=anticipo.ID_Anticipo, filtro='ultimas_sucursales') }}" class="btn btn-info btn-sm text-white">
+                📦 Ver Últimas Entregas por Sucursal
+            </a>
+            {% endif %}
+            <a href="{{ url_for('admin.admin_anticipo_entregas') }}" class="btn btn-secondary btn-sm">
+                ⬅️ Volver a Entregas
+            </a>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/html2canvas.min.js') }}"></script>
+    <script>
+        function imprimirTicket() {
+            window.print();
+        }
+
+        function imprimirRapidoRawBT(event) {
+            const btn = event ? event.currentTarget : null;
+            let originalText = '';
+            if (btn) {
+                originalText = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '⌛ Generando...';
+            }
+
+            const element = document.querySelector('.ticket-container');
+            if (!element) {
+                Swal.fire("Error: No se encontró el contenedor del ticket.", '', 'info');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+                return;
+            }
+
+            html2canvas(element, {
+                scale: 2.5,
+                useCORS: true,
+                allowTaint: true,
+                backgroundColor: '#ffffff',
+                onclone: function(clonedDoc) {
+                    const clonedContainer = clonedDoc.querySelector('.ticket-container');
+                    if (clonedContainer) {
+                        clonedContainer.style.setProperty('font-size', '13.5px', 'important');
+                        const sizes = {
+                            'size-8': '10px',
+                            'size-9': '12px',
+                            'size-10': '13.5px',
+                            'size-11': '15px',
+                            'size-12': '16px',
+                            'size-13': '18px',
+                            'size-14': '20px',
+                        };
+                        for (const [className, newSize] of Object.entries(sizes)) {
+                            clonedContainer.querySelectorAll('.' + className).forEach(el => {
+                                el.style.setProperty('font-size', newSize, 'important');
+                            });
+                        }
+                        clonedContainer.querySelectorAll('table').forEach(el => {
+                            el.style.setProperty('font-size', '12px', 'important');
+                        });
+                        const logo = clonedContainer.querySelector('.logo');
+                        if (logo) {
+                            logo.style.setProperty('max-height', '60px', 'important');
+                        }
+                        clonedContainer.style.setProperty('padding', '12px', 'important');
+                    }
+                }
+            }).then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                const base64Data = imgData.split(',')[1];
+                const url = "rawbt:data:image/png;base64," + base64Data;
+                
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+                
+                window.location.href = url;
+            }).catch(err => {
+                console.error("Error al capturar ticket:", err);
+                Swal.fire("Error al generar imagen de ticket para Bluetooth: " + err.message, '', 'info');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            var logo = document.querySelector('.logo');
+            if (logo) {
+                if (logo.complete && logo.naturalHeight === 0) {
+                    document.getElementById('logo-text').style.display = 'block';
+                }
+                logo.onerror = function () {
+                    document.getElementById('logo-text').style.display = 'block';
+                };
+            }
+
+            var urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('autoPrint')) {
+                setTimeout(function () {
+                    window.print();
+                }, 500);
+            }
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+                e.preventDefault();
+                imprimirTicket();
+            }
+        });
+    </script>
+</body>
+
+</html>

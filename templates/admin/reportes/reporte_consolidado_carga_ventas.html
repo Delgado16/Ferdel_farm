@@ -1,0 +1,1465 @@
+{% extends "layout.html" %}
+
+{% block title %}Consolidado de Carga y Ventas - FerDel{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="bi bi-intersect"></i> Consolidado de Carga vs Ventas (Rutas)
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('admin.reportes') }}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Volver
+        </a>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-light py-3 d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-funnel-fill text-secondary"></i> <strong>Filtros de Búsqueda</strong></span>
+    </div>
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('admin.reporte_consolidado_carga_ventas') }}" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label small fw-semibold">Fecha Inicio</label>
+                <input type="date" name="fecha_inicio" class="form-control form-control-sm" value="{{ fecha_inicio }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-semibold">Fecha Fin</label>
+                <input type="date" name="fecha_fin" class="form-control form-control-sm" value="{{ fecha_fin }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-semibold">Vendedor</label>
+                <select name="vendedor_id" class="form-select form-select-sm">
+                    <option value="">-- Seleccionar Vendedor --</option>
+                    {% for v in vendedores %}
+                    <option value="{{ v.ID_Usuario }}" {% if vendedor_id|int == v.ID_Usuario %}selected{% endif %}>
+                        {{ v.NombreUsuario }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-semibold">Categoría</label>
+                <select name="categoria_id" class="form-select form-select-sm">
+                    <option value="">Todas las categorías</option>
+                    {% for cat in categorias %}
+                    <option value="{{ cat.ID_Categoria }}" {% if categoria_id|int == cat.ID_Categoria %}selected{% endif %}>
+                        {{ cat.Descripcion }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 d-flex justify-content-end gap-2">
+                {% if vendedor_id %}
+                <a href="{{ url_for('admin.reporte_consolidado_carga_ventas', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Volver a la Lista de Vendedores
+                </a>
+                {% endif %}
+                <a href="{{ url_for('admin.reporte_consolidado_carga_ventas') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-counterclockwise"></i> Limpiar Filtros
+                </a>
+                <button type="submit" class="btn btn-sm btn-dark px-4">
+                    <i class="bi bi-search"></i> Generar Consolidado
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if not vendedor_id %}
+<!-- VISTA 1: LISTADO DE VENDEDORES -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white py-3">
+        <i class="bi bi-people-fill text-primary"></i> <strong>Vendedores con Actividad en el Período</strong>
+        <span class="badge bg-secondary float-end">{{ vendedores_activos|length }} registrados</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="py-3">Vendedor</th>
+                        <th class="py-3">Rutas Asignadas</th>
+                        <th class="py-3 text-center">Asignaciones</th>
+                        <th class="py-3 text-center">Período de Trabajo</th>
+                        <th class="py-3 text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for v in vendedores_activos %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-circle-sm bg-primary text-white me-3">
+                                    {{ v.Vendedor[0]|upper }}
+                                </div>
+                                <div>
+                                    <strong class="text-dark">{{ v.Vendedor }}</strong>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            {% if v.Rutas %}
+                            {% for ruta in v.Rutas.split(', ') %}
+                            <span class="badge bg-light text-dark border me-1">{{ ruta }}</span>
+                            {% endfor %}
+                            {% else %}
+                            <span class="text-muted">Sin ruta asignada</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-primary rounded-pill px-2.5">{{ v.Total_Asignaciones }}</span>
+                        </td>
+                        <td class="text-center small text-muted">
+                            {{ v.Primera_Asignacion.strftime('%d/%m/%Y') }} - {{ v.Ultima_Asignacion.strftime('%d/%m/%Y') }}
+                        </td>
+                        <td class="text-center">
+                            <a href="{{ url_for('admin.reporte_consolidado_carga_ventas', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, vendedor_id=v.ID_Usuario) }}" 
+                               class="btn btn-sm btn-primary px-3 shadow-2xs">
+                                <i class="bi bi-eye"></i> Ver Consolidado
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-5">
+                            <i class="bi bi-people fs-1 text-secondary opacity-50"></i><br>
+                            <span class="mt-2 d-block">No se encontraron vendedores activos con asignaciones en este rango de fechas.</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<!-- VISTA 2: CONSOLIDACIÓN DETALLADA DEL VENDEDOR SELECCIONADO -->
+
+<!-- KPIs -->
+{% set total_carga_bodega = resultados|sum(attribute='Carga_Bodega')|default(0)|float %}
+{% set total_carga_prov = resultados|sum(attribute='Carga_Proveedor')|default(0)|float %}
+{% set total_cargado = resultados|sum(attribute='Total_Cargado')|default(0)|float %}
+{% set total_vendido = resultados|sum(attribute='Total_Vendido')|default(0)|float %}
+{% set total_devuelto = resultados|sum(attribute='Total_Devuelto')|default(0)|float %}
+{% set total_mermado = resultados|sum(attribute='Total_Mermado')|default(0)|float %}
+{% set total_stock = resultados|sum(attribute='Stock_Camion')|default(0)|float %}
+{% set total_diferencia = resultados|sum(attribute='Diferencia')|default(0)|float %}
+
+<!-- Nombre del vendedor -->
+{% set VendedorNombre = "" %}
+{% for v in vendedores %}
+    {% if v.ID_Usuario == vendedor_id|int %}
+        {% set VendedorNombre = v.NombreUsuario %}
+    {% endif %}
+{% endfor %}
+
+<div class="row g-3 mb-4">
+    <!-- Carga Bodega Local -->
+    <div class="col-xl-3 col-md-6">
+        <div class="card shadow-sm h-100 border-start border-primary border-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-muted text-uppercase fw-semibold" style="font-size: 0.75rem; letter-spacing: 0.05em;">1. Carga Bodega (Local)</span>
+                        <h3 class="mb-0 fw-bold text-primary mt-1">{{ "{:,.0f}".format(total_carga_bodega) }} <small class="fs-6 text-muted">Cajas</small></h3>
+                    </div>
+                    <div class="rounded-circle bg-primary bg-opacity-10 p-3 text-primary">
+                        <i class="bi bi-building fs-4"></i>
+                    </div>
+                </div>
+                <div class="mt-2 text-muted small">
+                    <i class="bi bi-box-arrow-right text-primary me-1"></i> Despacho inicial del local
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Carga Proveedores -->
+    <div class="col-xl-3 col-md-6">
+        <div class="card shadow-sm h-100 border-start border-info border-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-muted text-uppercase fw-semibold" style="font-size: 0.75rem; letter-spacing: 0.05em;">2. Carga Proveedores</span>
+                        <h3 class="mb-0 fw-bold text-info mt-1">{{ "{:,.0f}".format(total_carga_prov) }} <small class="fs-6 text-muted">Cajas</small></h3>
+                    </div>
+                    <div class="rounded-circle bg-info bg-opacity-10 p-3 text-info">
+                        <i class="bi bi-truck-flatbed fs-4"></i>
+                    </div>
+                </div>
+                <div class="mt-2 text-muted small">
+                    <i class="bi bi-cart-plus text-info me-1"></i> Compras recibidas en ruta
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Total Vendido -->
+    <div class="col-xl-3 col-md-6">
+        <div class="card shadow-sm h-100 border-start border-success border-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-muted text-uppercase fw-semibold" style="font-size: 0.75rem; letter-spacing: 0.05em;">Total Facturado</span>
+                        <h3 class="mb-0 fw-bold text-success mt-1">{{ "{:,.0f}".format(total_vendido) }} <small class="fs-6 text-muted">Cajas</small></h3>
+                    </div>
+                    <div class="rounded-circle bg-success bg-opacity-10 p-3 text-success">
+                        <i class="bi bi-receipt fs-4"></i>
+                    </div>
+                </div>
+                <div class="mt-2 text-muted small">
+                    <i class="bi bi-check2-circle text-success me-1"></i> Ventas a clientes
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Diferencia / Cuadre -->
+    <div class="col-xl-3 col-md-6">
+        <div class="card shadow-sm h-100 border-start {% if total_diferencia|abs > 0 %}border-danger bg-danger-subtle{% else %}border-success bg-success-subtle{% endif %} border-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-uppercase fw-semibold {% if total_diferencia|abs > 0 %}text-danger{% else %}text-success{% endif %}" style="font-size: 0.75rem; letter-spacing: 0.05em;">Balance / Cuadre</span>
+                        <h3 class="mb-0 fw-bold {% if total_diferencia|abs > 0 %}text-danger{% else %}text-success{% endif %} mt-1">{{ "{:,.0f}".format(total_diferencia) }} <small class="fs-6">Cajas</small></h3>
+                    </div>
+                    <div class="rounded-circle {% if total_diferencia|abs > 0 %}bg-danger text-white{% else %}bg-success text-white{% endif %} p-3">
+                        <i class="bi {% if total_diferencia|abs > 0 %}bi-exclamation-triangle-fill{% else %}bi-shield-check{% endif %} fs-4"></i>
+                    </div>
+                </div>
+                <div class="mt-2 small {% if total_diferencia|abs > 0 %}text-danger fw-semibold{% else %}text-success fw-semibold{% endif %}">
+                    {% if total_diferencia|abs > 0 %}
+                    <i class="bi bi-exclamation-circle-fill me-1"></i> Requiere revisión
+                    {% else %}
+                    <i class="bi bi-check-circle-fill me-1"></i> Cuadre exacto
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Barra de Resumen Secundario -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="p-3 bg-white rounded shadow-sm border d-flex align-items-center justify-content-between">
+            <div>
+                <span class="text-muted small d-block">📦 Total Carga Disponible</span>
+                <strong class="fs-5 text-dark">{{ "{:,.0f}".format(total_cargado) }} Cajas</strong>
+            </div>
+            <span class="badge bg-primary rounded-pill">1 + 2</span>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="p-3 bg-white rounded shadow-sm border d-flex align-items-center justify-content-between">
+            <div>
+                <span class="text-muted small d-block">↩️ Devolución a Bodega</span>
+                <strong class="fs-5 text-warning">{{ "{:,.0f}".format(total_devuelto) }} Cajas</strong>
+            </div>
+            <i class="bi bi-arrow-return-left text-warning fs-5"></i>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="p-3 bg-white rounded shadow-sm border d-flex align-items-center justify-content-between">
+            <div>
+                <span class="text-muted small d-block">🗑️ Mermas / Pérdidas</span>
+                <strong class="fs-5 text-danger">{{ "{:,.0f}".format(total_mermado) }} Cajas</strong>
+            </div>
+            <i class="bi bi-trash text-danger fs-5"></i>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="p-3 bg-white rounded shadow-sm border d-flex align-items-center justify-content-between">
+            <div>
+                <span class="text-muted small d-block">🚚 Stock Remanente Camión</span>
+                <strong class="fs-5 text-info">{{ "{:,.0f}".format(total_stock) }} Cajas</strong>
+            </div>
+            <i class="bi bi-box-seam text-info fs-5"></i>
+        </div>
+    </div>
+</div>
+
+<!-- Gráfico de Comparación -->
+{% if resultados|length > 0 %}
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white py-3">
+        <i class="bi bi-bar-chart-fill text-primary"></i> <strong>Comparación Cargas vs Ventas ({{ VendedorNombre }})</strong>
+    </div>
+    <div class="card-body">
+        <div style="position: relative; height: 350px; width: 100%;">
+            <canvas id="consolidatedChart"></canvas>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Tabla Detallada con Filtros de Validación -->
+<div class="card shadow-sm mb-5">
+    <div class="card-header bg-white py-3">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <div>
+                <h5 class="mb-0 fw-bold text-dark">
+                    <i class="bi bi-table text-primary me-1"></i> Auditoría y Validación por Producto {% if vendedor_nombre or VendedorNombre %}({{ vendedor_nombre or VendedorNombre }}){% endif %}
+                </h5>
+                <small class="text-muted">Filtra por tipo de carga para auditar el origen del inventario por separado</small>
+            </div>
+            <!-- Buscador rápido en tabla -->
+            <div class="input-group input-group-sm" style="width: 260px;">
+                <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                <input type="text" id="tablaBuscador" class="form-control form-control-sm border-start-0 ps-0" placeholder="Buscar por nombre o código...">
+            </div>
+        </div>
+
+        <!-- Barra de Botones / Filtros de Validación -->
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="btn-group flex-wrap" role="group" id="tablaFiltrosGroup">
+                <button type="button" class="btn btn-sm btn-dark active filter-btn" data-filtro="todos">
+                    <i class="bi bi-grid-fill me-1"></i> Consolidado General (<span id="badgeCountTodos">{{ resultados|length }}</span>)
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-primary filter-btn" data-filtro="carga_local">
+                    <i class="bi bi-building me-1"></i> 1. Carga Local / Bodega (<span id="badgeCountLocal">0</span>)
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-info filter-btn" data-filtro="carga_inmediata">
+                    <i class="bi bi-truck-flatbed me-1"></i> 2. Carga Inmediata a Venta / Prov. (<span id="badgeCountInmediata">0</span>)
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-danger filter-btn" data-filtro="descuadre">
+                    <i class="bi bi-exclamation-triangle-fill me-1"></i> Con Descuadre (<span id="badgeCountDescuadre">0</span>)
+                </button>
+            </div>
+            
+            <span class="badge bg-secondary p-2" id="vistaInfoBadge">Mostrando: Consolidado General</span>
+        </div>
+    </div>
+
+    <!-- Banner informativo según el filtro activo -->
+    <div id="filtroInfoAlert" class="alert alert-light border-bottom rounded-0 mb-0 py-2 px-3 small d-flex align-items-center">
+        <i class="bi bi-info-circle-fill text-primary me-2 fs-6"></i>
+        <span id="filtroInfoText">Mostrando el consolidado completo (Carga Local + Carga Inmediata) vs salidas en ruta.</span>
+    </div>
+
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="tablaProductosConsolidado">
+                <thead class="table-light">
+                    <tr>
+                        <th class="py-3">Código</th>
+                        <th class="py-3">Producto</th>
+                        <th class="py-3">Categoría</th>
+                        <th class="text-center py-3 text-primary col-carga-local" title="Salida de Bodega Central">
+                            <i class="bi bi-building"></i> Carga Local
+                        </th>
+                        <th class="text-center py-3 text-info col-carga-prov" title="Compras de Proveedor / Carga Inmediata en Ruta">
+                            <i class="bi bi-truck-flatbed"></i> Carga Inmediata
+                        </th>
+                        <th class="text-center py-3 fw-bold col-carga-total" style="background-color: #f8fafc;" title="Total Carga (Local + Inmediata)">
+                            Total Carga
+                        </th>
+                        <th class="text-center py-3 text-success">Vendido</th>
+                        <th class="text-center py-3 text-warning">Devuelto</th>
+                        <th class="text-center py-3 text-danger">Mermado</th>
+                        <th class="text-center py-3 text-info col-stock-camion" title="Stock remanente que aún está en el camión. Muestra 0 si ya se vendió o retornó a bodega por liquidación.">
+                            <i class="bi bi-truck"></i> Stock Camión
+                        </th>
+                        <th class="text-center py-3">Diferencia</th>
+                        <th class="text-center py-3">Estado</th>
+                        <th class="text-center py-3">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="tablaProductosBody">
+                    {% for item in resultados %}
+                    <tr class="producto-row {% if item.Diferencia|float != 0 %}table-danger-light{% endif %}"
+                        data-carga-local="{{ item.Carga_Bodega|float }}"
+                        data-carga-prov="{{ item.Carga_Proveedor|float }}"
+                        data-cargado="{{ item.Total_Cargado|float }}"
+                        data-vendido="{{ item.Total_Vendido|float }}"
+                        data-devuelto="{{ item.Total_Devuelto|float }}"
+                        data-mermado="{{ item.Total_Mermado|float }}"
+                        data-stock="{{ item.Stock_Camion|float }}"
+                        data-diferencia="{{ item.Diferencia|float }}"
+                        data-search="{{ item.Codigo|lower }} {{ item.Producto|lower }} {{ item.Categoria|lower }}">
+                        <td><code>{{ item.Codigo }}</code></td>
+                        <td>
+                            <strong>{{ item.Producto }}</strong>
+                            {% if item.Carga_Proveedor|float > 0 and item.Carga_Bodega|float == 0 %}
+                            <span class="badge bg-info-subtle text-info border border-info ms-1 small" style="font-size: 0.65rem;">Directo Prov.</span>
+                            {% elif item.Carga_Proveedor|float > 0 and item.Carga_Bodega|float > 0 %}
+                            <span class="badge bg-warning-subtle text-warning border border-warning ms-1 small" style="font-size: 0.65rem;">Mixto</span>
+                            {% endif %}
+                        </td>
+                        <td><span class="badge bg-light text-dark border">{{ item.Categoria }}</span></td>
+                        
+                        <!-- Carga Local -->
+                        <td class="text-center fw-bold text-primary col-carga-local">
+                            {% if item.Carga_Bodega|float > 0 %}
+                            <span class="badge bg-primary-subtle text-primary border border-primary px-2">
+                                {{ item.Carga_Bodega | cantidad }}
+                            </span>
+                            {% else %}
+                            <span class="text-muted">0</span>
+                            {% endif %}
+                        </td>
+                        
+                        <!-- Carga Inmediata / Proveedor -->
+                        <td class="text-center fw-bold text-info col-carga-prov">
+                            {% if item.Carga_Proveedor|float > 0 %}
+                            <span class="badge bg-info-subtle text-info border border-info px-2">
+                                +{{ item.Carga_Proveedor | cantidad }}
+                            </span>
+                            {% else %}
+                            <span class="text-muted">0</span>
+                            {% endif %}
+                        </td>
+                        
+                        <!-- Total Cargado -->
+                        <td class="text-center fw-bold col-carga-total" style="background-color: rgba(241, 245, 249, 0.5);">
+                            {{ item.Total_Cargado | cantidad }}
+                        </td>
+                        
+                        <!-- Vendido -->
+                        <td class="text-center fw-bold text-success">{{ item.Total_Vendido | cantidad }}</td>
+                        <!-- Devuelto -->
+                        <td class="text-center fw-bold text-warning">{{ item.Total_Devuelto | cantidad }}</td>
+                        <!-- Mermado -->
+                        <td class="text-center fw-bold text-danger">{{ item.Total_Mermado | cantidad }}</td>
+                        <!-- Stock Camión -->
+                        <td class="text-center fw-bold col-stock-camion">
+                            {% if item.Stock_Camion|float > 0 %}
+                            <span class="badge bg-info text-dark px-2 py-1 shadow-2xs" title="Producto actualmente en el camión">
+                                <i class="bi bi-truck me-1"></i>{{ item.Stock_Camion | cantidad }}
+                            </span>
+                            {% else %}
+                            <span class="text-muted opacity-75" title="0 cajas en camión (Liquidado)">0</span>
+                            {% endif %}
+                        </td>
+                        <!-- Diferencia -->
+                        <td class="text-center fw-bold {% if item.Diferencia|float == 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ item.Diferencia | cantidad }}
+                        </td>
+                        <!-- Estado -->
+                        <td class="text-center">
+                            {% if item.Diferencia|float == 0 %}
+                            <span class="badge bg-success"><i class="bi bi-check"></i> Cuadrado</span>
+                            {% else %}
+                            <span class="badge bg-danger"><i class="bi bi-x-circle"></i> Descuadre</span>
+                            {% endif %}
+                        </td>
+                        <!-- Acciones -->
+                        <td class="text-center">
+                            <button type="button" class="btn btn-sm btn-outline-primary btn-ver-detalle px-3 shadow-2xs" 
+                                    data-id="{{ item.ID_Producto }}" 
+                                    data-nombre="{{ item.Producto|escape }}">
+                                <i class="bi bi-search"></i> Ver Auditoría
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="13" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox fs-1"></i><br>
+                            No se encontraron datos de productos en la ruta para el período seleccionado.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    <tr id="noResultadosFilterRow" class="d-none">
+                        <td colspan="13" class="text-center text-muted py-4">
+                            <i class="bi bi-funnel fs-1 text-secondary opacity-50"></i><br>
+                            <span class="mt-2 d-block">No hay productos que coincidan con el filtro o búsqueda actual.</span>
+                        </td>
+                    </tr>
+                </tbody>
+                {% if resultados|length > 0 %}
+                <tfoot class="table-light fw-bold" id="tablaFoot">
+                    <tr>
+                        <td colspan="3" class="text-end">TOTALES VISIBLES:</td>
+                        <td class="text-center text-primary col-carga-local" id="footCargaLocal">{{ total_carga_bodega | cantidad }}</td>
+                        <td class="text-center text-info col-carga-prov" id="footCargaProv">{{ total_carga_prov | cantidad }}</td>
+                        <td class="text-center col-carga-total" style="background-color: #e2e8f0;" id="footTotalCarga">{{ total_cargado | cantidad }}</td>
+                        <td class="text-center text-success" id="footVendido">{{ total_vendido | cantidad }}</td>
+                        <td class="text-center text-warning" id="footDevuelto">{{ total_devuelto | cantidad }}</td>
+                        <td class="text-center text-danger" id="footMermado">{{ total_mermado | cantidad }}</td>
+                        <td class="text-center text-info col-stock-camion" id="footStock">{{ total_stock | cantidad }}</td>
+                        <td class="text-center {% if total_diferencia == 0 %}text-success{% else %}text-danger{% endif %}" id="footDiferencia">
+                            {{ total_diferencia | cantidad }}
+                        </td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+                {% endif %}
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Tabs de Transacciones Históricas -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white py-3">
+        <i class="bi bi-card-checklist text-primary"></i> <strong>Historial Completo de Transacciones en el Período</strong>
+    </div>
+    <div class="card-body">
+        <ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="pills-cargas-bodega-tab" data-bs-toggle="pill" data-bs-target="#pills-cargas-bodega" type="button" role="tab" aria-controls="pills-cargas-bodega" aria-selected="true">
+                    <i class="bi bi-building me-1"></i> Despachos Bodega Local ({{ cargas_bodega_realizadas|length }})
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="pills-cargas-prov-tab" data-bs-toggle="pill" data-bs-target="#pills-cargas-prov" type="button" role="tab" aria-controls="pills-cargas-prov" aria-selected="false">
+                    <i class="bi bi-truck-flatbed me-1"></i> Compras de Proveedor en Ruta ({{ cargas_proveedor_realizadas|length }})
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="pills-facturas-tab" data-bs-toggle="pill" data-bs-target="#pills-facturas" type="button" role="tab" aria-controls="pills-facturas" aria-selected="false">
+                    <i class="bi bi-receipt me-1"></i> Facturas Realizadas ({{ facturas_realizadas|length }})
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="pills-devoluciones-tab" data-bs-toggle="pill" data-bs-target="#pills-devoluciones" type="button" role="tab" aria-controls="pills-devoluciones" aria-selected="false">
+                    <i class="bi bi-arrow-return-left me-1"></i> Devoluciones a Bodega ({{ devoluciones_realizadas|length }})
+                </button>
+            </li>
+        </ul>
+        
+        <div class="tab-content" id="pills-tabContent">
+            <!-- 1. Despachos Bodega Local -->
+            <div class="tab-pane fade show active" id="pills-cargas-bodega" role="tabpanel" aria-labelledby="pills-cargas-bodega-tab">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle border">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Movimiento #</th>
+                                <th>Fecha y Hora</th>
+                                <th>Ruta</th>
+                                <th>Doc. Traslado</th>
+                                <th class="text-center">Total Productos</th>
+                                <th class="text-center">Total Cajas</th>
+                                <th class="text-end">Monto Estimado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cb in cargas_bodega_realizadas %}
+                            <tr>
+                                <td><code>#{{ cb.ID_Movimiento }}</code></td>
+                                <td>{{ cb.Fecha.strftime('%d/%m/%Y %I:%M %p') if cb.Fecha else '-' }}</td>
+                                <td>{{ cb.Ruta }}</td>
+                                <td><span class="badge bg-primary-subtle text-primary border border-primary">{{ cb.Documento_Numero or '-' }}</span></td>
+                                <td class="text-center">{{ cb.Total_Productos }}</td>
+                                <td class="text-center fw-bold text-primary">{{ cb.Total_Items | cantidad }}</td>
+                                <td class="text-end fw-bold">C$ {{ "{:,.2f}".format(cb.Total_Subtotal) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="7" class="text-center text-muted py-3">
+                                    No se registraron despachos desde bodega local para este vendedor en el período.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 2. Compras de Proveedor en Ruta -->
+            <div class="tab-pane fade" id="pills-cargas-prov" role="tabpanel" aria-labelledby="pills-cargas-prov-tab">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle border">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Movimiento #</th>
+                                <th>Fecha y Hora</th>
+                                <th>Ruta</th>
+                                <th>Doc. / Proveedor Ref</th>
+                                <th class="text-center">Total Productos</th>
+                                <th class="text-center">Total Cajas</th>
+                                <th class="text-end">Monto Compra</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cp in cargas_proveedor_realizadas %}
+                            <tr>
+                                <td><code>#{{ cp.ID_Movimiento }}</code></td>
+                                <td>{{ cp.Fecha.strftime('%d/%m/%Y %I:%M %p') if cp.Fecha else '-' }}</td>
+                                <td>{{ cp.Ruta }}</td>
+                                <td><span class="badge bg-info-subtle text-info border border-info">{{ cp.Documento_Numero or '-' }}</span></td>
+                                <td class="text-center">{{ cp.Total_Productos }}</td>
+                                <td class="text-center fw-bold text-info">{{ cp.Total_Items | cantidad }}</td>
+                                <td class="text-end fw-bold text-info">C$ {{ "{:,.2f}".format(cp.Total_Subtotal) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="7" class="text-center text-muted py-3">
+                                    No se registraron compras/cargas de proveedor en ruta en este período.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 3. Facturas -->
+            <div class="tab-pane fade" id="pills-facturas" role="tabpanel" aria-labelledby="pills-facturas-tab">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle border">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Factura #</th>
+                                <th>Fecha y Hora</th>
+                                <th>Cliente</th>
+                                <th>Tipo Pago</th>
+                                <th class="text-end">Total Facturado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for f in facturas_realizadas %}
+                            <tr>
+                                <td><code>{{ f.Factura_N }}</code></td>
+                                <td>{{ f.Fecha.strftime('%d/%m/%Y %I:%M %p') if f.Fecha else '-' }}</td>
+                                <td><strong>{{ f.Cliente }}</strong></td>
+                                <td>
+                                    {% if f.Credito_Contado == 1 %}
+                                    <span class="badge bg-success">CONTADO</span>
+                                    {% elif f.Credito_Contado == 2 %}
+                                    <span class="badge bg-warning text-dark">CREDITO</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">OTRO</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end fw-bold">C$ {{ "{:,.2f}".format(f.Total) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-3">
+                                    No se registraron facturas para este vendedor en el período.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- 4. Devoluciones -->
+            <div class="tab-pane fade" id="pills-devoluciones" role="tabpanel" aria-labelledby="pills-devoluciones-tab">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle border">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Movimiento #</th>
+                                <th>Fecha y Hora</th>
+                                <th>Ruta</th>
+                                <th>Documento Ref</th>
+                                <th class="text-center">Total Productos</th>
+                                <th class="text-end">Monto Equivalente</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for d in devoluciones_realizadas %}
+                            <tr>
+                                <td><code>#{{ d.ID_Movimiento }}</code></td>
+                                <td>{{ d.Fecha.strftime('%d/%m/%Y %H:%M') if d.Fecha else '-' }}</td>
+                                <td>{{ d.Ruta }}</td>
+                                <td><code>{{ d.Documento_Numero or '-' }}</code></td>
+                                <td class="text-center fw-bold">{{ d.Total_Productos | cantidad }}</td>
+                                <td class="text-end fw-bold text-muted">C$ {{ "{:,.2f}".format(d.Total_Subtotal) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-3">
+                                    No se registraron devoluciones a bodega para este vendedor en el período.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+
+<!-- Modal de Auditoría y Trazabilidad Cronológica -->
+<div class="modal fade" id="detalleModal" tabindex="-1" aria-labelledby="detalleModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content" style="border-radius: 16px; overflow: hidden; border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.15);">
+            <div class="modal-header bg-dark text-white py-3">
+                <h5 class="modal-title fw-bold" id="detalleModalLabel">
+                    <i class="bi bi-clipboard-data-fill me-2 text-primary"></i> Auditoría y Kardex de Movimientos en Ruta
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3 p-3 bg-light rounded border">
+                    <div>
+                        <span class="text-muted text-uppercase fw-bold" style="font-size: 0.75rem; letter-spacing: 0.05em;">Producto Auditado:</span>
+                        <h4 id="modalProductoNombre" class="fw-bold text-primary mb-0"></h4>
+                    </div>
+                    <div>
+                        <span class="badge bg-secondary p-2" id="modalRangoFechas"></span>
+                    </div>
+                </div>
+
+                <!-- Resumen de Auditoría en Tarjetas dentro del Modal -->
+                <div class="row g-2 mb-4">
+                    <div class="col-6 col-md-2">
+                        <div class="p-2.5 rounded bg-primary-subtle border border-primary text-center">
+                            <span class="text-muted small d-block" style="font-size: 0.7rem;">🏢 Carga Local</span>
+                            <strong class="fs-6 text-primary" id="modalKpiLocal">0</strong> <small class="text-muted">cajas</small>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <div class="p-2.5 rounded bg-info-subtle border border-info text-center">
+                            <span class="text-muted small d-block" style="font-size: 0.7rem;">🚚 Carga Prov.</span>
+                            <strong class="fs-6 text-info" id="modalKpiProv">0</strong> <small class="text-muted">cajas</small>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <div class="p-2.5 rounded bg-success-subtle border border-success text-center">
+                            <span class="text-muted small d-block" style="font-size: 0.7rem;">🧾 Vendido</span>
+                            <strong class="fs-6 text-success" id="modalKpiVendido">0</strong> <small class="text-muted">cajas</small>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <div class="p-2.5 rounded bg-warning-subtle border border-warning text-center">
+                            <span class="text-muted small d-block" style="font-size: 0.7rem;">↩️ Devuelto</span>
+                            <strong class="fs-6 text-warning" id="modalKpiDevuelto">0</strong> <small class="text-muted">cajas</small>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <div class="p-2.5 rounded bg-danger-subtle border border-danger text-center">
+                            <span class="text-muted small d-block" style="font-size: 0.7rem;">🗑️ Mermado</span>
+                            <strong class="fs-6 text-danger" id="modalKpiMermado">0</strong> <small class="text-muted">cajas</small>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <div class="p-2.5 rounded bg-dark text-white text-center shadow-sm">
+                            <span class="text-white-50 small d-block" style="font-size: 0.7rem;">🚚 Stock Camión</span>
+                            <strong class="fs-6 text-white" id="modalKpiStock">0</strong> <small class="text-white-50">cajas</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Nav tabs -->
+                <ul class="nav nav-tabs mb-4" id="modalTab" role="tablist" style="border-bottom: 2px solid #f1f5f9;">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active fw-bold px-3 py-2.5" id="timeline-tab" data-bs-toggle="tab" data-bs-target="#modalTimeline" type="button" role="tab" aria-controls="modalTimeline" aria-selected="true">
+                            <i class="bi bi-clock-history me-1 text-primary"></i> Cronología / Kardex (<span id="countTimeline" class="badge bg-primary">0</span>)
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-bold px-3 py-2.5" id="cargas-bodega-tab" data-bs-toggle="tab" data-bs-target="#modalCargasBodega" type="button" role="tab" aria-controls="modalCargasBodega" aria-selected="false">
+                            <i class="bi bi-building me-1 text-primary"></i> Carga Local (<span id="countCargasBodega" class="badge bg-primary">0</span>)
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-bold px-3 py-2.5" id="cargas-prov-tab" data-bs-toggle="tab" data-bs-target="#modalCargasProv" type="button" role="tab" aria-controls="modalCargasProv" aria-selected="false">
+                            <i class="bi bi-truck-flatbed me-1 text-info"></i> Carga Proveedor (<span id="countCargasProv" class="badge bg-info text-dark">0</span>)
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-bold px-3 py-2.5" id="ventas-tab" data-bs-toggle="tab" data-bs-target="#modalVentas" type="button" role="tab" aria-controls="modalVentas" aria-selected="false">
+                            <i class="bi bi-receipt me-1 text-success"></i> Facturas (<span id="countVentas" class="badge bg-success">0</span>)
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-bold px-3 py-2.5" id="devoluciones-tab" data-bs-toggle="tab" data-bs-target="#modalDevoluciones" type="button" role="tab" aria-controls="modalDevoluciones" aria-selected="false">
+                            <i class="bi bi-arrow-return-left me-1 text-warning"></i> Devoluciones (<span id="countDevoluciones" class="badge bg-warning text-dark">0</span>)
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-bold px-3 py-2.5" id="mermas-tab" data-bs-toggle="tab" data-bs-target="#modalMermas" type="button" role="tab" aria-controls="modalMermas" aria-selected="false">
+                            <i class="bi bi-trash me-1 text-danger"></i> Mermas (<span id="countMermas" class="badge bg-danger">0</span>)
+                        </button>
+                    </li>
+                </ul>
+                
+                <!-- Tab panes -->
+                <div class="tab-content" id="modalTabContent">
+                    <!-- Tab 0: Cronología / Kardex en Ruta -->
+                    <div class="tab-pane fade show active" id="modalTimeline" role="tabpanel" aria-labelledby="timeline-tab">
+                        <div class="alert alert-light border d-flex align-items-center mb-3">
+                            <i class="bi bi-info-circle-fill text-primary fs-5 me-2"></i>
+                            <span class="small text-muted">
+                                Esta vista muestra el flujo cronológico paso a paso (entradas ➕ y salidas ➖) calculando el saldo acumulado en el camión.
+                            </span>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0 border">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="py-2.5">Fecha y Hora</th>
+                                        <th class="py-2.5">Tipo de Movimiento</th>
+                                        <th class="py-2.5">Doc / Ref</th>
+                                        <th class="py-2.5">Detalle / Cliente</th>
+                                        <th class="text-center py-2.5">Movimiento</th>
+                                        <th class="text-center py-2.5 fw-bold bg-light">Saldo en Camión</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tableTimelineBody">
+                                    <!-- Dinámico -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Tab 1: Cargas Bodega Local -->
+                    <div class="tab-pane fade" id="modalCargasBodega" role="tabpanel" aria-labelledby="cargas-bodega-tab">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0 border">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="py-2.5">Fecha y Hora</th>
+                                        <th class="py-2.5">Vendedor</th>
+                                        <th class="py-2.5">Ruta</th>
+                                        <th class="py-2.5">Documento Traslado</th>
+                                        <th class="text-center py-2.5 text-primary">Cantidad (Cajas)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tableCargasBodegaBody">
+                                    <!-- Dinámico -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Tab 2: Cargas Proveedor -->
+                    <div class="tab-pane fade" id="modalCargasProv" role="tabpanel" aria-labelledby="cargas-prov-tab">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0 border">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="py-2.5">Fecha y Hora</th>
+                                        <th class="py-2.5">Vendedor</th>
+                                        <th class="py-2.5">Ruta</th>
+                                        <th class="py-2.5">Doc. / Proveedor</th>
+                                        <th class="text-center py-2.5 text-info">Cantidad (Cajas)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tableCargasProvBody">
+                                    <!-- Dinámico -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Tab 3: Ventas -->
+                    <div class="tab-pane fade" id="modalVentas" role="tabpanel" aria-labelledby="ventas-tab">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0 border">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="py-2.5">Fecha y Hora</th>
+                                        <th class="py-2.5">Vendedor</th>
+                                        <th class="py-2.5">Ruta</th>
+                                        <th class="py-2.5">Factura #</th>
+                                        <th class="py-2.5">Cliente</th>
+                                        <th class="text-center py-2.5 text-success">Cantidad (Cajas)</th>
+                                        <th class="text-end py-2.5">Monto Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tableVentasBody">
+                                    <!-- Dinámico -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Tab 4: Devoluciones -->
+                    <div class="tab-pane fade" id="modalDevoluciones" role="tabpanel" aria-labelledby="devoluciones-tab">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0 border">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="py-2.5">Fecha y Hora</th>
+                                        <th class="py-2.5">Vendedor</th>
+                                        <th class="py-2.5">Ruta</th>
+                                        <th class="py-2.5">Documento Ref</th>
+                                        <th class="text-center py-2.5 text-warning">Cantidad (Cajas)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tableDevolucionesBody">
+                                    <!-- Dinámico -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Tab 5: Mermas -->
+                    <div class="tab-pane fade" id="modalMermas" role="tabpanel" aria-labelledby="mermas-tab">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0 border">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="py-2.5">Fecha y Hora</th>
+                                        <th class="py-2.5">Vendedor</th>
+                                        <th class="py-2.5">Ruta</th>
+                                        <th class="py-2.5">Documento / Observación</th>
+                                        <th class="text-center py-2.5 text-danger">Cantidad (Cajas)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tableMermasBody">
+                                    <!-- Dinámico -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Cerrar Auditoría</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if vendedor_id and resultados|length > 0 %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Parsear datos para el gráfico
+    const chartData = [
+        {% for item in resultados[:15] %}
+        {
+            producto: "{{ item.Producto }}",
+            carga_bodega: {{ item.Carga_Bodega|float }},
+            carga_prov: {{ item.Carga_Proveedor|float }},
+            vendido: {{ item.Total_Vendido|float }},
+            devuelto: {{ item.Total_Devuelto|float }},
+            stock: {{ item.Stock_Camion|float }}
+        },
+        {% endfor %}
+    ];
+
+    const ctxCons = document.getElementById('consolidatedChart').getContext('2d');
+    new Chart(ctxCons, {
+        type: 'bar',
+        data: {
+            labels: chartData.map(d => d.producto.substring(0, 20) + (d.producto.length > 20 ? '...' : '')),
+            datasets: [
+                {
+                    label: 'Carga Bodega (Local)',
+                    data: chartData.map(d => d.carga_bodega),
+                    backgroundColor: 'rgba(59, 130, 246, 0.85)',
+                    borderColor: 'rgb(59, 130, 246)',
+                    borderWidth: 1,
+                    borderRadius: 4
+                },
+                {
+                    label: 'Carga Proveedor',
+                    data: chartData.map(d => d.carga_prov),
+                    backgroundColor: 'rgba(14, 165, 233, 0.85)',
+                    borderColor: 'rgb(14, 165, 233)',
+                    borderWidth: 1,
+                    borderRadius: 4
+                },
+                {
+                    label: 'Vendido (Facturas)',
+                    data: chartData.map(d => d.vendido),
+                    backgroundColor: 'rgba(16, 185, 129, 0.85)',
+                    borderColor: 'rgb(16, 185, 129)',
+                    borderWidth: 1,
+                    borderRadius: 4
+                },
+                {
+                    label: 'Devuelto (Bodega)',
+                    data: chartData.map(d => d.devuelto),
+                    backgroundColor: 'rgba(245, 158, 11, 0.85)',
+                    borderColor: 'rgb(245, 158, 11)',
+                    borderWidth: 1,
+                    borderRadius: 4
+                },
+                {
+                    label: 'Stock Remanente',
+                    data: chartData.map(d => d.stock),
+                    backgroundColor: 'rgba(100, 116, 139, 0.85)',
+                    borderColor: 'rgb(100, 116, 139)',
+                    borderWidth: 1,
+                    borderRadius: 4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: { font: { family: 'Outfit, sans-serif' } }
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false }
+                },
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Cantidad (Cajas)'
+                    }
+                }
+            }
+        }
+    });
+</script>
+{% endif %}
+
+<script>
+    // ========================================================
+    // FILTROS Y BÚSQUEDA INTERACTIVA EN TABLA CONSOLIDADA
+    // ========================================================
+    document.addEventListener('DOMContentLoaded', function() {
+        initTablaFiltros();
+    });
+
+    let currentFiltro = 'todos';
+
+    function initTablaFiltros() {
+        const rows = document.querySelectorAll('#tablaProductosBody .producto-row');
+        if (!rows.length) return;
+
+        // 1. Contar cantidades para cada badge de filtro
+        let countTodos = rows.length;
+        let countLocal = 0;
+        let countInmediata = 0;
+        let countDescuadre = 0;
+
+        rows.forEach(row => {
+            const cargaLocal = parseFloat(row.getAttribute('data-carga-local') || 0);
+            const cargaProv = parseFloat(row.getAttribute('data-carga-prov') || 0);
+            const diferencia = parseFloat(row.getAttribute('data-diferencia') || 0);
+
+            if (cargaLocal > 0) countLocal++;
+            if (cargaProv > 0) countInmediata++;
+            if (Math.abs(diferencia) > 0.001) countDescuadre++;
+        });
+
+        const elCountTodos = document.getElementById('badgeCountTodos');
+        const elCountLocal = document.getElementById('badgeCountLocal');
+        const elCountInmediata = document.getElementById('badgeCountInmediata');
+        const elCountDescuadre = document.getElementById('badgeCountDescuadre');
+
+        if (elCountTodos) elCountTodos.innerText = countTodos;
+        if (elCountLocal) elCountLocal.innerText = countLocal;
+        if (elCountInmediata) elCountInmediata.innerText = countInmediata;
+        if (elCountDescuadre) elCountDescuadre.innerText = countDescuadre;
+
+        // 2. Event Listeners para los botones de filtro
+        document.querySelectorAll('#tablaFiltrosGroup .filter-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                // Remover clase active de todos
+                document.querySelectorAll('#tablaFiltrosGroup .filter-btn').forEach(b => {
+                    b.classList.remove('active');
+                    if (b.getAttribute('data-filtro') === 'todos') b.className = 'btn btn-sm btn-outline-dark filter-btn';
+                    else if (b.getAttribute('data-filtro') === 'carga_local') b.className = 'btn btn-sm btn-outline-primary filter-btn';
+                    else if (b.getAttribute('data-filtro') === 'carga_inmediata') b.className = 'btn btn-sm btn-outline-info filter-btn';
+                    else if (b.getAttribute('data-filtro') === 'descuadre') b.className = 'btn btn-sm btn-outline-danger filter-btn';
+                });
+
+                // Activar el seleccionado
+                this.classList.add('active');
+                currentFiltro = this.getAttribute('data-filtro');
+
+                if (currentFiltro === 'todos') this.className = 'btn btn-sm btn-dark active filter-btn';
+                else if (currentFiltro === 'carga_local') this.className = 'btn btn-sm btn-primary active filter-btn';
+                else if (currentFiltro === 'carga_inmediata') this.className = 'btn btn-sm btn-info active filter-btn text-white';
+                else if (currentFiltro === 'descuadre') this.className = 'btn btn-sm btn-danger active filter-btn';
+
+                // Actualizar textos informativos
+                const infoTextEl = document.getElementById('filtroInfoText');
+                const infoBadgeEl = document.getElementById('vistaInfoBadge');
+                
+                if (currentFiltro === 'todos') {
+                    if (infoTextEl) infoTextEl.innerText = 'Mostrando el consolidado completo de cargas (local + proveedores) vs salidas en ruta.';
+                    if (infoBadgeEl) { infoBadgeEl.innerText = 'Vista: Consolidado General'; infoBadgeEl.className = 'badge bg-secondary p-2'; }
+                } else if (currentFiltro === 'carga_local') {
+                    if (infoTextEl) infoTextEl.innerText = '📍 Auditando exclusivamente productos que salieron físicamente de la Bodega Central del Local.';
+                    if (infoBadgeEl) { infoBadgeEl.innerText = 'Vista: 1. Carga Bodega Local'; infoBadgeEl.className = 'badge bg-primary p-2'; }
+                } else if (currentFiltro === 'carga_inmediata') {
+                    if (infoTextEl) infoTextEl.innerText = '⚡ Auditando productos ingresados por compras de proveedores en ruta directamente para venta inmediata.';
+                    if (infoBadgeEl) { infoBadgeEl.innerText = 'Vista: 2. Carga Inmediata / Proveedores'; infoBadgeEl.className = 'badge bg-info text-dark p-2'; }
+                } else if (currentFiltro === 'descuadre') {
+                    if (infoTextEl) infoTextEl.innerText = '⚠️ Auditando productos con diferencias entre carga total y salidas/stock en ruta.';
+                    if (infoBadgeEl) { infoBadgeEl.innerText = 'Vista: Solo con Descuadre'; infoBadgeEl.className = 'badge bg-danger p-2'; }
+                }
+
+                aplicarFiltrosYBusqueda();
+            });
+        });
+
+        // 3. Event Listener para el Buscador rápido
+        const searchInput = document.getElementById('tablaBuscador');
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                aplicarFiltrosYBusqueda();
+            });
+        }
+    }
+
+    function aplicarFiltrosYBusqueda() {
+        const rows = document.querySelectorAll('#tablaProductosBody .producto-row');
+        const searchTerm = (document.getElementById('tablaBuscador')?.value || '').trim().toLowerCase();
+        let visibleCount = 0;
+
+        // Acumuladores para el footer
+        let sumLocal = 0, sumProv = 0, sumTotal = 0, sumVendido = 0, sumDevuelto = 0, sumMermado = 0, sumStock = 0, sumDiferencia = 0;
+
+        rows.forEach(row => {
+            const cargaLocal = parseFloat(row.getAttribute('data-carga-local') || 0);
+            const cargaProv = parseFloat(row.getAttribute('data-carga-prov') || 0);
+            const cargado = parseFloat(row.getAttribute('data-cargado') || 0);
+            const vendido = parseFloat(row.getAttribute('data-vendido') || 0);
+            const devuelto = parseFloat(row.getAttribute('data-devuelto') || 0);
+            const mermado = parseFloat(row.getAttribute('data-mermado') || 0);
+            const stock = parseFloat(row.getAttribute('data-stock') || 0);
+            const diferencia = parseFloat(row.getAttribute('data-diferencia') || 0);
+            const searchData = (row.getAttribute('data-search') || '').toLowerCase();
+
+            let cumpleFiltro = false;
+            if (currentFiltro === 'todos') {
+                cumpleFiltro = true;
+            } else if (currentFiltro === 'carga_local') {
+                cumpleFiltro = cargaLocal > 0;
+            } else if (currentFiltro === 'carga_inmediata') {
+                cumpleFiltro = cargaProv > 0;
+            } else if (currentFiltro === 'descuadre') {
+                cumpleFiltro = Math.abs(diferencia) > 0.001;
+            }
+
+            let cumpleBusqueda = true;
+            if (searchTerm) {
+                cumpleBusqueda = searchData.includes(searchTerm);
+            }
+
+            if (cumpleFiltro && cumpleBusqueda) {
+                row.classList.remove('d-none');
+                visibleCount++;
+
+                sumLocal += cargaLocal;
+                sumProv += cargaProv;
+                sumTotal += cargado;
+                sumVendido += vendido;
+                sumDevuelto += devuelto;
+                sumMermado += mermado;
+                sumStock += stock;
+                sumDiferencia += diferencia;
+            } else {
+                row.classList.add('d-none');
+            }
+        });
+
+        // Mostrar / ocultar fila de sin resultados
+        const noResultadosRow = document.getElementById('noResultadosFilterRow');
+        if (noResultadosRow) {
+            if (visibleCount === 0) {
+                noResultadosRow.classList.remove('d-none');
+            } else {
+                noResultadosRow.classList.add('d-none');
+            }
+        }
+
+        // Actualizar valores del pie de tabla (footer)
+        const footCargaLocal = document.getElementById('footCargaLocal');
+        const footCargaProv = document.getElementById('footCargaProv');
+        const footTotalCarga = document.getElementById('footTotalCarga');
+        const footVendido = document.getElementById('footVendido');
+        const footDevuelto = document.getElementById('footDevuelto');
+        const footMermado = document.getElementById('footMermado');
+        const footStock = document.getElementById('footStock');
+        const footDiferencia = document.getElementById('footDiferencia');
+
+        if (footCargaLocal) footCargaLocal.innerText = sumLocal.toFixed(0);
+        if (footCargaProv) footCargaProv.innerText = sumProv.toFixed(0);
+        if (footTotalCarga) footTotalCarga.innerText = sumTotal.toFixed(0);
+        if (footVendido) footVendido.innerText = sumVendido.toFixed(0);
+        if (footDevuelto) footDevuelto.innerText = sumDevuelto.toFixed(0);
+        if (footMermado) footMermado.innerText = sumMermado.toFixed(0);
+        if (footStock) footStock.innerText = sumStock.toFixed(0);
+        if (footDiferencia) {
+            footDiferencia.innerText = sumDiferencia.toFixed(0);
+            footDiferencia.className = 'text-center ' + (Math.abs(sumDiferencia) < 0.001 ? 'text-success' : 'text-danger');
+        }
+
+        // Alternar visibilidad de columnas según el filtro activo (Solo mostrar la columna correspondiente en cada vista)
+        const colCargaLocalElements = document.querySelectorAll('.col-carga-local');
+        const colCargaProvElements = document.querySelectorAll('.col-carga-prov');
+        const colCargaTotalElements = document.querySelectorAll('.col-carga-total');
+
+        if (currentFiltro === 'carga_local') {
+            colCargaLocalElements.forEach(el => el.classList.remove('d-none'));
+            colCargaProvElements.forEach(el => el.classList.add('d-none'));
+            colCargaTotalElements.forEach(el => el.classList.add('d-none'));
+        } else if (currentFiltro === 'carga_inmediata') {
+            colCargaLocalElements.forEach(el => el.classList.add('d-none'));
+            colCargaProvElements.forEach(el => el.classList.remove('d-none'));
+            colCargaTotalElements.forEach(el => el.classList.add('d-none'));
+        } else {
+            // Consolidado General / Descuadre (muestra todas las columnas de carga juntas)
+            colCargaLocalElements.forEach(el => el.classList.remove('d-none'));
+            colCargaProvElements.forEach(el => el.classList.remove('d-none'));
+            colCargaTotalElements.forEach(el => el.classList.remove('d-none'));
+        }
+    }
+
+    // Event listeners para los botones de detalles
+    document.querySelectorAll('.btn-ver-detalle').forEach(button => {
+        button.addEventListener('click', function() {
+            const id = this.getAttribute('data-id');
+            const nombre = this.getAttribute('data-nombre');
+            verDetalles(id, nombre);
+        });
+    });
+
+    function verDetalles(productoId, productoNombre) {
+        const fechaInicio = "{{ fecha_inicio }}";
+        const fechaFin = "{{ fecha_fin }}";
+        const vendedorId = "{{ vendedor_id }}";
+        
+        // Configurar info básica en modal
+        document.getElementById('modalProductoNombre').innerText = productoNombre;
+        document.getElementById('modalRangoFechas').innerText = `Rango: ${fechaInicio} al ${fechaFin}`;
+        
+        // Mostrar cargando
+        const loadingHtml = '<tr><td colspan="7" class="text-center py-4"><div class="spinner-border text-primary" role="status"></div><br><span class="mt-2 d-block text-muted">Cargando registros...</span></td></tr>';
+        document.getElementById('tableTimelineBody').innerHTML = loadingHtml;
+        document.getElementById('tableCargasBodegaBody').innerHTML = loadingHtml;
+        document.getElementById('tableCargasProvBody').innerHTML = loadingHtml;
+        document.getElementById('tableVentasBody').innerHTML = loadingHtml;
+        document.getElementById('tableDevolucionesBody').innerHTML = loadingHtml;
+        document.getElementById('tableMermasBody').innerHTML = loadingHtml;
+        
+        // Reset KPIs en modal
+        document.getElementById('modalKpiLocal').innerText = '0';
+        document.getElementById('modalKpiProv').innerText = '0';
+        document.getElementById('modalKpiVendido').innerText = '0';
+        document.getElementById('modalKpiDevuelto').innerText = '0';
+        document.getElementById('modalKpiMermado').innerText = '0';
+        document.getElementById('modalKpiStock').innerText = '0';
+
+        document.getElementById('countTimeline').innerText = '0';
+        document.getElementById('countCargasBodega').innerText = '0';
+        document.getElementById('countCargasProv').innerText = '0';
+        document.getElementById('countVentas').innerText = '0';
+        document.getElementById('countDevoluciones').innerText = '0';
+        document.getElementById('countMermas').innerText = '0';
+        
+        // Abrir Modal
+        const modalEl = document.getElementById('detalleModal');
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+        
+        // Reset tab to timeline
+        const firstTab = new bootstrap.Tab(document.getElementById('timeline-tab'));
+        firstTab.show();
+        
+        // Fetch
+        const url = `{{ url_for('admin.reporte_consolidado_carga_ventas_detalle') }}?producto_id=${productoId}&fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}&vendedor_id=${vendedorId}`;
+        
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    Swal.fire('Error: ' + data.error, '', 'info');
+                    return;
+                }
+
+                // Calcular totales para los KPIs del modal
+                const totalLocal = (data.cargas_bodega || []).reduce((acc, curr) => acc + (parseFloat(curr.Cantidad) || 0), 0);
+                const totalProv = (data.cargas_proveedor || []).reduce((acc, curr) => acc + (parseFloat(curr.Cantidad) || 0), 0);
+                const totalVentas = (data.ventas || []).reduce((acc, curr) => acc + (parseFloat(curr.Cantidad) || 0), 0);
+                const totalDevuelto = (data.devoluciones || []).reduce((acc, curr) => acc + (parseFloat(curr.Cantidad) || 0), 0);
+                const totalMermas = (data.mermas || []).reduce((acc, curr) => acc + (parseFloat(curr.Cantidad) || 0), 0);
+                
+                const timeline = data.timeline || [];
+                const stockFinalCamion = timeline.length > 0 ? (timeline[timeline.length - 1].saldo_acumulado || 0) : 0;
+
+                document.getElementById('modalKpiLocal').innerText = totalLocal.toFixed(0);
+                document.getElementById('modalKpiProv').innerText = totalProv.toFixed(0);
+                document.getElementById('modalKpiVendido').innerText = totalVentas.toFixed(0);
+                document.getElementById('modalKpiDevuelto').innerText = totalDevuelto.toFixed(0);
+                document.getElementById('modalKpiMermado').innerText = totalMermas.toFixed(0);
+                document.getElementById('modalKpiStock').innerText = stockFinalCamion.toFixed(0);
+                
+                // 0. Timeline (Kardex Cronológico)
+                document.getElementById('countTimeline').innerText = timeline.length;
+                let htmlTimeline = '';
+                if (timeline.length === 0) {
+                    htmlTimeline = '<tr><td colspan="6" class="text-center text-muted py-4"><i class="bi bi-inbox fs-4"></i><br>No se registraron movimientos en este período.</td></tr>';
+                } else {
+                    timeline.forEach(t => {
+                        const esPositivo = t.signo === '+';
+                        htmlTimeline += `
+                            <tr>
+                                <td class="small fw-semibold">${t.fecha}</td>
+                                <td>
+                                    <span class="badge ${t.badge_class} px-2 py-1">
+                                        <i class="bi ${t.icono} me-1"></i> ${t.tipo_texto}
+                                    </span>
+                                </td>
+                                <td><code>${t.documento}</code></td>
+                                <td class="small text-muted">${t.detalle}</td>
+                                <td class="text-center fw-bold ${esPositivo ? 'text-primary' : 'text-danger'}">
+                                    ${t.signo}${t.cantidad.toFixed(0)}
+                                </td>
+                                <td class="text-center fw-bold bg-light">
+                                    <span class="badge bg-dark-subtle text-dark border px-2.5 py-1">
+                                        ${t.saldo_acumulado.toFixed(0)} Cajas
+                                    </span>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                }
+                document.getElementById('tableTimelineBody').innerHTML = htmlTimeline;
+
+                // 1. Cargas Bodega Local
+                const cargasBodega = data.cargas_bodega || [];
+                document.getElementById('countCargasBodega').innerText = cargasBodega.length;
+                let htmlCB = '';
+                if (cargasBodega.length === 0) {
+                    htmlCB = '<tr><td colspan="5" class="text-center text-muted py-4"><i class="bi bi-inbox fs-4"></i><br>No se registraron cargas de bodega local para este producto.</td></tr>';
+                } else {
+                    cargasBodega.forEach(c => {
+                        htmlCB += `
+                            <tr>
+                                <td>${c.Fecha_Formato || c.Fecha_Raw}</td>
+                                <td>${c.Vendedor}</td>
+                                <td><span class="badge bg-light text-dark border">${c.Ruta}</span></td>
+                                <td><span class="badge bg-primary-subtle text-primary border border-primary">${c.Documento || '#' + c.Movimiento_ID}</span></td>
+                                <td class="text-center fw-bold text-primary">${c.Cantidad.toFixed(0)}</td>
+                            </tr>
+                        `;
+                    });
+                }
+                document.getElementById('tableCargasBodegaBody').innerHTML = htmlCB;
+
+                // 2. Cargas Proveedor
+                const cargasProv = data.cargas_proveedor || [];
+                document.getElementById('countCargasProv').innerText = cargasProv.length;
+                let htmlCP = '';
+                if (cargasProv.length === 0) {
+                    htmlCP = '<tr><td colspan="5" class="text-center text-muted py-4"><i class="bi bi-inbox fs-4"></i><br>No se registraron compras/cargas de proveedor en ruta para este producto.</td></tr>';
+                } else {
+                    cargasProv.forEach(c => {
+                        htmlCP += `
+                            <tr>
+                                <td>${c.Fecha_Formato || c.Fecha_Raw}</td>
+                                <td>${c.Vendedor}</td>
+                                <td><span class="badge bg-light text-dark border">${c.Ruta}</span></td>
+                                <td><span class="badge bg-info-subtle text-info border border-info">${c.Documento || '#' + c.Movimiento_ID}</span></td>
+                                <td class="text-center fw-bold text-info">${c.Cantidad.toFixed(0)}</td>
+                            </tr>
+                        `;
+                    });
+                }
+                document.getElementById('tableCargasProvBody').innerHTML = htmlCP;
+                
+                // 3. Ventas
+                const ventas = data.ventas || [];
+                document.getElementById('countVentas').innerText = ventas.length;
+                let htmlVentas = '';
+                if (ventas.length === 0) {
+                    htmlVentas = '<tr><td colspan="7" class="text-center text-muted py-4"><i class="bi bi-inbox fs-4"></i><br>No se registraron facturas en ruta para este producto.</td></tr>';
+                } else {
+                    ventas.forEach(v => {
+                        htmlVentas += `
+                            <tr>
+                                <td>${v.Fecha_Formato || v.Fecha_Raw}</td>
+                                <td>${v.Vendedor}</td>
+                                <td><span class="badge bg-light text-dark border">${v.Ruta}</span></td>
+                                <td><code>${v.Factura_N}</code></td>
+                                <td><strong>${v.Cliente_Nombre}</strong></td>
+                                <td class="text-center fw-bold text-success">${v.Cantidad.toFixed(0)}</td>
+                                <td class="text-end fw-bold text-primary">C$ ${v.Total.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            </tr>
+                        `;
+                    });
+                }
+                document.getElementById('tableVentasBody').innerHTML = htmlVentas;
+
+                // 4. Devoluciones
+                const devoluciones = data.devoluciones || [];
+                document.getElementById('countDevoluciones').innerText = devoluciones.length;
+                let htmlDevoluciones = '';
+                if (devoluciones.length === 0) {
+                    htmlDevoluciones = '<tr><td colspan="5" class="text-center text-muted py-4"><i class="bi bi-inbox fs-4"></i><br>No se registraron devoluciones para este producto.</td></tr>';
+                } else {
+                    devoluciones.forEach(d => {
+                        htmlDevoluciones += `
+                            <tr>
+                                <td>${d.Fecha_Formato || d.Fecha_Raw}</td>
+                                <td>${d.Vendedor}</td>
+                                <td><span class="badge bg-light text-dark border">${d.Ruta}</span></td>
+                                <td><code>${d.Documento || '#' + d.Movimiento_ID}</code></td>
+                                <td class="text-center fw-bold text-warning">${d.Cantidad.toFixed(0)}</td>
+                            </tr>
+                        `;
+                    });
+                }
+                document.getElementById('tableDevolucionesBody').innerHTML = htmlDevoluciones;
+
+                // 5. Mermas
+                const mermas = data.mermas || [];
+                document.getElementById('countMermas').innerText = mermas.length;
+                let htmlMermas = '';
+                if (mermas.length === 0) {
+                    htmlMermas = '<tr><td colspan="5" class="text-center text-muted py-4"><i class="bi bi-inbox fs-4"></i><br>No se registraron mermas para este producto.</td></tr>';
+                } else {
+                    mermas.forEach(m => {
+                        htmlMermas += `
+                            <tr>
+                                <td>${m.Fecha_Formato || m.Fecha_Raw}</td>
+                                <td>${m.Vendedor}</td>
+                                <td><span class="badge bg-light text-dark border">${m.Ruta}</span></td>
+                                <td><code>${m.Observaciones || '-'}</code></td>
+                                <td class="text-center fw-bold text-danger">${m.Cantidad.toFixed(0)}</td>
+                            </tr>
+                        `;
+                    });
+                }
+                document.getElementById('tableMermasBody').innerHTML = htmlMermas;
+            })
+            .catch(err => {
+                console.error(err);
+                const errorHtml = '<tr><td colspan="7" class="text-center text-danger py-4">Error al cargar datos.</td></tr>';
+                document.getElementById('tableTimelineBody').innerHTML = errorHtml;
+            });
+    }
+</script>
+<style>
+    .table-danger-light {
+        background-color: rgba(239, 68, 68, 0.04) !important;
+    }
+    .nav-tabs .nav-link.active {
+        color: #0f172a !important;
+        border-bottom: 2px solid #0f172a !important;
+    }
+    .modal-xl {
+        max-width: 1140px;
+    }
+    .avatar-circle-sm {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 1rem;
+    }
+    .shadow-2xs {
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+</style>
+{% endblock %}
