@@ -60,19 +60,30 @@ load_dotenv(override=True)
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
 RENDER_ENV = os.environ.get('RENDER', False)
-RAILWAY_ENV = os.environ.get('RAILWAY_STATIC_URL', None) is not None
+RAILWAY_ENV = any(os.environ.get(k) is not None for k in [
+    'RAILWAY_STATIC_URL', 'RAILWAY_ENVIRONMENT', 'RAILWAY_PROJECT_ID', 'RAILWAY_SERVICE_ID'
+])
 
 DB_SSL_DISABLED = os.environ.get('DB_SSL_DISABLED', 'True') == 'True' 
 DB_SSL_CA = os.environ.get('DB_SSL_CA', None)
 
 # ===== DETECCIÓN AUTOMÁTICA DE BASE DE DATOS (Railway / Render / Local) =====
-_db_url = os.environ.get('MYSQL_URL') or os.environ.get('DATABASE_URL')
+# En Railway, preferir siempre la red interna privada (MYSQL_PRIVATE_URL) para latencia sub-milisegundo (<1ms)
+_db_url = os.environ.get('MYSQL_PRIVATE_URL') or os.environ.get('MYSQL_URL') or os.environ.get('DATABASE_URL')
 _parsed_url = urllib.parse.urlparse(_db_url) if (_db_url and _db_url.startswith('mysql')) else None
 
 _default_user = _parsed_url.username if _parsed_url else (os.environ.get('MYSQLUSER') or 'root')
 _default_pwd = _parsed_url.password if _parsed_url else (os.environ.get('MYSQLPASSWORD') or '')
-_default_host = _parsed_url.hostname if _parsed_url else (os.environ.get('MYSQLHOST') or os.environ.get('MYSQL_HOST') or 'roundhouse.proxy.rlwy.net')
-_default_port = _parsed_url.port if (_parsed_url and _parsed_url.port) else int(os.environ.get('MYSQLPORT') or (3306 if os.environ.get('MYSQLHOST') else 26574))
+_default_host = _parsed_url.hostname if _parsed_url else (
+    os.environ.get('MYSQL_PRIVATE_HOST') or 
+    os.environ.get('RAILWAY_PRIVATE_DOMAIN') or 
+    os.environ.get('MYSQLHOST') or 
+    os.environ.get('MYSQL_HOST') or 
+    '127.0.0.1'
+)
+_default_port = _parsed_url.port if (_parsed_url and _parsed_url.port) else int(
+    os.environ.get('MYSQLPORT') or 3306
+)
 _default_db = _parsed_url.path.lstrip('/') if _parsed_url else (os.environ.get('MYSQLDATABASE') or 'db_ferdel')
 
 DB_CONFIG = {

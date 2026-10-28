@@ -60,12 +60,12 @@ def init_pool():
 
 
 def crear_tablas_sistema():
-    """Crear tablas de configuración del sistema si no existen"""
+    """Crear tablas de configuración del sistema si no existen (optimizado para arranque rápido)"""
     try:
         conn = _obtener_nueva_conexion()
         cursor = conn.cursor(dictionary=True)
         
-        # Crear tabla config_sistema
+        # Crear tabla config_sistema si no existe
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS config_sistema (
                 llave VARCHAR(100) PRIMARY KEY,
@@ -75,59 +75,61 @@ def crear_tablas_sistema():
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
         """)
         
-        # Insertar valores por defecto si no existen
-        valores_defecto = [
-            ("empresa_nombre", "FERDEL", "Nombre de la empresa para reportes y comprobantes"),
-            ("empresa_ruc", "J0310000000000", "RUC/Identificación fiscal de la empresa"),
-            ("empresa_direccion", "Managua, Nicaragua", "Dirección física de la empresa"),
-            ("empresa_telefono", "+505 8888-8888", "Teléfono de contacto general"),
-            ("iva_porcentaje", "15.0", "Porcentaje de impuesto al valor agregado (IVA)"),
-            ("smtp_host", "smtp.gmail.com", "Servidor de correo SMTP"),
-            ("smtp_port", "587", "Puerto del servidor SMTP (587 para TLS)"),
-            ("smtp_user", "", "Usuario/Correo del servidor SMTP"),
-            ("smtp_password", "", "Contraseña de aplicación o del servidor SMTP"),
-            ("ultimo_backup_automatico", "", "Fecha y hora del último respaldo generado en el servidor"),
-            ("backup_auto_habilitado", "1", "Habilitar respaldo automático diario cada 24 horas (1=Sí, 0=No)"),
-            ("backup_auto_dias_retencion", "15", "Días de retención para copias de seguridad automáticas")
-        ]
+        # Verificar si ya existen configuraciones para evitar 12 consultas innecesarias en cada arranque de worker
+        cursor.execute("SELECT COUNT(*) AS total FROM config_sistema")
+        conteo = cursor.fetchone()
         
-        for llave, valor, desc in valores_defecto:
-            # Usar INSERT IGNORE o verificar si existe
-            cursor.execute("SELECT 1 FROM config_sistema WHERE llave = %s", (llave,))
-            if not cursor.fetchone():
+        if not conteo or conteo['total'] == 0:
+            valores_defecto = [
+                ("empresa_nombre", "FERDEL", "Nombre de la empresa para reportes y comprobantes"),
+                ("empresa_ruc", "J0310000000000", "RUC/Identificación fiscal de la empresa"),
+                ("empresa_direccion", "Managua, Nicaragua", "Dirección física de la empresa"),
+                ("empresa_telefono", "+505 8888-8888", "Teléfono de contacto general"),
+                ("iva_porcentaje", "15.0", "Porcentaje de impuesto al valor agregado (IVA)"),
+                ("smtp_host", "smtp.gmail.com", "Servidor de correo SMTP"),
+                ("smtp_port", "587", "Puerto del servidor SMTP (587 para TLS)"),
+                ("smtp_user", "", "Usuario/Correo del servidor SMTP"),
+                ("smtp_password", "", "Contraseña de aplicación o del servidor SMTP"),
+                ("ultimo_backup_automatico", "", "Fecha y hora del último respaldo generado en el servidor"),
+                ("backup_auto_habilitado", "1", "Habilitar respaldo automático diario cada 24 horas (1=Sí, 0=No)"),
+                ("backup_auto_dias_retencion", "15", "Días de retención para copias de seguridad automáticas")
+            ]
+            for llave, valor, desc in valores_defecto:
                 cursor.execute("""
-                    INSERT INTO config_sistema (llave, valor, descripcion) 
+                    INSERT IGNORE INTO config_sistema (llave, valor, descripcion) 
                     VALUES (%s, %s, %s)
                 """, (llave, valor, desc))
             
         # Asegurar existencia de la vista pagos_cxc requerida por el módulo de facturación
-        try:
-            cursor.execute("""
-                CREATE OR REPLACE VIEW pagos_cxc AS
-                SELECT 
-                    pc.ID_Pago,
-                    pc.ID_Movimiento,
-                    cxc.ID_Factura,
-                    cxc.ID_Cliente,
-                    pc.Fecha AS Fecha_Pago,
-                    pc.Fecha,
-                    pc.Monto,
-                    COALESCE(mp.Nombre, 'Efectivo') AS Metodo_Pago,
-                    pc.ID_MetodoPago,
-                    pc.Comentarios,
-                    pc.Detalles_Metodo,
-                    pc.ID_Usuario_Creacion
-                FROM pagos_cuentascobrar pc
-                INNER JOIN cuentas_por_cobrar cxc ON pc.ID_Movimiento = cxc.ID_Movimiento
-                LEFT JOIN metodos_pago mp ON pc.ID_MetodoPago = mp.ID_MetodoPago;
-            """)
-        except Exception as e_view:
-            print(f"⚠️ Nota al verificar vista pagos_cxc: {e_view}")
+        cursor.execute("SHOW TABLES LIKE 'pagos_cxc'")
+        if not cursor.fetchone():
+            try:
+                cursor.execute("""
+                    CREATE OR REPLACE VIEW pagos_cxc AS
+                    SELECT 
+                        pc.ID_Pago,
+                        pc.ID_Movimiento,
+                        cxc.ID_Factura,
+                        cxc.ID_Cliente,
+                        pc.Fecha AS Fecha_Pago,
+                        pc.Fecha,
+                        pc.Monto,
+                        COALESCE(mp.Nombre, 'Efectivo') AS Metodo_Pago,
+                        pc.ID_MetodoPago,
+                        pc.Comentarios,
+                        pc.Detalles_Metodo,
+                        pc.ID_Usuario_Creacion
+                    FROM pagos_cuentascobrar pc
+                    INNER JOIN cuentas_por_cobrar cxc ON pc.ID_Movimiento = cxc.ID_Movimiento
+                    LEFT JOIN metodos_pago mp ON pc.ID_MetodoPago = mp.ID_MetodoPago;
+                """)
+            except Exception as e_view:
+                print(f"⚠️ Nota al verificar vista pagos_cxc: {e_view}")
 
         conn.commit()
         cursor.close()
         conn.close()
-        print("⚙️ Tabla config_sistema y vistas de sistema inicializadas correctamente.")
+        print("⚙️ Tablas de sistema y vistas verificadas correctamente.")
     except Exception as e:
         print(f"⚠️ Error al inicializar tablas de sistema: {e}")
 
@@ -188,8 +190,11 @@ def get_db_cursor(commit=True):
     
     cursor = None
     try:
-        if not db.is_connected():
-            db.reconnect(attempts=1, delay=0)
+        try:
+            db.ping(reconnect=True, attempts=2, delay=0)
+        except Exception:
+            if not db.is_connected():
+                db.reconnect(attempts=2, delay=0)
     
         cursor = db.cursor(dictionary=True)
         yield cursor
