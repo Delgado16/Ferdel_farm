@@ -9,6 +9,76 @@ from auth.decorators import admin_required
 from . import admin_bp
 from helpers.bitacora import bitacora_decorator
 
+@admin_bp.route('/compras/ultimo-costo-producto/<int:id_producto>', methods=['GET'])
+@admin_required
+def obtener_ultimo_costo_producto(id_producto):
+    """
+    Obtener el último costo unitario registrado para un producto en compras anteriores.
+    Si se especifica id_proveedor, busca primero las compras con ese proveedor;
+    si no, o si no encuentra, busca la última compra general del producto.
+    """
+    id_proveedor = request.args.get('id_proveedor', type=int)
+    id_empresa = session.get('id_empresa', 1)
+
+    try:
+        with get_db_cursor(True) as cursor:
+            # 1. Si hay proveedor seleccionado, buscar primero última compra de ese producto con ese proveedor
+            if id_proveedor and id_proveedor > 0:
+                cursor.execute("""
+                    SELECT dmi.Costo_Unitario, mi.Fecha, prov.Nombre as ProveedorNombre
+                    FROM detalle_movimientos_inventario dmi
+                    INNER JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
+                    LEFT JOIN proveedores prov ON mi.ID_Proveedor = prov.ID_Proveedor
+                    WHERE dmi.ID_Producto = %s 
+                      AND mi.ID_TipoMovimiento = 1
+                      AND mi.ID_Proveedor = %s
+                      AND mi.Estado = 'Activa'
+                      AND (mi.ID_Empresa = %s OR mi.ID_Empresa IS NULL)
+                    ORDER BY mi.Fecha DESC, mi.ID_Movimiento DESC
+                    LIMIT 1
+                """, (id_producto, id_proveedor, id_empresa))
+                row = cursor.fetchone()
+                if row and row['Costo_Unitario'] is not None:
+                    return jsonify({
+                        'success': True,
+                        'ultimo_costo': float(row['Costo_Unitario']),
+                        'proveedor': row['ProveedorNombre'] or 'Proveedor actual',
+                        'fecha': str(row['Fecha']) if row['Fecha'] else '',
+                        'especifico_proveedor': True
+                    })
+
+            # 2. Si no encontró con ese proveedor o no se seleccionó proveedor, buscar la última compra general
+            cursor.execute("""
+                SELECT dmi.Costo_Unitario, mi.Fecha, prov.Nombre as ProveedorNombre
+                FROM detalle_movimientos_inventario dmi
+                INNER JOIN movimientos_inventario mi ON dmi.ID_Movimiento = mi.ID_Movimiento
+                LEFT JOIN proveedores prov ON mi.ID_Proveedor = prov.ID_Proveedor
+                WHERE dmi.ID_Producto = %s 
+                  AND mi.ID_TipoMovimiento = 1
+                  AND mi.Estado = 'Activa'
+                  AND (mi.ID_Empresa = %s OR mi.ID_Empresa IS NULL)
+                ORDER BY mi.Fecha DESC, mi.ID_Movimiento DESC
+                LIMIT 1
+            """, (id_producto, id_empresa))
+            row = cursor.fetchone()
+            if row and row['Costo_Unitario'] is not None:
+                return jsonify({
+                    'success': True,
+                    'ultimo_costo': float(row['Costo_Unitario']),
+                    'proveedor': row['ProveedorNombre'] or 'Último proveedor registrado',
+                    'fecha': str(row['Fecha']) if row['Fecha'] else '',
+                    'especifico_proveedor': False
+                })
+            else:
+                return jsonify({
+                    'success': True,
+                    'ultimo_costo': None
+                })
+    except Exception as e:
+        print(f"Error al obtener último costo del producto: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @admin_bp.route('/admin/compras/compras-entradas', methods=['GET'])
 @admin_required
 @bitacora_decorator("COMPRAS-ENTRADAS")

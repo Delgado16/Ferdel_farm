@@ -480,17 +480,17 @@ def exportar_pdf_competencia_vendedores(context, nombre_archivo):
     f_inicio = context.get('fecha_inicio_formatted', context.get('fecha_inicio', ''))
     f_fin = context.get('fecha_fin_formatted', context.get('fecha_fin', ''))
     orden_txt = {
-        'ventas': 'Mayor Venta Total',
         'efectivo': 'Mayor Efectivo Traído (Ventas Contado + Abonos)',
+        'ventas': 'Mayor Venta Total',
         'abonos': 'Mayor Cobro de Cartera (Abonos)',
-        'unidades': 'Más Unidades Vendidas',
-        'facturas': 'Más Facturas Realizadas'
-    }.get(context.get('ordenar_por', 'ventas'), 'Mayor Venta')
+        'contado': 'Mayor Venta de Contado',
+        'credito': 'Mayor Venta a Crédito'
+    }.get(context.get('ordenar_por', 'efectivo'), 'Mayor Efectivo Traído')
 
     # Encabezado con Logo y Título
     info_text = [
         Paragraph("<b>FERDEL - REPORTE DE COMPETENCIA Y RENDIMIENTO DE VENDEDORES</b>", titulo_style),
-        Paragraph("AUDITORÍA DE FACTURACIÓN, EFECTIVIDAD DE COBRANZA Y LIQUIDEZ POR RUTA", subtitulo_style),
+        Paragraph("AUDITORÍA DE RECAUDACIÓN DE EFECTIVO, VENTAS DE CONTADO Y COBRANZA POR RUTA", subtitulo_style),
         Paragraph(
             f"<b>Período:</b> {f_inicio} al {f_fin} &nbsp;|&nbsp; <b>Criterio:</b> {orden_txt} &nbsp;|&nbsp; <b>Generado:</b> {datetime.now().strftime('%d/%m/%Y %I:%M %p')}",
             meta_style
@@ -522,27 +522,23 @@ def exportar_pdf_competencia_vendedores(context, nombre_archivo):
     story.append(t_header)
     story.append(Spacer(1, 4))
 
-    # 1. RESUMEN DE INDICADORES GLOBALES (KPIs con encabezados blancos)
+    # 1. RESUMEN DE INDICADORES GLOBALES DE EFECTIVO (KPIs con encabezados blancos)
     kpi_headers = [
-        Paragraph("VENTAS TOTALES", th_center),
-        Paragraph("EFECTIVO TRAÍDO", th_center),
+        Paragraph("EFECTIVO TOTAL TRAÍDO", th_center),
         Paragraph("VTAS. CONTADO", th_center),
-        Paragraph("VTAS. CRÉDITO", th_center),
         Paragraph("ABONOS COBRADOS", th_center),
-        Paragraph("UNIDADES", th_center),
-        Paragraph("FACTURAS", th_center)
+        Paragraph("VTAS. CRÉDITO", th_center),
+        Paragraph("VENTAS TOTALES", th_center)
     ]
     kpi_values = [
-        Paragraph(f"<b>{format_money(context.get('total_ventas_global', 0))}</b>", body_center_bold),
         Paragraph(f"<b><font color='#059669'>{format_money(context.get('total_efectivo_global', 0))}</font></b>", body_center_bold),
-        Paragraph(f"{format_money(context.get('total_contado_global', 0))}", body_center),
+        Paragraph(f"<b>{format_money(context.get('total_contado_global', 0))}</b>", body_center_bold),
+        Paragraph(f"<b><font color='#2563eb'>{format_money(context.get('total_abonos_global', 0))}</font></b>", body_center_bold),
         Paragraph(f"{format_money(context.get('total_credito_global', 0))}", body_center),
-        Paragraph(f"<b><font color='#2563eb'>{format_money(context.get('total_abonos_global', 0))}</font></b>", body_center),
-        Paragraph(f"{format_num(context.get('total_unidades_global', 0))}", body_center),
-        Paragraph(f"{format_num(context.get('total_facturas_global', 0))}", body_center)
+        Paragraph(f"<b>{format_money(context.get('total_ventas_global', 0))}</b>", body_center_bold)
     ]
 
-    t_kpis = Table([kpi_headers, kpi_values], colWidths=[110, 110, 100, 100, 110, 106, 104])
+    t_kpis = Table([kpi_headers, kpi_values], colWidths=[160, 145, 145, 145, 145])
     t_kpis.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e293b')),
         ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor('#f8fafc')),
@@ -565,25 +561,25 @@ def exportar_pdf_competencia_vendedores(context, nombre_archivo):
                 Paragraph(f"<b>{med_txt}</b>", body_center_bold),
                 Paragraph(f"<b>{p.get('vendedor', '')}</b>", body_bold),
                 Paragraph(f"{p.get('rutas', 'Sin ruta')}", body_style),
-                Paragraph(f"<b>{format_money(p.get('total_ventas', 0))}</b>", body_right_bold),
                 Paragraph(f"<b><font color='#059669'>{format_money(p.get('efectivo_total', 0))}</font></b>", body_right_bold),
+                Paragraph(f"{format_money(p.get('ventas_contado', 0))}", body_right),
                 Paragraph(f"{format_money(p.get('total_abonos', 0))}", body_right),
-                Paragraph(f"{format_num(p.get('unidades_vendidas', 0))} uds / {p.get('total_facturas', 0)} fact", body_center),
-                Paragraph(f"<b>{p.get('porcentaje_participacion', 0)}%</b>", body_center_bold)
+                Paragraph(f"<b>{format_money(p.get('total_ventas', 0))}</b>", body_right_bold),
+                Paragraph(f"<b>{p.get('porcentaje_participacion_efectivo', p.get('porcentaje_participacion', 0))}%</b>", body_center_bold)
             ])
         
         podio_headers = [
             Paragraph("Puesto", th_center),
             Paragraph("Vendedor", th_style),
             Paragraph("Rutas", th_style),
-            Paragraph("Total Ventas", th_right),
             Paragraph("Efectivo Traído", th_right),
+            Paragraph("Vtas. Contado", th_right),
             Paragraph("Abonos Cobrados", th_right),
-            Paragraph("Volumen / Facturas", th_center),
-            Paragraph("% Mercado", th_center)
+            Paragraph("Total Ventas", th_right),
+            Paragraph("% Aporte Efectivo", th_center)
         ]
 
-        t_podio = Table([podio_headers] + podio_rows, colWidths=[80, 115, 95, 88, 92, 86, 114, 70])
+        t_podio = Table([podio_headers] + podio_rows, colWidths=[80, 120, 100, 105, 95, 95, 85, 60])
         t_podio.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e293b')),
             ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor('#fef9c3')), # Oro suave y claro
@@ -594,25 +590,23 @@ def exportar_pdf_competencia_vendedores(context, nombre_archivo):
             ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ]))
-        story.append(Paragraph("🏆 Podio de Honor y Líderes", section_style))
+        story.append(Paragraph("🏆 Podio de Honor y Líderes en Efectivo", section_style))
         story.append(t_podio)
         story.append(Spacer(1, 4))
 
     # 3. TABLA GENERAL DE COMPETENCIA (LEADERBOARD COMPLETO)
-    story.append(Paragraph("📊 Tabla General de Rendimiento y Liquidación", section_style))
+    story.append(Paragraph("📊 Tabla General de Rendimiento y Liquidación de Efectivo", section_style))
 
     headers_tabla = [
         Paragraph("Pos", th_center),
         Paragraph("Vendedor", th_style),
         Paragraph("Rutas", th_style),
+        Paragraph("Efectivo Traído", th_right),
         Paragraph("Vtas. Contado", th_right),
+        Paragraph("Abonos Cartera", th_right),
         Paragraph("Vtas. Crédito", th_right),
         Paragraph("Total Ventas", th_right),
-        Paragraph("Abonos Cartera", th_right),
-        Paragraph("Efectivo Traído", th_right),
-        Paragraph("Fact / Clts", th_center),
-        Paragraph("Unidades", th_center),
-        Paragraph("% Part.", th_center)
+        Paragraph("% Efectivo", th_center)
     ]
 
     tabla_filas = [headers_tabla]
@@ -623,15 +617,13 @@ def exportar_pdf_competencia_vendedores(context, nombre_archivo):
         tabla_filas.append([
             Paragraph(pos_str, body_center_bold),
             Paragraph(f"<b>{c.get('vendedor', '')}</b>", body_style),
-            Paragraph(f"{c.get('rutas', 'N/A')[:20]}", body_style),
+            Paragraph(f"{c.get('rutas', 'N/A')[:22]}", body_style),
+            Paragraph(f"<b><font color='#059669'>{format_money(c.get('efectivo_total', 0))}</font></b>", body_right_bold),
             Paragraph(format_money(c.get('ventas_contado', 0)), body_right),
+            Paragraph(format_money(c.get('total_abonos', 0)), body_right),
             Paragraph(format_money(c.get('ventas_credito', 0)), body_right),
             Paragraph(f"<b>{format_money(c.get('total_ventas', 0))}</b>", body_right_bold),
-            Paragraph(format_money(c.get('total_abonos', 0)), body_right),
-            Paragraph(f"<b><font color='#059669'>{format_money(c.get('efectivo_total', 0))}</font></b>", body_right_bold),
-            Paragraph(f"{c.get('total_facturas', 0)} / {c.get('clientes_atendidos', 0)}", body_center),
-            Paragraph(format_num(c.get('unidades_vendidas', 0)), body_center),
-            Paragraph(f"{c.get('porcentaje_participacion', 0)}%", body_center_bold)
+            Paragraph(f"{c.get('porcentaje_participacion_efectivo', c.get('porcentaje_participacion', 0))}%", body_center_bold)
         ])
 
     # Fila de Totales Globales
@@ -639,18 +631,16 @@ def exportar_pdf_competencia_vendedores(context, nombre_archivo):
         Paragraph("<b>TOTAL</b>", body_center_bold),
         Paragraph(f"<b>{len(competidores)} Vendedores</b>", body_bold),
         Paragraph("<b>-</b>", body_center),
+        Paragraph(f"<b><font color='#059669'>{format_money(context.get('total_efectivo_global', 0))}</font></b>", body_right_bold),
         Paragraph(f"<b>{format_money(context.get('total_contado_global', 0))}</b>", body_right_bold),
+        Paragraph(f"<b>{format_money(context.get('total_abonos_global', 0))}</b>", body_right_bold),
         Paragraph(f"<b>{format_money(context.get('total_credito_global', 0))}</b>", body_right_bold),
         Paragraph(f"<b>{format_money(context.get('total_ventas_global', 0))}</b>", body_right_bold),
-        Paragraph(f"<b>{format_money(context.get('total_abonos_global', 0))}</b>", body_right_bold),
-        Paragraph(f"<b><font color='#059669'>{format_money(context.get('total_efectivo_global', 0))}</font></b>", body_right_bold),
-        Paragraph(f"<b>{context.get('total_facturas_global', 0)}</b>", body_center_bold),
-        Paragraph(f"<b>{format_num(context.get('total_unidades_global', 0))}</b>", body_center_bold),
         Paragraph("<b>100.0%</b>", body_center_bold)
     ]
     tabla_filas.append(fila_totales)
 
-    col_widths = [32, 105, 75, 64, 64, 74, 70, 78, 54, 56, 68]
+    col_widths = [34, 130, 95, 96, 75, 75, 75, 95, 65]
     t_main = Table(tabla_filas, colWidths=col_widths)
     t_main.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e293b')),

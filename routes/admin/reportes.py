@@ -2873,7 +2873,7 @@ def reporte_competencia_vendedores():
     """Reporte de competencia y ranking comercial entre vendedores y rutas"""
     fecha_inicio, fecha_fin, periodo = get_period_date_range('mes')
     ruta_id = request.args.get('ruta_id', '')
-    ordenar_por = request.args.get('ordenar_por', 'ventas')  # 'ventas', 'efectivo', 'unidades', 'facturas', 'abonos'
+    ordenar_por = request.args.get('ordenar_por', 'efectivo')  # 'efectivo', 'ventas', 'abonos', 'contado'
     
     with get_db_cursor() as cursor:
         # 1. Obtener catálogo de rutas para filtros
@@ -3068,24 +3068,29 @@ def reporte_competencia_vendedores():
                 'porcentaje_efectivo': (efectivo_total / (monto_venta + abonos_efectivo) * 100) if (monto_venta + abonos_efectivo) > 0 else 0.0
             })
             
-        # Calcular porcentaje de participación de cada vendedor
+        # Calcular porcentaje de participación de cada vendedor (en Efectivo y en Ventas)
         for c in competidores:
+            if total_efectivo_global > 0:
+                c['porcentaje_participacion_efectivo'] = round((c['efectivo_total'] / total_efectivo_global) * 100, 2)
+            else:
+                c['porcentaje_participacion_efectivo'] = 0.0
+
             if total_ventas_global > 0:
                 c['porcentaje_participacion'] = round((c['total_ventas'] / total_ventas_global) * 100, 2)
             else:
                 c['porcentaje_participacion'] = 0.0
                 
-        # 6. Ordenar competidores según el criterio seleccionado
-        if ordenar_por == 'efectivo':
-            competidores.sort(key=lambda x: (x['efectivo_total'], x['total_ventas']), reverse=True)
-        elif ordenar_por == 'unidades':
-            competidores.sort(key=lambda x: (x['unidades_vendidas'], x['total_ventas']), reverse=True)
-        elif ordenar_por == 'facturas':
-            competidores.sort(key=lambda x: (x['total_facturas'], x['total_ventas']), reverse=True)
+        # 6. Ordenar competidores según el criterio monetario seleccionado (por defecto Dinero en Efectivo)
+        if ordenar_por == 'ventas':
+            competidores.sort(key=lambda x: (x['total_ventas'], x['efectivo_total']), reverse=True)
         elif ordenar_por == 'abonos':
             competidores.sort(key=lambda x: (x['total_abonos'], x['efectivo_total']), reverse=True)
-        else:  # Por defecto 'ventas'
-            competidores.sort(key=lambda x: (x['total_ventas'], x['efectivo_total']), reverse=True)
+        elif ordenar_por == 'contado':
+            competidores.sort(key=lambda x: (x['ventas_contado'], x['efectivo_total']), reverse=True)
+        elif ordenar_por == 'credito':
+            competidores.sort(key=lambda x: (x['ventas_credito'], x['efectivo_total']), reverse=True)
+        else:  # Por defecto 'efectivo'
+            competidores.sort(key=lambda x: (x['efectivo_total'], x['total_ventas']), reverse=True)
             
         # Asignar posición de ranking y medallas
         for idx, c in enumerate(competidores, 1):
@@ -3103,9 +3108,9 @@ def reporte_competencia_vendedores():
                 c['medalla'] = f"#{idx}"
                 c['badge_rank'] = 'bg-light text-dark'
                 
-        # 7. Identificar líderes en categorías clave
-        lider_ventas = max(competidores, key=lambda x: x['total_ventas']) if competidores and total_ventas_global > 0 else None
+        # 7. Identificar líderes en categorías monetarias
         lider_efectivo = max(competidores, key=lambda x: x['efectivo_total']) if competidores and total_efectivo_global > 0 else None
+        lider_ventas = max(competidores, key=lambda x: x['total_ventas']) if competidores and total_ventas_global > 0 else None
         lider_unidades = max(competidores, key=lambda x: x['unidades_vendidas']) if competidores and total_unidades_global > 0 else None
         
         # Podio (Top 3)
@@ -3120,16 +3125,12 @@ def reporte_competencia_vendedores():
                 'Ranking': c['ranking'],
                 'Vendedor': c['vendedor'],
                 'Rutas': c['rutas'],
-                'Total Ventas (C$)': c['total_ventas'],
-                'Ventas Contado (C$)': c['ventas_contado'],
-                'Ventas Crédito (C$)': c['ventas_credito'],
                 'Efectivo Recaudado (C$)': c['efectivo_total'],
-                'Abonos Cobrados (C$)': c['total_abonos'],
-                'Unidades Vendidas': c['unidades_vendidas'],
-                'Facturas': c['total_facturas'],
-                'Clientes Atendidos': c['clientes_atendidos'],
-                'Ticket Promedio (C$)': c['ticket_promedio'],
-                '% Participación': f"{c['porcentaje_participacion']}%"
+                'Ventas Contado (C$)': c['ventas_contado'],
+                'Cobros Cartera (C$)': c['total_abonos'],
+                'Ventas Crédito (C$)': c['ventas_credito'],
+                'Total Facturado (C$)': c['total_ventas'],
+                '% Aporte Efectivo': f"{c['porcentaje_participacion_efectivo']}%"
             }
             for c in competidores
         ]

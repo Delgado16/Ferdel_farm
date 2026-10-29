@@ -7,79 +7,313 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <style>
     .venta-container {
-        max-width: 1400px;
-        margin: 2rem auto;
-        padding: 0 1rem;
+        max-width: 100%;
+        margin: 0.5rem auto;
+        padding: 0 0.75rem;
+    }
+
+    /* ESTILOS POS SPLIT-SCREEN */
+    .pos-layout {
+        display: grid;
+        grid-template-columns: 1fr 410px;
+        gap: 1.25rem;
+        align-items: start;
+    }
+
+    @media (max-width: 1100px) {
+        .pos-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .pos-left-panel {
+        background: #ffffff;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+        display: flex;
+        flex-direction: column;
+        overflow: visible;
+    }
+
+    .pos-right-panel {
+        position: sticky;
+        top: 1rem;
+        background: #ffffff;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+        display: flex;
+        flex-direction: column;
+        overflow: visible;
+    }
+
+    .pos-panel-header {
+        padding: 0.9rem 1.25rem;
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        border-radius: 12px 12px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .pos-search-bar {
+        padding: 1rem 1.25rem;
+        background: #f1f5f9;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .pos-quick-search-wrapper {
+        position: relative;
+        flex: 1;
+    }
+
+    .pos-quick-search-input {
+        padding-left: 2.5rem;
+        font-size: 0.95rem;
+        border-radius: 8px;
+        border: 2px solid #cbd5e1;
+        height: 42px;
+        transition: all 0.2s;
+    }
+
+    .pos-quick-search-input:focus {
+        border-color: var(--primary-color, #2c5aa0);
+        box-shadow: 0 0 0 3px rgba(44, 90, 160, 0.15);
+    }
+
+    .pos-quick-search-icon {
+        position: absolute;
+        left: 0.85rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #64748b;
+        font-size: 1.1rem;
+        pointer-events: none;
+    }
+
+    .pos-product-dropdown {
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 0;
+        right: 0;
+        max-height: 320px;
+        overflow-y: auto;
+        background: #fff;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        z-index: 1050;
+        display: none;
+    }
+
+    .pos-product-dropdown.show {
+        display: block;
+    }
+
+    .pos-prod-option {
+        padding: 0.6rem 1rem;
+        border-bottom: 1px solid #f1f5f9;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.88rem;
+        transition: background 0.12s;
+    }
+
+    .pos-prod-option:hover,
+    .pos-prod-option.active {
+        background: #e0f2fe;
+    }
+
+    /* TABLA COMPACTA DE PRODUCTOS ESTILO POS */
+    .pos-cart-header {
+        display: grid;
+        grid-template-columns: 2.6fr 1.3fr 1.1fr 1.1fr 38px;
+        gap: 0.6rem;
+        padding: 0.6rem 1.25rem;
+        background: #f8fafc;
+        border-bottom: 2px solid #e2e8f0;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: #475569;
+        letter-spacing: 0.03em;
+    }
+
+    #productos-container {
+        padding: 0.5rem 0.75rem;
+        min-height: 240px;
+        max-height: 62vh;
+        overflow-y: auto;
     }
 
     .product-card {
         background: #fff;
-        border: 1px solid #e9ecef;
+        border: 1px solid #e2e8f0;
         border-radius: 8px;
-        padding: 1.25rem;
-        margin-bottom: 1.25rem;
-        transition: all 0.2s ease;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        padding: 0.65rem 0.75rem;
+        margin-bottom: 0.5rem;
+        transition: all 0.15s ease;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+        position: relative;
     }
 
     .product-card:hover {
-        border-color: var(--primary-color);
-        box-shadow: 0 4px 12px rgba(44, 90, 160, 0.08);
+        border-color: #94a3b8;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
     }
 
     .product-card-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 1rem;
-        padding-bottom: 0.5rem;
-        border-bottom: 1px solid #f1f3f4;
+        margin-bottom: 0.35rem;
     }
 
     .product-card-title {
         font-weight: 600;
-        color: var(--primary-color);
+        color: #475569;
         margin: 0;
-        font-size: 1rem;
+        font-size: 0.76rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
     }
 
     .product-grid {
         display: grid;
-        grid-template-columns: 2.5fr 1.2fr 1.2fr 1.2fr;
-        gap: 1rem;
-        align-items: end;
+        grid-template-columns: 2.6fr 1.3fr 1.1fr 1.1fr 36px;
+        gap: 0.6rem;
+        align-items: center;
     }
 
     .product-extra-grid {
         display: grid;
-        grid-template-columns: 1.2fr 2fr 1.2fr 1.2fr 1.2fr;
-        gap: 1rem;
-        align-items: end;
+        grid-template-columns: 1.1fr 1.8fr 1.2fr 1fr 1fr 36px;
+        gap: 0.5rem;
+        align-items: center;
+    }
+
+    .product-card .form-label {
+        display: none;
+    }
+
+    .product-card .form-select,
+    .product-card .form-control,
+    .product-card .input-group-text {
+        font-size: 0.85rem;
+        padding: 0.35rem 0.5rem;
+    }
+
+    /* PILLS DE BODEGA */
+    .bodega-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        align-items: center;
+    }
+
+    .bodega-pill-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        font-size: 0.76rem;
+        font-weight: 600;
+        padding: 0.2rem 0.6rem;
+        border-radius: 20px;
+        background: #e2e8f0;
+        color: #334155;
+        cursor: pointer;
+        user-select: none;
+        transition: all 0.15s;
+        margin: 0;
+    }
+
+    .bodega-pill-label:has(input:checked) {
+        background: #dcfce7;
+        color: #166534;
+        border: 1px solid #86efac;
+    }
+
+    /* TIPO DE VENTA BOTONES GRANDES POS */
+    .tipo-venta-pills {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.4rem;
+    }
+
+    .tipo-venta-btn {
+        border: 1.5px solid #cbd5e1;
+        background: #f8fafc;
+        color: #475569;
+        border-radius: 8px;
+        padding: 0.5rem 0.35rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.15s;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.15rem;
+    }
+
+    .tipo-venta-btn i {
+        font-size: 1.1rem;
+    }
+
+    .tipo-venta-btn.active[data-val="reparto"] {
+        background: #eff6ff;
+        border-color: #3b82f6;
+        color: #1d4ed8;
+    }
+
+    .tipo-venta-btn.active[data-val="contado"] {
+        background: #f0fdf4;
+        border-color: #22c55e;
+        color: #15803d;
+    }
+
+    .tipo-venta-btn.active[data-val="credito"] {
+        background: #fffbeb;
+        border-color: #f59e0b;
+        color: #b45309;
     }
 
     .total-summary {
-        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
-        border-radius: 8px;
-        padding: 1.5rem;
-        margin-top: 2rem;
-        margin-bottom: 2rem;
-        border: 1px solid var(--border-color);
+        background: linear-gradient(135deg, #f8fafc, #eff6ff);
+        color: #1e293b;
+        border-radius: 10px;
+        padding: 1rem 1.25rem;
+        margin-top: 0.75rem;
+        margin-bottom: 0.75rem;
+        border: 1.5px solid #cbd5e1;
+        box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.8);
     }
 
     .total-row {
         display: flex;
         justify-content: space-between;
-        margin-bottom: 0.75rem;
-        font-size: 1rem;
+        margin-bottom: 0.35rem;
+        font-size: 0.9rem;
+        color: #334155;
+        font-weight: 500;
     }
 
     .grand-total {
-        font-weight: 700;
-        font-size: 1.3rem;
-        border-top: 2px solid var(--border-color);
-        padding-top: 1rem;
-        margin-top: 1rem;
-        color: var(--primary-color);
+        font-weight: 800;
+        font-size: 1.4rem;
+        border-top: 2px dashed #94a3b8;
+        padding-top: 0.6rem;
+        margin-top: 0.5rem;
+        margin-bottom: 0;
+        color: #15803d;
     }
 
     .required-field::after {
@@ -592,16 +826,19 @@
     }
 
     .total-pagado-card {
-        background: var(--primary-color, #2c5e2e);
+        background: #ecfdf5;
+        border: 1.5px solid #6ee7b7;
         border-radius: 8px;
-        padding: 1rem;
-        margin-top: 1rem;
-        color: white;
+        padding: 0.85rem 1rem;
+        margin-top: 0.75rem;
+        color: #065f46;
     }
 
-    .total-pagado-card h4 {
+    .total-pagado-card h4,
+    .total-pagado-card h5 {
         margin: 0;
-        font-size: 1.5rem;
+        font-size: 1.25rem;
+        color: #047857;
     }
 
     /* Estilo para abono inicial */
@@ -616,31 +853,29 @@
     /* RESPONSIVE DESIGN - BREAKPOINTS */
     @media (max-width: 1200px) {
         .product-grid {
-            grid-template-columns: 2fr 1fr 1fr 1fr;
+            grid-template-columns: 2fr 1.1fr 1fr 1fr 34px;
         }
 
         .product-extra-grid {
-            grid-template-columns: 1fr 2fr 1fr 1fr 1fr;
+            grid-template-columns: 1fr 1.6fr 1fr 1fr 1fr 34px;
         }
     }
 
     @media (max-width: 992px) {
         .product-grid {
-            grid-template-columns: 1.5fr 1fr 1fr;
+            grid-template-columns: 1.8fr 1fr 1fr 1fr 34px;
         }
 
         .product-extra-grid {
-            grid-template-columns: 1fr 1.5fr 1fr;
+            grid-template-columns: 1fr 1.5fr 1fr 1fr 1fr 34px;
         }
     }
 
     @media (max-width: 768px) {
-        .card-body {
-            padding: 1rem;
-        }
-
-        .form-section {
-            padding: 1rem;
+        .product-card .form-label {
+            display: block;
+            font-size: 0.75rem;
+            margin-bottom: 0.15rem;
         }
 
         .product-grid {
@@ -654,28 +889,6 @@
         .confirm-modal-content {
             width: 95%;
             margin: 1rem;
-        }
-
-        .default-pago-info {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 1rem;
-        }
-
-        .default-pago-info button {
-            width: 100%;
-        }
-
-        .quick-actions {
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .quick-actions button {
-            width: 100%;
-            margin: 0 !important;
         }
     }
 
@@ -695,17 +908,6 @@
 
         .confirm-modal-footer button {
             width: 100%;
-        }
-
-        .d-flex.justify-content-end.gap-3.mt-4 {
-            flex-direction: column-reverse;
-            gap: 0.5rem;
-        }
-
-        .d-flex.justify-content-end.gap-3.mt-4 button,
-        .d-flex.justify-content-end.gap-3.mt-4 a {
-            width: 100%;
-            margin: 0 !important;
         }
     }
 </style>
@@ -770,462 +972,467 @@
     </div>
 </div>
 
-<div class="container-fluid py-4">
-    <!-- Encabezado mejorado con breadcrumb -->
-    <nav aria-label="breadcrumb" class="mb-4">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item">
-                <a href="{{ url_for('admin.admin_dashboard') }}" class="text-decoration-none">
-                    <i class="bi bi-house me-1"></i>Dashboard
-                </a>
-            </li>
-            <li class="breadcrumb-item">
-                <a href="{{ url_for('admin.admin_ventas_salidas') }}" class="text-decoration-none">
-                    <i class="bi bi-graph-up me-1"></i>Ventas
-                </a>
-            </li>
-            <li class="breadcrumb-item active" aria-current="page">
-                Registrar Nueva Venta
-            </li>
-        </ol>
-    </nav>
+<div class="container-fluid py-2">
+    <!-- Barra Superior Compacta estilo POS -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <div class="d-flex align-items-center gap-3">
+            <h1 class="h4 mb-0 fw-bold">
+                <i class="bi bi-cash-register text-primary me-1"></i>Punto de Venta (POS)
+            </h1>
+            <nav aria-label="breadcrumb" class="d-none d-md-block">
+                <ol class="breadcrumb mb-0 small">
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin.admin_dashboard') }}"
+                            class="text-decoration-none">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin.admin_ventas_salidas') }}"
+                            class="text-decoration-none">Ventas</a></li>
+                    <li class="breadcrumb-item active">Nueva Venta</li>
+                </ol>
+            </nav>
+        </div>
 
-    <!-- Encabezado -->
-    <div class="mb-4">
-        <h1 class="h2 mb-0">
-            <i class="bi bi-cash-register text-primary me-2"></i>
-            Registrar Nueva Venta
-        </h1>
+        <div class="bodega-pills">
+            {% if bodega_principal %}
+            <span class="badge px-2 py-1 me-1"
+                style="background-color: #dcfce7; color: #166534; border: 1px solid #86efac; font-size: 0.8rem;">
+                <i class="bi bi-house-door me-1"></i>Base: {{ bodega_principal.Nombre }}
+            </span>
+            {% endif %}
+            <span class="small text-dark fw-bold me-1"><i class="bi bi-funnel"></i> Bodegas:</span>
+            {% for bodega in todas_bodegas %}
+            <label class="bodega-pill-label form-check mb-0" for="bodega_{{ bodega.ID_Bodega }}">
+                <input class="form-check-input filtro-bodega-cb m-0" type="checkbox" value="{{ bodega.ID_Bodega }}"
+                    id="bodega_{{ bodega.ID_Bodega }}" checked>
+                <span>{{ bodega.Nombre }}</span>
+            </label>
+            {% endfor %}
+        </div>
     </div>
 
-    
-<div class="card border-0 shadow-sm">
+    <form id="formVenta" method="POST" novalidate>
+        <input type="hidden" id="id_bodega" name="id_bodega"
+            value="{{ bodega_principal.ID_Bodega if bodega_principal else 1 }}">
 
-        <div class="card-body p-4">
+        <!-- Select oculto de categorías para mantener compatibilidad con JS -->
+        <div style="display: none;">
+            <select class="form-select" id="filtro_categoria" name="filtro_categoria">
+                <option value="0">Todas las categorías</option>
+                {% for categoria in categorias %}
+                <option value="{{ categoria.ID_Categoria }}">{{ categoria.Descripcion }}</option>
+                {% endfor %}
+            </select>
+            <button type="button" id="btn-aplicar-filtro">Aplicar</button>
+            <button type="button" id="btn-limpiar-filtro">Limpiar</button>
+        </div>
 
-            {% if bodega_principal %}
-            <div class="bodega-info">
-                <div class="d-flex align-items-center">
-                    <i class="bi bi-house-door fs-3 text-success me-3"></i>
-                    <div>
-                        <h5 class="mb-1">Bodega: {{ bodega_principal.Nombre }}</h5>
-                        <p class="mb-0">Todos los productos se venderán desde esta bodega</p>
+        <div class="pos-layout">
+            <!-- ========================================================== -->
+            <!-- COLUMNA IZQUIERDA: BUSCADOR RÁPIDO Y CARRITO DE PRODUCTOS -->
+            <!-- ========================================================== -->
+            <div class="pos-left-panel">
+                <div class="pos-panel-header">
+                    <div class="d-flex align-items-center gap-2">
+                        <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-cart3 text-primary me-2"></i>Carrito de Venta
+                        </h5>
+                        <span class="badge bg-primary rounded-pill" id="badge-items-count">0 ítems</span>
+                    </div>
+                    <div class="quick-actions mb-0">
+                        <button type="button" class="btn btn-primary btn-sm" id="btn-agregar-producto"
+                            title="Agregar fila vacía">
+                            <i class="bi bi-plus-lg me-1"></i>Fila Normal
+                        </button>
+                        <button type="button" class="btn btn-outline-info btn-sm" id="btn-agregar-extra">
+                            <i class="bi bi-plus-circle me-1"></i>+ Extra
+                        </button>
+                        <button type="button" class="btn btn-outline-warning btn-sm text-dark" id="btn-agregar-regalia">
+                            <i class="bi bi-gift me-1"></i>+ Regalía
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Barra de Búsqueda Rápida POS -->
+                <div class="pos-search-bar">
+                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                        <div class="pos-quick-search-wrapper">
+                            <i class="bi bi-upc-scan pos-quick-search-icon"></i>
+                            <input type="text" id="pos_quick_product_search" class="form-control pos-quick-search-input"
+                                placeholder="Escribe el nombre o código del producto y presiona Enter para agregar al carrito... (F2)"
+                                autocomplete="off">
+                            <div class="pos-product-dropdown" id="posProductDropdown"></div>
+                        </div>
+                    </div>
+                    <div class="filter-section mt-2 mb-0 py-1 px-2" id="filtro-info" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center small">
+                            <div>
+                                <i class="bi bi-filter me-1 text-primary"></i>
+                                <strong>Filtro:</strong> <span id="filtro-actual">Todas las categorías</span>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-link text-danger p-0"
+                                id="btn-quitar-filtro">Quitar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Encabezado de Columnas del Carrito -->
+                <div class="pos-cart-header d-none d-md-grid">
+                    <div>Producto / Bodega / Stock</div>
+                    <div>Cantidad</div>
+                    <div>Precio Unit.</div>
+                    <div>Subtotal</div>
+                    <div class="text-center"><i class="bi bi-trash"></i></div>
+                </div>
+
+                <!-- Contenedor de Filas de Productos -->
+                <div id="productos-container"></div>
+
+                <!-- Pie de Panel Izquierdo: Observaciones y Facturas Pendientes Desplegables -->
+                <div class="p-3 border-top bg-light rounded-bottom">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-md-8">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-white"><i
+                                        class="bi bi-chat-left-text me-1"></i>Nota</span>
+                                <textarea class="form-control" id="observacion" name="observacion" rows="1"
+                                    placeholder="Observaciones adicionales sobre la venta..."></textarea>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-md-end">
+                            <button class="btn btn-sm btn-outline-secondary w-100" type="button"
+                                data-bs-toggle="collapse" data-bs-target="#collapseFacturasPendientes"
+                                aria-expanded="false">
+                                <i class="bi bi-receipt me-1"></i>Ver Facturas Pendientes del Cliente
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tabla de Facturas Pendientes (Colapsable para no estorbar el POS) -->
+                    <div class="collapse mt-2" id="collapseFacturasPendientes">
+                        <div id="facturas-pendientes-section" style="display: none;">
+                            <div class="card card-body p-2 border-0 shadow-sm">
+                                <h6 class="small fw-bold mb-2 text-secondary"><i
+                                        class="bi bi-receipt me-1"></i>Historial de Facturas Pendientes</h6>
+                                <div class="table-responsive" style="max-height: 180px;">
+                                    <table class="facturas-pendientes-table table table-sm table-bordered mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th># Factura</th>
+                                                <th>Fecha</th>
+                                                <th>Vencimiento</th>
+                                                <th>Monto Original</th>
+                                                <th>Saldo Pendiente</th>
+                                                <th>Estado</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="facturas-pendientes-body">
+                                            <tr>
+                                                <td colspan="6" class="text-center text-muted">Seleccione un cliente
+                                                    para ver sus facturas pendientes</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-            {% endif %}
 
-            <form id="formVenta" method="POST" novalidate>
-                <!-- ============================================ -->
-                <!-- 1. INFORMACIÓN GENERAL -->
-                <!-- ============================================ -->
-                <div class="form-section">
-                    <h4 class="section-title"><i class="bi bi-info-circle me-2"></i>1. Información del Cliente</h4>
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label required-field">Cliente</label>
-                            <div class="cliente-search-wrapper">
-                                <input type="text" class="form-control" id="cliente_search_input"
-                                    placeholder="Buscar cliente..." autocomplete="off">
-                                <span class="search-icon-indicator"><i class="bi bi-search"></i></span>
+            <!-- ========================================================== -->
+            <!-- COLUMNA DERECHA: CLIENTE, TIPO DE VENTA, PAGO Y COBRO      -->
+            <!-- ========================================================== -->
+            <div class="pos-right-panel">
+                <div class="pos-panel-header">
+                    <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-person-badge text-primary me-2"></i>Datos de
+                        Facturación</h5>
+                    <button type="button" class="btn btn-xs btn-outline-primary py-1 px-2"
+                        id="btnRegistrarClienteRapido" style="font-size: 0.78rem;">
+                        <i class="bi bi-person-plus me-1"></i>Nuevo Cliente
+                    </button>
+                </div>
 
-                                <div class="cliente-dropdown" id="clienteDropdown">
-                                    {% for cliente in clientes %}
-                                    <div class="cliente-item" data-id="{{ cliente.ID_Cliente }}"
-                                        data-nombre="{{ cliente.Nombre }}" data-ruc="{{ cliente.RUC_CEDULA }}"
-                                        data-perfil="{{ cliente.perfil_cliente }}"
-                                        data-tipo="{{ cliente.tipo_cliente }}"
-                                        data-saldo="{{ cliente.Saldo_Pendiente_Total }}"
-                                        data-anticipos="{{ cliente.Saldo_Anticipos or 0.00 }}"
-                                        data-ruta="{{ cliente.Nombre_Ruta if cliente.Nombre_Ruta else '' }}"
-                                        data-searchtext="{{ cliente.Nombre|lower }} {{ cliente.RUC_CEDULA|lower }} {{ cliente.perfil_cliente|lower }} {% if cliente.Nombre_Ruta %}{{ cliente.Nombre_Ruta|lower }}{% endif %}">
-                                        <span class="cliente-item-nombre">{{ cliente.Nombre }}</span>
-                                        <span class="cliente-item-ruc">{{ cliente.RUC_CEDULA }}</span>
-                                        <span class="cliente-item-perfil 
-                                              {% if cliente.perfil_cliente == 'Ruta' %}perfil-ruta
-                                              {% elif cliente.perfil_cliente == 'Mayorista' %}perfil-mayorista
-                                              {% elif cliente.perfil_cliente == 'Mercado' %}perfil-mercado
-                                              {% else %}perfil-especial{% endif %}">
-                                            {{ cliente.perfil_cliente }}
-                                        </span>
-                                        {% if cliente.Nombre_Ruta %}
-                                        <span class="cliente-item-ruta">
-                                            <i class="bi bi-geo-alt"></i> {{ cliente.Nombre_Ruta }}
-                                        </span>
+                <div class="p-3">
+                    <!-- 1. BUSCADOR DE CLIENTE -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-secondary mb-1 required-field">Cliente (F4)</label>
+                        <div class="cliente-search-wrapper">
+                            <input type="text" class="form-control form-control-sm" id="cliente_search_input"
+                                placeholder="Buscar por nombre, RUC o ruta..." autocomplete="off" style="height: 38px;">
+                            <span class="search-icon-indicator"><i class="bi bi-search"></i></span>
+
+                            <div class="cliente-dropdown" id="clienteDropdown">
+                                {% for cliente in clientes %}
+                                <div class="cliente-item" data-id="{{ cliente.ID_Cliente }}"
+                                    data-nombre="{{ cliente.Nombre }}" data-ruc="{{ cliente.RUC_CEDULA }}"
+                                    data-perfil="{{ cliente.perfil_cliente }}" data-tipo="{{ cliente.tipo_cliente }}"
+                                    data-saldo="{{ cliente.Saldo_Pendiente_Total }}"
+                                    data-anticipos="{{ cliente.Saldo_Anticipos or 0.00 }}"
+                                    data-ruta="{{ cliente.Nombre_Ruta if cliente.Nombre_Ruta else '' }}"
+                                    data-searchtext="{{ cliente.Nombre|lower }} {{ cliente.RUC_CEDULA|lower }} {{ cliente.perfil_cliente|lower }} {% if cliente.Nombre_Ruta %}{{ cliente.Nombre_Ruta|lower }}{% endif %}">
+                                    <span class="cliente-item-nombre">{{ cliente.Nombre }}</span>
+                                    <span class="cliente-item-ruc">{{ cliente.RUC_CEDULA }}</span>
+                                    <span class="cliente-item-perfil 
+                                          {% if cliente.perfil_cliente == 'Ruta' %}perfil-ruta
+                                          {% elif cliente.perfil_cliente == 'Mayorista' %}perfil-mayorista
+                                          {% elif cliente.perfil_cliente == 'Mercado' %}perfil-mercado
+                                          {% else %}perfil-especial{% endif %}">
+                                        {{ cliente.perfil_cliente }}
+                                    </span>
+                                    {% if cliente.Nombre_Ruta %}
+                                    <span class="cliente-item-ruta">
+                                        <i class="bi bi-geo-alt"></i> {{ cliente.Nombre_Ruta }}
+                                    </span>
+                                    {% endif %}
+                                    <span class="cliente-item-saldo">
+                                        {% set saldo_deuda = cliente.Saldo_Pendiente_Total|float %}
+                                        {% set saldo_favor = cliente.Saldo_Anticipos|float %}
+                                        {% if saldo_favor > 0 %}
+                                        <span class="text-success me-2" title="Saldo a Favor (Anticipo)"><i
+                                                class="bi bi-piggy-bank me-1"></i>C$ {{ saldo_favor | cantidad }}</span>
                                         {% endif %}
-                                        <span class="cliente-item-saldo">
-                                            {% set saldo_deuda = cliente.Saldo_Pendiente_Total|float %}
-                                            {% set saldo_favor = cliente.Saldo_Anticipos|float %}
-                                            {% if saldo_favor > 0 %}
-                                            <span class="text-success me-2" title="Saldo a Favor (Anticipo)"><i
-                                                    class="bi bi-piggy-bank me-1"></i>C$ {{ saldo_favor | cantidad }}</span>
-                                            {% endif %}
-                                            {% if saldo_deuda > 0 %}
-                                            <span class="text-danger" title="Saldo Pendiente (Deuda)"><i
-                                                    class="bi bi-graph-up me-1"></i>C$ {{ saldo_deuda | cantidad }}</span>
-                                            {% endif %}
-                                            {% if saldo_favor <= 0 and saldo_deuda <=0 %} <span class="text-muted">C$
-                                                0.00</span>
+                                        {% if saldo_deuda > 0 %}
+                                        <span class="text-danger" title="Saldo Pendiente (Deuda)"><i
+                                                class="bi bi-graph-up me-1"></i>C$ {{ saldo_deuda | cantidad }}</span>
                                         {% endif %}
-                                        </span>
+                                        {% if saldo_favor <= 0 and saldo_deuda <=0 %} <span class="text-muted">C$
+                                            0.00</span>
+                                    {% endif %}
+                                    </span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <input type="hidden" id="id_cliente" name="id_cliente" value="">
+                        <div class="invalid-feedback" id="error-cliente">Seleccione un cliente de la lista</div>
+
+                        <!-- Info compacta del cliente seleccionado -->
+                        <div class="cliente-selected-info" id="cliente_selected_info">
+                            <div class="cliente-selected-header">
+                                <span class="cliente-selected-nombre">
+                                    <i class="bi bi-check-circle-fill text-success me-1"></i>
+                                    <span id="cliente_selected_nombre"></span>
+                                </span>
+                                <span class="cliente-selected-cambiar" id="btn_cambiar_cliente">
+                                    <i class="bi bi-arrow-left-right me-1"></i>Cambiar
+                                </span>
+                            </div>
+                            <div class="cliente-selected-detalles">
+                                <span><i class="bi bi-card-text"></i> <span id="cliente_selected_ruc"></span></span>
+                                <span><i class="bi bi-tag"></i> <span id="cliente_selected_perfil"></span></span>
+                                <span><i class="bi bi-cash-stack"></i> Deuda: <strong
+                                        id="cliente_selected_saldo"></strong></span>
+                                <span id="cliente_selected_anticipos_span"
+                                    style="display:none; color: var(--success-color); font-weight: bold;">
+                                    <i class="bi bi-piggy-bank"></i> A Favor: <span
+                                        id="cliente_selected_anticipos"></span>
+                                </span>
+                                <span id="cliente_selected_ruta_span" style="display:none;">
+                                    <i class="bi bi-geo-alt"></i> <span id="cliente_selected_ruta"></span>
+                                </span>
+                            </div>
+                        </div>
+                        <div id="info-perfil-cliente" class="info-perfil-cliente mt-1" style="display:none;"></div>
+
+                        <!-- Contenedor compacto de saldos con alto contraste y letras oscuras legibles -->
+                        <div id="saldo-consolidado-container" style="display: none;" class="mt-2">
+                            <div class="row g-2">
+                                <div class="col-12" id="deuda-consolidada-col">
+                                    <div class="p-2 rounded d-flex justify-content-between align-items-center"
+                                        style="background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; font-size: 0.82rem;">
+                                        <span class="fw-semibold"><i class="bi bi-graph-up me-1"></i>Deuda
+                                            Consolidada:</span>
+                                        <strong id="saldo-consolidado" class="fs-6" style="color: #b91c1c;">C$
+                                            0.00</strong>
+                                        <span class="cliente-nombre-label d-none"></span>
                                     </div>
-                                    {% endfor %}
+                                </div>
+                                <div class="col-12" id="saldo-favor-consolidado-col" style="display: none;">
+                                    <div class="p-2 rounded d-flex justify-content-between align-items-center"
+                                        style="background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; font-size: 0.82rem;">
+                                        <span class="fw-semibold"><i class="bi bi-piggy-bank me-1"></i>Saldo a
+                                            Favor:</span>
+                                        <strong id="saldo-favor-consolidado" class="fs-6" style="color: #15803d;">C$
+                                            0.00</strong>
+                                    </div>
                                 </div>
                             </div>
-
-                            <input type="hidden" id="id_cliente" name="id_cliente" value="">
-
-                            <div class="cliente-selected-info" id="cliente_selected_info">
-                                <div class="cliente-selected-header">
-                                    <span class="cliente-selected-nombre">
-                                        <i class="bi bi-check-circle-fill text-success me-1"></i>
-                                        <span id="cliente_selected_nombre"></span>
-                                    </span>
-                                    <span class="cliente-selected-cambiar" id="btn_cambiar_cliente">
-                                        <i class="bi bi-arrow-left-right me-1"></i>Cambiar
-                                    </span>
-                                </div>
-                                <div class="cliente-selected-detalles">
-                                    <span><i class="bi bi-card-text"></i> <span id="cliente_selected_ruc"></span></span>
-                                    <span><i class="bi bi-tag"></i> <span id="cliente_selected_perfil"></span></span>
-                                    <span><i class="bi bi-cash-stack"></i> Saldo: <span
-                                            id="cliente_selected_saldo"></span></span>
-                                    <span id="cliente_selected_anticipos_span"
-                                        style="display:none; color: var(--success-color); font-weight: bold;">
-                                        <i class="bi bi-piggy-bank"></i> Saldo a Favor: <span
-                                            id="cliente_selected_anticipos"></span>
-                                    </span>
-                                    <span id="cliente_selected_ruta_span" style="display:none;">
-                                        <i class="bi bi-geo-alt"></i> <span id="cliente_selected_ruta"></span>
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div class="mt-2">
-                                <button type="button" class="btn btn-sm btn-outline-primary w-100"
-                                    id="btnRegistrarClienteRapido">
-                                    <i class="bi bi-person-plus me-1"></i>Registrar Nuevo Cliente
-                                </button>
-                            </div>
-
-                            <div id="info-perfil-cliente" class="info-perfil-cliente mt-2"></div>
-                            <div class="invalid-feedback" id="error-cliente">Seleccione un cliente de la lista</div>
                         </div>
 
-                        <div class="col-md-6">
-                            <label for="tipo_venta" class="form-label required-field">Tipo de Venta</label>
-                            <select class="form-select" id="tipo_venta" name="tipo_venta" required>
-                                <option value="reparto">REPARTO / POR CONFIRMAR</option>
-                                <option value="contado">CONTADO</option>
-                                <option value="credito">CRÉDITO</option>
-                            </select>
-                            <div class="invalid-feedback">Por favor seleccione el tipo de venta</div>
+                        <!-- Alerta para aplicar Saldo a Favor disponible -->
+                        <div class="alert alert-success d-flex justify-content-between align-items-center p-2 mt-2 mb-0 small"
+                            id="aplicar-anticipo-alert" style="display: none !important;">
+                            <div>
+                                <i class="bi bi-piggy-bank-fill me-1 text-success"></i>
+                                <strong>A Favor: <span id="anticipo-disponible-alerta">C$ 0.00</span></strong>
+                            </div>
+                            <button type="button" class="btn btn-success btn-sm py-0 px-2"
+                                id="btn-aplicar-anticipo-auto">
+                                Aplicar
+                            </button>
                         </div>
+                    </div>
 
-                        <input type="hidden" id="id_bodega" name="id_bodega"
-                            value="{{ bodega_principal.ID_Bodega if bodega_principal else 1 }}">
-                        
-                        <div class="col-md-12 mt-3">
-                            <label class="form-label">Filtrar Bodegas (Opcional)</label>
-                            <div class="d-flex flex-wrap gap-2">
-                                {% for bodega in todas_bodegas %}
-                                <div class="form-check">
-                                    <input class="form-check-input filtro-bodega-cb" type="checkbox" value="{{ bodega.ID_Bodega }}" id="bodega_{{ bodega.ID_Bodega }}" checked>
-                                    <label class="form-check-label" for="bodega_{{ bodega.ID_Bodega }}">
-                                        {{ bodega.Nombre }}
-                                    </label>
-                                </div>
-                                {% endfor %}
+                    <!-- 2. TIPO DE VENTA (BOTONES RÁPIDOS POS) -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-secondary mb-1 required-field">Modalidad de
+                            Venta</label>
+                        <!-- Select oculto sincronizado para mantener toda la lógica JS intacta -->
+                        <select class="form-select d-none" id="tipo_venta" name="tipo_venta" required>
+                            <option value="reparto">REPARTO / POR CONFIRMAR</option>
+                            <option value="contado">CONTADO</option>
+                            <option value="credito">CRÉDITO</option>
+                        </select>
+                        <div class="tipo-venta-pills" id="pos_tipo_venta_pills">
+                            <div class="tipo-venta-btn active" data-val="reparto">
+                                <i class="bi bi-truck"></i>
+                                <span>Reparto</span>
+                            </div>
+                            <div class="tipo-venta-btn" data-val="contado">
+                                <i class="bi bi-cash-coin"></i>
+                                <span>Contado</span>
+                            </div>
+                            <div class="tipo-venta-btn" data-val="credito">
+                                <i class="bi bi-calendar-check"></i>
+                                <span>Crédito</span>
                             </div>
                         </div>
+                    </div>
 
-                        <div class="col-md-8" style="display: none;">
-                            <label for="filtro_categoria" class="form-label">Filtrar Productos por Categoría</label>
-                            <select class="form-select" id="filtro_categoria" name="filtro_categoria">
-                                <option value="0">Todas las categorías</option>
-                                {% for categoria in categorias %}
-                                <option value="{{ categoria.ID_Categoria }}">{{ categoria.Descripcion }}</option>
-                                {% endfor %}
-                            </select>
+                    <!-- Opciones de Crédito (Vencimiento y Abono Inicial) -->
+                    <div class="row g-2 mb-2">
+                        <div class="col-6" id="fecha_vencimiento_group" style="display: none;">
+                            <label for="fecha_vencimiento"
+                                class="form-label small fw-bold mb-1 required-field">Vencimiento</label>
+                            <input type="date" class="form-control form-control-sm" id="fecha_vencimiento"
+                                name="fecha_vencimiento">
                         </div>
-
-                        <div class="col-md-4" style="display: none;">
-                            <label class="form-label">&nbsp;</label>
-                            <div class="d-flex gap-2 mt-2">
-                                <button type="button" class="btn btn-outline-primary btn-sm" id="btn-aplicar-filtro">
-                                    <i class="bi bi-filter me-1"></i>Aplicar Filtro
-                                </button>
-                                <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-limpiar-filtro">
-                                    <i class="bi bi-x-lg me-1"></i>Limpiar
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Fecha de Vencimiento (solo crédito) -->
-                        <div class="col-12" id="fecha_vencimiento_group" style="display: none;">
-                            <label for="fecha_vencimiento" class="form-label required-field">Fecha de Vencimiento
-                                (Crédito)</label>
-                            <input type="date" class="form-control" id="fecha_vencimiento" name="fecha_vencimiento">
-                            <small class="text-muted">Fecha límite para que el cliente pague el saldo pendiente</small>
-                        </div>
-
-                        <!-- Abono Inicial (solo crédito) -->
-                        <div class="col-md-6" id="abono_inicial_group" style="display: none;">
-                            <label for="abono_inicial" class="form-label">Abono Inicial (opcional)</label>
-                            <div class="input-group">
+                        <div class="col-6" id="abono_inicial_group"
+                            style="display: none; margin-top: 0; padding: 0.4rem;">
+                            <label for="abono_inicial" class="form-label small fw-bold mb-1">Abono Hoy</label>
+                            <div class="input-group input-group-sm">
                                 <span class="input-group-text">C$</span>
                                 <input type="number" class="form-control" id="abono_inicial" name="abono_inicial"
                                     step="0.01" min="0" value="0" placeholder="0.00">
                             </div>
-                            <small class="text-muted">
-                                <i class="bi bi-info-circle me-1"></i>
-                                Monto que el cliente paga hoy. El resto pasará a crédito.
-                            </small>
                             <div class="invalid-feedback" id="error-abono"></div>
                         </div>
+                    </div>
 
-                        <div class="col-12">
-                            <label for="observacion" class="form-label">Observaciones</label>
-                            <textarea class="form-control" id="observacion" name="observacion" rows="2"
-                                placeholder="Observaciones adicionales sobre la venta..."></textarea>
+                    <!-- 3. RESUMEN DE TOTALES -->
+                    <div class="total-summary">
+                        <div class="total-row">
+                            <span>Productos con cargo:</span>
+                            <span id="total-productos" class="fw-bold text-dark">0</span>
+                        </div>
+                        <div class="total-row">
+                            <span>Subtotal:</span>
+                            <span id="subtotal" class="fw-bold text-dark">C$ 0.00</span>
+                        </div>
+                        <div class="total-row grand-total">
+                            <span>TOTAL:</span>
+                            <span id="total-venta">C$ 0.00</span>
+                        </div>
+                        <div class="total-row mt-2 pt-1 border-top" id="pendiente-por-pagar"
+                            style="display: none; color: #dc2626;">
+                            <span class="fw-bold">SALDO A CRÉDITO:</span>
+                            <span id="pendiente-monto" class="fw-bold">C$ 0.00</span>
                         </div>
                     </div>
-                </div>
 
-                <!-- ============================================ -->
-                <!-- 2. SALDO CONSOLIDADO DEL CLIENTE -->
-                <!-- ============================================ -->
-                <div id="saldo-consolidado-container" style="display: none;">
-                    <div class="row g-3 mb-3">
-                        <div class="col-12" id="deuda-consolidada-col">
-                            <div class="saldo-consolidado-card" style="margin-bottom: 0;">
-                                <div class="row align-items-center">
-                                    <div class="col-8">
-                                        <small><i class="bi bi-graph-up me-1"></i> SALDO PENDIENTE (DEUDA)</small>
-                                        <h2 id="saldo-consolidado">C$ 0.00</h2>
-                                        <small class="cliente-nombre-label"><i class="fas fa-user me-1"></i>Cliente no
-                                            seleccionado</small>
-                                    </div>
-                                    <div class="col-4 text-end"><i class="bi bi-cash-coin fs-1"></i></div>
+                    <!-- 4. MÉTODOS DE PAGO -->
+                    <div id="seccion-metodos-pago" style="display: block;">
+                        <div class="default-pago-info py-2 px-3 mt-2" id="defaultPagoInfo">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-cash-stack text-success fs-4 me-2"></i>
+                                <div style="line-height: 1.2;">
+                                    <strong class="small">Efectivo 100%</strong><br>
+                                    <small class="text-muted" style="font-size: 0.72rem;">Pago directo en caja</small>
                                 </div>
                             </div>
-                        </div>
-                        <div class="col-md-6" id="saldo-favor-consolidado-col" style="display: none;">
-                            <div class="saldo-favor-card"
-                                style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; border-radius: 12px; padding: 1.25rem; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);">
-                                <div class="row align-items-center">
-                                    <div class="col-8">
-                                        <small><i class="bi bi-piggy-bank me-1"></i> SALDO A FAVOR (ANTICIPO)</small>
-                                        <h2 id="saldo-favor-consolidado">C$ 0.00</h2>
-                                        <small class="cliente-nombre-label"><i class="fas fa-user me-1"></i>Cliente no
-                                            seleccionado</small>
-                                    </div>
-                                    <div class="col-4 text-end"><i class="bi bi-arrow-up-right-circle fs-1"></i></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Alerta para aplicar Saldo a Favor disponible automáticamente -->
-                <div class="alert alert-success d-flex justify-content-between align-items-center mt-2"
-                    id="aplicar-anticipo-alert" style="display: none !important;">
-                    <div class="d-flex align-items-center">
-                        <i class="bi bi-piggy-bank-fill me-3 fs-4 text-success"></i>
-                        <div>
-                            <span class="d-block fw-bold">El cliente tiene un Saldo a Favor de <span
-                                    id="anticipo-disponible-alerta">C$ 0.00</span></span>
-                            <small class="text-muted">¿Desea aplicar este saldo como abono automático para esta
-                                venta?</small>
-                        </div>
-                    </div>
-                    <button type="button" class="btn btn-success btn-sm px-3" id="btn-aplicar-anticipo-auto">
-                        <i class="bi bi-check-circle me-1"></i> Aplicar Abono
-                    </button>
-                </div>
-
-                <!-- ============================================ -->
-                <!-- 3. FACTURAS PENDIENTES -->
-                <!-- ============================================ -->
-                <div class="form-section" id="facturas-pendientes-section" style="display: none;">
-                    <h4 class="section-title"><i class="bi bi-receipt me-2"></i>Facturas Pendientes</h4>
-                    <div class="table-responsive">
-                        <table class="facturas-pendientes-table table table-bordered">
-                            <thead>
-                                <tr>
-                                    <th># Factura</th>
-                                    <th>Fecha</th>
-                                    <th>Vencimiento</th>
-                                    <th>Monto Original</th>
-                                    <th>Saldo Pendiente</th>
-                                    <th>Estado</th>
-                                </tr>
-                            </thead>
-                            <tbody id="facturas-pendientes-body">
-                                <tr>
-                                    <td colspan="6" class="text-center text-muted">Seleccione un cliente para ver sus
-                                        facturas pendientes</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- ============================================ -->
-                <!-- 4. PRODUCTOS -->
-                <!-- ============================================ -->
-                <div class="form-section">
-                    <div
-                        class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-3">
-                        <h4 class="section-title mb-0"><i class="bi bi-box-seam me-2"></i>2. Seleccionar Productos</h4>
-                        <div class="quick-actions">
-                            <button type="button" class="btn btn-primary btn-sm" id="btn-agregar-producto">
-                                <i class="bi bi-plus-lg me-1"></i>Agregar Producto
-                            </button>
-                            <button type="button" class="btn btn-outline-info btn-sm" id="btn-agregar-extra">
-                                <i class="bi bi-plus-circle me-1"></i>Agregar Producto Extra
-                            </button>
-                            <button type="button" class="btn btn-outline-warning btn-sm" id="btn-agregar-regalia">
-                                <i class="bi bi-gift me-1"></i>Agregar Regalía/Bonificación
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="filter-section" id="filtro-info" style="display: none;">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <i class="bi bi-filter me-2 text-primary"></i>
-                                <strong>Filtro aplicado:</strong> <span id="filtro-actual">Todas las categorías</span>
-                            </div>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-quitar-filtro">
-                                <i class="bi bi-x-lg me-1"></i>Quitar filtro
-                            </button>
-                        </div>
-                    </div>
-
-                    <div id="productos-container" class="mt-3"></div>
-                </div>
-
-                <!-- ============================================ -->
-                <!-- 5. RESUMEN DE TOTALES -->
-                <!-- ============================================ -->
-                <div class="total-summary">
-                    <div class="total-row"><span>Total Productos:</span> <span id="total-productos"
-                            class="fw-bold">0</span></div>
-                    <div class="total-row"><span>Subtotal:</span> <span id="subtotal" class="fw-bold">C$ 0.00</span>
-                    </div>
-                    <div class="total-row grand-total"><span>MONTO TOTAL:</span> <span id="total-venta" class="fw-bold"
-                            style="font-size: 1.4rem;">C$ 0.00</span></div>
-                    <div class="total-row" id="pendiente-por-pagar" style="display: none; color: #dc3545;">
-                        <span>SALDO A CRÉDITO:</span> <span id="pendiente-monto" class="fw-bold">C$ 0.00</span>
-                    </div>
-                </div>
-
-                <!-- ============================================ -->
-                <!-- 6. MÉTODOS DE PAGO -->
-                <!-- ============================================ -->
-                <div class="form-section" id="seccion-metodos-pago" style="display: block;">
-                    <h4 class="section-title"><i class="bi bi-cash-stack me-2"></i>3. Métodos de Pago</h4>
-
-                    <div class="default-pago-info" id="defaultPagoInfo">
-                        <div>
-                            <i class="bi bi-cash text-success fs-3 me-3"></i>
-                            <div>
-                                <strong>Pago por defecto:</strong> Efectivo 100%<br>
-                                <small class="text-muted">El cliente pagará el total en efectivo</small>
-                            </div>
-                        </div>
-                        <button type="button" class="btn btn-outline-success btn-sm" id="btnMostrarPagosAvanzados">
-                            <i class="bi bi-plus-circle me-1"></i> Usar otros métodos de pago
-                        </button>
-                    </div>
-
-                    <div class="pagos-avanzados-card" id="pagosAvanzadosCard">
-                        <div
-                            class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-3">
-                            <h6 class="mb-0"><i class="bi bi-credit-card me-1"></i>Múltiples métodos de pago</h6>
-                            <button type="button" class="btn btn-sm btn-secondary w-100 w-sm-auto"
-                                id="btnVolverDefault">
-                                <i class="bi bi-arrow-left me-1"></i> Volver a efectivo único
+                            <button type="button" class="btn btn-outline-success btn-sm py-1 px-2"
+                                id="btnMostrarPagosAvanzados" style="font-size: 0.75rem;">
+                                <i class="bi bi-credit-card me-1"></i>Otro / Mixto
                             </button>
                         </div>
 
-                        <div id="metodos-pago-container">
-                            <div class="metodo-pago-card">
-                                <div class="row g-3">
-                                    <div class="col-md-4">
-                                        <label class="form-label required-field">Método de Pago</label>
-                                        <select name="metodo_pago_id[]" class="form-select metodo-pago-select" required>
-                                            <option value="">Seleccione método</option>
-                                            {% for metodo in metodos_pago %}
-                                            <option value="{{ metodo.ID_MetodoPago }}">{{ metodo.Nombre }}</option>
-                                            {% endfor %}
-                                        </select>
-                                        <input type="hidden" name="metodo_pago_nombre[]" class="metodo-pago-nombre">
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label class="form-label required-field">Monto</label>
-                                        <div class="input-group">
-                                            <span class="input-group-text">C$</span>
-                                            <input type="number" name="monto_pago[]" class="form-control monto-pago"
-                                                placeholder="0.00" step="0.01" min="0" required
-                                                oninput="actualizarTotalPagado()">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label">Referencia</label>
-                                        <input type="text" name="referencia_pago[]" class="form-control"
-                                            placeholder="N° transferencia/depósito">
-                                    </div>
-                                    <div class="col-md-1">
-                                        <label class="form-label d-none d-md-block">&nbsp;</label>
-                                        <button type="button" class="btn btn-danger btn-sm w-100"
-                                            onclick="eliminarMetodoPago(this)">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row mt-3">
-                            <div class="col-md-12">
-                                <button type="button" class="btn btn-sm btn-success w-100 w-sm-auto"
-                                    onclick="agregarMetodoPago()">
-                                    <i class="bi bi-plus me-1"></i>Agregar otro método de pago
+                        <div class="pagos-avanzados-card p-2 mt-2" id="pagosAvanzadosCard">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="small fw-bold"><i class="bi bi-wallet2 me-1"></i>Desglose de Pago</span>
+                                <button type="button" class="btn btn-xs btn-secondary py-0 px-2" id="btnVolverDefault"
+                                    style="font-size: 0.72rem;">
+                                    Efectivo único
                                 </button>
                             </div>
-                        </div>
 
-                        <div class="total-pagado-card mt-3">
-                            <div class="row align-items-center">
-                                <div class="col-6">
-                                    <strong><i class="bi bi-receipt me-1"></i>TOTAL A PAGAR HOY:</strong>
-                                </div>
-                                <div class="col-6 text-end">
-                                    <h4 id="total-pagado-label">C$ 0.00</h4>
+                            <div id="metodos-pago-container">
+                                <div class="metodo-pago-card p-2 mb-2">
+                                    <div class="row g-1">
+                                        <div class="col-6">
+                                            <select name="metodo_pago_id[]"
+                                                class="form-select form-select-sm metodo-pago-select" required>
+                                                <option value="">Método...</option>
+                                                {% for metodo in metodos_pago %}
+                                                <option value="{{ metodo.ID_MetodoPago }}">{{ metodo.Nombre }}</option>
+                                                {% endfor %}
+                                            </select>
+                                            <input type="hidden" name="metodo_pago_nombre[]" class="metodo-pago-nombre">
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="input-group input-group-sm">
+                                                <span class="input-group-text">C$</span>
+                                                <input type="number" name="monto_pago[]" class="form-control monto-pago"
+                                                    placeholder="0.00" step="0.01" min="0" required
+                                                    oninput="actualizarTotalPagado()">
+                                            </div>
+                                        </div>
+                                        <div class="col-10 mt-1">
+                                            <input type="text" name="referencia_pago[]"
+                                                class="form-control form-control-sm"
+                                                placeholder="N° ref / transferencia (opcional)">
+                                        </div>
+                                        <div class="col-2 mt-1">
+                                            <button type="button" class="btn btn-danger btn-sm w-100 px-1"
+                                                onclick="eliminarMetodoPago(this)">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                            <small id="validacion-pago" class="text-warning" style="display: none;">
-                                <i class="bi bi-exclamation-triangle me-1"></i> El total a pagar no coincide
-                            </small>
+
+                            <button type="button" class="btn btn-xs btn-outline-success w-100 mb-2 py-1"
+                                onclick="agregarMetodoPago()" style="font-size: 0.75rem;">
+                                <i class="bi bi-plus-lg me-1"></i>Añadir otro método
+                            </button>
+
+                            <div class="total-pagado-card p-2 mt-1">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <small class="fw-bold">PAGADO HOY:</small>
+                                    <h5 id="total-pagado-label" class="mb-0 fw-bold">C$ 0.00</h5>
+                                </div>
+                                <small id="validacion-pago" class="text-warning d-block mt-1"
+                                    style="display: none; font-size: 0.75rem;">
+                                    <i class="bi bi-exclamation-triangle me-1"></i> El total a pagar no coincide
+                                </small>
+                            </div>
                         </div>
+
+                        <input type="hidden" id="usar_pagos_avanzados" name="usar_pagos_avanzados" value="0">
                     </div>
 
-                    <input type="hidden" id="usar_pagos_avanzados" name="usar_pagos_avanzados" value="0">
+                    <!-- 5. BOTONES DE COBRO / GUARDADO -->
+                    <div class="d-grid gap-2 mt-3">
+                        <button type="submit" class="btn btn-primary btn-lg fw-bold shadow-sm py-2">
+                            <i class="bi bi-check2-circle me-1"></i> Procesar Venta (F12)
+                        </button>
+                        <button type="button" class="btn btn-light btn-sm text-muted border"
+                            onclick="window.history.back()">
+                            Cancelar y Volver
+                        </button>
+                    </div>
                 </div>
-
-                <!-- ============================================ -->
-                <!-- 7. BOTONES DE ACCIÓN -->
-                <!-- ============================================ -->
-                <div class="d-flex justify-content-end gap-3 mt-4">
-                    <button type="button" class="btn btn-secondary" onclick="window.history.back()">Cancelar</button>
-                    <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i> Guardar
-                        Venta</button>
-                </div>
-            </form>
+            </div>
         </div>
-    </div>
+    </form>
 </div>
 
 <script>
@@ -1337,31 +1544,30 @@
     function agregarMetodoPago() {
         const container = document.getElementById('metodos-pago-container');
         const template = `
-        <div class="metodo-pago-card">
-            <div class="row g-3">
-                <div class="col-md-4">
-                    <select name="metodo_pago_id[]" class="form-select metodo-pago-select" required>
-                        <option value="">Seleccione método</option>
+        <div class="metodo-pago-card p-2 mb-2">
+            <div class="row g-1">
+                <div class="col-6">
+                    <select name="metodo_pago_id[]" class="form-select form-select-sm metodo-pago-select" required>
+                        <option value="">Método...</option>
                         {% for metodo in metodos_pago %}
                         <option value="{{ metodo.ID_MetodoPago }}">{{ metodo.Nombre }}</option>
                         {% endfor %}
                     </select>
                     <input type="hidden" name="metodo_pago_nombre[]" class="metodo-pago-nombre">
                 </div>
-                <div class="col-md-3">
-                    <div class="input-group">
+                <div class="col-6">
+                    <div class="input-group input-group-sm">
                         <span class="input-group-text">C$</span>
                         <input type="number" name="monto_pago[]" class="form-control monto-pago" 
                                placeholder="0.00" step="0.01" min="0" required oninput="actualizarTotalPagado()">
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <input type="text" name="referencia_pago[]" class="form-control" 
-                           placeholder="N° transferencia/depósito">
+                <div class="col-10 mt-1">
+                    <input type="text" name="referencia_pago[]" class="form-control form-control-sm" 
+                           placeholder="N° ref / transferencia (opcional)">
                 </div>
-                <div class="col-md-1">
-                    <label class="form-label d-none d-md-block">&nbsp;</label>
-                    <button type="button" class="btn btn-danger btn-sm w-100" onclick="eliminarMetodoPago(this)">
+                <div class="col-2 mt-1">
+                    <button type="button" class="btn btn-danger btn-sm w-100 px-1" onclick="eliminarMetodoPago(this)">
                         <i class="bi bi-trash"></i>
                     </button>
                 </div>
@@ -1456,40 +1662,7 @@
 
         const container = document.getElementById('metodos-pago-container');
         container.innerHTML = '';
-        const template = `
-        <div class="metodo-pago-card">
-            <div class="row g-3">
-                <div class="col-md-4">
-                    <select name="metodo_pago_id[]" class="form-select metodo-pago-select" required>
-                        <option value="">Seleccione método</option>
-                        {% for metodo in metodos_pago %}
-                        <option value="{{ metodo.ID_MetodoPago }}">{{ metodo.Nombre }}</option>
-                        {% endfor %}
-                    </select>
-                    <input type="hidden" name="metodo_pago_nombre[]" class="metodo-pago-nombre">
-                </div>
-                <div class="col-md-3">
-                    <div class="input-group">
-                        <span class="input-group-text">C$</span>
-                        <input type="number" name="monto_pago[]" class="form-control monto-pago" 
-                               placeholder="0.00" step="0.01" min="0" required oninput="actualizarTotalPagado()">
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <input type="text" name="referencia_pago[]" class="form-control" 
-                           placeholder="N° transferencia/depósito">
-                </div>
-                <div class="col-md-1">
-                    <label class="form-label d-none d-md-block">&nbsp;</label>
-                    <button type="button" class="btn btn-danger btn-sm w-100" onclick="eliminarMetodoPago(this)">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </div>
-            </div>
-        </div>`;
-        container.insertAdjacentHTML('beforeend', template);
-        actualizarNombresMetodosPago();
-        actualizarOpcionesMetodosPago();
+        agregarMetodoPago();
 
         const tipoVenta = document.getElementById('tipo_venta').value;
         if (tipoVenta === 'credito') {
@@ -1512,39 +1685,8 @@
     function resetearMetodosPago() {
         const container = document.getElementById('metodos-pago-container');
         if (container) {
-            container.innerHTML = `
-            <div class="metodo-pago-card">
-                <div class="row g-3">
-                    <div class="col-md-4">
-                        <select name="metodo_pago_id[]" class="form-select metodo-pago-select" required>
-                            <option value="">Seleccione método</option>
-                            {% for metodo in metodos_pago %}
-                            <option value="{{ metodo.ID_MetodoPago }}">{{ metodo.Nombre }}</option>
-                            {% endfor %}
-                        </select>
-                        <input type="hidden" name="metodo_pago_nombre[]" class="metodo-pago-nombre">
-                    </div>
-                    <div class="col-md-3">
-                        <div class="input-group">
-                            <span class="input-group-text">C$</span>
-                            <input type="number" name="monto_pago[]" class="form-control monto-pago" 
-                                   placeholder="0.00" step="0.01" min="0" required oninput="actualizarTotalPagado()">
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <input type="text" name="referencia_pago[]" class="form-control" 
-                               placeholder="N° transferencia/depósito">
-                    </div>
-                    <div class="col-md-1">
-                        <label class="form-label d-none d-md-block">&nbsp;</label>
-                        <button type="button" class="btn btn-danger btn-sm w-100" onclick="eliminarMetodoPago(this)">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>`;
-            actualizarNombresMetodosPago();
-            actualizarOpcionesMetodosPago();
+            container.innerHTML = '';
+            agregarMetodoPago();
         }
     }
 
@@ -1783,6 +1925,13 @@
         perfilClienteActual = '';
         saldoConsolidadoActual = 0;
         saldoAnticiposActual = 0;
+
+        // Limpiar indicadores de último precio en las filas
+        document.querySelectorAll('.ultimo-precio-info-admin').forEach(el => {
+            el.style.display = 'none';
+            el.innerHTML = '';
+        });
+
         searchInput.focus();
         dropdown.classList.add('show');
         filtrarClientes('');
@@ -2021,7 +2170,7 @@
 
             if (data.success && data.productos) {
                 productosFiltradosPorCliente = data.productos;
-                
+
                 // Actualizar checkboxes de bodegas automáticamente
                 const bodegasPermitidas = new Set(data.productos.map(p => String(p.ID_Bodega || '1')));
                 document.querySelectorAll('.filtro-bodega-cb').forEach(cb => {
@@ -2035,7 +2184,7 @@
                         cb.closest('.form-check').style.opacity = '0.5';
                     }
                 });
-                
+
             } else {
                 throw new Error(data.error || 'Error al cargar productos');
             }
@@ -2047,14 +2196,14 @@
                 const response = await fetch('/admin/ventas/todos-productos');
                 const data = await response.json();
                 productosFiltradosPorCliente = Array.isArray(data) ? data : (data.productos || []);
-                
+
                 // Habilitar todas las bodegas en caso de fallback
                 document.querySelectorAll('.filtro-bodega-cb').forEach(cb => {
                     cb.checked = true;
                     cb.disabled = false;
                     cb.closest('.form-check').style.opacity = '1';
                 });
-                
+
                 actualizarTodosLosSelectsProductosConPerfil();
                 actualizarPreciosProductosPorPerfil();
             } catch (e) {
@@ -2130,17 +2279,17 @@
                     const bodegaId = producto.ID_Bodega || '1';
                     const optionValue = `${prodId}_${bodegaId}`;
                     option.value = optionValue;
-                    
+
                     let text = `${producto.Descripcion || 'Sin descripción'} (${producto.COD_Producto || 'S/C'})`;
                     text += ` - Stock: ${producto.Existencias || 0}`;
-                    
+
                     option.textContent = text;
                     option.dataset.precio = precioPerfil;
                     option.dataset.existencia = producto.Existencias || 0;
                     option.dataset.categoria = producto.ID_Categoria || '';
                     option.dataset.productoId = prodId;
                     option.dataset.bodegaId = bodegaId;
-                    
+
                     if (valorGuardado && valorGuardado == optionValue) {
                         option.selected = true;
                     }
@@ -2170,13 +2319,13 @@
             const idProducto = partes[0];
             const idBodega = partes.length > 1 ? partes[1] : '';
             const url = `/admin/ventas/verificar-stock/${idProducto}` + (idBodega ? `?bodega_id=${idBodega}` : '');
-            
+
             const response = await fetch(url);
             if (!response.ok) throw new Error('Error al verificar stock');
             const data = await response.json();
-            return data.success ? { 
-                local: parseFloat(data.existencias) || 0, 
-                total: parseFloat(data.existencias_totales) || parseFloat(data.existencias) || 0 
+            return data.success ? {
+                local: parseFloat(data.existencias) || 0,
+                total: parseFloat(data.existencias_totales) || parseFloat(data.existencias) || 0
             } : { local: 0, total: 0 };
         } catch (error) {
             console.error('Error verificando stock:', error);
@@ -2249,10 +2398,10 @@
                     const prodId = producto.ID_Producto || producto.id;
                     const bodegaId = producto.ID_Bodega || '1';
                     option.value = `${prodId}_${bodegaId}`;
-                    
+
                     let text = `${producto.Descripcion || 'Sin descripción'} (${producto.COD_Producto || 'S/C'})`;
                     text += ` - Stock: ${producto.Existencias || 0}`;
-                    
+
                     option.textContent = text;
                     option.dataset.precio = precioPerfil;
                     option.dataset.existencia = producto.Existencias || 0;
@@ -2322,24 +2471,19 @@
         <div class="product-card" id="producto-card-${contadorProductos}">
             <input type="hidden" name="es_extra[]" class="es-extra-flag" value="0">
             <input type="hidden" name="es_bonificacion[]" class="es-bonificacion-flag" value="0">
-            <div class="product-card-header">
-                <h6 class="product-card-title">Producto #${contadorProductos}</h6>
-                <button type="button" class="btn btn-danger btn-sm" onclick="eliminarProducto(${contadorProductos})">
-                    <i class="fas fa-times"></i> Quitar
-                </button>
-            </div>
             <div class="product-grid">
                 <div class="producto-col">
                     <label class="form-label required-field">Producto</label>
                     <select class="form-select producto-select" name="producto_id[]" required onchange="actualizarInfoProducto(${contadorProductos})">
-                        <option value="" disabled selected>Cargando productos...</option>
+                        <option value="" disabled selected>Seleccionar producto...</option>
                     </select>
                     <div class="invalid-feedback">Seleccione un producto</div>
+                    <small class="text-muted stock-info" id="stock-info-${contadorProductos}" style="display: none; font-size: 0.72rem; margin-top: 2px;"></small>
                 </div>
                 <div class="cantidad-col">
                     <label class="form-label required-field">Cantidad</label>
                     <div class="input-group">
-                        <input type="number" class="form-control cantidad" name="cantidad[]" min="0.01" step="0.01" value="1" required onchange="calcularSubtotal(${contadorProductos})" oninput="validarStockEnTiempoReal(${contadorProductos})">
+                        <input type="number" class="form-control cantidad" name="cantidad[]" min="0.01" step="0.01" value="1" required onchange="calcularSubtotal(${contadorProductos})" oninput="validarStockEnTiempoReal(${contadorProductos}); calcularSubtotal(${contadorProductos});">
                         <span class="input-group-text">und</span>
                     </div>
                     <input type="hidden" name="cantidad_sueltos[]" class="cantidad-sueltos-flag" value="0">
@@ -2349,59 +2493,62 @@
                     <label class="form-label required-field">Precio</label>
                     <div class="input-group">
                         <span class="input-group-text">C$</span>
-                        <input type="number" class="form-control precio" name="precio[]" step="0.01" min="0" value="0" required onchange="calcularSubtotal(${contadorProductos})">
+                        <input type="number" class="form-control precio" name="precio[]" step="0.01" min="0" value="0" required onchange="calcularSubtotal(${contadorProductos})" oninput="calcularSubtotal(${contadorProductos})">
                     </div>
                     <div class="invalid-feedback">Ingrese un precio válido</div>
-                    <div class="ultimo-precio-info-admin form-text text-muted mt-1 small" id="ultimo-precio-info-${contadorProductos}" style="display: none; font-size: 0.75rem;"></div>
+                    <div class="ultimo-precio-info-admin form-text text-muted mt-0 small" id="ultimo-precio-info-${contadorProductos}" style="display: none; font-size: 0.7rem;"></div>
                 </div>
                 <div>
                     <label class="form-label">Subtotal</label>
                     <div class="input-group">
                         <span class="input-group-text">C$</span>
-                        <input type="text" class="form-control subtotal" value="0.00" readonly style="background: #eef2f5;">
+                        <input type="text" class="form-control subtotal fw-bold" value="0.00" readonly style="background: #f1f5f9;">
                     </div>
                 </div>
+                <div class="text-end">
+                    <button type="button" class="btn btn-outline-danger btn-sm px-2 py-1" onclick="eliminarProducto(${contadorProductos})" title="Quitar fila">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
             </div>
-            <small class="text-muted stock-info" id="stock-info-${contadorProductos}" style="display: none; margin-top: 0.5rem;"></small>
         </div>`;
 
         document.getElementById('productos-container').insertAdjacentHTML('beforeend', productoHTML);
         const nuevoSelect = document.querySelector(`#producto-card-${contadorProductos} .producto-select`);
         llenarSelectProductos(nuevoSelect);
         actualizarTotales();
+        return contadorProductos;
     }
 
     function agregarExtra() {
         contadorProductos++;
         const productoHTML = `
-        <div class="product-card" id="producto-card-${contadorProductos}" style="border-left: 5px solid #17a2b8; background-color: #fcfdfe;">
+        <div class="product-card" id="producto-card-${contadorProductos}" style="border-left: 4px solid #0dcaf0; background-color: #f8fdff;">
             <input type="hidden" name="es_extra[]" class="es-extra-flag" value="1">
             <input type="hidden" name="es_bonificacion[]" class="es-bonificacion-flag" value="0">
             <div class="product-card-header">
-                <h6 class="product-card-title text-info"><i class="bi bi-plus-circle me-1"></i>Producto Extra #${contadorProductos}</h6>
-                <button type="button" class="btn btn-danger btn-sm" onclick="eliminarProducto(${contadorProductos})">
-                    <i class="fas fa-times"></i> Quitar
-                </button>
+                <span class="product-card-title text-info"><i class="bi bi-plus-circle"></i> Producto Extra</span>
             </div>
             <div class="product-extra-grid">
                 <div>
                     <label class="form-label required-field">Categoría</label>
                     <select class="form-select categoria-extra-select" required onchange="actualizarProductosFilaExtra(${contadorProductos})">
-                        <option value="" disabled selected>Seleccione...</option>
+                        <option value="" disabled selected>Categoría...</option>
                     </select>
                     <div class="invalid-feedback">Seleccione categoría</div>
                 </div>
                 <div class="producto-col">
                     <label class="form-label required-field">Producto</label>
                     <select class="form-select producto-select" name="producto_id[]" required onchange="actualizarInfoProducto(${contadorProductos})">
-                        <option value="" disabled selected>Primero elija categoría</option>
+                        <option value="" disabled selected>Elija categoría primero</option>
                     </select>
                     <div class="invalid-feedback">Seleccione producto</div>
+                    <small class="text-muted stock-info" id="stock-info-${contadorProductos}" style="display: none; font-size: 0.72rem; margin-top: 2px;"></small>
                 </div>
                 <div class="cantidad-col">
                     <label class="form-label required-field">Cantidad</label>
                     <div class="input-group">
-                        <input type="number" class="form-control cantidad" name="cantidad[]" min="0.01" step="0.01" value="1" required onchange="calcularSubtotal(${contadorProductos})" oninput="validarStockEnTiempoReal(${contadorProductos})">
+                        <input type="number" class="form-control cantidad" name="cantidad[]" min="0.01" step="0.01" value="1" required onchange="calcularSubtotal(${contadorProductos})" oninput="validarStockEnTiempoReal(${contadorProductos}); calcularSubtotal(${contadorProductos});">
                         <span class="input-group-text">und</span>
                     </div>
                     <input type="hidden" name="cantidad_sueltos[]" class="cantidad-sueltos-flag" value="0">
@@ -2411,47 +2558,50 @@
                     <label class="form-label required-field">Precio</label>
                     <div class="input-group">
                         <span class="input-group-text">C$</span>
-                        <input type="number" class="form-control precio" name="precio[]" step="0.01" min="0" value="0" required onchange="calcularSubtotal(${contadorProductos})">
+                        <input type="number" class="form-control precio" name="precio[]" step="0.01" min="0" value="0" required onchange="calcularSubtotal(${contadorProductos})" oninput="calcularSubtotal(${contadorProductos})">
                     </div>
                     <div class="invalid-feedback">Ingrese precio</div>
-                    <div class="ultimo-precio-info-admin form-text text-muted mt-1 small" id="ultimo-precio-info-${contadorProductos}" style="display: none; font-size: 0.75rem;"></div>
+                    <div class="ultimo-precio-info-admin form-text text-muted mt-0 small" id="ultimo-precio-info-${contadorProductos}" style="display: none; font-size: 0.7rem;"></div>
                 </div>
                 <div>
                     <label class="form-label">Subtotal</label>
                     <div class="input-group">
                         <span class="input-group-text">C$</span>
-                        <input type="text" class="form-control subtotal" value="0.00" readonly style="background: #eef2f5;">
+                        <input type="text" class="form-control subtotal fw-bold" value="0.00" readonly style="background: #f1f5f9;">
                     </div>
                 </div>
+                <div class="text-end">
+                    <button type="button" class="btn btn-outline-danger btn-sm px-2 py-1" onclick="eliminarProducto(${contadorProductos})" title="Quitar fila">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
             </div>
-            <small class="text-muted stock-info" id="stock-info-${contadorProductos}" style="display: none; margin-top: 0.5rem;"></small>
         </div>`;
 
         document.getElementById('productos-container').insertAdjacentHTML('beforeend', productoHTML);
         const catSelect = document.querySelector(`#producto-card-${contadorProductos} .categoria-extra-select`);
         llenarSelectCategorias(catSelect);
         actualizarTotales();
+        return contadorProductos;
     }
 
     function agregarRegalia() {
         contadorProductos++;
         const productoHTML = `
-        <div class="product-card" id="producto-card-${contadorProductos}" style="border-left: 5px solid #ffc107; background-color: #fffdf5;">
+        <div class="product-card" id="producto-card-${contadorProductos}" style="border-left: 4px solid #ffc107; background-color: #fffdf5;">
             <input type="hidden" name="es_extra[]" class="es-extra-flag" value="0">
             <input type="hidden" name="es_bonificacion[]" class="es-bonificacion-flag" value="1">
             <div class="product-card-header">
-                <h6 class="product-card-title text-warning"><i class="bi bi-gift me-1"></i>Regalía / Bonificación #${contadorProductos}</h6>
-                <button type="button" class="btn btn-danger btn-sm" onclick="eliminarProducto(${contadorProductos})">
-                    <i class="fas fa-times"></i> Quitar
-                </button>
+                <span class="product-card-title text-warning-emphasis"><i class="bi bi-gift"></i> Regalía / Bonificación (C$ 0.00)</span>
             </div>
             <div class="product-grid">
                 <div class="producto-col">
                     <label class="form-label required-field">Producto</label>
                     <select class="form-select producto-select" name="producto_id[]" required onchange="actualizarInfoProducto(${contadorProductos})">
-                        <option value="" disabled selected>Cargando productos...</option>
+                        <option value="" disabled selected>Seleccionar regalía...</option>
                     </select>
                     <div class="invalid-feedback">Seleccione producto</div>
+                    <small class="text-muted stock-info" id="stock-info-${contadorProductos}" style="display: none; font-size: 0.72rem; margin-top: 2px;"></small>
                 </div>
                 <div class="cantidad-col">
                     <label class="form-label required-field">Cantidad</label>
@@ -2466,24 +2616,29 @@
                     <label class="form-label">Precio</label>
                     <div class="input-group">
                         <span class="input-group-text">C$</span>
-                        <input type="number" class="form-control precio" name="precio[]" value="0.00" readonly style="background: #eef2f5;">
+                        <input type="number" class="form-control precio" name="precio[]" value="0.00" readonly style="background: #f1f5f9;">
                     </div>
                 </div>
                 <div>
                     <label class="form-label">Subtotal</label>
                     <div class="input-group">
                         <span class="input-group-text">C$</span>
-                        <input type="text" class="form-control subtotal" value="0.00" readonly style="background: #eef2f5;">
+                        <input type="text" class="form-control subtotal" value="0.00" readonly style="background: #f1f5f9;">
                     </div>
                 </div>
+                <div class="text-end">
+                    <button type="button" class="btn btn-outline-danger btn-sm px-2 py-1" onclick="eliminarProducto(${contadorProductos})" title="Quitar fila">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
             </div>
-            <small class="text-muted stock-info" id="stock-info-${contadorProductos}" style="display: none; margin-top: 0.5rem;"></small>
         </div>`;
 
         document.getElementById('productos-container').insertAdjacentHTML('beforeend', productoHTML);
         const nuevoSelect = document.querySelector(`#producto-card-${contadorProductos} .producto-select`);
         llenarSelectProductos(nuevoSelect);
         actualizarTotales();
+        return contadorProductos;
     }
 
     window.eliminarProducto = function (id) {
@@ -2551,31 +2706,37 @@
             }
 
             if (idCliente && select.value && !esBonif) {
+                const idProdLimpio = String(select.value).split('_')[0];
                 if (ultimoPrecioInfoAdmin) {
-                    ultimoPrecioInfoAdmin.innerHTML = `<span class="spinner-border spinner-border-sm text-muted me-1" role="status" style="width: 0.75rem; height: 0.75rem;"></span>Buscando historial...`;
+                    ultimoPrecioInfoAdmin.innerHTML = `<span class="spinner-border spinner-border-sm text-muted me-1" role="status" style="width: 0.7rem; height: 0.7rem;"></span><span class="text-muted" style="font-size: 0.72rem;">Consultando último precio...</span>`;
                     ultimoPrecioInfoAdmin.style.display = 'block';
                 }
 
-                fetch(`/admin/api/ultimo_precio_cliente?id_cliente=${idCliente}&id_producto=${select.value}`)
+                fetch(`/admin/api/ultimo_precio_cliente?id_cliente=${idCliente}&id_producto=${idProdLimpio}`)
                     .then(response => response.json())
                     .then(data => {
                         if (data.success && data.ultimo_precio !== null && data.ultimo_precio !== undefined) {
                             if (precioInput) {
-                                precioInput.value = data.ultimo_precio.toFixed(2);
+                                precioInput.value = parseFloat(data.ultimo_precio).toFixed(2);
                                 calcularSubtotal(id);
                             }
                             if (ultimoPrecioInfoAdmin) {
-                                ultimoPrecioInfoAdmin.innerHTML = `<i class="bi bi-clock-history text-info me-1"></i>Último precio vendido: <strong class="text-info">C$ ${parseFloat(data.ultimo_precio).toFixed(2)}</strong>`;
+                                ultimoPrecioInfoAdmin.innerHTML = `
+                                    <div class="d-inline-flex align-items-center mt-1 px-2 py-0 rounded" style="background: #e0f2fe; border: 1px solid #7dd3fc; color: #0369a1; font-size: 0.74rem; font-weight: 600;">
+                                        <i class="bi bi-clock-history me-1"></i>Último precio al cliente: C$ ${parseFloat(data.ultimo_precio).toFixed(2)}
+                                    </div>
+                                `;
                                 ultimoPrecioInfoAdmin.style.display = 'block';
                             }
                         } else {
                             if (ultimoPrecioInfoAdmin) {
                                 ultimoPrecioInfoAdmin.style.display = 'none';
+                                ultimoPrecioInfoAdmin.innerHTML = '';
                             }
                         }
                     })
                     .catch(err => {
-                        console.error(err);
+                        console.error('Error al obtener último precio:', err);
                         if (ultimoPrecioInfoAdmin) {
                             ultimoPrecioInfoAdmin.style.display = 'none';
                         }
@@ -2648,11 +2809,11 @@
         if (isHuevos) {
             const raw_cajillas = parseFloat(tarjeta.querySelector('.cantidad')?.value) || 0;
             const sueltos = parseFloat(tarjeta.querySelector('.sueltos')?.value) || 0;
-            
+
             let calc_cajillas = Math.floor(raw_cajillas);
             // Handle decimal part appropriately as units / 30
             let calc_unidades = Math.round((raw_cajillas - calc_cajillas) * 100);
-            
+
             cantidad = calc_cajillas + (calc_unidades / 30.0) + (sueltos / 30.0);
         } else {
             cantidad = parseFloat(tarjeta.querySelector('.cantidad')?.value) || 0;
@@ -2666,7 +2827,8 @@
 
     function actualizarTotales() {
         let totalVenta = 0, totalProductos = 0;
-        document.querySelectorAll('.product-card').forEach(producto => {
+        const todasTarjetas = document.querySelectorAll('.product-card');
+        todasTarjetas.forEach(producto => {
             const subtotalInput = producto.querySelector('.subtotal');
             if (subtotalInput) {
                 const valor = extraerNumeroDeMoneda(subtotalInput.value);
@@ -2676,6 +2838,10 @@
         document.getElementById('total-venta').textContent = formatearMoneda(totalVenta);
         document.getElementById('subtotal').textContent = formatearMoneda(totalVenta);
         document.getElementById('total-productos').textContent = totalProductos;
+        const badgeItems = document.getElementById('badge-items-count');
+        if (badgeItems) {
+            badgeItems.textContent = `${todasTarjetas.length} ${todasTarjetas.length === 1 ? 'fila' : 'filas'}`;
+        }
         actualizarTotalPagado();
     }
 
@@ -3271,12 +3437,12 @@
                 const partes = String(select.value).split('_');
                 const idProducto = partes[0];
                 const idBodega = partes.length > 1 ? partes[1] : '';
-                
+
                 formData.append('producto_id[]', idProducto);
                 if (idBodega) {
                     formData.append('bodega_id[]', idBodega);
                 }
-                
+
                 formData.append('cantidad[]', qtyVal.toFixed(2));
                 formData.append('precio[]', (parseFloat(precio?.value) || 0).toFixed(2));
                 formData.append('es_extra[]', esExtra);
@@ -3443,6 +3609,225 @@
 
     document.getElementById('tipo_venta').addEventListener('change', function () {
         manejarCambioTipoVenta(this.value);
+        document.querySelectorAll('#pos_tipo_venta_pills .tipo-venta-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.val === this.value);
+        });
+    });
+
+    // Sincronizar botones visuales de Tipo de Venta POS
+    document.querySelectorAll('#pos_tipo_venta_pills .tipo-venta-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+            const val = this.dataset.val;
+            const selectTipo = document.getElementById('tipo_venta');
+            if (selectTipo) {
+                selectTipo.value = val;
+                selectTipo.dispatchEvent(new Event('change'));
+            }
+        });
+    });
+
+    // ============================================
+    // BUSCADOR RÁPIDO DE PRODUCTOS (ESTILO ESCÁNER POS)
+    // ============================================
+    const posQuickSearchInput = document.getElementById('pos_quick_product_search');
+    const posProductDropdown = document.getElementById('posProductDropdown');
+    let posProdIndex = -1;
+
+    function obtenerListaProductosDisponiblesPOS() {
+        let lista = productosFiltradosPorCliente.length > 0 ? productosFiltradosPorCliente : productosBase;
+        if (filtroCategoriaActual && filtroCategoriaActual !== '0') {
+            lista = lista.filter(p => (p.ID_Categoria || p.id_categoria) == filtroCategoriaActual);
+        }
+        const bodegasSeleccionadas = Array.from(document.querySelectorAll('.filtro-bodega-cb:checked')).map(cb => cb.value);
+        if (bodegasSeleccionadas.length > 0) {
+            lista = lista.filter(p => bodegasSeleccionadas.includes(String(p.ID_Bodega || '1')));
+        } else {
+            lista = [];
+        }
+        return lista;
+    }
+
+    function renderizarDropdownProductosPOS(termino) {
+        if (!posProductDropdown) return;
+        const q = (termino || '').toLowerCase().trim();
+        const disponibles = obtenerListaProductosDisponiblesPOS();
+
+        const filtrados = disponibles.filter(p => {
+            if (!q) return true;
+            const desc = (p.Descripcion || '').toLowerCase();
+            const cod = (p.COD_Producto || '').toLowerCase();
+            const bod = (p.BodegaNombre || '').toLowerCase();
+            return desc.includes(q) || cod.includes(q) || bod.includes(q);
+        }).slice(0, 25);
+
+        if (filtrados.length === 0) {
+            posProductDropdown.innerHTML = `<div class="p-3 text-center text-muted small">No se encontraron productos disponibles con "${termino}"</div>`;
+            posProductDropdown.classList.add('show');
+            return;
+        }
+
+        let html = '';
+        filtrados.forEach((p, idx) => {
+            const prodId = p.ID_Producto || p.id;
+            const bodegaId = p.ID_Bodega || '1';
+            const val = `${prodId}_${bodegaId}`;
+            const precio = obtenerPrecioPorPerfil(p, perfilClienteActual || 'Mercado');
+            const stock = parseFloat(p.Existencias) || 0;
+            const stockStyle = stock > 5
+                ? 'background:#dcfce7; color:#166534; border:1px solid #86efac;'
+                : (stock > 0 ? 'background:#fef3c7; color:#92400e; border:1px solid #fde68a;' : 'background:#fee2e2; color:#991b1b; border:1px solid #fecaca;');
+
+            html += `
+                <div class="pos-prod-option ${idx === 0 ? 'active' : ''}" data-val="${val}">
+                    <div>
+                        <strong class="text-dark">${p.Descripcion || 'Sin descripción'}</strong>
+                        <span class="text-muted small ms-1">(${p.COD_Producto || 'S/C'})</span>
+                        <span class="badge ms-1" style="background:#f1f5f9; color:#334155; border:1px solid #cbd5e1;">${p.BodegaNombre || 'Bodega'}</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge" style="${stockStyle}">Stock: ${stock}</span>
+                        <span class="fw-bold text-primary">${formatearMoneda(precio)}</span>
+                    </div>
+                </div>
+            `;
+        });
+        posProductDropdown.innerHTML = html;
+        posProductDropdown.classList.add('show');
+        posProdIndex = 0;
+    }
+
+    function seleccionarProductoDesdeBuscadorPOS(optionValue) {
+        if (!optionValue) return;
+        // 1. Verificar si ya está en alguna fila normal (no regalía, no extra) para incrementar cantidad
+        let filaExistente = null;
+        let filaVacia = null;
+
+        document.querySelectorAll('.product-card').forEach(card => {
+            const esExtra = card.querySelector('.es-extra-flag')?.value === '1';
+            const esBonif = card.querySelector('.es-bonificacion-flag')?.value === '1';
+            const select = card.querySelector('.producto-select');
+            if (!esExtra && !esBonif && select) {
+                if (select.value === optionValue) {
+                    filaExistente = card;
+                } else if (!select.value && !filaVacia) {
+                    filaVacia = card;
+                }
+            }
+        });
+
+        if (filaExistente) {
+            const qtyInput = filaExistente.querySelector('.cantidad');
+            if (qtyInput) {
+                const actual = parseFloat(qtyInput.value) || 0;
+                qtyInput.value = actual + 1;
+                const idFila = parseInt(filaExistente.id.split('-')[2]);
+                calcularSubtotal(idFila);
+                validarStockEnTiempoReal(idFila);
+                qtyInput.focus();
+                qtyInput.select();
+            }
+        } else if (filaVacia) {
+            const select = filaVacia.querySelector('.producto-select');
+            const idFila = parseInt(filaVacia.id.split('-')[2]);
+            select.value = optionValue;
+            actualizarInfoProducto(idFila);
+            const qtyInput = filaVacia.querySelector('.cantidad');
+            if (qtyInput) {
+                qtyInput.focus();
+                qtyInput.select();
+            }
+        } else {
+            const nuevoId = agregarProducto();
+            const nuevaTarjeta = document.getElementById(`producto-card-${nuevoId}`);
+            if (nuevaTarjeta) {
+                const select = nuevaTarjeta.querySelector('.producto-select');
+                if (select) {
+                    select.value = optionValue;
+                    actualizarInfoProducto(nuevoId);
+                }
+                const qtyInput = nuevaTarjeta.querySelector('.cantidad');
+                if (qtyInput) {
+                    qtyInput.focus();
+                    qtyInput.select();
+                }
+            }
+        }
+
+        if (posQuickSearchInput) posQuickSearchInput.value = '';
+        if (posProductDropdown) posProductDropdown.classList.remove('show');
+    }
+
+    if (posQuickSearchInput) {
+        posQuickSearchInput.addEventListener('focus', function () {
+            if (this.value.trim().length > 0) {
+                renderizarDropdownProductosPOS(this.value);
+            }
+        });
+
+        posQuickSearchInput.addEventListener('input', function () {
+            renderizarDropdownProductosPOS(this.value);
+        });
+
+        posQuickSearchInput.addEventListener('keydown', function (e) {
+            const opts = posProductDropdown.querySelectorAll('.pos-prod-option');
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (!posProductDropdown.classList.contains('show')) {
+                    renderizarDropdownProductosPOS(this.value);
+                    return;
+                }
+                posProdIndex = Math.min(posProdIndex + 1, opts.length - 1);
+                opts.forEach((o, i) => o.classList.toggle('active', i === posProdIndex));
+                if (opts[posProdIndex]) opts[posProdIndex].scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                posProdIndex = Math.max(posProdIndex - 1, 0);
+                opts.forEach((o, i) => o.classList.toggle('active', i === posProdIndex));
+                if (opts[posProdIndex]) opts[posProdIndex].scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (posProductDropdown.classList.contains('show') && opts[posProdIndex]) {
+                    seleccionarProductoDesdeBuscadorPOS(opts[posProdIndex].dataset.val);
+                } else if (this.value.trim() !== '') {
+                    renderizarDropdownProductosPOS(this.value);
+                    const newOpts = posProductDropdown.querySelectorAll('.pos-prod-option');
+                    if (newOpts.length === 1) {
+                        seleccionarProductoDesdeBuscadorPOS(newOpts[0].dataset.val);
+                    }
+                }
+            } else if (e.key === 'Escape') {
+                posProductDropdown.classList.remove('show');
+            }
+        });
+
+        posProductDropdown.addEventListener('click', function (e) {
+            const opt = e.target.closest('.pos-prod-option');
+            if (opt) {
+                seleccionarProductoDesdeBuscadorPOS(opt.dataset.val);
+            }
+        });
+
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest('.pos-quick-search-wrapper')) {
+                posProductDropdown.classList.remove('show');
+            }
+        });
+    }
+
+    // Atajos de teclado POS (F2: Buscar producto, F4: Buscar cliente, F12: Procesar Venta)
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'F2') {
+            e.preventDefault();
+            posQuickSearchInput?.focus();
+            posQuickSearchInput?.select();
+        } else if (e.key === 'F4') {
+            e.preventDefault();
+            searchInput?.focus();
+            searchInput?.select();
+        } else if (e.key === 'F12') {
+            e.preventDefault();
+            document.querySelector('#formVenta button[type="submit"]')?.click();
+        }
     });
 
     document.getElementById('confirmModal').addEventListener('click', function (e) {
@@ -3485,7 +3870,7 @@
         cargarClientesEnMemoria();
         inicializarProductosBase();
         manejarCambioTipoVenta(document.getElementById('tipo_venta').value);
-        
+
         // Agregar listener a checkboxes de bodega
         document.querySelectorAll('.filtro-bodega-cb').forEach(cb => {
             cb.addEventListener('change', () => {
@@ -3494,11 +3879,11 @@
         });
     });
 
-    
 
 
-    
 
 
-    </script>
+
+
+</script>
 {% endblock %}
