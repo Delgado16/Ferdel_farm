@@ -6,7 +6,7 @@ from flask_login import login_required, current_user
 from config.database import get_db_cursor
 from auth.decorators import vendedor_required
 from . import vendedor_bp
-from .utils import convertir_hora_db, procesar_asignacion, procesar_lista_asignaciones
+from .utils import convertir_hora_db, procesar_asignacion, procesar_lista_asignaciones, calcular_saldo_caja_ruta
 
 @vendedor_bp.route('/dashboard')
 @vendedor_bp.route('/vendedor/dashboard')
@@ -14,7 +14,7 @@ from .utils import convertir_hora_db, procesar_asignacion, procesar_lista_asigna
 def vendedor_dashboard():
     # Obtener el ID del usuario logueado (asumiendo que está en session)
     user_id = current_user.id
-    empresa_id = session.get('empresa_id', 1)
+    empresa_id = session.get('id_empresa', session.get('empresa_id', 1))
     
     if not user_id:
         flash('Usuario no autenticado', 'danger')
@@ -161,7 +161,7 @@ def vendedor_dashboard():
             """, (asignacion_id,))
             resultado_saldo = cursor.fetchone()
             if resultado_saldo:
-                saldo_caja = float(resultado_saldo['Saldo_Actual'] or 0)
+                saldo_caja = calcular_saldo_caja_ruta(cursor, asignacion_id)
         
         # 7. Tarjeta: Cobros por Vencer (Próximos 7 días)
         cursor.execute("""
@@ -630,7 +630,7 @@ def vendedor_finalizar_ruta(id):
             """, (id,))
             resultado_saldo = cursor.fetchone()
             
-            saldo_final = float(resultado_saldo['Saldo_Calculado']) if resultado_saldo else 0
+            saldo_final = calcular_saldo_caja_ruta(cursor, id)
             
             # Consultar si ya se cerró la caja con arqueo físico previo
             cursor.execute("""

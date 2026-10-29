@@ -56,6 +56,7 @@ def login():
                         user = User(user_data['ID_Usuario'], user_data['NombreUsuario'], user_data['Nombre_Rol'])
                         login_user(user)
                         session['id_empresa'] = user_data['ID_Empresa']
+                        session['empresa_id'] = user_data['ID_Empresa']
                         registrar_login_exitoso(username, user_data['ID_Usuario'])
                         flash(f"¡Bienvenido {user.username}!", "success")
                         

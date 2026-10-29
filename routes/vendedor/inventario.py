@@ -6,7 +6,13 @@ from flask_login import login_required, current_user
 from config.database import get_db_cursor
 from auth.decorators import vendedor_required
 from . import vendedor_bp
-from .utils import convertir_hora_db, procesar_asignacion, procesar_lista_asignaciones
+from .utils import (
+    convertir_hora_db,
+    procesar_asignacion,
+    procesar_lista_asignaciones,
+    TipoMovimientoRuta,
+    obtener_asignacion_activa,
+)
 
 @vendedor_bp.route('/vendedor/inventario')
 @vendedor_required
@@ -19,26 +25,7 @@ def vendedor_inventario():
             # ============================================
             # 1. OBTENER ASIGNACIÓN ACTIVA DEL VENDEDOR HOY
             # ============================================
-            cursor.execute("""
-                SELECT 
-                    av.ID_Asignacion,
-                    av.ID_Ruta,
-                    r.Nombre_Ruta,
-                    av.Fecha_Asignacion,
-                    av.Hora_Inicio,
-                    av.Hora_Fin,
-                    v.Marca as Vehiculo,
-                    v.Placa
-                FROM asignacion_vendedores av
-                LEFT JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
-                LEFT JOIN vehiculos v ON av.ID_Vehiculo = v.ID_Vehiculo
-                WHERE av.ID_Usuario = %s
-                AND av.Estado = 'Activa'
-                ORDER BY av.Fecha_Asignacion DESC
-                LIMIT 1
-            """, (current_user.id,))
-            
-            asignacion = cursor.fetchone()
+            asignacion = obtener_asignacion_activa(cursor, current_user.id)
             
             if not asignacion:
                 flash('No tienes una asignación activa para hoy', 'warning')
@@ -101,10 +88,9 @@ def vendedor_inventario():
                     COALESCE(SUM(Total_Productos), 0) as total_productos_vendidos
                 FROM movimientos_ruta_cabecera
                 WHERE ID_Asignacion = %s
-                AND ID_TipoMovimiento = 3  -- Tipo Venta
-                AND DATE(Fecha_Movimiento) = CURDATE()
+                AND ID_TipoMovimiento = %s
                 AND Estado = 'ACTIVO'
-            """, (asignacion['ID_Asignacion'],))
+            """, (asignacion['ID_Asignacion'], TipoMovimientoRuta.VENTA))
             
             ventas_hoy = cursor.fetchone()
             

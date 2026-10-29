@@ -47,28 +47,139 @@ def admin_gastos_operativos():
         id_empresa = session.get('id_empresa', 1)
         
         with get_db_cursor(True) as cursor:
-            # ========== 1. VERIFICAR QUÉ CAMPOS EXISTEN EN LA VISTA ==========
-            cursor.execute("""
-                SELECT COLUMN_NAME 
-                FROM INFORMATION_SCHEMA.COLUMNS 
-                WHERE TABLE_NAME = 'vista_gastos_unificados'
-            """)
-            columnas_existentes = [row['COLUMN_NAME'] for row in cursor.fetchall()]
+            # Corregir automáticamente gastos de combustible que quedaron con otra subcategoría (ej. ID_Subcategoria = 1 Energía eléctrica)
+            try:
+                cursor.execute("""
+                    SELECT sg.ID_Subcategoria, sg.ID_Tipo_Gasto
+                    FROM subcategorias_gasto sg
+                    INNER JOIN tipos_gasto tg ON sg.ID_Tipo_Gasto = tg.ID_Tipo_Gasto
+                    WHERE sg.Nombre LIKE %s
+                      AND (tg.Nombre LIKE %s OR tg.Nombre LIKE %s OR tg.ID_Tipo_Gasto = 2)
+                    ORDER BY
+                        CASE WHEN UPPER(TRIM(sg.Nombre)) = 'COMBUSTIBLE' THEN 0 ELSE 1 END,
+                        CASE WHEN tg.Nombre LIKE %s OR tg.Nombre LIKE %s THEN 0 ELSE 1 END,
+                        CASE WHEN UPPER(sg.Estado) = 'ACTIVO' THEN 0 ELSE 1 END,
+                        CASE WHEN tg.ID_Empresa = %s THEN 0 ELSE 1 END
+                    LIMIT 1
+                """, ['%Combustible%', '%Veh%', '%Transp%', '%Veh%', '%Transp%', id_empresa])
+                sub_comb = cursor.fetchone()
+                if not sub_comb:
+                    cursor.execute("""
+                        SELECT sg.ID_Subcategoria, sg.ID_Tipo_Gasto
+                        FROM subcategorias_gasto sg
+                        WHERE sg.Nombre LIKE %s
+                        ORDER BY CASE WHEN UPPER(TRIM(sg.Nombre)) = 'COMBUSTIBLE' THEN 0 ELSE 1 END
+                        LIMIT 1
+                    """, ['%Combustible%'])
+                    sub_comb = cursor.fetchone()
+
+                if sub_comb:
+                    cursor.execute("""
+                        UPDATE gastos_generales gg
+                        LEFT JOIN gastos_vehiculo_detalle gvd ON gg.ID_Gasto = gvd.ID_Gasto
+                        SET gg.ID_Tipo_Gasto = %s,
+                            gg.ID_Subcategoria = %s
+                        WHERE (
+                            gg.Descripcion LIKE %s
+                            OR gg.Descripcion LIKE %s
+                            OR UPPER(gvd.Tipo_Mantenimiento) = 'COMBUSTIBLE'
+                            OR (gg.ID_Tipo_Gasto = %s AND gg.ID_Subcategoria = 1)
+                        )
+                          AND (gg.ID_Subcategoria != %s OR gg.ID_Subcategoria IS NULL OR gg.ID_Tipo_Gasto != %s)
+                    """, [
+                        sub_comb['ID_Tipo_Gasto'],
+                        sub_comb['ID_Subcategoria'],
+                        '%combustible%',
+                        '%San Jos%',
+                        sub_comb['ID_Tipo_Gasto'],
+                        sub_comb['ID_Subcategoria'],
+                        sub_comb['ID_Tipo_Gasto']
+                    ])
+            except Exception as e_fix_comb:
+                logger.warning(f"No se pudo actualizar subcategoría de combustible: {e_fix_comb}")
+
+            # ========== 1. CONSULTA UNIFICADA DIRECTA (EVITA ERROR 1449 DE DEFINER EN VISTA MYSQL) ==========
+            vista_gastos_sql = """
+            (
+                SELECT 
+                    'INVENTARIO' AS origen,
+                    COALESCE(tg.Nombre, CONCAT('Compra ', cp.Descripcion)) AS tipo_gasto,
+                    cp.Descripcion AS subcategoria,
+                    DATE(mi.Fecha) AS fecha,
+                    COALESCE(SUM(dmi.Cantidad * dmi.Costo_Unitario), 0) AS monto,
+                    mi.N_Factura_Externa AS factura,
+                    pr.Nombre AS proveedor,
+                    NULL AS vehiculo,
+                    mi.ID_Movimiento AS id_gasto,
+                    tg.ID_Tipo_Gasto AS id_tipo,
+                    mi.ID_Proveedor AS id_proveedor,
+                    cp.ID_Categoria AS id_categoria_inv,
+                    mi.ID_Empresa AS ID_Empresa
+                FROM movimientos_inventario mi
+                INNER JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
+                INNER JOIN productos p ON dmi.ID_Producto = p.ID_Producto
+                INNER JOIN categorias_producto cp ON p.ID_Categoria = cp.ID_Categoria
+                LEFT JOIN tipos_gasto tg ON tg.ID_Categoria_Inventario = cp.ID_Categoria 
+                    AND tg.ID_Empresa = mi.ID_Empresa 
+                    AND tg.Origen = 'INVENTARIO'
+                LEFT JOIN proveedores pr ON mi.ID_Proveedor = pr.ID_Proveedor
+                WHERE mi.Estado = 'Activa' AND mi.ID_TipoMovimiento = 1
+                GROUP BY mi.ID_Movimiento, mi.Fecha, mi.N_Factura_Externa, mi.ID_Proveedor, 
+                         pr.Nombre, mi.ID_Empresa, cp.ID_Categoria, cp.Descripcion, 
+                         tg.ID_Tipo_Gasto, tg.Nombre
+
+                UNION ALL
+
+                SELECT 
+                    'GASTO_DIRECTO' AS origen,
+                    tg.Nombre AS tipo_gasto,
+                    sg.Nombre AS subcategoria,
+                    DATE(gg.Fecha) AS fecha,
+                    gg.Monto AS monto,
+                    gg.N_Factura AS factura,
+                    pr.Nombre AS proveedor,
+                    CASE 
+                        WHEN v.ID_Vehiculo IS NOT NULL THEN CONCAT(v.Placa, ' - ', v.Marca, ' ', v.Modelo)
+                        ELSE NULL 
+                    END AS vehiculo,
+                    gg.ID_Gasto AS id_gasto,
+                    gg.ID_Tipo_Gasto AS id_tipo,
+                    gg.ID_Proveedor AS id_proveedor,
+                    NULL AS id_categoria_inv,
+                    gg.ID_Empresa AS ID_Empresa
+                FROM gastos_generales gg
+                INNER JOIN tipos_gasto tg ON gg.ID_Tipo_Gasto = tg.ID_Tipo_Gasto
+                LEFT JOIN subcategorias_gasto sg ON gg.ID_Subcategoria = sg.ID_Subcategoria
+                LEFT JOIN proveedores pr ON gg.ID_Proveedor = pr.ID_Proveedor
+                LEFT JOIN vehiculos v ON gg.ID_Vehiculo = v.ID_Vehiculo
+                WHERE gg.Estado = 'Activo'
+            ) AS vista_gastos_unificados
+            """
+
+            # Intentar reparar automáticamente la vista en BD con SQL SECURITY INVOKER si el usuario tiene permisos
+            try:
+                cursor.execute(f"""
+                    CREATE OR REPLACE SQL SECURITY INVOKER VIEW vista_gastos_unificados AS
+                    {vista_gastos_sql.strip()[1:-29]}
+                """)
+            except Exception:
+                pass
+
+            columnas_existentes = [
+                'origen', 'tipo_gasto', 'subcategoria', 'fecha', 'monto',
+                'factura', 'proveedor', 'vehiculo', 'id_gasto', 'id_tipo',
+                'id_proveedor', 'id_categoria_inv', 'ID_Empresa'
+            ]
             
-            # Construir SELECT dinámicamente
-            select_fields = ['origen', 'tipo_gasto', 'subcategoria', 'fecha', 'monto', 'factura', 'proveedor', 'vehiculo', 'id_gasto', 'id_tipo']
-            
-            if 'id_proveedor' in columnas_existentes:
-                select_fields.append('id_proveedor')
-            else:
-                select_fields.append('NULL as id_proveedor')
-            
-            if 'id_categoria_inv' in columnas_existentes:
-                select_fields.append('id_categoria_inv')
+            select_fields = [
+                'origen', 'tipo_gasto', 'subcategoria', 'fecha', 'monto',
+                'factura', 'proveedor', 'vehiculo', 'id_gasto', 'id_tipo',
+                'id_proveedor', 'id_categoria_inv'
+            ]
             
             query_base = f"""
             SELECT {', '.join(select_fields)}
-            FROM vista_gastos_unificados
+            FROM {vista_gastos_sql}
             WHERE ID_Empresa = %s
             """
             
@@ -181,26 +292,26 @@ def admin_gastos_operativos():
             totales_acumulados = {row['concepto']: float(row['total'] or 0) for row in cursor.fetchall()}
             
             # ========== 3. LISTAS PARA FILTROS ==========
-            cursor.execute("""
+            cursor.execute(f"""
                 SELECT DISTINCT id_tipo, tipo_gasto 
-                FROM vista_gastos_unificados 
+                FROM {vista_gastos_sql}
                 WHERE ID_Empresa = %s AND tipo_gasto IS NOT NULL
                 ORDER BY tipo_gasto
             """, [id_empresa])
             tipos_gasto_disponibles = cursor.fetchall()
             
-            cursor.execute("""
+            cursor.execute(f"""
                 SELECT DISTINCT subcategoria 
-                FROM vista_gastos_unificados 
+                FROM {vista_gastos_sql}
                 WHERE ID_Empresa = %s AND subcategoria IS NOT NULL AND subcategoria != ''
                 ORDER BY subcategoria
             """, [id_empresa])
             subcategorias_disponibles = [r['subcategoria'] for r in cursor.fetchall()]
             
             if 'id_proveedor' in columnas_existentes:
-                cursor.execute("""
+                cursor.execute(f"""
                     SELECT DISTINCT id_proveedor, proveedor 
-                    FROM vista_gastos_unificados 
+                    FROM {vista_gastos_sql}
                     WHERE ID_Empresa = %s AND proveedor IS NOT NULL
                     ORDER BY proveedor
                 """, [id_empresa])

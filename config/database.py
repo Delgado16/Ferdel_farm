@@ -100,31 +100,55 @@ def crear_tablas_sistema():
                     VALUES (%s, %s, %s)
                 """, (llave, valor, desc))
             
-        # Asegurar existencia de la vista pagos_cxc requerida por el módulo de facturación
-        cursor.execute("SHOW TABLES LIKE 'pagos_cxc'")
-        if not cursor.fetchone():
-            try:
-                cursor.execute("""
-                    CREATE OR REPLACE VIEW pagos_cxc AS
-                    SELECT 
-                        pc.ID_Pago,
-                        pc.ID_Movimiento,
-                        cxc.ID_Factura,
-                        cxc.ID_Cliente,
-                        pc.Fecha AS Fecha_Pago,
-                        pc.Fecha,
-                        pc.Monto,
-                        COALESCE(mp.Nombre, 'Efectivo') AS Metodo_Pago,
-                        pc.ID_MetodoPago,
-                        pc.Comentarios,
-                        pc.Detalles_Metodo,
-                        pc.ID_Usuario_Creacion
-                    FROM pagos_cuentascobrar pc
-                    INNER JOIN cuentas_por_cobrar cxc ON pc.ID_Movimiento = cxc.ID_Movimiento
-                    LEFT JOIN metodos_pago mp ON pc.ID_MetodoPago = mp.ID_MetodoPago;
-                """)
-            except Exception as e_view:
-                print(f"⚠️ Nota al verificar vista pagos_cxc: {e_view}")
+        # Asegurar existencia y SQL SECURITY INVOKER de la vista pagos_cxc requerida por el módulo de facturación
+        try:
+            cursor.execute("""
+                CREATE OR REPLACE SQL SECURITY INVOKER VIEW pagos_cxc AS
+                SELECT 
+                    pc.ID_Pago,
+                    pc.ID_Movimiento,
+                    cxc.ID_Factura,
+                    cxc.ID_Cliente,
+                    pc.Fecha AS Fecha_Pago,
+                    pc.Fecha,
+                    pc.Monto,
+                    COALESCE(mp.Nombre, 'Efectivo') AS Metodo_Pago,
+                    pc.ID_MetodoPago,
+                    pc.Comentarios,
+                    pc.Detalles_Metodo,
+                    pc.ID_Usuario_Creacion
+                FROM pagos_cuentascobrar pc
+                INNER JOIN cuentas_por_cobrar cxc ON pc.ID_Movimiento = cxc.ID_Movimiento
+                LEFT JOIN metodos_pago mp ON pc.ID_MetodoPago = mp.ID_MetodoPago;
+            """)
+        except Exception as e_view:
+            print(f"⚠️ Nota al verificar vista pagos_cxc: {e_view}")
+
+        # Reparar automáticamente cualquier vista en la BD que tenga DEFINER inexistente (ej. 'root'@'%' -> Error 1449)
+        try:
+            cursor.execute("""
+                SELECT TABLE_NAME, VIEW_DEFINITION
+                FROM INFORMATION_SCHEMA.VIEWS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND SECURITY_TYPE = 'DEFINER'
+            """)
+            vistas_definer = cursor.fetchall() or []
+            for v_info in vistas_definer:
+                v_name = v_info.get('TABLE_NAME')
+                v_def = v_info.get('VIEW_DEFINITION')
+                if v_name and v_def:
+                    try:
+                        cursor.execute(f"SELECT 1 FROM `{v_name}` LIMIT 1")
+                        cursor.fetchall()
+                    except Exception as err_v:
+                        if '1449' in str(err_v):
+                            try:
+                                cursor.execute(f"CREATE OR REPLACE SQL SECURITY INVOKER VIEW `{v_name}` AS {v_def}")
+                                print(f"✅ Vista `{v_name}` reparada automáticamente con SQL SECURITY INVOKER.")
+                            except Exception as err_fix:
+                                print(f"⚠️ No se pudo reparar automáticamente la vista `{v_name}`: {err_fix}")
+        except Exception as e_views_check:
+            print(f"⚠️ Nota al verificar definers de vistas: {e_views_check}")
 
         conn.commit()
         cursor.close()

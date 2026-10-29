@@ -701,9 +701,15 @@ function renderizarDashboard(data) {
                                          </td>
                                       </tr>
                                      <tr class="border-left-secondary">
-                                         <td><i class="fas fa-tags text-secondary"></i> <strong>Cantidad de gastos:</strong></td>
+                                         <td><i class="fas fa-tags text-secondary"></i> <strong>Cantidad de gastos (efectivo):</strong></td>
                                          <td class="text-end fw-bold text-break">
                                              ${formatNumber(data.resumen ? data.resumen.total_gastos_cantidad : 0, 0)}
+                                         </td>
+                                      </tr>
+                                     <tr class="border-left-info">
+                                         <td><i class="fas fa-gas-pump text-info"></i> <strong>Combustible (Convenio San José - Transferencia):</strong></td>
+                                         <td class="text-end text-info fw-bold text-break">
+                                             ${formatCurrency(data.resumen ? data.resumen.total_combustible_convenio : 0)}
                                          </td>
                                       </tr>
                                 </tbody>
@@ -884,10 +890,12 @@ function renderizarGastos(gastos, totalMonto) {
                 console.error(e);
             }
         }
+        const montoClass = g.es_convenio ? 'text-info' : 'text-danger';
+        const badgeConvenio = g.es_convenio ? ' <span class="badge bg-info text-dark ms-1">Convenio (No caja)</span>' : '';
         html += `
             <tr>
-                <td><strong>${escapeHtml(g.concepto)}</strong></td>
-                <td class="text-end text-danger fw-bold">${formatCurrency(g.monto)}</td>
+                <td><strong>${escapeHtml(g.concepto)}</strong>${badgeConvenio}</td>
+                <td class="text-end ${montoClass} fw-bold">${formatCurrency(g.monto)}</td>
                 <td>${escapeHtml(horaStr)}</td>
              </tr>`;
     });

@@ -159,15 +159,16 @@
         </div>
 
         <div class="w-100 w-md-auto">
-            <form method="GET" class="d-flex gap-2">
-                <div class="input-group input-group-sm">
-                    <span class="input-group-text bg-light"><i class="bi bi-calendar-event"></i></span>
-                    <input type="date" name="fecha" value="{{ fecha }}" class="form-control">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-funnel me-1"></i> Filtrar
-                    </button>
-                </div>
-            </form>
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2">
+                    <i class="bi bi-clipboard-check me-1"></i>Asignación Activa #{{ id_asignacion }}
+                </span>
+                {% if asignacion and asignacion.Placa %}
+                <span class="badge bg-dark px-3 py-2">
+                    <i class="bi bi-truck me-1"></i>{{ asignacion.Placa }}
+                </span>
+                {% endif %}
+            </div>
         </div>
     </div>
 
@@ -388,8 +389,8 @@
                             <td class="small text-muted">{{ movimiento.RUC_CEDULA or '-' }}</td>
                             <td class="small fw-semibold">{{ movimiento.Concepto or '-' }}</td>
                             <td
-                                class="text-end fw-bold {% if movimiento.Tipo == 'GASTO' %}text-danger{% else %}text-success{% endif %}">
-                                {% if movimiento.Tipo == 'GASTO' %}-{% else %}+{% endif %} C${{
+                                class="text-end fw-bold {% if movimiento.Tipo == 'GASTO' %}text-danger{% elif movimiento.Tipo == 'CIERRE' or movimiento.Tipo_Pago == 'CREDITO' %}text-secondary{% else %}text-success{% endif %}">
+                                {% if movimiento.Tipo == 'GASTO' %}- {% elif movimiento.Tipo == 'CIERRE' or movimiento.Tipo_Pago == 'CREDITO' %}{% else %}+ {% endif %}C${{
                                 "{:,.2f}".format(movimiento.Monto) }}
                             </td>
                             <td class="text-center">
@@ -432,8 +433,8 @@
                             <span class="ms-2 small text-muted">{{ movimiento.Fecha_Formateada }}</span>
                         </div>
                         <span
-                            class="fw-bold fs-6 {% if movimiento.Tipo == 'GASTO' %}text-danger{% else %}text-success{% endif %}">
-                            {% if movimiento.Tipo == 'GASTO' %}-{% else %}+{% endif %} C${{
+                            class="fw-bold fs-6 {% if movimiento.Tipo == 'GASTO' %}text-danger{% elif movimiento.Tipo == 'CIERRE' or movimiento.Tipo_Pago == 'CREDITO' %}text-secondary{% else %}text-success{% endif %}">
+                            {% if movimiento.Tipo == 'GASTO' %}- {% elif movimiento.Tipo == 'CIERRE' or movimiento.Tipo_Pago == 'CREDITO' %}{% else %}+ {% endif %}C${{
                             "{:,.2f}".format(movimiento.Monto) }}
                         </span>
                     </div>

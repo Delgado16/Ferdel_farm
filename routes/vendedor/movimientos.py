@@ -6,7 +6,7 @@ from flask_login import login_required, current_user
 from config.database import get_db_cursor
 from auth.decorators import vendedor_required
 from . import vendedor_bp
-from .utils import convertir_hora_db, procesar_asignacion, procesar_lista_asignaciones
+from .utils import convertir_hora_db, procesar_asignacion, procesar_lista_asignaciones, TipoMovimientoRuta, calcular_saldo_caja_ruta
 
 @vendedor_bp.route('/vendedor/movimientos/entrada-bodega', methods=['GET', 'POST'])
 @vendedor_required
@@ -53,7 +53,7 @@ def vendedor_movimiento_entrada_bodega():
                 # ============================================
                 # 2. DEFINIR TIPO DE MOVIMIENTO (Traslado Entrada)
                 # ============================================
-                ID_TIPO_ENTRADA = 1  # Traslado Entrada
+                ID_TIPO_ENTRADA = TipoMovimientoRuta.TRASLADO_ENTRADA  # 13: Traslado Entrada (Bodega -> Ruta)
                 
                 # ============================================
                 # 3. PROCESAR PRODUCTOS Y CALCULAR TOTALES
@@ -255,7 +255,7 @@ def vendedor_movimiento_devolucion_bodega():
                 # ============================================
                 # 2. DEFINIR TIPOS DE MOVIMIENTO
                 # ============================================
-                ID_TIPO_DEVOLUCION_RUTA = 11  # Devolucion Ruta (para tabla de rutas)
+                ID_TIPO_DEVOLUCION_RUTA = TipoMovimientoRuta.DEVOLUCION_RUTA  # 11: Devolucion Ruta (para tabla de rutas)
                 ID_TIPO_ENTRADA_BODEGA = 11    # Entrada a bodega por devolución (ajusta según tu catálogo)
                 ID_BODEGA_CENTRAL = 1          # ID de la bodega central según tu tabla bodegas
                 
@@ -524,7 +524,7 @@ def vendedor_movimiento_liquidar_jornada():
                     COALESCE(SUM(CASE WHEN Tipo = 'GASTO' THEN Monto ELSE 0 END), 0) as Total_Gastos,
                     COALESCE(SUM(CASE 
                         WHEN Tipo = 'GASTO' THEN -Monto 
-                        WHEN Tipo = 'CIERRE' THEN 0
+                        WHEN Tipo = 'CIERRE' OR (Tipo = 'VENTA' AND Tipo_Pago = 'CREDITO') THEN 0
                         ELSE Monto 
                     END), 0) as Saldo_Calculado
                 FROM movimientos_caja_ruta
@@ -580,7 +580,7 @@ def vendedor_movimiento_liquidar_jornada():
 
                 # Validar si hay productos para devolver
                 if inventario:
-                    ID_TIPO_DEVOLUCION_RUTA = 11  # Devolucion Ruta
+                    ID_TIPO_DEVOLUCION_RUTA = TipoMovimientoRuta.DEVOLUCION_RUTA  # 11: Devolucion Ruta
                     ID_TIPO_ENTRADA_BODEGA = 11   # Entrada por devolución
                     ID_BODEGA_CENTRAL = 1
                     
@@ -758,7 +758,7 @@ def vendedor_movimiento_merma():
                 # ============================================
                 # 2. DEFINIR TIPO DE MOVIMIENTO (Merma)
                 # ============================================
-                ID_TIPO_MERMA = 6  # Merma (Ajuste Negativo)
+                ID_TIPO_MERMA = TipoMovimientoRuta.MERMA  # 7: Merma (Ajuste Negativo)
                 
                 # ============================================
                 # 3. VALIDAR STOCK Y CALCULAR TOTALES

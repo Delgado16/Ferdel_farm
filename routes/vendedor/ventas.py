@@ -6,7 +6,7 @@ from flask_login import login_required, current_user
 from config.database import get_db_cursor
 from auth.decorators import vendedor_required
 from . import vendedor_bp
-from .utils import convertir_hora_db, procesar_asignacion, procesar_lista_asignaciones
+from .utils import convertir_hora_db, procesar_asignacion, procesar_lista_asignaciones, TipoMovimientoRuta, calcular_saldo_caja_ruta
 
 @vendedor_bp.route('/api/productos', methods=['GET'])
 @vendedor_required
@@ -120,7 +120,7 @@ def vendedor_ventas():
     """
     try:
         id_vendedor = current_user.id
-        id_empresa = session.get('empresa_id')
+        id_empresa = session.get('id_empresa', session.get('empresa_id', 1))
         
         with get_db_cursor(True) as cursor:
             # Obtener asignaciones del vendedor para el filtro
@@ -264,7 +264,7 @@ def vendedor_venta_crear():
     """Crear una nueva venta en ruta con integración a caja, abonos y movimientos"""
     try:
         id_vendedor = int(current_user.id)
-        id_empresa = session.get('empresa_id', 1)
+        id_empresa = session.get('id_empresa', session.get('empresa_id', 1))
         
         # Para GET - solo consultas
         if request.method == 'GET':
@@ -631,7 +631,7 @@ def vendedor_venta_crear():
                 
                 id_factura = cursor.lastrowid
                 
-                ID_TIPO_MOVIMIENTO_VENTA = 2  
+                ID_TIPO_MOVIMIENTO_VENTA = TipoMovimientoRuta.VENTA  # 2: Venta
                 
                 documento_numero = f"VEN-{id_factura}" 
                 
@@ -647,7 +647,7 @@ def vendedor_venta_crear():
                     id_vendedor,                      # ID_Usuario_Registra
                     documento_numero,                 # Documento_Numero
                     int(id_cliente),                  # ID_Cliente
-                    total_venta,                      # Total_Productos (monto total)
+                    len(productos),                   # Total_Productos (cantidad de líneas/productos distintos)
                     total_items,                      # Total_Items (cantidad total de productos)
                     total_venta,                      # Total_Subtotal (subtotal)
                     asignacion['ID_Empresa'],         # ID_Empresa
@@ -706,7 +706,7 @@ def vendedor_venta_crear():
                         """, (asignacion['ID_Asignacion'],))
                         
                         saldo_result = cursor.fetchone()
-                        saldo_actual = float(saldo_result['Saldo_Actual'] if saldo_result else 0)
+                        saldo_actual = calcular_saldo_caja_ruta(cursor, asignacion['ID_Asignacion'])
                         nuevo_saldo = saldo_actual + total_venta
                         
                         cursor.execute("""
@@ -831,7 +831,7 @@ def vendedor_venta_crear():
                         """, (asignacion['ID_Asignacion'],))
                         
                         saldo_result = cursor.fetchone()
-                        saldo_actual_abono = float(saldo_result['Saldo_Actual'] if saldo_result else 0)
+                        saldo_actual_abono = calcular_saldo_caja_ruta(cursor, asignacion['ID_Asignacion'])
                         nuevo_saldo_caja = saldo_actual_abono + abono_monto
                         
                         id_movimiento_caja = None
@@ -1885,7 +1885,7 @@ def api_registrar_venta_offline():
                       AND Estado = 'ACTIVO'
                       AND Tipo != 'CIERRE'
                 """, (asignacion['ID_Asignacion'],))
-                saldo_actual = float(cursor.fetchone()['Saldo_Actual'] or 0)
+                saldo_actual = calcular_saldo_caja_ruta(cursor, asignacion['ID_Asignacion'])
                 nuevo_saldo = saldo_actual + total_venta
                 
                 cursor.execute("""
@@ -1972,7 +1972,7 @@ def api_registrar_venta_offline():
                               AND Estado = 'ACTIVO'
                               AND Tipo != 'CIERRE'
                         """, (asignacion['ID_Asignacion'],))
-                        saldo_actual = float(cursor.fetchone()['Saldo_Actual'] or 0)
+                        saldo_actual = calcular_saldo_caja_ruta(cursor, asignacion['ID_Asignacion'])
                         nuevo_saldo_caja = saldo_actual + monto_abono
                         
                         cursor.execute("""

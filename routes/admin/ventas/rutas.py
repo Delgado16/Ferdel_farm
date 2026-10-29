@@ -142,6 +142,26 @@ def admin_monitoreo_vendedores():
                     ORDER BY Fecha DESC
                 """, (id_asignacion, fecha_consulta))
                 gastos_hoy = cursor.fetchall()
+
+                # CARGAS DE COMBUSTIBLE POR CONVENIO (Estación San José - no descuentan efectivo de caja)
+                cursor.execute("""
+                    SELECT 
+                        gg.ID_Gasto,
+                        gg.Monto,
+                        gg.Fecha_Registro,
+                        gg.Descripcion,
+                        gvd.Kilometraje,
+                        COALESCE(gvd.Taller, 'Estación de Servicio San José') as Gasolinera
+                    FROM gastos_generales gg
+                    LEFT JOIN gastos_vehiculo_detalle gvd ON gg.ID_Gasto = gvd.ID_Gasto
+                    WHERE gg.ID_Usuario_Registro = %s
+                      AND DATE(gg.Fecha) = %s
+                      AND UPPER(gg.Estado) = 'ACTIVO'
+                      AND (UPPER(gvd.Tipo_Mantenimiento) = 'COMBUSTIBLE' OR gg.Descripcion LIKE %s)
+                    ORDER BY gg.ID_Gasto DESC
+                """, (vendedor_id, fecha_consulta, 'Carga de combustible%'))
+                cargas_combustible = cursor.fetchall()
+                total_combustible = sum(float(c['Monto'] or 0) for c in cargas_combustible)
                 
                 # Inventario
                 cursor.execute("""
@@ -223,15 +243,23 @@ def admin_monitoreo_vendedores():
                     'gastos_hoy': [{
                         'concepto': g['Concepto'],
                         'monto': float(g['Monto']),
-                        'fecha': g['Fecha'].isoformat() if g['Fecha'] else None
-                    } for g in gastos_hoy],
+                        'fecha': g['Fecha'].isoformat() if g['Fecha'] else None,
+                        'es_convenio': False
+                    } for g in gastos_hoy] + [{
+                        'concepto': f"Combustible ({'Km ' + str(c['Kilometraje']) if c.get('Kilometraje') else 'Ruta'}) - Convenio {c['Gasolinera']}",
+                        'monto': float(c['Monto']),
+                        'fecha': c['Fecha_Registro'].isoformat() if c.get('Fecha_Registro') else None,
+                        'es_convenio': True
+                    } for c in cargas_combustible],
                     'resumen': {
                         'total_facturas': resumen['total_facturas'] or 0,
                         'total_vendido': float(resumen['total_vendido'] or 0),
                         'total_abonos': len(abonos_hoy),
                         'total_abonos_monto': sum(float(a['monto']) for a in abonos_hoy),
                         'total_gastos': gastos,
-                        'total_gastos_cantidad': len(gastos_hoy)
+                        'total_gastos_cantidad': len(gastos_hoy),
+                        'total_combustible_convenio': total_combustible,
+                        'total_combustible_cantidad': len(cargas_combustible)
                     }
                 })
         
@@ -245,7 +273,7 @@ def admin_monitoreo_vendedores():
                   AND r.Nombre_Rol = 'Vendedor' 
                   AND u.Estado = 'ACTIVO'
                 ORDER BY u.NombreUsuario
-            """, (session.get('empresa_id', 1),))
+            """, (session.get('id_empresa', session.get('empresa_id', 1)),))
             vendedores = cursor.fetchall()
             
             hoy = date.today().isoformat()

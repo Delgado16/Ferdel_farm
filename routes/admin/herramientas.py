@@ -174,7 +174,7 @@ def config_visibilidad():
                     """, (categoria_id, visible_especial, visible_especial))
 
                 # 2. Procesar Bodegas
-                cursor.execute("SELECT ID_Bodega FROM bodegas WHERE Estado = 1")
+                cursor.execute("SELECT ID_Bodega FROM bodegas WHERE LOWER(Estado) = 'activa'")
                 todas_bodegas = cursor.fetchall()
                 
                 for bodega in todas_bodegas:
@@ -242,7 +242,7 @@ def config_visibilidad():
             LEFT JOIN config_visibilidad_bodegas cfg_especial 
                 ON b.ID_Bodega = cfg_especial.ID_Bodega 
                 AND cfg_especial.tipo_cliente = 'Especial'
-            WHERE b.Estado = 1
+            WHERE LOWER(b.Estado) = 'activa'
             ORDER BY b.Nombre
         """)
         bodegas = cursor.fetchall()

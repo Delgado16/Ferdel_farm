@@ -6,6 +6,7 @@ from flask_login import login_required, current_user
 from datetime import datetime
 from config.settings import RENDER_ENV, RAILWAY_ENV
 from config.database import get_db_cursor, diagnose_db
+from auth.decorators import admin_required
 
 main_bp = Blueprint('main', __name__)
 
@@ -56,6 +57,7 @@ def health_check():
 
 
 @main_bp.route('/debug-db')
+@admin_required
 def debug_db():
     """Diagnóstico rápido de BD"""
     try:
@@ -81,6 +83,7 @@ def debug_db():
 
 
 @main_bp.route('/diagnostico', methods=["GET"])
+@admin_required
 def diagnostico():
     """Página de diagnóstico para verificar el estado de la BD"""
     result = diagnose_db()
