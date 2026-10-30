@@ -1635,32 +1635,75 @@
     }
     sincronizarCombustibleVehiculoDash();
 
-    // Validación del formulario de combustible en Dashboard (Convenio gasolinera)
-    const formCombDash = document.getElementById('formCombustibleDash');
-    const montoCombDash = document.getElementById('montoCombustibleDash');
-    const submitBtnCombDash = document.getElementById('submitBtnCombustibleDash');
-
-    if (formCombDash && montoCombDash) {
-        formCombDash.addEventListener('submit', function (e) {
-            const monto = parseFloat(montoCombDash.value) || 0;
-            if (monto <= 0) {
-                e.preventDefault();
-                Swal.fire('Debe ingresar un monto válido para el combustible.', '', 'info');
-                montoCombDash.focus();
-                return;
+    // ============================================
+    // PREVENCIÓN DE DOBLE CLIC EN FORMULARIOS Y BOTONES
+    // ============================================
+    document.querySelectorAll('form').forEach(form => {
+        form.addEventListener('submit', function (e) {
+            // Validación específica para el formulario de combustible
+            if (this.id === 'formCombustibleDash') {
+                const montoInput = document.getElementById('montoCombustibleDash');
+                const monto = parseFloat(montoInput?.value) || 0;
+                if (monto <= 0) {
+                    e.preventDefault();
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire('Debe ingresar un monto válido para el combustible.', '', 'info');
+                    } else {
+                        alert('Debe ingresar un monto válido para el combustible.');
+                    }
+                    montoInput?.focus();
+                    return false;
+                }
             }
-            if (submitBtnCombDash) {
-                submitBtnCombDash.disabled = true;
-                submitBtnCombDash.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Registrando...';
+
+            // Si el submit fue cancelado por validaciones previas, no bloquear
+            if (e.defaultPrevented) return false;
+
+            // Prevenir doble envío si ya se está procesando
+            if (this.dataset.submitting === 'true') {
+                e.preventDefault();
+                return false;
+            }
+
+            this.dataset.submitting = 'true';
+
+            // Buscar el botón de submit (dentro del formulario o referenciado por form="id")
+            const submitBtn = this.querySelector('button[type="submit"]') || 
+                              (this.id ? document.querySelector(`button[type="submit"][form="${this.id}"]`) : null);
+
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Procesando...';
             }
         });
-    }
+    });
 
+    // Prevenir doble clic en botones de enlaces de acción directa
+    document.querySelectorAll('a.btn').forEach(btn => {
+        btn.addEventListener('click', function (e) {
+            // Excluir botones que abren modales de bootstrap
+            if (this.hasAttribute('data-bs-toggle')) return;
+
+            if (this.dataset.clicked === 'true') {
+                e.preventDefault();
+                return false;
+            }
+            this.dataset.clicked = 'true';
+            this.style.pointerEvents = 'none';
+            this.style.opacity = '0.7';
+        });
+    });
+
+    let clickNavegacionBloqueado = false;
     function verCliente(idCliente) {
+        if (clickNavegacionBloqueado) return;
+        clickNavegacionBloqueado = true;
         window.location.href = '/vendedor/detalle-cliente/' + idCliente;
     }
 
     function verFactura(idFactura) {
+        if (clickNavegacionBloqueado) return;
+        clickNavegacionBloqueado = true;
         window.location.href = '/vendedor/ver-factura/' + idFactura;
     }
 

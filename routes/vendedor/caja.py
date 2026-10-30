@@ -570,6 +570,20 @@ def vendedor_gastos_combustible():
                 id_tipo_gasto_comb = 2
                 id_subcategoria_comb = None
 
+            # Prevenir inserción duplicada por doble clic rápido (últimos 4 segundos)
+            cursor.execute("""
+                SELECT 1 FROM gastos_generales 
+                WHERE ID_Usuario_Registro = %s 
+                  AND Monto = %s 
+                  AND (ID_Vehiculo = %s OR (ID_Vehiculo IS NULL AND %s IS NULL))
+                  AND Fecha_Registro >= NOW() - INTERVAL 4 SECOND
+                LIMIT 1
+            """, (usuario_actual, monto, id_vehiculo if id_vehiculo else None, id_vehiculo if id_vehiculo else None))
+            
+            if cursor.fetchone():
+                flash('Este registro de combustible ya fue procesado hace un momento.', 'warning')
+                return redirect(request.referrer or url_for('vendedor.vendedor_dashboard'))
+
             # Insertar en gastos_generales con la subcategoría real de Combustible
             detalles_txt = ["Estación de Servicio San José"]
             if km_num:

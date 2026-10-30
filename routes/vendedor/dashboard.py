@@ -402,6 +402,16 @@ def iniciar_jornada_dashboard():
                 return redirect(url_for('vendedor.vendedor_dashboard'))
 
             if id_asignacion == 'nuevo':
+                # Prevenir duplicación si ya existe una asignación activa hoy por doble clic
+                cursor.execute("""
+                    SELECT ID_Asignacion FROM asignacion_vendedores 
+                    WHERE ID_Usuario = %s AND Fecha_Asignacion = CURDATE() AND Estado = 'Activa'
+                    LIMIT 1
+                """, (usuario_id,))
+                if cursor.fetchone():
+                    flash('Ya cuentas con una jornada activa iniciada para hoy.', 'info')
+                    return redirect(url_for('vendedor.vendedor_dashboard'))
+
                 # Caso B: Crear nueva asignación activa para hoy usando la última ruta realizada
                 hora_inicio = datetime.now().strftime('%H:%M')
                 id_ruta = ultima_pasada['ID_Ruta']
