@@ -53,8 +53,13 @@ os.environ['TZ'] = 'America/Managua'
 if hasattr(time, 'tzset'):
     time.tzset()
 
-
-load_dotenv(override=True)
+# Cargar .env asegurando la ruta absoluta del proyecto (independiente del directorio de ejecución)
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+ENV_FILE = os.path.join(BASE_DIR, '.env')
+if os.path.exists(ENV_FILE):
+    load_dotenv(ENV_FILE, override=True)
+else:
+    load_dotenv(override=True)
 
 # ===== VARIABLES DE ENTORNO =====
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'
@@ -72,8 +77,8 @@ DB_SSL_CA = os.environ.get('DB_SSL_CA', None)
 _db_url = os.environ.get('MYSQL_PRIVATE_URL') or os.environ.get('MYSQL_URL') or os.environ.get('DATABASE_URL')
 _parsed_url = urllib.parse.urlparse(_db_url) if (_db_url and _db_url.startswith('mysql')) else None
 
-_default_user = _parsed_url.username if _parsed_url else (os.environ.get('MYSQLUSER') or 'root')
-_default_pwd = _parsed_url.password if _parsed_url else (os.environ.get('MYSQLPASSWORD') or '')
+_default_user = _parsed_url.username if _parsed_url else (os.environ.get('MYSQLUSER') or os.environ.get('DB_USER') or 'root')
+_default_pwd = _parsed_url.password if _parsed_url else (os.environ.get('MYSQLPASSWORD') or os.environ.get('DB_PASSWORD') or 'admin')
 _default_host = _parsed_url.hostname if _parsed_url else (
     os.environ.get('MYSQL_PRIVATE_HOST') or 
     os.environ.get('RAILWAY_PRIVATE_DOMAIN') or 

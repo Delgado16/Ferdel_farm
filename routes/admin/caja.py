@@ -154,6 +154,21 @@ def admin_caja_movimiento():
             return redirect(url_for('admin.admin_caja'))
         
         with get_db_cursor(True) as cursor:
+            # Prevenir inserción duplicada por doble clic rápido (últimos 4 segundos)
+            cursor.execute("""
+                SELECT 1 FROM caja_movimientos 
+                WHERE ID_Usuario = %s 
+                  AND Tipo_Movimiento = %s 
+                  AND Descripcion = %s 
+                  AND Monto = %s 
+                  AND Fecha >= NOW() - INTERVAL 4 SECOND
+                LIMIT 1
+            """, (current_user.id, tipo, descripcion, monto))
+            
+            if cursor.fetchone():
+                flash('Este movimiento ya fue registrado hace un momento.', 'warning')
+                return redirect(url_for('admin.admin_caja'))
+
             # Para salidas, verificar que la caja esté abierta
             if tipo == 'SALIDA':
                 fecha_actual = datetime.now().date()
@@ -195,6 +210,19 @@ def admin_caja_cerrar():
         with get_db_cursor(True) as cursor:
             fecha_actual = datetime.now().date()
             
+            # Verificar si ya fue cerrada hoy
+            cursor.execute("""
+                SELECT 1 FROM caja_movimientos 
+                WHERE Referencia_Documento = 'CIERRE'
+                AND DATE(Fecha) = %s
+                AND Estado = 'ACTIVO'
+                LIMIT 1
+            """, (fecha_actual,))
+            
+            if cursor.fetchone():
+                flash('La caja ya fue cerrada hoy', 'warning')
+                return redirect(url_for('admin.admin_caja'))
+
             # Obtener saldo de cierre
             cursor.execute("""
                 SELECT COALESCE(SUM(CASE 

@@ -1194,16 +1194,43 @@ not (mov.ID_Movimiento|string).startswith('RUT-') %}
         verificarConSaldo();
     });
 
-    // Validar saldo en salidas
-    document.querySelector('form[action*="admin_caja_movimiento"]')?.addEventListener('submit', function (e) {
-        const tipo = document.querySelector('input[name="tipo_movimiento"]:checked')?.value;
-        const monto = parseFloat(document.getElementById('monto_movimiento')?.value) || 0;
-        const saldo = parseFloat('{{ caja.saldo_dia|float }}') || 0;
+    // Validar y prevenir doble envío en formularios de caja
+    document.querySelectorAll('form').forEach(form => {
+        form.addEventListener('submit', function (e) {
+            // Validar saldo en salidas si es el formulario de movimiento
+            if (this.getAttribute('action')?.includes('admin_caja_movimiento')) {
+                const tipo = this.querySelector('input[name="tipo_movimiento"]:checked')?.value;
+                const monto = parseFloat(document.getElementById('monto_movimiento')?.value) || 0;
+                const saldo = parseFloat('{{ caja.saldo_dia|float }}') || 0;
 
-        if (tipo === 'SALIDA' && monto > saldo) {
-            e.preventDefault();
-            Swal.fire(`❌ Saldo insuficiente. Disponible: C$ ${saldo.toFixed(2, '', 'info')}`);
-        }
+                if (tipo === 'SALIDA' && monto > saldo) {
+                    e.preventDefault();
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Saldo insuficiente',
+                            text: `Disponible en caja: C$ ${saldo.toFixed(2)}`
+                        });
+                    } else {
+                        alert(`❌ Saldo insuficiente. Disponible: C$ ${saldo.toFixed(2)}`);
+                    }
+                    return false;
+                }
+            }
+
+            // Prevenir doble envío
+            if (this.dataset.submitting === 'true') {
+                e.preventDefault();
+                return false;
+            }
+
+            this.dataset.submitting = 'true';
+            const submitBtn = this.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Procesando...';
+            }
+        });
     });
 </script>
 {% endblock %}
