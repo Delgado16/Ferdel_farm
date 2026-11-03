@@ -454,7 +454,10 @@
             </div>
             
             {% if pedido.Estado == 'Pendiente' %}
-            <div class="d-flex gap-2">
+            <div class="d-flex flex-wrap gap-2">
+                <a href="{{ url_for('admin.editar_pedido', id_pedido=pedido.ID_Pedido) }}" class="btn btn-warning btn-sm">
+                    <i class="fas fa-edit me-1"></i> Editar Pedido
+                </a>
                 <button type="button" class="btn btn-success btn-sm" onclick="cambiarEstado('Aprobado')">
                     <i class="fas fa-check me-1"></i> Aprobar
                 </button>
@@ -464,15 +467,19 @@
             </div>
             {% elif pedido.Estado == 'Aprobado' %}
             <div class="d-flex flex-wrap gap-2">
-                <button type="button" class="btn btn-primary btn-sm" onclick="cambiarEstado('Entregado')">
-                    <i class="fas fa-truck me-1"></i> Entregar
-                </button>
-                {% if pedido.Tipo_Pedido != 'Consolidado' %}
+                {% if pedido.Tipo_Pedido == 'Consolidado' %}
+                <a href="{{ url_for('admin.distribuir_carga', id_pedido=pedido.ID_Pedido) }}" class="btn btn-primary btn-sm">
+                    <i class="fas fa-truck-loading me-1"></i> Distribuir Carga
+                </a>
+                {% else %}
                 <a href="{{ url_for('admin.admin_procesar_venta_pedido', id_pedido=pedido.ID_Pedido) }}" 
                    class="btn btn-success btn-sm">
                     <i class="fas fa-cash-register me-1"></i> Procesar Venta
                 </a>
                 {% endif %}
+                <button type="button" class="btn btn-danger btn-sm" onclick="cambiarEstado('Cancelado')">
+                    <i class="fas fa-times me-1"></i> Cancelar
+                </button>
             </div>
             {% endif %}
         </div>

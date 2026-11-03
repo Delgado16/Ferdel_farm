@@ -202,29 +202,29 @@
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
-                        <table class="table table-hover">
+                        <table class="table table-hover align-middle">
                             <thead class="table-light">
                                 <tr>
-                                    <th width="5%">#</th>
-                                    <th width="35%">Producto</th>
-                                    <th width="15%">Categoría</th>
-                                    <th width="15%">Tipo Precio</th> <!-- NUEVA COLUMNA -->
-                                    <th width="10%" class="text-center">Cantidad</th>
-                                    <th width="10%" class="text-end">Precio Unit.</th>
-                                    <th width="10%" class="text-end">Subtotal</th>
+                                    <th width="4%">#</th>
+                                    <th width="28%">Producto</th>
+                                    <th width="12%">Categoría</th>
+                                    <th width="22%">Bodega Despacho</th>
+                                    <th width="8%" class="text-center">Cant.</th>
+                                    <th width="12%" class="text-end">Precio Unit.</th>
+                                    <th width="14%" class="text-end">Subtotal</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for detalle in detalles_pedido %}
-                                <tr class="{% if loop.index is even %}table-active{% endif %}">
-                                    <td class="text-center">{{ loop.index }}</td>
+                                <tr>
+                                    <td class="text-center text-muted fw-bold">{{ loop.index }}</td>
                                     <td>
                                         <div class="d-flex align-items-center">
-                                            <div class="me-3">
-                                                <i class="fas fa-box text-primary"></i>
+                                            <div class="me-2 text-success">
+                                                <i class="fas fa-box"></i>
                                             </div>
                                             <div>
-                                                <strong>{{ detalle.Descripcion }}</strong><br>
+                                                <strong class="text-dark">{{ detalle.Descripcion }}</strong><br>
                                                 <small class="text-muted">COD: {{ detalle.COD_Producto }}</small>
                                             </div>
                                         </div>
@@ -233,36 +233,43 @@
                                         <span class="badge bg-secondary">{{ detalle.Categoria }}</span>
                                     </td>
                                     <td>
-                                        {% if pedido.Tipo_Pedido == 'Consolidado' %}
-                                            <span class="badge bg-primary">Precio Ruta</span>
+                                        {% if detalle.bodegas_disponibles and detalle.bodegas_disponibles|length > 1 %}
+                                            <div class="input-group input-group-sm">
+                                                <span class="input-group-text bg-light text-success border-success"><i class="fas fa-warehouse"></i></span>
+                                                <select name="bodega_producto_{{ detalle.ID_Producto }}" class="form-select form-select-sm border-success fw-bold" form="formProcesarVenta">
+                                                    {% for b in detalle.bodegas_disponibles %}
+                                                    <option value="{{ b.ID_Bodega }}" {% if detalle.bodega_seleccionada and b.ID_Bodega == detalle.bodega_seleccionada.ID_Bodega %}selected{% endif %}>
+                                                        {{ b.Nombre_Bodega }} ({{ b.Existencias }} disp.)
+                                                    </option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                        {% elif detalle.bodega_seleccionada %}
+                                            <span class="badge bg-success-subtle text-success border border-success px-2 py-1 fs-7">
+                                                <i class="fas fa-warehouse me-1"></i>
+                                                {{ detalle.bodega_seleccionada.Nombre_Bodega }} ({{ detalle.bodega_seleccionada.Existencias }} disp.)
+                                            </span>
+                                            <input type="hidden" name="bodega_producto_{{ detalle.ID_Producto }}" value="{{ detalle.bodega_seleccionada.ID_Bodega }}" form="formProcesarVenta">
                                         {% else %}
-                                            {% if pedido.Perfil_Cliente == 'Ruta' %}
-                                                <span class="badge bg-info">Precio Ruta</span>
-                                            {% elif pedido.Perfil_Cliente == 'Mayorista' %}
-                                                <span class="badge bg-success">Precio Mayorista</span>
-                                            {% elif pedido.Perfil_Cliente == 'Mercado' %}
-                                                <span class="badge bg-warning text-dark">Precio Mercado</span>
-                                            {% elif pedido.Perfil_Cliente == 'Especial' %}
-                                                <span class="badge bg-secondary">Precio Especial</span>
-                                            {% else %}
-                                                <span class="badge bg-secondary">Precio Mercado</span>
-                                            {% endif %}
+                                            <span class="badge bg-danger">
+                                                <i class="fas fa-times-circle me-1"></i>Sin stock disponible
+                                            </span>
                                         {% endif %}
                                     </td>
                                     <td class="text-center">
-                                        <span class="badge bg-primary rounded-pill">{{ detalle.Cantidad }}</span>
+                                        <span class="badge bg-primary rounded-pill px-2 py-1 fs-6">{{ detalle.Cantidad }}</span>
                                     </td>
-                                    <td class="text-end">C$ {{ detalle.Precio_Unitario | cantidad }}</td>
-                                    <td class="text-end">
-                                        <strong>C$ {{ detalle.Subtotal | cantidad }}</strong>
+                                    <td class="text-end text-dark">C$ {{ detalle.Precio_Unitario | cantidad }}</td>
+                                    <td class="text-end fw-bold text-dark">
+                                        C$ {{ detalle.Subtotal | cantidad }}
                                     </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
                             <tfoot class="table-light">
                                 <tr>
-                                    <td colspan="6" class="text-end"><h5 class="mb-0">Total Pedido:</h5></td>
-                                    <td class="text-end"><h5 class="mb-0">C$ {{ total_pedido | cantidad }}</h5></td>
+                                    <td colspan="6" class="text-end"><h5 class="mb-0 fw-bold">Total Pedido:</h5></td>
+                                    <td class="text-end"><h5 class="mb-0 fw-bold text-success">C$ {{ total_pedido | cantidad }}</h5></td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -508,17 +515,8 @@
                 
                 if (confirm(`¿Está seguro de procesar esta venta como ${tipoVentaTexto}?\n\nTipo de precio aplicado: ${perfilInfo}\n\nEsta acción:\n• Creará una factura\n• Descontará el inventario\n• Actualizará el pedido a "Entregado"\n• Registrará el movimiento de inventario`)) {
                     // Mostrar indicador de carga
-                    const originalText = btnProcesar.innerHTML;
                     btnProcesar.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Procesando...';
                     btnProcesar.disabled = true;
-                    
-                    // Deshabilitar todos los campos del formulario
-                    const formInputs = formProcesarVenta.querySelectorAll('input, textarea, button, select');
-                    formInputs.forEach(input => {
-                        if (input !== btnProcesar) {
-                            input.disabled = true;
-                        }
-                    });
                     
                     // Enviar formulario (POST normal)
                     this.submit();

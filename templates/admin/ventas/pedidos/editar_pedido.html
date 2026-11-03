@@ -1,0 +1,642 @@
+{% extends "layout.html" %}
+
+{% block title %}Editar Pedido #{{ pedido.ID_Pedido }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --color-ferdel-primary: #2c5e2e;
+        --color-ferdel-dark: #1b3d1c;
+        --color-ferdel-light: #e8f5e9;
+        --color-emerald: #059669;
+        --color-slate-900: #0f172a;
+        --color-slate-800: #1e293b;
+        --color-slate-700: #334155;
+        --color-slate-600: #475569;
+        --color-slate-200: #e2e8f0;
+        --color-slate-100: #f1f5f9;
+    }
+    
+    body {
+        background-color: #f1f5f9 !important;
+        color: #0f172a !important;
+    }
+    
+    .card-custom {
+        background: #ffffff !important;
+        border-radius: 10px;
+        border: 1.5px solid #cbd5e1 !important;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+        overflow: hidden;
+    }
+    
+    .card-header-custom {
+        background: #f8fafc;
+        border-bottom: 2px solid #e2e8f0;
+        border-left: 4px solid var(--color-ferdel-primary);
+        padding: 12px 18px;
+    }
+    
+    .card-header-custom h5 {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #0f172a;
+    }
+    
+    .form-label {
+        color: #0f172a !important;
+        font-weight: 600 !important;
+        font-size: 0.85rem;
+        margin-bottom: 4px;
+    }
+    
+    .form-control, .form-select {
+        border: 1.5px solid #94a3b8 !important;
+        color: #0f172a !important;
+        font-weight: 500;
+        background-color: #ffffff !important;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: var(--color-ferdel-primary) !important;
+        box-shadow: 0 0 0 3px rgba(44, 94, 46, 0.2) !important;
+        outline: none;
+    }
+    
+    .table-custom-header th {
+        background-color: #e2e8f0 !important;
+        color: #0f172a !important;
+        font-weight: 700 !important;
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        border-bottom: 2px solid #cbd5e1 !important;
+        padding-top: 10px;
+        padding-bottom: 10px;
+    }
+    
+    .product-row {
+        transition: background-color 0.15s ease;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .product-row:hover {
+        background-color: #f8fafc;
+    }
+    
+    .precio-simbolo {
+        position: absolute;
+        left: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-weight: 700;
+        color: #1e293b;
+        font-size: 0.85rem;
+        pointer-events: none;
+    }
+    
+    .precio-input-wrap {
+        position: relative;
+    }
+    
+    .precio-input-wrap input {
+        padding-left: 2rem !important;
+        font-weight: 700 !important;
+        color: #0f172a !important;
+    }
+    
+    .cantidad-input {
+        font-weight: 700 !important;
+        color: #0f172a !important;
+    }
+    
+    /* Botones temáticos de alto contraste */
+    .btn-ferdel {
+        background-color: var(--color-ferdel-primary) !important;
+        border-color: var(--color-ferdel-primary) !important;
+        color: #ffffff !important;
+        font-weight: 600;
+        box-shadow: 0 2px 4px rgba(44, 94, 46, 0.2);
+    }
+    
+    .btn-ferdel:hover {
+        background-color: var(--color-ferdel-dark) !important;
+        border-color: var(--color-ferdel-dark) !important;
+        color: #ffffff !important;
+    }
+    
+    .btn-anadir {
+        background-color: var(--color-emerald) !important;
+        border-color: var(--color-emerald) !important;
+        color: #ffffff !important;
+        font-weight: 600;
+    }
+    
+    .btn-anadir:hover {
+        background-color: #047857 !important;
+        border-color: #047857 !important;
+        color: #ffffff !important;
+    }
+
+    .badge-stock-ok {
+        background-color: #dcfce7 !important;
+        color: #166534 !important;
+        border: 1px solid #86efac !important;
+        font-weight: 700;
+    }
+
+    .badge-stock-low {
+        background-color: #fee2e2 !important;
+        color: #991b1b !important;
+        border: 1px solid #fca5a5 !important;
+        font-weight: 700;
+    }
+
+    .total-footer-box {
+        background-color: #ecfdf5 !important;
+        border-top: 2px solid #a7f3d0 !important;
+    }
+
+    .total-amount-display {
+        color: #065f46 !important;
+        font-size: 1.25rem !important;
+        font-weight: 800 !important;
+    }
+
+    .info-box-highlight {
+        background: #f8fafc;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 12px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3 px-2 px-md-3">
+    <!-- Encabezado de Página -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 bg-white p-3 rounded-3 border shadow-sm">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-warning text-dark px-2 py-1 fw-bold border border-warning"><i class="fas fa-clock me-1"></i>{{ pedido.Estado }}</span>
+                <span class="badge bg-dark px-2 py-1">{{ pedido.Tipo_Pedido }}</span>
+                {% if es_consolidado %}
+                <span class="badge bg-primary px-2 py-1"><i class="fas fa-route me-1"></i>{{ pedido.Nombre_Ruta }}</span>
+                {% endif %}
+            </div>
+            <h3 class="fw-bold text-dark mb-0">
+                <i class="fas fa-edit text-warning me-2"></i>Editar Pedido #{{ pedido.ID_Pedido }}
+            </h3>
+            <p class="text-muted small mb-0">Ajuste los productos, cantidades, precios y condiciones de entrega antes de procesar el pedido.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('admin.ver_pedido', id_pedido=pedido.ID_Pedido) }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3 fw-bold">
+                <i class="fas fa-arrow-left me-1"></i> Volver sin guardar
+            </a>
+            <button type="button" class="btn btn-ferdel btn-sm px-4 py-2 rounded-3" onclick="guardarCambios()">
+                <i class="fas fa-save me-1"></i> Guardar Cambios
+            </button>
+        </div>
+    </div>
+
+    <form id="formEditarPedido" onsubmit="event.preventDefault(); guardarCambios();">
+        <div class="row g-4">
+            <!-- PANEL IZQUIERDO: Información del Pedido y Cliente -->
+            <div class="col-lg-4 col-md-5">
+                <!-- Tarjeta 1: Cliente / Ruta -->
+                <div class="card-custom mb-3">
+                    <div class="card-header-custom">
+                        <h5>
+                            {% if es_consolidado %}
+                            <i class="fas fa-route text-success me-2"></i>Datos de la Ruta
+                            {% else %}
+                            <i class="fas fa-user text-success me-2"></i>Datos del Cliente
+                            {% endif %}
+                        </h5>
+                    </div>
+                    <div class="card-body p-3">
+                        {% if es_consolidado %}
+                        <div class="info-box-highlight mb-3">
+                            <div class="mb-2">
+                                <span class="text-muted small d-block fw-bold">Ruta Asignada:</span>
+                                <strong class="text-dark fs-6">{{ pedido.Nombre_Ruta }}</strong>
+                            </div>
+                            <div class="mb-0">
+                                <span class="text-muted small d-block fw-bold">Empresa:</span>
+                                <span class="text-dark fw-bold">{{ pedido.Nombre_Empresa }}</span>
+                            </div>
+                        </div>
+                        <div class="alert alert-info py-2 px-3 small mb-0 border border-info">
+                            <i class="fas fa-info-circle me-1"></i> Los pedidos consolidados aplican automáticamente el <strong>Precio de Ruta</strong> a todos los productos.
+                        </div>
+                        {% else %}
+                        <div class="info-box-highlight mb-0">
+                            <div class="mb-2">
+                                <span class="text-muted small d-block fw-bold">Cliente:</span>
+                                <strong class="text-dark fs-6">{{ pedido.Nombre_Cliente }}</strong>
+                            </div>
+                            {% if pedido.Documento_Cliente %}
+                            <div class="mb-2">
+                                <span class="text-muted small d-block fw-bold">RUC / Cédula:</span>
+                                <span class="badge bg-secondary fs-7">{{ pedido.Documento_Cliente }}</span>
+                            </div>
+                            {% endif %}
+                            {% if pedido.Telefono_Cliente %}
+                            <div class="mb-2">
+                                <span class="text-muted small d-block fw-bold">Teléfono:</span>
+                                <span class="text-dark fw-bold">{{ pedido.Telefono_Cliente }}</span>
+                            </div>
+                            {% endif %}
+                            <div class="mb-2">
+                                <span class="text-muted small d-block fw-bold">Perfil de Precios:</span>
+                                <span class="badge bg-primary text-white fw-bold">{{ pedido.Perfil_Cliente or 'Mercado' }}</span>
+                            </div>
+                            {% if pedido.Direccion_Cliente %}
+                            <div class="mb-0">
+                                <span class="text-muted small d-block fw-bold">Dirección:</span>
+                                <small class="text-dark d-block" style="line-height: 1.3;">{{ pedido.Direccion_Cliente }}</small>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Tarjeta 2: Configuración de Entrega -->
+                <div class="card-custom mb-3">
+                    <div class="card-header-custom">
+                        <h5><i class="fas fa-calendar-alt text-success me-2"></i>Condiciones de Entrega</h5>
+                    </div>
+                    <div class="card-body p-3">
+                        <div class="mb-3">
+                            <label class="form-label" for="fechaPedido">Fecha del Pedido <span class="text-danger">*</span></label>
+                            <input type="date" id="fechaPedido" class="form-control form-control-sm" required
+                                   value="{{ pedido.Fecha.strftime('%Y-%m-%d') if pedido.Fecha else now.strftime('%Y-%m-%d') }}">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label" for="tipoEntrega">Tipo de Entrega</label>
+                            <select id="tipoEntrega" class="form-select form-select-sm">
+                                {% for tipo in tipos_entrega %}
+                                <option value="{{ tipo }}" {% if pedido.Tipo_Entrega == tipo %}selected{% endif %}>{{ tipo }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label" for="prioridadPedido">Prioridad</label>
+                            <select id="prioridadPedido" class="form-select form-select-sm">
+                                {% for prio in prioridades %}
+                                <option value="{{ prio }}" {% if pedido.Prioridad == prio %}selected{% endif %}>{{ prio }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-0">
+                            <label class="form-label" for="observacionPedido">Observaciones / Notas</label>
+                            <textarea id="observacionPedido" class="form-control form-control-sm" rows="3" 
+                                      placeholder="Instrucciones para despacho o bodega...">{{ pedido.Observacion or '' }}</textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PANEL DERECHO: Detalle de Productos -->
+            <div class="col-lg-8 col-md-7">
+                <!-- Buscador / Selector para añadir productos -->
+                <div class="card-custom mb-4">
+                    <div class="card-header-custom">
+                        <h5><i class="fas fa-cart-plus text-success me-2"></i>Añadir Producto al Pedido</h5>
+                    </div>
+                    <div class="card-body p-3 bg-light">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-7">
+                                <label class="form-label" for="selectNuevoProducto">Seleccionar Producto del Catálogo</label>
+                                <select id="selectNuevoProducto" class="form-select form-select-sm shadow-sm">
+                                    <option value="">Buscar o seleccionar producto...</option>
+                                    {% for p in catalogo_productos %}
+                                    <option value="{{ p.id }}" 
+                                            data-codigo="{{ p.codigo or '' }}"
+                                            data-nombre="{{ p.nombre }}"
+                                            data-stock="{{ p.stock }}"
+                                            data-precio-mercado="{{ p.precio_mercado or 0 }}"
+                                            data-precio-mayorista="{{ p.precio_mayorista or 0 }}"
+                                            data-precio-ruta="{{ p.precio_ruta or 0 }}">
+                                        {{ p.nombre }} [Stock: {{ p.stock|int }}]
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label" for="inputNuevaCantidad">Cantidad</label>
+                                <input type="number" id="inputNuevaCantidad" class="form-control form-control-sm text-center fw-bold shadow-sm" min="1" step="0.01" value="1">
+                            </div>
+                            <div class="col-md-2">
+                                <button type="button" class="btn btn-anadir btn-sm w-100 shadow-sm py-2" onclick="agregarProducto()">
+                                    <i class="fas fa-plus me-1"></i> Añadir
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabla de Productos del Pedido -->
+                <div class="card-custom">
+                    <div class="card-header-custom d-flex justify-content-between align-items-center">
+                        <h5><i class="fas fa-boxes text-success me-2"></i>Productos en el Pedido</h5>
+                        <span id="badgeTotalItems" class="badge bg-dark fw-bold">0 productos</span>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0" id="tablaProductos">
+                                <thead class="table-custom-header">
+                                    <tr>
+                                        <th class="ps-3" style="width: 35%;">Producto</th>
+                                        <th class="text-center" style="width: 15%;">Stock Bodega</th>
+                                        <th class="text-center" style="width: 18%;">Cantidad</th>
+                                        <th class="text-center" style="width: 18%;">Precio Unit.</th>
+                                        <th class="text-end" style="width: 14%;">Subtotal</th>
+                                        <th class="text-center pe-3" style="width: 5%;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyProductos">
+                                    <!-- Renderizado dinámico vía JavaScript -->
+                                </tbody>
+                                <tfoot>
+                                    <tr class="total-footer-box">
+                                        <td colspan="4" class="text-end fw-bold py-3 fs-6 text-dark">TOTAL PEDIDO:</td>
+                                        <td class="text-end fw-bold py-3 total-amount-display" id="lblTotalGeneral">C$ 0.00</td>
+                                        <td></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-white p-3 border-top d-flex justify-content-between align-items-center">
+                        <span class="text-muted small fw-bold"><i class="fas fa-info-circle me-1 text-primary"></i> Puede ajustar precios y cantidades directamente en la tabla.</span>
+                        <div class="d-flex gap-2">
+                            <a href="{{ url_for('admin.ver_pedido', id_pedido=pedido.ID_Pedido) }}" class="btn btn-outline-secondary btn-sm px-3 fw-bold">
+                                Cancelar
+                            </a>
+                            <button type="button" class="btn btn-ferdel btn-sm px-4 fw-bold" onclick="guardarCambios()">
+                                <i class="fas fa-save me-1"></i> Guardar Cambios
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    const ID_PEDIDO = {{ pedido.ID_Pedido }};
+    const ES_CONSOLIDADO = {{ 'true' if es_consolidado else 'false' }};
+    const PERFIL_CLIENTE = "{{ perfil_cliente }}";
+    
+    let productos = {{ productos_actuales | tojson }};
+
+    document.addEventListener('DOMContentLoaded', function () {
+        renderTabla();
+    });
+
+    function renderTabla() {
+        const tbody = document.getElementById('tbodyProductos');
+        tbody.innerHTML = '';
+
+        let totalGeneral = 0;
+        let totalItems = 0;
+
+        if (productos.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center py-5 text-muted bg-white">
+                        <i class="fas fa-shopping-basket fa-3x mb-2 d-block text-secondary opacity-50"></i>
+                        <span class="fw-bold d-block text-dark">No hay productos en el pedido</span>
+                        <small>Seleccione un producto arriba para agregarlo al pedido.</small>
+                    </td>
+                </tr>
+            `;
+            document.getElementById('lblTotalGeneral').textContent = 'C$ 0.00';
+            document.getElementById('badgeTotalItems').textContent = '0 productos';
+            return;
+        }
+
+        productos.forEach((p, index) => {
+            const subtotal = (parseFloat(p.cantidad) || 0) * (parseFloat(p.precio) || 0);
+            p.subtotal = subtotal;
+            totalGeneral += subtotal;
+            totalItems += parseFloat(p.cantidad) || 0;
+
+            const stockDisponible = parseFloat(p.stock) || 0;
+            const cantidadSolicitada = parseFloat(p.cantidad) || 0;
+            const stockInsuficiente = stockDisponible < cantidadSolicitada;
+
+            const tr = document.createElement('tr');
+            tr.className = 'product-row';
+            tr.innerHTML = `
+                <td class="ps-3 py-2">
+                    <strong class="d-block text-dark" style="font-size: 0.9rem;">${escapeHtml(p.nombre)}</strong>
+                    ${p.codigo ? `<span class="badge bg-light text-dark border px-2 py-0" style="font-size: 0.75rem;">Cód: ${escapeHtml(p.codigo)}</span>` : ''}
+                </td>
+                <td class="text-center py-2">
+                    <span class="badge ${stockInsuficiente ? 'badge-stock-low' : 'badge-stock-ok'} px-2 py-1">
+                        ${Math.floor(stockDisponible)} disp.
+                    </span>
+                </td>
+                <td class="text-center py-2">
+                    <input type="number" class="form-control form-control-sm text-center mx-auto cantidad-input shadow-sm" 
+                           style="max-width: 90px;" min="0.01" step="0.01" value="${p.cantidad}"
+                           onchange="actualizarCantidad(${index}, this.value)">
+                </td>
+                <td class="text-center py-2">
+                    <div class="precio-input-wrap mx-auto" style="max-width: 120px;">
+                        <span class="precio-simbolo">C$</span>
+                        <input type="number" class="form-control form-control-sm text-end shadow-sm" 
+                               min="0.01" step="0.01" value="${parseFloat(p.precio).toFixed(2)}"
+                               ${ES_CONSOLIDADO ? 'disabled title="Precio de ruta fijado por sistema"' : ''}
+                               onchange="actualizarPrecio(${index}, this.value)">
+                    </div>
+                </td>
+                <td class="text-end fw-bold text-dark pe-2 py-2" style="font-size: 0.95rem;">
+                    C$ ${subtotal.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </td>
+                <td class="text-center pe-3 py-2">
+                    <button type="button" class="btn btn-outline-danger btn-sm p-1 px-2" title="Eliminar producto"
+                            onclick="eliminarProducto(${index})">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        document.getElementById('lblTotalGeneral').textContent = 'C$ ' + totalGeneral.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        document.getElementById('badgeTotalItems').textContent = `${productos.length} producto${productos.length === 1 ? '' : 's'}`;
+    }
+
+    function actualizarCantidad(index, valor) {
+        let cant = parseFloat(valor);
+        if (isNaN(cant) || cant <= 0) {
+            Swal.fire('Cantidad inválida', 'La cantidad debe ser mayor a 0', 'warning');
+            renderTabla();
+            return;
+        }
+        productos[index].cantidad = cant;
+        renderTabla();
+    }
+
+    function actualizarPrecio(index, valor) {
+        let precio = parseFloat(valor);
+        if (isNaN(precio) || precio <= 0) {
+            Swal.fire('Precio inválido', 'El precio debe ser mayor a 0', 'warning');
+            renderTabla();
+            return;
+        }
+        productos[index].precio = precio;
+        renderTabla();
+    }
+
+    function eliminarProducto(index) {
+        productos.splice(index, 1);
+        renderTabla();
+    }
+
+    function agregarProducto() {
+        const select = document.getElementById('selectNuevoProducto');
+        const inputCant = document.getElementById('inputNuevaCantidad');
+
+        const opt = select.options[select.selectedIndex];
+        if (!opt || !opt.value) {
+            Swal.fire('Seleccione un producto', 'Debe elegir un producto del catálogo para agregarlo', 'info');
+            return;
+        }
+
+        const idProducto = parseInt(opt.value);
+        const cantidad = parseFloat(inputCant.value);
+        if (isNaN(cantidad) || cantidad <= 0) {
+            Swal.fire('Cantidad inválida', 'Ingrese una cantidad válida mayor a 0', 'warning');
+            return;
+        }
+
+        let precio = 0;
+        if (ES_CONSOLIDADO) {
+            precio = parseFloat(opt.dataset.precioRuta) || 0;
+        } else {
+            if (PERFIL_CLIENTE === 'Ruta') precio = parseFloat(opt.dataset.precioRuta) || 0;
+            else if (PERFIL_CLIENTE === 'Mayorista') precio = parseFloat(opt.dataset.precioMayorista) || 0;
+            else precio = parseFloat(opt.dataset.precioMercado) || 0;
+        }
+
+        const stock = parseFloat(opt.dataset.stock) || 0;
+
+        const existe = productos.find(p => p.id === idProducto);
+        if (existe) {
+            existe.cantidad += cantidad;
+        } else {
+            productos.push({
+                id: idProducto,
+                codigo: opt.dataset.codigo,
+                nombre: opt.dataset.nombre,
+                cantidad: cantidad,
+                precio: precio,
+                stock: stock,
+                subtotal: cantidad * precio
+            });
+        }
+
+        select.value = '';
+        inputCant.value = '1';
+        renderTabla();
+    }
+
+    function guardarCambios() {
+        if (productos.length === 0) {
+            Swal.fire('Pedido vacío', 'Debe haber al menos un producto en el pedido.', 'warning');
+            return;
+        }
+
+        const fecha = document.getElementById('fechaPedido').value;
+        const tipoEntrega = document.getElementById('tipoEntrega').value;
+        const prioridad = document.getElementById('prioridadPedido').value;
+        const observacion = document.getElementById('observacionPedido').value;
+
+        if (!fecha) {
+            Swal.fire('Fecha requerida', 'Por favor seleccione la fecha del pedido.', 'warning');
+            return;
+        }
+
+        Swal.fire({
+            title: '¿Guardar cambios?',
+            text: `Se actualizará el pedido #${ID_PEDIDO} con ${productos.length} productos.`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#2c5e2e',
+            cancelButtonColor: '#64748b',
+            confirmButtonText: 'Sí, guardar cambios',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Guardando...',
+                    text: 'Actualizando pedido e inventario...',
+                    didOpen: () => { Swal.showLoading(); },
+                    allowOutsideClick: false
+                });
+
+                fetch(`{{ url_for('admin.editar_pedido', id_pedido=pedido.ID_Pedido) }}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        fecha: fecha,
+                        tipo_entrega: tipoEntrega,
+                        prioridad: prioridad,
+                        observacion: observacion,
+                        productos: productos.map(p => ({
+                            id: p.id,
+                            nombre: p.nombre,
+                            cantidad: p.cantidad,
+                            precio: p.precio
+                        }))
+                    })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire({
+                            title: '¡Actualizado!',
+                            text: data.message,
+                            icon: 'success',
+                            confirmButtonColor: '#2c5e2e'
+                        }).then(() => {
+                            window.location.href = data.redirect_url;
+                        });
+                    } else {
+                        Swal.fire('Error', data.message || 'No se pudo actualizar el pedido', 'error');
+                    }
+                })
+                .catch(err => {
+                    console.error('Error:', err);
+                    Swal.fire('Error de conexión', 'Ocurrió un error al comunicarse con el servidor', 'error');
+                });
+            }
+        });
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        return text.toString()
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+</script>
+{% endblock %}
