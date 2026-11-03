@@ -378,8 +378,8 @@ def admin_anticipo_entregas():
                 flash(' Error en los datos de entregas', 'error')
                 return redirect(request.url)
             
-            # Validar que haya al menos una entrega válida
-            entregas_validas = []
+            # Validar y agrupar automáticamente si una misma sucursal se ingresó más de una vez
+            sucursales_agrupadas = {}
             for i in range(len(sucursales)):
                 sucursal_id = sucursales[i]
                 cantidad_str = cantidades[i]
@@ -390,12 +390,12 @@ def admin_anticipo_entregas():
                 try:
                     cantidad = int(cantidad_str)
                     if cantidad > 0:
-                        entregas_validas.append({
-                            'sucursal_id': int(sucursal_id),
-                            'cantidad': cantidad
-                        })
+                        sid = int(sucursal_id)
+                        sucursales_agrupadas[sid] = sucursales_agrupadas.get(sid, 0) + cantidad
                 except ValueError:
                     continue
+            
+            entregas_validas = [{'sucursal_id': sid, 'cantidad': cant} for sid, cant in sucursales_agrupadas.items()]
             
             if len(entregas_validas) == 0:
                 flash(' No hay entregas válidas para procesar', 'error')
@@ -430,12 +430,12 @@ def admin_anticipo_entregas():
                     FROM anticipos_clientes a
                     INNER JOIN clientes c ON a.ID_Cliente = c.ID_Cliente
                     INNER JOIN productos p ON a.ID_Producto = p.ID_Producto
-                    WHERE a.ID_Anticipo = %s AND a.Estado = 'ACTIVO'
+                    WHERE a.ID_Anticipo = %s
                 """, (id_anticipo,))
                 anticipo = cursor.fetchone()
                 
                 if not anticipo:
-                    flash(' Anticipo no encontrado o inactivo', 'error')
+                    flash(' Anticipo no encontrado', 'error')
                     return redirect(request.url)
                 
                 # 2. Verificar que la bodega existe y está activa
@@ -450,12 +450,9 @@ def admin_anticipo_entregas():
                     flash(' Bodega no encontrada o inactiva', 'error')
                     return redirect(request.url)
                 
-                # 3. Verificar cajas disponibles en el anticipo
+                # 3. Cajas disponibles en el anticipo (se permite sobregiro si ya se agotaron)
                 cajas_disponibles_antes = anticipo['Anticipo_Total_Cajas'] - anticipo['Anticipo_Cajas_Consumidas']
-                
-                if total_cajas > cajas_disponibles_antes:
-                    flash(f'⚠️ Cajas insuficientes en el anticipo. Disponibles: {cajas_disponibles_antes}, Solicitadas: {total_cajas}', 'error')
-                    return redirect(request.url)
+                es_despacho_en_descubierto = (total_cajas > cajas_disponibles_antes)
                 
                 # 4. Verificar inventario en bodega
                 cursor.execute("""
@@ -472,7 +469,7 @@ def admin_anticipo_entregas():
                 existencias_actuales = float(inventario['Existencias'])
                 
                 if total_cajas > existencias_actuales:
-                    flash(f'⚠️ Existencias insuficientes. Disponibles: {existencias_actuales} cajas', 'error')
+                    flash(f'⚠️ Existencias insuficientes en bodega. Disponibles: {existencias_actuales} cajas, solicitadas: {total_cajas} cajas', 'error')
                     return redirect(request.url)
                 
                 # 5. Calcular precio y total
@@ -532,8 +529,9 @@ def admin_anticipo_entregas():
                 # 9. ACTUALIZAR EL ANTICIPO
                 nuevas_cajas_consumidas = anticipo['Anticipo_Cajas_Consumidas'] + total_cajas
                 cajas_restantes = anticipo['Anticipo_Total_Cajas'] - nuevas_cajas_consumidas
-                nuevo_saldo_restante = cajas_restantes * precio_unitario
+                nuevo_saldo_restante = max(0.0, cajas_restantes * precio_unitario)
                 
+                # El estado del anticipo pasa a COMPLETADO si ya consumió todo (o está en sobregiro)
                 nuevo_estado = 'COMPLETADO' if nuevas_cajas_consumidas >= anticipo['Anticipo_Total_Cajas'] else 'ACTIVO'
                 
                 cursor.execute("""
@@ -545,23 +543,19 @@ def admin_anticipo_entregas():
                 """, (nuevas_cajas_consumidas, nuevo_estado, nuevo_saldo_restante, id_anticipo))
                 
                 # 10. ACTUALIZAR DATOS DEL CLIENTE
-                nuevas_cajas_consumidas_cliente = anticipo['Cliente_Cajas_Consumidas'] + total_cajas
-                nuevo_saldo_anticipos_cliente = float(anticipo['Cliente_Saldo_Anticipos']) - total_monto
-                
-                anticipo_cliente_completado = nuevas_cajas_consumidas_cliente >= anticipo['Anticipo_Total_Cajas']
-                nuevo_anticipo_activo = 0 if anticipo_cliente_completado else 1
+                nuevas_cajas_consumidas_cliente = (anticipo['Cliente_Cajas_Consumidas'] or 0) + total_cajas
+                nuevo_saldo_anticipos_cliente = max(0.0, float(anticipo['Cliente_Saldo_Anticipos'] or 0) - total_monto)
                 
                 cursor.execute("""
                     UPDATE clientes 
                     SET Cajas_Consumidas_Anticipo = %s,
                         Saldo_Anticipos = %s,
-                        Anticipo_Activo = %s,
                         Fecha_Ultimo_Movimiento = NOW()
                     WHERE ID_Cliente = %s
                 """, (nuevas_cajas_consumidas_cliente, nuevo_saldo_anticipos_cliente, 
-                      nuevo_anticipo_activo, anticipo['ID_Cliente']))
+                      anticipo['ID_Cliente']))
                 
-                # 11. DESCOTAR INVENTARIO DE LA BODEGA
+                # 11. DESCONTAR INVENTARIO DE LA BODEGA
                 nuevas_existencias = existencias_actuales - total_cajas
                 cursor.execute("""
                     UPDATE inventario_bodega 
@@ -569,36 +563,33 @@ def admin_anticipo_entregas():
                     WHERE ID_Bodega = %s AND ID_Producto = %s
                 """, (nuevas_existencias, id_bodega, anticipo['ID_Producto']))
                 
-                # 12. Si el anticipo se completó, registrar en bitácora (CORREGIDO)
-                if anticipo_cliente_completado:
-                    # Obtener la IP del usuario
-                    ip_acceso = request.remote_addr or '0.0.0.0'
-                    
-                    cursor.execute("""
-                        INSERT INTO bitacora (ID_Usuario, Modulo, Accion, IP_Acceso, Fecha)
-                        VALUES (%s, %s, %s, %s, NOW())
-                    """, (id_usuario, 
-                          'CLIENTES-ANTICIPOS-ENTREGAS', 
-                          f'ANTICIPO_COMPLETADO - Cliente: {anticipo["Nombre_Cliente"]} (ID: {anticipo["ID_Cliente"]}) - Total cajas consumidas: {nuevas_cajas_consumidas_cliente} - Anticipo #{id_anticipo}',
-                          ip_acceso))
+                # 12. Registrar en bitácora
+                ip_acceso = request.remote_addr or '0.0.0.0'
+                cursor.execute("""
+                    INSERT INTO bitacora (ID_Usuario, Modulo, Accion, IP_Acceso, Fecha)
+                    VALUES (%s, %s, %s, %s, NOW())
+                """, (id_usuario, 
+                      'CLIENTES-ANTICIPOS-ENTREGAS', 
+                      f'DESPACHO_ANTICIPO - Cliente: {anticipo["Nombre_Cliente"]} - Anticipo #{id_anticipo} - Cajas despachadas: {total_cajas} - Restantes: {cajas_restantes}',
+                      ip_acceso))
                 
-                # Commit implícito por el context manager
-                
-                # Redirigir a la pantalla de entregas activando la ventana emergente de impresión
+                # Mensaje de confirmación
                 ids_str = ','.join(map(str, ids_entregas))
-                es_completado = 1 if (nuevo_estado == 'COMPLETADO' or cajas_restantes <= 0) else 0
-                if es_completado:
-                    flash(f'🎉 ¡Anticipo completado al 100%! Se han despachado todas las cajas contratadas.', 'success')
+                if cajas_restantes < 0:
+                    cajas_excedente = abs(cajas_restantes)
+                    flash(f'⚠️ Despacho registrado. El anticipo llegó a 0 y tiene {cajas_excedente} caja(s) entregada(s) en descubierto pendientes del próximo pago.', 'warning')
+                elif cajas_restantes == 0:
+                    flash(f'🎉 ¡Anticipo completado exactamente al 100%! Cajas pendientes: 0.', 'success')
                 else:
-                    flash(f'✅ {len(ids_entregas)} entrega(s) registrada(s) exitosamente! ({cajas_restantes} cajas restantes)', 'success')
+                    flash(f'✅ {len(ids_entregas)} sucursal(es) despachada(s) exitosamente. Cajas restantes del convenio: {cajas_restantes}.', 'success')
                 
                 return redirect(url_for('admin.admin_anticipo_entregas', 
                                         entrega_exitosa=1, 
                                         id_anticipo=id_anticipo, 
                                         ids=ids_str, 
-                                        completado=es_completado,
+                                        completado=1 if cajas_restantes <= 0 else 0,
                                         cajas_despachadas=total_cajas,
-                                        cajas_restantes=cajas_restantes,
+                                        cajas_restantes=max(0, cajas_restantes),
                                         cliente=anticipo['Nombre_Cliente']))
                 
         except ValueError as e:
@@ -616,7 +607,7 @@ def admin_anticipo_entregas():
             usuario = cursor.fetchone()
             empresa_id = usuario['ID_Empresa'] if usuario else None
             
-            # 1. Obtener anticipos activos disponibles - VERSIÓN CORREGIDA
+            # 1. Obtener anticipos activos o vigentes para despacho (incluye los que están en 0 pero en convenio activo)
             cursor.execute("""
                 SELECT 
                     a.ID_Anticipo,
@@ -649,13 +640,12 @@ def admin_anticipo_entregas():
                 FROM anticipos_clientes a
                 INNER JOIN clientes c ON a.ID_Cliente = c.ID_Cliente
                 INNER JOIN productos p ON a.ID_Producto = p.ID_Producto
-                WHERE a.Estado = 'ACTIVO' 
-                  AND (a.Cantidad_Cajas - a.Cajas_Consumidas) > 0
-                ORDER BY c.Nombre, a.Fecha_Anticipo ASC
+                WHERE a.Estado = 'ACTIVO' OR (c.Anticipo_Activo = 1 AND a.Estado != 'CANCELADO')
+                ORDER BY c.Nombre, a.Fecha_Anticipo DESC
             """)
             anticipos_disponibles = cursor.fetchall()
             
-            # 2. Obtener sucursales de clientes que poseen anticipos activos
+            # 2. Obtener sucursales de clientes que poseen convenios de anticipos
             cursor.execute("""
                 SELECT DISTINCT s.ID_Sucursal, s.Nombre_Sucursal, s.Direccion, s.Encargado,
                        c.Nombre as Nombre_Cliente, c.ID_Cliente
@@ -664,8 +654,7 @@ def admin_anticipo_entregas():
                 INNER JOIN anticipos_clientes a ON a.ID_Cliente = c.ID_Cliente
                 WHERE s.Estado = 'ACTIVO' 
                   AND c.Estado = 'ACTIVO'
-                  AND a.Estado = 'ACTIVO'
-                  AND (a.Cantidad_Cajas - a.Cajas_Consumidas) > 0
+                  AND a.Estado != 'CANCELADO'
                 ORDER BY c.Nombre, s.Nombre_Sucursal
             """)
             sucursales = cursor.fetchall()
@@ -1003,9 +992,11 @@ def ticket_entregas(id_anticipo):
             # Totales globales del anticipo
             total_cajas_anticipo = anticipo['Total_Cajas_Anticipo']
             total_cajas_consumidas = anticipo['Cajas_Consumidas']
-            cajas_pendientes = max(0, total_cajas_anticipo - total_cajas_consumidas)
+            cajas_pendientes_calculadas = total_cajas_anticipo - total_cajas_consumidas
+            cajas_pendientes = max(0, cajas_pendientes_calculadas)
+            cajas_sobregiro = abs(cajas_pendientes_calculadas) if cajas_pendientes_calculadas < 0 else 0
             saldo_restante_monto = max(0.0, float(anticipo['Saldo_Restante']))
-            anticipo_completado = (cajas_pendientes == 0) or (anticipo['Estado'] == 'COMPLETADO')
+            anticipo_completado = (cajas_pendientes_calculadas <= 0) or (anticipo['Estado'] == 'COMPLETADO')
             
             # Consolidado global de TODAS las sucursales (histórico total)
             sucursales_historico = {}
@@ -1052,6 +1043,7 @@ def ticket_entregas(id_anticipo):
                                  total_cajas_rango=total_cajas_rango,
                                  total_monto_rango=total_monto_rango,
                                  cajas_pendientes=cajas_pendientes,
+                                 cajas_sobregiro=cajas_sobregiro,
                                  saldo_restante_monto=saldo_restante_monto,
                                  anticipo_completado=anticipo_completado,
                                  es_consolidado=es_consolidado,
