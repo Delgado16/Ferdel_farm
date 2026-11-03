@@ -2094,6 +2094,101 @@
 
             window.addEventListener('resize', handleResize);
             handleResize();
+
+            // ========== PROTECCIÓN GLOBAL CONTRA DOBLE CLIC / DOBLE SUBMIT ==========
+            (function initDoubleSubmitProtection() {
+                // 1. Manejo en formularios tradicionales
+                document.addEventListener('submit', function (e) {
+                    const form = e.target;
+                    if (!form || form.tagName !== 'FORM') return;
+
+                    // Si el formulario tiene data-no-prevent-double o ya fue prevenido, omitir
+                    if (form.getAttribute('data-no-prevent-double') === 'true' || e.defaultPrevented) {
+                        return;
+                    }
+
+                    // Verificar validación HTML5 nativa antes de bloquear (ej. campos required)
+                    if (typeof form.checkValidity === 'function' && !form.checkValidity()) {
+                        return;
+                    }
+
+                    // Prevenir si ya está siendo procesado
+                    if (form.dataset.isSubmitting === 'true') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return false;
+                    }
+
+                    form.dataset.isSubmitting = 'true';
+
+                    // Buscar botón submit asociado
+                    const submitBtn = form.querySelector('button[type="submit"], input[type="submit"]') ||
+                                      (form.id ? document.querySelector(`button[type="submit"][form="${form.id}"], input[type="submit"][form="${form.id}"]`) : null);
+
+                    if (submitBtn) {
+                        submitBtn.classList.add('disabled');
+                        submitBtn.setAttribute('aria-disabled', 'true');
+                        submitBtn.style.pointerEvents = 'none';
+                        submitBtn.style.opacity = '0.75';
+
+                        // Si es un <button>, añadir spinner de carga
+                        if (submitBtn.tagName === 'BUTTON' && !submitBtn.querySelector('.spinner-border')) {
+                            const originalText = submitBtn.innerHTML;
+                            submitBtn.dataset.originalHtml = originalText;
+                            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>' + (submitBtn.textContent.trim() ? submitBtn.textContent.trim() : 'Procesando...');
+                        }
+                    }
+
+                    // En caso de validación en segundo plano o retraso, rehabilitar tras 10 segundos de seguridad
+                    setTimeout(function () {
+                        if (form.dataset.isSubmitting === 'true') {
+                            form.dataset.isSubmitting = 'false';
+                            if (submitBtn) {
+                                submitBtn.classList.remove('disabled');
+                                submitBtn.removeAttribute('aria-disabled');
+                                submitBtn.style.pointerEvents = '';
+                                submitBtn.style.opacity = '';
+                                if (submitBtn.dataset.originalHtml) {
+                                    submitBtn.innerHTML = submitBtn.dataset.originalHtml;
+                                }
+                            }
+                        }
+                    }, 10000);
+                }, true); // Use capture para interceptar antes que otros handlers si es necesario
+
+                // 2. Manejo en clics de enlaces de acción (.btn)
+                document.addEventListener('click', function (e) {
+                    const btn = e.target.closest('a.btn');
+                    if (!btn) return;
+
+                    // Ignorar si es un disparador de modales, collapse, dropdowns o navegación vacía
+                    const href = btn.getAttribute('href');
+                    if (!href || href === '#' || href.startsWith('#') || href.startsWith('javascript:')) return;
+                    if (btn.hasAttribute('data-bs-toggle') || btn.hasAttribute('data-toggle')) return;
+                    if (btn.getAttribute('target') === '_blank') return;
+                    if (btn.getAttribute('data-no-prevent-double') === 'true') return;
+
+                    if (btn.dataset.isClicked === 'true') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return false;
+                    }
+
+                    btn.dataset.isClicked = 'true';
+                    btn.classList.add('disabled');
+                    btn.setAttribute('aria-disabled', 'true');
+                    btn.style.pointerEvents = 'none';
+                    btn.style.opacity = '0.7';
+
+                    setTimeout(function () {
+                        btn.dataset.isClicked = 'false';
+                        btn.classList.remove('disabled');
+                        btn.removeAttribute('aria-disabled');
+                        btn.style.pointerEvents = '';
+                        btn.style.opacity = '';
+                    }, 6000);
+                }, true);
+            })();
         });
     </script>
 

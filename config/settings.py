@@ -14,7 +14,17 @@ if not hasattr(datetime, '__patched__'):
     _original_datetime = datetime.datetime
     _original_date = datetime.date
 
-    class SafeDatetime(_original_datetime):
+    class SafeDate(_original_date):
+        @classmethod
+        def today(cls):
+            try:
+                dt = _original_datetime.now(ZoneInfo('America/Managua'))
+                return cls(dt.year, dt.month, dt.day)
+            except Exception:
+                d = _original_date.today()
+                return cls(d.year, d.month, d.day)
+
+    class SafeDatetime(_original_datetime, SafeDate):
         @classmethod
         def now(cls, tz=None):
             if tz is None:
@@ -34,18 +44,8 @@ if not hasattr(datetime, '__patched__'):
                 dt = _original_datetime.utcnow()
             return cls(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, dt.microsecond, dt.tzinfo)
 
-    class SafeDate(_original_date):
-        @classmethod
-        def today(cls):
-            try:
-                dt = _original_datetime.now(ZoneInfo('America/Managua'))
-                return cls(dt.year, dt.month, dt.day)
-            except Exception:
-                d = _original_date.today()
-                return cls(d.year, d.month, d.day)
-
-    datetime.datetime = SafeDatetime
     datetime.date = SafeDate
+    datetime.datetime = SafeDatetime
     datetime.__patched__ = True
 
 # También configurar a nivel de sistema operativo

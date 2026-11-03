@@ -62,60 +62,65 @@ def admin_ultimo_precio_cliente():
 @admin_or_bodega_required
 @bitacora_decorator("VENTAS-SALIDAS")
 def admin_ventas_salidas():
-    fecha_str = request.args.get('fecha')
-    estado_filtro = request.args.get('estado', 'todas').upper()
+    fecha_str = request.args.get('fecha', '')
+    estado_filtro = request.args.get('estado', '').upper()
     tipo_filtro = request.args.get('tipo', '').upper()
+    search_filtro = request.args.get('search', '').strip()
     
     try:
-        # Procesar los filtros especiales de fecha del frontend
-        if fecha_str == 'today':
-            fecha = datetime.now().date()
-        elif fecha_str == 'yesterday':
-            fecha = (datetime.now() - timedelta(days=1)).date()
-        elif fecha_str in ['week', 'month']:
-            fecha = datetime.now().date() # Se manejará diferente en el query
-        else:
-            fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date() if fecha_str else datetime.now().date()
-
-        # Verificar si hay filtros aplicados por el usuario
-        is_filtered = (estado_filtro != 'TODAS' or tipo_filtro != '' or (fecha_str is not None and fecha_str != ''))
-        
         with get_db_cursor(True) as cursor:
             # Construir condiciones WHERE dinámicamente
             where_conditions = []
             params = []
             
-            # Comportamiento por defecto: Mostrar las ventas de hoy
-            if not is_filtered or fecha_str == 'today':
-                where_conditions.append("DATE(f.Fecha) = %s")
-                params.append(datetime.now().date())
+            # Filtro de fecha
+            if fecha_str == 'today':
+                where_conditions.append("DATE(f.Fecha) = CURDATE()")
             elif fecha_str == 'yesterday':
-                where_conditions.append("DATE(f.Fecha) = %s")
-                params.append((datetime.now() - timedelta(days=1)).date())
+                where_conditions.append("DATE(f.Fecha) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)")
             elif fecha_str == 'week':
                 where_conditions.append("YEARWEEK(f.Fecha, 1) = YEARWEEK(CURDATE(), 1)")
             elif fecha_str == 'month':
                 where_conditions.append("MONTH(f.Fecha) = MONTH(CURDATE()) AND YEAR(f.Fecha) = YEAR(CURDATE())")
             elif fecha_str:
-                where_conditions.append("DATE(f.Fecha) = %s")
-                params.append(fecha)
+                try:
+                    fecha_obj = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+                    where_conditions.append("DATE(f.Fecha) = %s")
+                    params.append(fecha_obj)
+                except ValueError:
+                    pass
             
-            if estado_filtro == 'ACTIVAS':
+            # Filtro por estado
+            if estado_filtro == 'ACTIVA' or estado_filtro == 'ACTIVAS':
                 where_conditions.append("f.Estado = 'Activa'")
-            elif estado_filtro == 'ANULADAS':
+            elif estado_filtro == 'ANULADA' or estado_filtro == 'ANULADAS':
                 where_conditions.append("f.Estado = 'Anulada'")
             
-            # Agregar filtro por tipo de venta (Contado/Crédito)
+            # Filtro por tipo de venta (Contado/Crédito/Reparto)
             if tipo_filtro == 'CONTADO':
                 where_conditions.append("f.Credito_Contado = 0")
             elif tipo_filtro == 'CREDITO':
                 where_conditions.append("f.Credito_Contado = 1")
+            elif tipo_filtro == 'REPARTO':
+                where_conditions.append("f.Credito_Contado = 2")
+                
+            # Filtro por texto de búsqueda en backend si se envía por GET
+            if search_filtro:
+                search_like = f"%{search_filtro}%"
+                where_conditions.append("""(
+                    CAST(f.ID_Factura AS CHAR) LIKE %s 
+                    OR c.Nombre LIKE %s 
+                    OR c.RUC_CEDULA LIKE %s 
+                    OR b.Nombre LIKE %s 
+                    OR u.NombreUsuario LIKE %s
+                )""")
+                params.extend([search_like, search_like, search_like, search_like, search_like])
             
             where_clause = ""
             if where_conditions:
                 where_clause = "WHERE " + " AND ".join(where_conditions)
                 
-            limit_clause = "LIMIT 30" if is_filtered else ""
+            limit_clause = "LIMIT 300" if (fecha_str or estado_filtro or tipo_filtro or search_filtro) else "LIMIT 500"
             
             # Usar subconsulta para obtener solo el movimiento más reciente de cada venta
             cursor.execute(f"""

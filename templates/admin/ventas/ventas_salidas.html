@@ -745,38 +745,10 @@
     </div>
 </div>
 
-
-                    </div>
-                </div>
-            </div>
-
-            <!-- Pie del Modal -->
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary px-3 py-2 rounded-3 fw-semibold"
-                    data-bs-dismiss="modal">
-                    <i class="fas fa-times me-1"></i> Cancelar
-                </button>
-                <button type="button" class="btn btn-danger px-4 py-2 rounded-3 fw-bold shadow-sm"
-                    id="btnConfirmarAnulacion" disabled>
-                    <i class="fas fa-ban me-1"></i>
-                    <span id="btnAnularText">Confirmar Anulación</span>
-                    <span id="btnAnularSpinner" class="spinner-border spinner-border-sm ms-1" style="display: none;"
-                        role="status"></span>
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
 {% endblock %}
 
 {% block extra_js %}
 <script>
-    // ============================================
-    // VARIABLES GLOBALES
-    // ============================================
-    
-
     // ============================================
     // FUNCIONES DE UTILIDAD
     // ============================================
@@ -798,9 +770,6 @@
         });
     }
 
-    `;
-    }
-
     // ============================================
     // SISTEMA DE FILTRADO
     // ============================================
@@ -813,18 +782,18 @@
     };
 
     function actualizarFiltros() {
-        const estadoValue = document.getElementById('estadoFilter').value;
-        const tipoValue = document.getElementById('tipoVentaFilter').value;
-        const fechaValue = document.getElementById('fechaFilter').value;
-        const searchValue = document.getElementById('searchInput').value.trim();
+        const estadoSelect = document.getElementById('estadoFilter');
+        const tipoSelect = document.getElementById('tipoVentaFilter');
+        const fechaSelect = document.getElementById('fechaFilter');
+        const searchInput = document.getElementById('searchInput');
 
-        const params = new URLSearchParams();
-        if (estadoValue) params.append('estado', estadoValue);
-        if (tipoValue) params.append('tipo', tipoValue);
-        if (fechaValue) params.append('fecha', fechaValue);
-        if (searchValue) params.append('search', searchValue);
+        activeFilters.estado = estadoSelect ? estadoSelect.value : '';
+        activeFilters.tipo = tipoSelect ? tipoSelect.value : '';
+        activeFilters.fecha = fechaSelect ? fechaSelect.value : '';
+        activeFilters.search = searchInput ? searchInput.value.toLowerCase().trim() : '';
 
-        window.location.href = window.location.pathname + '?' + params.toString();
+        aplicarFiltrosLocales();
+        actualizarBadgesFiltros();
     }
 
     function aplicarFiltrosLocales() {
@@ -916,11 +885,18 @@
     function evaluarFiltroFecha(fechaStr, filtro) {
         if (!fechaStr) return false;
 
+        const partes = fechaStr.split('-');
+        if (partes.length !== 3) return false;
+
+        const año = parseInt(partes[0], 10);
+        const mes = parseInt(partes[1], 10) - 1;
+        const dia = parseInt(partes[2], 10);
+
+        const fecha = new Date(año, mes, dia);
+        fecha.setHours(0, 0, 0, 0);
+
         const hoy = new Date();
         hoy.setHours(0, 0, 0, 0);
-
-        const fecha = new Date(fechaStr);
-        fecha.setHours(0, 0, 0, 0);
 
         const ayer = new Date(hoy);
         ayer.setDate(ayer.getDate() - 1);
@@ -944,8 +920,35 @@
         }
     }
 
+    function actualizarBadgesFiltros() {
+        const activeCount = Object.values(activeFilters).filter(v => v && v !== '').length;
+        const activeCountSpan = document.getElementById('activeFiltersCount');
+        if (activeCountSpan) {
+            if (activeCount > 0) {
+                activeCountSpan.style.display = 'inline-block';
+                activeCountSpan.textContent = activeCount;
+            } else {
+                activeCountSpan.style.display = 'none';
+            }
+        }
+    }
+
     function limpiarFiltros() {
-        window.location.href = window.location.pathname;
+        const estadoSelect = document.getElementById('estadoFilter');
+        const tipoSelect = document.getElementById('tipoVentaFilter');
+        const fechaSelect = document.getElementById('fechaFilter');
+        const searchInput = document.getElementById('searchInput');
+        const clearBtn = document.getElementById('clearSearchBtn');
+
+        if (estadoSelect) estadoSelect.value = '';
+        if (tipoSelect) tipoSelect.value = '';
+        if (fechaSelect) fechaSelect.value = '';
+        if (searchInput) searchInput.value = '';
+        if (clearBtn) clearBtn.style.display = 'none';
+
+        activeFilters = { estado: '', tipo: '', fecha: '', search: '' };
+        aplicarFiltrosLocales();
+        actualizarBadgesFiltros();
     }
 
     // ============================================
@@ -1059,6 +1062,12 @@
         document.getElementById('tipoVentaFilter')?.addEventListener('change', actualizarFiltros);
         document.getElementById('fechaFilter')?.addEventListener('change', actualizarFiltros);
 
+        document.getElementById('searchInput')?.addEventListener('input', function (e) {
+            actualizarFiltros();
+            const clearBtn = document.getElementById('clearSearchBtn');
+            if (clearBtn) clearBtn.style.display = e.target.value ? 'block' : 'none';
+        });
+
         document.getElementById('searchInput')?.addEventListener('keypress', function (e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -1066,14 +1075,11 @@
             }
         });
 
-        document.getElementById('searchInput')?.addEventListener('input', function (e) {
-            const clearBtn = document.getElementById('clearSearchBtn');
-            if (clearBtn) clearBtn.style.display = e.target.value ? 'block' : 'none';
-        });
-
         document.getElementById('clearSearchBtn')?.addEventListener('click', function () {
-            document.getElementById('searchInput').value = '';
+            const input = document.getElementById('searchInput');
+            if (input) input.value = '';
             actualizarFiltros();
+            this.style.display = 'none';
         });
 
         document.getElementById('clearFiltersBtn')?.addEventListener('click', limpiarFiltros);
