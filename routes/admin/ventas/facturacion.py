@@ -2950,16 +2950,18 @@ def admin_anular_factura():
                                 WHERE ID_Bodega = %s AND ID_Producto = %s
                             """, (cantidad, id_bodega, id_producto))
                 
-                # ============ 3. ANULAR MOVIMIENTOS DE CAJA (EFECTIVO) ============
+                # ============ 3. ANULAR MOVIMIENTOS DE CAJA (EFECTIVO) Y ABONOS ============
                 monto_caja_anulado = 0.0
                 if tipo == 'ruta':
                     # Anular en movimientos_caja_ruta (Caja del vendedor de la ruta)
                     cursor.execute("""
-                        SELECT ID_Movimiento, Monto 
+                        SELECT ID_Movimiento, Monto, Tipo, ID_Cliente 
                         FROM movimientos_caja_ruta 
                         WHERE ID_FacturaRuta = %s AND Estado = 'ACTIVO'
                     """, (id_factura,))
                     movs_caja_ruta = cursor.fetchall()
+                    movs_caja_ruta_ids = [m['ID_Movimiento'] for m in movs_caja_ruta]
+                    
                     for mcr in movs_caja_ruta:
                         monto_caja_anulado += float(mcr['Monto'] or 0)
                     
@@ -2969,6 +2971,42 @@ def admin_anular_factura():
                             SET Estado = 'ANULADO'
                             WHERE ID_FacturaRuta = %s AND Estado = 'ACTIVO'
                         """, (id_factura,))
+                    
+                    # Anular/eliminar abonos relacionados a la factura o a sus movimientos de caja de ruta
+                    # Buscar abonos en abonos_detalle asociados a los movimientos de caja de la factura
+                    # o a la cuenta por cobrar de esta factura
+                    if movs_caja_ruta_ids:
+                        format_ids = ','.join(['%s'] * len(movs_caja_ruta_ids))
+                        cursor.execute(f"""
+                            SELECT ID_Detalle, ID_Cliente, Monto_Aplicado, ID_CuentaCobrar
+                            FROM abonos_detalle
+                            WHERE ID_Movimiento_Caja IN ({format_ids})
+                        """, tuple(movs_caja_ruta_ids))
+                        abonos_relacionados = cursor.fetchall()
+                    else:
+                        abonos_relacionados = []
+
+                    # También buscar abonos vinculados a la cuenta por cobrar de esta factura
+                    cursor.execute("""
+                        SELECT ad.ID_Detalle, ad.ID_Cliente, ad.Monto_Aplicado, ad.ID_CuentaCobrar
+                        FROM abonos_detalle ad
+                        INNER JOIN cuentas_por_cobrar cxc ON ad.ID_CuentaCobrar = cxc.ID_Movimiento
+                        WHERE cxc.ID_FacturaRuta = %s
+                    """, (id_factura,))
+                    abonos_cxc = cursor.fetchall()
+
+                    # Combinar abonos evitando duplicados por ID_Detalle
+                    todos_abonos = {}
+                    for ab in (abonos_relacionados + abonos_cxc):
+                        todos_abonos[ab['ID_Detalle']] = ab
+
+                    if todos_abonos:
+                        detalles_eliminar = list(todos_abonos.keys())
+                        format_abonos = ','.join(['%s'] * len(detalles_eliminar))
+                        cursor.execute(f"""
+                            DELETE FROM abonos_detalle
+                            WHERE ID_Detalle IN ({format_abonos})
+                        """, tuple(detalles_eliminar))
                     
                     # Buscar y anular si existiera algún registro en caja_movimientos general para la factura de ruta
                     cursor.execute("""

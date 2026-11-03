@@ -1784,7 +1784,10 @@ def vendedor_pdf_cierre(id_asignacion):
                 LEFT JOIN clientes c ON ad.ID_Cliente = c.ID_Cliente
                 LEFT JOIN metodos_pago mp ON ad.ID_MetodoPago = mp.ID_MetodoPago
                 LEFT JOIN cuentas_por_cobrar cxc ON ad.ID_CuentaCobrar = cxc.ID_Movimiento
+                LEFT JOIN movimientos_caja_ruta mcr ON ad.ID_Movimiento_Caja = mcr.ID_Movimiento
                 WHERE ad.ID_Asignacion = %s
+                  AND (ad.ID_Movimiento_Caja IS NULL OR mcr.Estado = 'ACTIVO')
+                  AND (cxc.Estado IS NULL OR cxc.Estado != 'Anulada')
                 ORDER BY ad.ID_Detalle ASC
             """, (id_asignacion,))
             abonos_raw = cursor.fetchall()
@@ -2228,7 +2231,10 @@ def vendedor_ticket_cierre(id_asignacion):
                 LEFT JOIN clientes c ON ad.ID_Cliente = c.ID_Cliente
                 LEFT JOIN metodos_pago mp ON ad.ID_MetodoPago = mp.ID_MetodoPago
                 LEFT JOIN cuentas_por_cobrar cxc ON ad.ID_CuentaCobrar = cxc.ID_Movimiento
+                LEFT JOIN movimientos_caja_ruta mcr ON ad.ID_Movimiento_Caja = mcr.ID_Movimiento
                 WHERE ad.ID_Asignacion = %s
+                  AND (ad.ID_Movimiento_Caja IS NULL OR mcr.Estado = 'ACTIVO')
+                  AND (cxc.Estado IS NULL OR cxc.Estado != 'Anulada')
                 ORDER BY ad.ID_Detalle ASC
             """, (id_asignacion,))
             abonos_raw = cursor.fetchall()

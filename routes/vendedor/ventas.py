@@ -1477,11 +1477,27 @@ def vendedor_venta_anular(id_venta):
                         WHERE ID_Asignacion = %s AND ID_Producto = %s
                     """, (item['Cantidad'], item['ID_Asignacion'], item['ID_Producto']))
             
-            # Si es crédito, anular cuenta por cobrar
+            # Si es crédito, anular cuenta por cobrar y ajustar saldo del cliente
             if venta_data[0]['Credito_Contado'] == 2:
                 cursor.execute("""
+                    SELECT ID_Movimiento, Saldo_Pendiente, ID_Cliente
+                    FROM cuentas_por_cobrar
+                    WHERE Num_Documento = %s AND Estado != 'Anulada'
+                """, (f"FAC-R{id_venta}",))
+                cxc_rows = cursor.fetchall()
+                for cxc in cxc_rows:
+                    if cxc.get('ID_Cliente') and float(cxc.get('Saldo_Pendiente') or 0) > 0:
+                        cursor.execute("""
+                            UPDATE clientes
+                            SET Saldo_Pendiente_Total = GREATEST(0, COALESCE(Saldo_Pendiente_Total, 0) - %s),
+                                Fecha_Ultimo_Movimiento = NOW()
+                            WHERE ID_Cliente = %s
+                        """, (float(cxc['Saldo_Pendiente']), cxc['ID_Cliente']))
+
+                cursor.execute("""
                     UPDATE cuentas_por_cobrar 
-                    SET Estado = 'Anulada'
+                    SET Estado = 'Anulada',
+                        Saldo_Pendiente = 0
                     WHERE Num_Documento = %s
                 """, (f"FAC-R{id_venta}",))
             
@@ -1493,12 +1509,47 @@ def vendedor_venta_anular(id_venta):
                 WHERE ID_FacturaRuta = %s
             """, (motivo, id_venta))
             
+            # Obtener IDs de movimientos de caja de ruta antes de anularlos
+            cursor.execute("""
+                SELECT ID_Movimiento FROM movimientos_caja_ruta
+                WHERE ID_FacturaRuta = %s AND Estado = 'ACTIVO'
+            """, (id_venta,))
+            movs_caja_ruta = cursor.fetchall()
+            movs_caja_ruta_ids = [m['ID_Movimiento'] for m in movs_caja_ruta]
+
             # Anular movimientos en caja de ruta (movimientos_caja_ruta)
             cursor.execute("""
                 UPDATE movimientos_caja_ruta 
                 SET Estado = 'ANULADO'
                 WHERE ID_FacturaRuta = %s AND Estado = 'ACTIVO'
             """, (id_venta,))
+
+            # Eliminar abonos relacionados a la venta o a sus movimientos de caja
+            if movs_caja_ruta_ids:
+                format_ids = ','.join(['%s'] * len(movs_caja_ruta_ids))
+                cursor.execute(f"""
+                    SELECT ID_Detalle FROM abonos_detalle
+                    WHERE ID_Movimiento_Caja IN ({format_ids})
+                """, tuple(movs_caja_ruta_ids))
+                abonos_relacionados = cursor.fetchall()
+            else:
+                abonos_relacionados = []
+
+            cursor.execute("""
+                SELECT ad.ID_Detalle
+                FROM abonos_detalle ad
+                INNER JOIN cuentas_por_cobrar cxc ON ad.ID_CuentaCobrar = cxc.ID_Movimiento
+                WHERE cxc.ID_FacturaRuta = %s OR cxc.Num_Documento = %s
+            """, (id_venta, f"FAC-R{id_venta}"))
+            abonos_cxc = cursor.fetchall()
+
+            detalles_eliminar = list(set([a['ID_Detalle'] for a in (abonos_relacionados + abonos_cxc)]))
+            if detalles_eliminar:
+                format_abonos = ','.join(['%s'] * len(detalles_eliminar))
+                cursor.execute(f"""
+                    DELETE FROM abonos_detalle
+                    WHERE ID_Detalle IN ({format_abonos})
+                """, tuple(detalles_eliminar))
             
             # Anular movimientos en caja_movimientos si existen
             cursor.execute("""

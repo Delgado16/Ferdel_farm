@@ -77,9 +77,11 @@ def admin_monitoreo_vendedores():
                     SELECT COALESCE(SUM(ad.Monto_Aplicado), 0) as total_abonos_efectivo
                     FROM abonos_detalle ad
                     LEFT JOIN metodos_pago mp ON ad.ID_MetodoPago = mp.ID_MetodoPago
+                    LEFT JOIN movimientos_caja_ruta mcr ON ad.ID_Movimiento_Caja = mcr.ID_Movimiento
                     WHERE ad.ID_Asignacion = %s 
                       AND DATE(ad.Fecha) = %s
                       AND (mp.Nombre = 'Efectivo' OR mp.Nombre = 'CONTADO' OR ad.ID_MetodoPago IS NULL)
+                      AND (ad.ID_Movimiento_Caja IS NULL OR mcr.Estado = 'ACTIVO')
                 """, (id_asignacion, fecha_consulta))
                 abonos_efectivo = cursor.fetchone()['total_abonos_efectivo']
                 abonos_efectivo = float(abonos_efectivo) if abonos_efectivo else 0.0
@@ -871,8 +873,10 @@ def finalizar_asignacion_ruta(id):
                 SELECT COALESCE(SUM(ad.Monto_Aplicado), 0) as total_abonos
                 FROM abonos_detalle ad
                 LEFT JOIN metodos_pago mp ON ad.ID_MetodoPago = mp.ID_MetodoPago
+                LEFT JOIN movimientos_caja_ruta mcr ON ad.ID_Movimiento_Caja = mcr.ID_Movimiento
                 WHERE ad.ID_Asignacion = %s 
                   AND (mp.Nombre = 'Efectivo' OR mp.Nombre = 'CONTADO' OR ad.ID_MetodoPago IS NULL)
+                  AND (ad.ID_Movimiento_Caja IS NULL OR mcr.Estado = 'ACTIVO')
             """, (id,))
             abonos_efectivo = float(cursor.fetchone()['total_abonos'] or 0)
             
