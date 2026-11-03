@@ -731,8 +731,8 @@
                 <div class="text-slate-600 small">
                     <i class="fas fa-chart-pie text-info me-1"></i>
                     Distribución:
-                    <span class="text-success fw-bold">{{ ventas_contado|default(0) }} contado</span> |
-                    <span class="text-warning fw-bold">{{ ventas_credito|default(0) }} crédito</span>
+                    <span class="text-success fw-bold" id="footerContado">{{ ventas_contado|default(0) }} contado</span> |
+                    <span class="text-warning fw-bold" id="footerCredito">{{ ventas_credito|default(0) }} crédito</span>
                 </div>
                 <div class="text-slate-600 small">
                     <i class="fas fa-percent text-secondary me-1"></i>
@@ -880,20 +880,37 @@
 
         const totalVentasSpan = document.getElementById('totalVentasCount');
         if (totalVentasSpan) totalVentasSpan.textContent = visibleCount;
+
+        const footerContado = document.getElementById('footerContado');
+        if (footerContado) footerContado.textContent = `${contadoCount} contado`;
+
+        const footerCredito = document.getElementById('footerCredito');
+        if (footerCredito) footerCredito.textContent = `${creditoCount} crédito`;
+
+        const porcCredEl = document.getElementById('porcentajeCredito');
+        if (porcCredEl) {
+            const pct = visibleCount > 0 ? ((creditoCount / visibleCount) * 100).toFixed(1) : 0;
+            porcCredEl.textContent = pct;
+        }
     }
 
     function evaluarFiltroFecha(fechaStr, filtro) {
         if (!fechaStr) return false;
 
-        const partes = fechaStr.split('-');
-        if (partes.length !== 3) return false;
+        function parsearFechaLocal(fechaStr) {
+            if (!fechaStr) return null;
+            const partes = fechaStr.split('-');
+            if (partes.length !== 3) return null;
+            const año = parseInt(partes[0], 10);
+            const mes = parseInt(partes[1], 10) - 1;
+            const dia = parseInt(partes[2], 10);
+            const fecha = new Date(año, mes, dia);
+            fecha.setHours(0, 0, 0, 0);
+            return fecha;
+        }
 
-        const año = parseInt(partes[0], 10);
-        const mes = parseInt(partes[1], 10) - 1;
-        const dia = parseInt(partes[2], 10);
-
-        const fecha = new Date(año, mes, dia);
-        fecha.setHours(0, 0, 0, 0);
+        const fechaObj = parsearFechaLocal(fechaStr);
+        if (!fechaObj || isNaN(fechaObj.getTime())) return false;
 
         const hoy = new Date();
         hoy.setHours(0, 0, 0, 0);
@@ -901,21 +918,29 @@
         const ayer = new Date(hoy);
         ayer.setDate(ayer.getDate() - 1);
 
+        // Lunes de la semana actual
+        const diaSemana = hoy.getDay(); // 0: Dom, 1: Lun, ... 6: Sab
+        const distLunes = (diaSemana + 6) % 7;
         const inicioSemana = new Date(hoy);
-        inicioSemana.setDate(hoy.getDate() - hoy.getDay());
+        inicioSemana.setDate(hoy.getDate() - distLunes);
 
         const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
 
         switch (filtro) {
             case 'today':
-                return fecha.getTime() === hoy.getTime();
+                return fechaObj.getTime() === hoy.getTime();
             case 'yesterday':
-                return fecha.getTime() === ayer.getTime();
+                return fechaObj.getTime() === ayer.getTime();
             case 'week':
-                return fecha >= inicioSemana;
+                return fechaObj >= inicioSemana && fechaObj <= hoy;
             case 'month':
-                return fecha >= inicioMes;
+                return fechaObj >= inicioMes && fechaObj <= hoy;
             default:
+                // Si es una fecha específica YYYY-MM-DD
+                const filtroDate = parsearFechaLocal(filtro);
+                if (filtroDate && !isNaN(filtroDate.getTime())) {
+                    return fechaObj.getTime() === filtroDate.getTime();
+                }
                 return true;
         }
     }
@@ -1054,8 +1079,8 @@
         // Formatear monedas
         formatearTodosLosValoresMonetarios();
 
-        // Aplicar filtros iniciales
-        aplicarFiltrosLocales();
+        // Inicializar filtros con los valores seleccionados (del server o del DOM)
+        actualizarFiltros();
 
         // Listeners de filtros
         document.getElementById('estadoFilter')?.addEventListener('change', actualizarFiltros);
