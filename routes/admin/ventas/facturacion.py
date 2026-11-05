@@ -2953,7 +2953,16 @@ def admin_anular_factura():
                 # ============ 3. ANULAR MOVIMIENTOS DE CAJA (EFECTIVO) Y ABONOS ============
                 monto_caja_anulado = 0.0
                 if tipo == 'ruta':
-                    # Anular en movimientos_caja_ruta (Caja del vendedor de la ruta)
+                    # Obtener cuentas por cobrar asociadas a esta factura de ruta primero
+                    cursor.execute("""
+                        SELECT ID_Movimiento, Saldo_Pendiente, ID_Cliente 
+                        FROM cuentas_por_cobrar 
+                        WHERE (ID_FacturaRuta = %s OR Num_Documento = %s) AND Estado != 'Anulada'
+                    """, (id_factura, f"FAC-R{id_factura}"))
+                    cxc_ruta_rows = cursor.fetchall()
+                    ids_cxc_ruta = set(c['ID_Movimiento'] for c in cxc_ruta_rows)
+
+                    # Anular en movimientos_caja_ruta (Caja del vendedor de la ruta: venta y abono)
                     cursor.execute("""
                         SELECT ID_Movimiento, Monto, Tipo, ID_Cliente 
                         FROM movimientos_caja_ruta 
@@ -2973,8 +2982,7 @@ def admin_anular_factura():
                         """, (id_factura,))
                     
                     # Anular/eliminar abonos relacionados a la factura o a sus movimientos de caja de ruta
-                    # Buscar abonos en abonos_detalle asociados a los movimientos de caja de la factura
-                    # o a la cuenta por cobrar de esta factura
+                    abonos_relacionados = []
                     if movs_caja_ruta_ids:
                         format_ids = ','.join(['%s'] * len(movs_caja_ruta_ids))
                         cursor.execute(f"""
@@ -2983,23 +2991,53 @@ def admin_anular_factura():
                             WHERE ID_Movimiento_Caja IN ({format_ids})
                         """, tuple(movs_caja_ruta_ids))
                         abonos_relacionados = cursor.fetchall()
-                    else:
-                        abonos_relacionados = []
 
                     # También buscar abonos vinculados a la cuenta por cobrar de esta factura
-                    cursor.execute("""
-                        SELECT ad.ID_Detalle, ad.ID_Cliente, ad.Monto_Aplicado, ad.ID_CuentaCobrar
-                        FROM abonos_detalle ad
-                        INNER JOIN cuentas_por_cobrar cxc ON ad.ID_CuentaCobrar = cxc.ID_Movimiento
-                        WHERE cxc.ID_FacturaRuta = %s
-                    """, (id_factura,))
-                    abonos_cxc = cursor.fetchall()
+                    abonos_cxc = []
+                    if ids_cxc_ruta:
+                        format_cxc = ','.join(['%s'] * len(ids_cxc_ruta))
+                        cursor.execute(f"""
+                            SELECT ID_Detalle, ID_Cliente, Monto_Aplicado, ID_CuentaCobrar
+                            FROM abonos_detalle
+                            WHERE ID_CuentaCobrar IN ({format_cxc})
+                        """, tuple(ids_cxc_ruta))
+                        abonos_cxc = cursor.fetchall()
 
-                    # Combinar abonos evitando duplicados por ID_Detalle
-                    todos_abonos = {}
-                    for ab in (abonos_relacionados + abonos_cxc):
-                        todos_abonos[ab['ID_Detalle']] = ab
+                    # Si el abono realizado en esta venta se aplicó a una factura anterior o saldo general,
+                    # al anularse la venta y su efectivo en caja, esa deuda previa DEBE RESTAURARSE
+                    for ab in abonos_relacionados:
+                        id_cxc_abono = ab.get('ID_CuentaCobrar')
+                        monto_abono = float(ab.get('Monto_Aplicado') or 0)
+                        id_cli_abono = ab.get('ID_Cliente')
+                        
+                        if monto_abono > 0:
+                            if id_cxc_abono and id_cxc_abono not in ids_cxc_ruta:
+                                # Restaurar saldo de la cuenta anterior que había recibido el abono
+                                cursor.execute("""
+                                    UPDATE cuentas_por_cobrar
+                                    SET Saldo_Pendiente = Saldo_Pendiente + %s,
+                                        Estado = 'Pendiente'
+                                    WHERE ID_Movimiento = %s
+                                """, (monto_abono, id_cxc_abono))
+                                # Restaurar saldo pendiente del cliente
+                                if id_cli_abono:
+                                    cursor.execute("""
+                                        UPDATE clientes
+                                        SET Saldo_Pendiente_Total = COALESCE(Saldo_Pendiente_Total, 0) + %s,
+                                            Fecha_Ultimo_Movimiento = NOW()
+                                        WHERE ID_Cliente = %s
+                                    """, (monto_abono, id_cli_abono))
+                            elif not id_cxc_abono and id_cli_abono:
+                                # Era abono a saldo general del cliente: restaurar saldo
+                                cursor.execute("""
+                                    UPDATE clientes
+                                    SET Saldo_Pendiente_Total = COALESCE(Saldo_Pendiente_Total, 0) + %s,
+                                        Fecha_Ultimo_Movimiento = NOW()
+                                    WHERE ID_Cliente = %s
+                                """, (monto_abono, id_cli_abono))
 
+                    # Combinar abonos evitando duplicados por ID_Detalle y eliminar de abonos_detalle
+                    todos_abonos = {ab['ID_Detalle']: ab for ab in (abonos_relacionados + abonos_cxc)}
                     if todos_abonos:
                         detalles_eliminar = list(todos_abonos.keys())
                         format_abonos = ','.join(['%s'] * len(detalles_eliminar))
@@ -3065,8 +3103,8 @@ def admin_anular_factura():
                     cursor.execute("""
                         SELECT ID_Movimiento, Saldo_Pendiente, ID_Cliente 
                         FROM cuentas_por_cobrar 
-                        WHERE ID_FacturaRuta = %s AND Estado != 'Anulada'
-                    """, (id_factura,))
+                        WHERE (ID_FacturaRuta = %s OR Num_Documento = %s) AND Estado != 'Anulada'
+                    """, (id_factura, f"FAC-R{id_factura}"))
                 else:
                     cursor.execute("""
                         SELECT ID_Movimiento, Saldo_Pendiente, ID_Cliente 

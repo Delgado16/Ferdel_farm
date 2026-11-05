@@ -818,42 +818,36 @@ def vendedor_venta_crear():
                         
                         facturas_pendientes = cursor.fetchall()
                         
-                        # 6.2 Calcular saldo actual de caja para el abono
-                        cursor.execute("""
-                            SELECT COALESCE(SUM(CASE 
-                                WHEN Tipo = 'GASTO' THEN -Monto 
-                                ELSE Monto 
-                            END), 0) as Saldo_Actual
-                            FROM movimientos_caja_ruta
-                            WHERE ID_Asignacion = %s 
-                              AND Estado = 'ACTIVO'
-                              AND Tipo != 'CIERRE'
-                        """, (asignacion['ID_Asignacion'],))
-                        
-                        saldo_result = cursor.fetchone()
+                        # 6.2 Calcular saldo actual de caja física
                         saldo_actual_abono = calcular_saldo_caja_ruta(cursor, asignacion['ID_Asignacion'])
-                        nuevo_saldo_caja = saldo_actual_abono + abono_monto
-                        
-                        id_movimiento_caja = None
                         if id_metodo_pago == 1:
-                            # 6.3 Registrar movimiento de abono en caja (SÍ porque es efectivo real)
-                            cursor.execute("""
-                                INSERT INTO movimientos_caja_ruta
-                                (ID_Asignacion, ID_Usuario, Tipo, Concepto, Monto, 
-                                 Tipo_Pago, ID_FacturaRuta, ID_Cliente, Saldo_Acumulado, Estado, ID_MetodoPago)
-                                VALUES (%s, %s, 'ABONO', %s, %s, %s, %s, %s, %s, 'ACTIVO', %s)
-                            """, (
-                                asignacion['ID_Asignacion'],
-                                id_vendedor,
-                                f"Abono a cuenta - Factura #{id_factura}",
-                                abono_monto,
-                                'CONTADO' if tipo_venta == '1' else 'CREDITO',
-                                id_factura,
-                                int(id_cliente),
-                                nuevo_saldo_caja,
-                                id_metodo_pago
-                            ))
-                            id_movimiento_caja = cursor.lastrowid
+                            nuevo_saldo_caja = saldo_actual_abono + abono_monto
+                        else:
+                            nuevo_saldo_caja = saldo_actual_abono
+                        
+                        # Obtener nombre del método de pago para el concepto
+                        cursor.execute("SELECT Nombre FROM metodos_pago WHERE ID_MetodoPago = %s", (id_metodo_pago,))
+                        mp_abono_row = cursor.fetchone()
+                        nombre_mp_abono = mp_abono_row['Nombre'] if mp_abono_row and mp_abono_row.get('Nombre') else ('Efectivo' if id_metodo_pago == 1 else 'Transferencia')
+                        
+                        # 6.3 Registrar movimiento de abono (se registra para TODO método de pago para historial, trazabilidad y emisión del ticket)
+                        cursor.execute("""
+                            INSERT INTO movimientos_caja_ruta
+                            (ID_Asignacion, ID_Usuario, Tipo, Concepto, Monto, 
+                             Tipo_Pago, ID_FacturaRuta, ID_Cliente, Saldo_Acumulado, Estado, ID_MetodoPago)
+                            VALUES (%s, %s, 'ABONO', %s, %s, %s, %s, %s, %s, 'ACTIVO', %s)
+                        """, (
+                            asignacion['ID_Asignacion'],
+                            id_vendedor,
+                            f"Abono a cuenta ({nombre_mp_abono}) - Factura #{id_factura}",
+                            abono_monto,
+                            'CONTADO' if tipo_venta == '1' else 'CREDITO',
+                            id_factura,
+                            int(id_cliente),
+                            nuevo_saldo_caja,
+                            id_metodo_pago
+                        ))
+                        id_movimiento_caja = cursor.lastrowid
                         
                         # 6.4 Distribuir el abono entre las facturas pendientes
                         monto_restante = abono_monto
@@ -973,6 +967,7 @@ def vendedor_generar_ticket_ruta(id_venta):
                     fr.ID_MetodoPago,
                     COALESCE(mp.Nombre, 'Efectivo') as Metodo_Pago_Nombre,
                     fr.Saldo_Anterior_Cliente,
+                    fr.ID_Asignacion,
                     fr.ID_Usuario_Creacion,
                     c.ID_Cliente,
                     c.Nombre as Cliente,
@@ -1093,7 +1088,7 @@ def vendedor_generar_ticket_ruta(id_venta):
             
             facturas_pendientes = cursor.fetchall()
             
-            # Obtener el abono que se realizó EN ESTA VENTA
+            # Obtener el abono que se realizó EN ESTA VENTA (independientemente del método de pago)
             cursor.execute("""
                 SELECT 
                     m.ID_Movimiento,
@@ -1102,8 +1097,11 @@ def vendedor_generar_ticket_ruta(id_venta):
                     m.Concepto,
                     DATE_FORMAT(m.Fecha, '%d/%m/%Y %H:%i') as Fecha_Hora,
                     m.Tipo_Pago,
-                    m.Estado
+                    m.Estado,
+                    m.ID_MetodoPago,
+                    COALESCE(mp.Nombre, 'Efectivo') as Metodo_Pago_Nombre
                 FROM movimientos_caja_ruta m
+                LEFT JOIN metodos_pago mp ON m.ID_MetodoPago = mp.ID_MetodoPago
                 WHERE m.ID_Cliente = %s 
                 AND m.ID_FacturaRuta = %s
                 AND m.Tipo = 'ABONO'
@@ -1127,10 +1125,68 @@ def vendedor_generar_ticket_ruta(id_venta):
             abonos_result = cursor.fetchone()
             abonos_esta_factura = float(abonos_result['Total_Abonado'] if abonos_result else 0)
             
+            # Fallback para abonos registrados previamente o en abonos_detalle (transferencias previas)
+            if not abono_actual or abonos_esta_factura <= 0:
+                cursor.execute("""
+                    SELECT 
+                        ad.ID_Detalle as ID_Movimiento,
+                        ad.Fecha,
+                        ad.Monto_Aplicado as Monto,
+                        CONCAT('Abono a cuenta (', COALESCE(mp.Nombre, 'Transferencia'), ')') as Concepto,
+                        DATE_FORMAT(ad.Fecha, '%d/%m/%Y %H:%i') as Fecha_Hora,
+                        'CREDITO' as Tipo_Pago,
+                        'ACTIVO' as Estado,
+                        ad.ID_MetodoPago,
+                        COALESCE(mp.Nombre, 'Transferencia') as Metodo_Pago_Nombre
+                    FROM abonos_detalle ad
+                    INNER JOIN cuentas_por_cobrar cxc ON ad.ID_CuentaCobrar = cxc.ID_Movimiento
+                    LEFT JOIN metodos_pago mp ON ad.ID_MetodoPago = mp.ID_MetodoPago
+                    WHERE cxc.ID_FacturaRuta = %s
+                    ORDER BY ad.ID_Detalle DESC
+                    LIMIT 1
+                """, (id_venta,))
+                abono_cxc = cursor.fetchone()
+                if abono_cxc:
+                    abono_actual = abono_cxc
+                    cursor.execute("""
+                        SELECT COALESCE(SUM(ad.Monto_Aplicado), 0) as Total_Abonado
+                        FROM abonos_detalle ad
+                        INNER JOIN cuentas_por_cobrar cxc ON ad.ID_CuentaCobrar = cxc.ID_Movimiento
+                        WHERE cxc.ID_FacturaRuta = %s
+                    """, (id_venta,))
+                    res_cxc = cursor.fetchone()
+                    abonos_esta_factura = float(res_cxc['Total_Abonado'] if res_cxc else 0)
+                elif factura.get('Fecha_Creacion'):
+                    cursor.execute("""
+                        SELECT 
+                            ad.ID_Detalle as ID_Movimiento,
+                            ad.Fecha,
+                            ad.Monto_Aplicado as Monto,
+                            CONCAT('Abono a cuenta (', COALESCE(mp.Nombre, 'Transferencia'), ')') as Concepto,
+                            DATE_FORMAT(ad.Fecha, '%d/%m/%Y %H:%i') as Fecha_Hora,
+                            'CREDITO' as Tipo_Pago,
+                            'ACTIVO' as Estado,
+                            ad.ID_MetodoPago,
+                            COALESCE(mp.Nombre, 'Transferencia') as Metodo_Pago_Nombre
+                        FROM abonos_detalle ad
+                        LEFT JOIN metodos_pago mp ON ad.ID_MetodoPago = mp.ID_MetodoPago
+                        WHERE ad.ID_Cliente = %s
+                          AND ad.ID_Movimiento_Caja IS NULL
+                          AND ABS(TIMESTAMPDIFF(MINUTE, ad.Fecha, %s)) <= 5
+                        ORDER BY ad.ID_Detalle DESC
+                        LIMIT 1
+                    """, (factura['ID_Cliente'], factura['Fecha_Creacion']))
+                    abono_cxc2 = cursor.fetchone()
+                    if abono_cxc2:
+                        abono_actual = abono_cxc2
+                        abonos_esta_factura = float(abono_cxc2['Monto'])
+
             # Determinar el abono que dio el cliente en esta venta
+            metodo_pago_abono = None
             if abono_actual:
                 abono_cliente = float(abono_actual['Monto'])
-                concepto_abono = abono_actual['Concepto'] or 'ABONO A CUENTA'
+                metodo_pago_abono = abono_actual.get('Metodo_Pago_Nombre', 'Efectivo')
+                concepto_abono = abono_actual['Concepto'] or f'ABONO A CUENTA ({metodo_pago_abono})'
                 fecha_abono = abono_actual['Fecha_Hora']
             else:
                 abono_cliente = abonos_esta_factura
@@ -1258,6 +1314,7 @@ def vendedor_generar_ticket_ruta(id_venta):
                                  abono_cliente=abono_cliente,
                                  abono_cliente_formateado=abono_cliente_formateado,
                                  concepto_abono=concepto_abono,
+                                 metodo_pago_abono=metodo_pago_abono,
                                  fecha_abono=fecha_abono,
                                  nuevo_saldo_pendiente=nuevo_saldo_pendiente,
                                  nuevo_saldo_pendiente_formateado=nuevo_saldo_pendiente_formateado,
@@ -1468,7 +1525,16 @@ def vendedor_venta_anular(id_venta):
                 flash('No se puede anular la venta. Solo puedes anular ventas del día', 'error')
                 return redirect(url_for('vendedor.vendedor_venta_detalle', id_venta=id_venta))
             
-            # Devolver productos al inventario
+            # 1. Obtener cuentas por cobrar asociadas a esta factura de ruta
+            cursor.execute("""
+                SELECT ID_Movimiento, Saldo_Pendiente, ID_Cliente
+                FROM cuentas_por_cobrar
+                WHERE (ID_FacturaRuta = %s OR Num_Documento = %s) AND Estado != 'Anulada'
+            """, (id_venta, f"FAC-R{id_venta}"))
+            cxc_rows = cursor.fetchall()
+            ids_cxc_esta_factura = set(c['ID_Movimiento'] for c in cxc_rows)
+            
+            # 2. Devolver productos al inventario de ruta
             for item in venta_data:
                 if item['ID_Producto']:
                     cursor.execute("""
@@ -1477,31 +1543,7 @@ def vendedor_venta_anular(id_venta):
                         WHERE ID_Asignacion = %s AND ID_Producto = %s
                     """, (item['Cantidad'], item['ID_Asignacion'], item['ID_Producto']))
             
-            # Si es crédito, anular cuenta por cobrar y ajustar saldo del cliente
-            if venta_data[0]['Credito_Contado'] == 2:
-                cursor.execute("""
-                    SELECT ID_Movimiento, Saldo_Pendiente, ID_Cliente
-                    FROM cuentas_por_cobrar
-                    WHERE Num_Documento = %s AND Estado != 'Anulada'
-                """, (f"FAC-R{id_venta}",))
-                cxc_rows = cursor.fetchall()
-                for cxc in cxc_rows:
-                    if cxc.get('ID_Cliente') and float(cxc.get('Saldo_Pendiente') or 0) > 0:
-                        cursor.execute("""
-                            UPDATE clientes
-                            SET Saldo_Pendiente_Total = GREATEST(0, COALESCE(Saldo_Pendiente_Total, 0) - %s),
-                                Fecha_Ultimo_Movimiento = NOW()
-                            WHERE ID_Cliente = %s
-                        """, (float(cxc['Saldo_Pendiente']), cxc['ID_Cliente']))
-
-                cursor.execute("""
-                    UPDATE cuentas_por_cobrar 
-                    SET Estado = 'Anulada',
-                        Saldo_Pendiente = 0
-                    WHERE Num_Documento = %s
-                """, (f"FAC-R{id_venta}",))
-            
-            # Anular factura
+            # 3. Anular factura de ruta
             cursor.execute("""
                 UPDATE facturacion_ruta 
                 SET Estado = 'Anulada',
@@ -1509,47 +1551,107 @@ def vendedor_venta_anular(id_venta):
                 WHERE ID_FacturaRuta = %s
             """, (motivo, id_venta))
             
-            # Obtener IDs de movimientos de caja de ruta antes de anularlos
+            # 4. Obtener y anular movimientos en caja de ruta (tanto venta como abonos)
             cursor.execute("""
-                SELECT ID_Movimiento FROM movimientos_caja_ruta
+                SELECT ID_Movimiento, Monto, Tipo, ID_Cliente 
+                FROM movimientos_caja_ruta
                 WHERE ID_FacturaRuta = %s AND Estado = 'ACTIVO'
             """, (id_venta,))
             movs_caja_ruta = cursor.fetchall()
             movs_caja_ruta_ids = [m['ID_Movimiento'] for m in movs_caja_ruta]
 
-            # Anular movimientos en caja de ruta (movimientos_caja_ruta)
-            cursor.execute("""
-                UPDATE movimientos_caja_ruta 
-                SET Estado = 'ANULADO'
-                WHERE ID_FacturaRuta = %s AND Estado = 'ACTIVO'
-            """, (id_venta,))
+            if movs_caja_ruta:
+                cursor.execute("""
+                    UPDATE movimientos_caja_ruta 
+                    SET Estado = 'ANULADO'
+                    WHERE ID_FacturaRuta = %s AND Estado = 'ACTIVO'
+                """, (id_venta,))
 
-            # Eliminar abonos relacionados a la venta o a sus movimientos de caja
+            # 5. Revertir y anular abonos asociados
+            abonos_relacionados = []
             if movs_caja_ruta_ids:
                 format_ids = ','.join(['%s'] * len(movs_caja_ruta_ids))
                 cursor.execute(f"""
-                    SELECT ID_Detalle FROM abonos_detalle
+                    SELECT ID_Detalle, ID_Cliente, Monto_Aplicado, ID_CuentaCobrar
+                    FROM abonos_detalle
                     WHERE ID_Movimiento_Caja IN ({format_ids})
                 """, tuple(movs_caja_ruta_ids))
                 abonos_relacionados = cursor.fetchall()
-            else:
-                abonos_relacionados = []
 
-            cursor.execute("""
-                SELECT ad.ID_Detalle
-                FROM abonos_detalle ad
-                INNER JOIN cuentas_por_cobrar cxc ON ad.ID_CuentaCobrar = cxc.ID_Movimiento
-                WHERE cxc.ID_FacturaRuta = %s OR cxc.Num_Documento = %s
-            """, (id_venta, f"FAC-R{id_venta}"))
-            abonos_cxc = cursor.fetchall()
+            # También abonos vinculados a la cuenta por cobrar de esta factura
+            abonos_cxc = []
+            if ids_cxc_esta_factura:
+                format_cxc = ','.join(['%s'] * len(ids_cxc_esta_factura))
+                cursor.execute(f"""
+                    SELECT ID_Detalle, ID_Cliente, Monto_Aplicado, ID_CuentaCobrar
+                    FROM abonos_detalle
+                    WHERE ID_CuentaCobrar IN ({format_cxc})
+                """, tuple(ids_cxc_esta_factura))
+                abonos_cxc = cursor.fetchall()
 
-            detalles_eliminar = list(set([a['ID_Detalle'] for a in (abonos_relacionados + abonos_cxc)]))
-            if detalles_eliminar:
+            # Si el abono realizado en esta venta se aplicó a una factura anterior o saldo general,
+            # al anularse la venta y el dinero en caja, esa deuda previa DEBE RESTAURARSE
+            for ab in abonos_relacionados:
+                id_cxc_abono = ab.get('ID_CuentaCobrar')
+                monto_abono = float(ab.get('Monto_Aplicado') or 0)
+                id_cli_abono = ab.get('ID_Cliente')
+                
+                if monto_abono > 0:
+                    if id_cxc_abono and id_cxc_abono not in ids_cxc_esta_factura:
+                        # Restaurar saldo de la cuenta anterior que había sido abonada
+                        cursor.execute("""
+                            UPDATE cuentas_por_cobrar
+                            SET Saldo_Pendiente = Saldo_Pendiente + %s,
+                                Estado = 'Pendiente'
+                            WHERE ID_Movimiento = %s
+                        """, (monto_abono, id_cxc_abono))
+                        # Restaurar saldo del cliente
+                        if id_cli_abono:
+                            cursor.execute("""
+                                UPDATE clientes
+                                SET Saldo_Pendiente_Total = COALESCE(Saldo_Pendiente_Total, 0) + %s,
+                                    Fecha_Ultimo_Movimiento = NOW()
+                                WHERE ID_Cliente = %s
+                            """, (monto_abono, id_cli_abono))
+                    elif not id_cxc_abono and id_cli_abono:
+                        # Era abono a saldo general del cliente: restaurar saldo
+                        cursor.execute("""
+                            UPDATE clientes
+                            SET Saldo_Pendiente_Total = COALESCE(Saldo_Pendiente_Total, 0) + %s,
+                                Fecha_Ultimo_Movimiento = NOW()
+                            WHERE ID_Cliente = %s
+                        """, (monto_abono, id_cli_abono))
+
+            # Eliminar registros de abonos_detalle
+            todos_abonos = {a['ID_Detalle']: a for a in (abonos_relacionados + abonos_cxc)}
+            if todos_abonos:
+                detalles_eliminar = list(todos_abonos.keys())
                 format_abonos = ','.join(['%s'] * len(detalles_eliminar))
                 cursor.execute(f"""
                     DELETE FROM abonos_detalle
                     WHERE ID_Detalle IN ({format_abonos})
                 """, tuple(detalles_eliminar))
+
+            # 6. Anular cuentas por cobrar de esta factura y ajustar saldo del cliente
+            for cxc in cxc_rows:
+                saldo_cxc = float(cxc.get('Saldo_Pendiente') or 0)
+                id_cli = cxc.get('ID_Cliente')
+                
+                cursor.execute("""
+                    UPDATE cuentas_por_cobrar 
+                    SET Estado = 'Anulada',
+                        Saldo_Pendiente = 0,
+                        Observacion = CONCAT(COALESCE(Observacion, ''), ' | [ANULADA: ', %s, ']')
+                    WHERE ID_Movimiento = %s
+                """, (motivo, cxc['ID_Movimiento']))
+
+                if id_cli and saldo_cxc > 0:
+                    cursor.execute("""
+                        UPDATE clientes
+                        SET Saldo_Pendiente_Total = GREATEST(0, COALESCE(Saldo_Pendiente_Total, 0) - %s),
+                            Fecha_Ultimo_Movimiento = NOW()
+                        WHERE ID_Cliente = %s
+                    """, (saldo_cxc, id_cli))
             
             # Anular movimientos en caja_movimientos si existen
             cursor.execute("""
@@ -2010,38 +2112,34 @@ def api_registrar_venta_offline():
                 facturas_pendientes = cursor.fetchall()
                 
                 if facturas_pendientes:
-                    id_movimiento_caja = None
+                    # Calcular saldo actual de caja física
+                    saldo_actual = calcular_saldo_caja_ruta(cursor, asignacion['ID_Asignacion'])
                     if id_metodo_pago == 1:
-                        # Registrar movimiento de abono en caja (SOLO SI ES EFECTIVO)
-                        cursor.execute("""
-                            SELECT COALESCE(SUM(CASE 
-                                WHEN Tipo = 'GASTO' THEN -Monto 
-                                ELSE Monto 
-                            END), 0) as Saldo_Actual
-                            FROM movimientos_caja_ruta
-                            WHERE ID_Asignacion = %s 
-                              AND Estado = 'ACTIVO'
-                              AND Tipo != 'CIERRE'
-                        """, (asignacion['ID_Asignacion'],))
-                        saldo_actual = calcular_saldo_caja_ruta(cursor, asignacion['ID_Asignacion'])
                         nuevo_saldo_caja = saldo_actual + monto_abono
-                        
-                        cursor.execute("""
-                            INSERT INTO movimientos_caja_ruta
-                            (ID_Asignacion, ID_Usuario, Tipo, Concepto, Monto, 
-                             Tipo_Pago, ID_FacturaRuta, ID_Cliente, Saldo_Acumulado, Estado, ID_MetodoPago)
-                            VALUES (%s, %s, 'ABONO', %s, %s, %s, %s, %s, %s, 'ACTIVO', 1)
-                        """, (
-                            asignacion['ID_Asignacion'],
-                            id_vendedor,
-                            f"Abono a cuenta - Factura #{id_factura}",
-                            monto_abono,
-                            'CONTADO' if data['tipo_venta'] == '1' else 'CREDITO',
-                            id_factura,
-                            int(data['cliente_id']),
-                            nuevo_saldo_caja
-                        ))
-                        id_movimiento_caja = cursor.lastrowid
+                    else:
+                        nuevo_saldo_caja = saldo_actual
+                    
+                    cursor.execute("SELECT Nombre FROM metodos_pago WHERE ID_MetodoPago = %s", (id_metodo_pago,))
+                    mp_abono_row = cursor.fetchone()
+                    nombre_mp_abono = mp_abono_row['Nombre'] if mp_abono_row and mp_abono_row.get('Nombre') else ('Efectivo' if id_metodo_pago == 1 else 'Transferencia')
+                    
+                    cursor.execute("""
+                        INSERT INTO movimientos_caja_ruta
+                        (ID_Asignacion, ID_Usuario, Tipo, Concepto, Monto, 
+                         Tipo_Pago, ID_FacturaRuta, ID_Cliente, Saldo_Acumulado, Estado, ID_MetodoPago)
+                        VALUES (%s, %s, 'ABONO', %s, %s, %s, %s, %s, %s, 'ACTIVO', %s)
+                    """, (
+                        asignacion['ID_Asignacion'],
+                        id_vendedor,
+                        f"Abono a cuenta ({nombre_mp_abono}) - Factura #{id_factura}",
+                        monto_abono,
+                        'CONTADO' if data['tipo_venta'] == '1' else 'CREDITO',
+                        id_factura,
+                        int(data['cliente_id']),
+                        nuevo_saldo_caja,
+                        id_metodo_pago
+                    ))
+                    id_movimiento_caja = cursor.lastrowid
                     
                     # Distribuir el abono
                     monto_restante = monto_abono

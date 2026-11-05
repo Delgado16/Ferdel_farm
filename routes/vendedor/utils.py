@@ -145,7 +145,8 @@ def obtener_asignacion_activa(cursor, id_usuario):
 def calcular_saldo_caja_ruta(cursor, id_asignacion):
     """
     Calcula de forma estandarizada el saldo de efectivo actual en la caja de la ruta
-    para una asignación dada (Apertura + Ventas Contado + Abonos - Gastos).
+    para una asignación dada (Apertura + Ventas Contado Efectivo + Abonos Efectivo - Gastos).
+    Solo considera dinero en efectivo físico (ID_MetodoPago = 1 o NULL).
     """
     if not id_asignacion:
         return 0.0
@@ -154,8 +155,9 @@ def calcular_saldo_caja_ruta(cursor, id_asignacion):
         SELECT COALESCE(SUM(CASE
             WHEN Tipo = 'GASTO' THEN -Monto
             WHEN Tipo = 'CIERRE' THEN 0
-            WHEN Tipo IN ('APERTURA', 'ABONO') THEN Monto
-            WHEN Tipo = 'VENTA' AND (Tipo_Pago = 'CONTADO' OR Tipo_Pago IS NULL) THEN Monto
+            WHEN Tipo = 'APERTURA' THEN Monto
+            WHEN Tipo = 'ABONO' AND (ID_MetodoPago = 1 OR ID_MetodoPago IS NULL) THEN Monto
+            WHEN Tipo = 'VENTA' AND (Tipo_Pago = 'CONTADO' OR Tipo_Pago IS NULL) AND (ID_MetodoPago = 1 OR ID_MetodoPago IS NULL) THEN Monto
             ELSE 0
         END), 0) AS Saldo_Actual
         FROM movimientos_caja_ruta

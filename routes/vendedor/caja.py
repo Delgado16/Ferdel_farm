@@ -59,8 +59,9 @@ def mis_movimientos_caja():
                     COALESCE(SUM(CASE 
                         WHEN Tipo = 'GASTO' THEN -Monto 
                         WHEN Tipo = 'CIERRE' THEN 0
-                        WHEN Tipo IN ('APERTURA', 'ABONO') THEN Monto
-                        WHEN Tipo = 'VENTA' AND (Tipo_Pago = 'CONTADO' OR Tipo_Pago IS NULL) THEN Monto
+                        WHEN Tipo = 'APERTURA' THEN Monto
+                        WHEN Tipo = 'ABONO' AND (ID_MetodoPago = 1 OR ID_MetodoPago IS NULL) THEN Monto
+                        WHEN Tipo = 'VENTA' AND (Tipo_Pago = 'CONTADO' OR Tipo_Pago IS NULL) AND (ID_MetodoPago = 1 OR ID_MetodoPago IS NULL) THEN Monto
                         ELSE 0 
                     END), 0) as Saldo_Actual,
                     COALESCE(SUM(CASE 
