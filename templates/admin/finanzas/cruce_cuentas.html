@@ -564,10 +564,16 @@
                                         <span class="d-none d-md-inline ms-1">Cruzar</span>
                                     </button>
                                     {% endif %}
-                                    <button type="button" class="btn btn-outline-secondary btn-action" 
+                                    <button type="button" class="btn btn-outline-secondary btn-action btn-ver-movimientos" 
                                             title="Ver Movimientos (Ventas, Compras, Abonos)"
-                                            data-bs-toggle="modal" 
-                                            data-bs-target="#modalMovimientos_{{ item.cliente.id }}_{{ item.proveedor.id }}">
+                                            data-cliente-id="{{ item.cliente.id }}"
+                                            data-proveedor-id="{{ item.proveedor.id }}"
+                                            data-cliente-nombre="{{ item.cliente.nombre }}"
+                                            data-proveedor-nombre="{{ item.proveedor.nombre }}"
+                                            data-saldo-cxc="{{ '{:,.2f}'.format(item.cliente.saldo_cxc) }}"
+                                            data-saldo-cxp="{{ '{:,.2f}'.format(item.proveedor.saldo_cxp) }}"
+                                            data-url-cliente="{{ url_for('admin.admin_detalle_cliente', id=item.cliente.id) }}"
+                                            data-url-proveedor="{{ url_for('admin.admin_detalle_proveedor', id=item.proveedor.id) }}">
                                         <i class="bi bi-eye"></i>
                                         <span class="d-none d-md-inline ms-1">Movimientos</span>
                                     </button>
@@ -640,222 +646,6 @@
                                     </div>
                                 </div>
                                 {% endif %}
-
-                                <!-- MODAL DE MOVIMIENTOS DETALLADOS -->
-                                <div class="modal fade" id="modalMovimientos_{{ item.cliente.id }}_{{ item.proveedor.id }}" tabindex="-1" aria-hidden="true">
-                                    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-                                        <div class="modal-content rounded-4 border-0 shadow-lg text-start">
-                                            <div class="modal-header bg-white border-bottom p-4">
-                                                <div class="d-flex align-items-center gap-3">
-                                                    <div class="p-3 bg-primary bg-opacity-10 text-primary rounded-3">
-                                                        <i class="bi bi-arrow-left-right fs-3"></i>
-                                                    </div>
-                                                    <div>
-                                                        <h5 class="modal-title fw-bold text-slate-900 mb-1">
-                                                            Expediente de Cruce: {{ item.cliente.nombre }}
-                                                        </h5>
-                                                        <div class="small text-slate-500">
-                                                            Contraparte vinculada: <strong class="text-slate-800">{{ item.proveedor.nombre }}</strong> &bull;
-                                                            Saldo CxC: <span class="font-monospace text-slate-900 fw-bold">C$ {{ "{:,.2f}".format(item.cliente.saldo_cxc) }}</span> &bull;
-                                                            Saldo CxP: <span class="font-monospace text-danger fw-bold">C$ {{ "{:,.2f}".format(item.proveedor.saldo_cxp) }}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                            </div>
-
-                                            <div class="modal-body p-4">
-                                                <!-- Pestañas de Movimientos -->
-                                                <ul class="nav nav-tabs mb-4" id="tabMov_{{ item.cliente.id }}_{{ item.proveedor.id }}" role="tablist">
-                                                    <li class="nav-item" role="presentation">
-                                                        <button class="nav-link active" id="tab-ventas-{{ item.cliente.id }}" data-bs-toggle="tab" data-bs-target="#content-ventas-{{ item.cliente.id }}" type="button" role="tab">
-                                                            <i class="bi bi-cart4 me-1"></i> Ventas al Cliente ({{ item.cliente.ultimas_ventas|length }})
-                                                        </button>
-                                                    </li>
-                                                    <li class="nav-item" role="presentation">
-                                                        <button class="nav-link" id="tab-compras-{{ item.cliente.id }}" data-bs-toggle="tab" data-bs-target="#content-compras-{{ item.cliente.id }}" type="button" role="tab">
-                                                            <i class="bi bi-box-seam me-1"></i> Compras al Proveedor ({{ item.proveedor.ultimas_compras|length }})
-                                                        </button>
-                                                    </li>
-                                                    <li class="nav-item" role="presentation">
-                                                        <button class="nav-link" id="tab-abonos-{{ item.cliente.id }}" data-bs-toggle="tab" data-bs-target="#content-abonos-{{ item.cliente.id }}" type="button" role="tab">
-                                                            <i class="bi bi-wallet2 me-1"></i> Abonos y Pagos Realizados
-                                                        </button>
-                                                    </li>
-                                                </ul>
-
-                                                <div class="tab-content" id="tabContent_{{ item.cliente.id }}_{{ item.proveedor.id }}">
-                                                    <!-- Pestaña 1: Ventas -->
-                                                    <div class="tab-pane fade show active" id="content-ventas-{{ item.cliente.id }}" role="tabpanel">
-                                                        <div class="table-responsive border rounded-3">
-                                                            <table class="table table-hover align-middle mb-0 small">
-                                                                <thead class="table-light">
-                                                                    <tr>
-                                                                        <th>N° Factura</th>
-                                                                        <th>Fecha</th>
-                                                                        <th>Tipo</th>
-                                                                        <th class="text-end">Total</th>
-                                                                        <th class="text-center">Estado</th>
-                                                                        <th class="text-center">Acción</th>
-                                                                    </tr>
-                                                                </thead>
-                                                                <tbody>
-                                                                    {% for v in item.cliente.ultimas_ventas %}
-                                                                    <tr>
-                                                                        <td class="fw-bold font-monospace">#{{ v.ID_Factura }}</td>
-                                                                        <td>{{ v.Fecha.strftime('%d/%m/%Y') if v.Fecha else 'N/A' }}</td>
-                                                                        <td>
-                                                                            {% if v.Credito_Contado == 0 %}
-                                                                                <span class="badge-modern badge-contado" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">Contado</span>
-                                                                            {% else %}
-                                                                                <span class="badge-modern badge-credito" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">Crédito</span>
-                                                                            {% endif %}
-                                                                        </td>
-                                                                        <td class="text-end fw-bold font-monospace" style="color: #0f172a;">C$ {{ "{:,.2f}".format(v.Total) }}</td>
-                                                                        <td class="text-center">
-                                                                            <span class="badge-modern {% if v.Estado == 'Activa' %}badge-activa{% else %}badge-anulada{% endif %}" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">
-                                                                                {{ v.Estado }}
-                                                                            </span>
-                                                                        </td>
-                                                                        <td class="text-center">
-                                                                            <a href="{{ url_for('admin.admin_detalles_venta', id_factura=v.ID_Factura) }}" 
-                                                                               class="btn btn-sm btn-outline-primary py-0 px-2" target="_blank">
-                                                                                Ver
-                                                                            </a>
-                                                                        </td>
-                                                                    </tr>
-                                                                    {% else %}
-                                                                    <tr><td colspan="6" class="text-center py-3 text-slate-500">Sin facturas recientes registradas.</td></tr>
-                                                                    {% endfor %}
-                                                                </tbody>
-                                                            </table>
-                                                        </div>
-                                                    </div>
-
-                                                    <!-- Pestaña 2: Compras -->
-                                                    <div class="tab-pane fade" id="content-compras-{{ item.cliente.id }}" role="tabpanel">
-                                                        <div class="table-responsive border rounded-3">
-                                                            <table class="table table-hover align-middle mb-0 small">
-                                                                <thead class="table-light">
-                                                                    <tr>
-                                                                        <th>N° Movimiento / Compra</th>
-                                                                        <th>Fecha</th>
-                                                                        <th>Tipo Compra</th>
-                                                                        <th class="text-end">Total</th>
-                                                                        <th class="text-center">Estado</th>
-                                                                    </tr>
-                                                                </thead>
-                                                                <tbody>
-                                                                    {% for c in item.proveedor.ultimas_compras %}
-                                                                    <tr>
-                                                                        <td class="fw-bold font-monospace">#{{ c.ID_Movimiento }}</td>
-                                                                        <td>{{ c.Fecha.strftime('%d/%m/%Y') if c.Fecha else 'N/A' }}</td>
-                                                                        <td>
-                                                                            <span class="badge-modern badge-credito" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">
-                                                                                {{ c.Tipo_Compra or 'Compra' }}
-                                                                            </span>
-                                                                        </td>
-                                                                        <td class="text-end fw-bold font-monospace text-slate-900">C$ {{ "{:,.2f}".format(c.Total) }}</td>
-                                                                        <td class="text-center">
-                                                                            <span class="badge-modern {% if c.Estado == 'Activa' %}badge-activa{% else %}badge-anulada{% endif %}" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">
-                                                                                {{ c.Estado }}
-                                                                            </span>
-                                                                        </td>
-                                                                    </tr>
-                                                                    {% else %}
-                                                                    <tr><td colspan="5" class="text-center py-3 text-slate-500">Sin compras recientes registradas.</td></tr>
-                                                                    {% endfor %}
-                                                                </tbody>
-                                                            </table>
-                                                        </div>
-                                                    </div>
-
-                                                    <!-- Pestaña 3: Abonos y Pagos -->
-                                                    <div class="tab-pane fade" id="content-abonos-{{ item.cliente.id }}" role="tabpanel">
-                                                        <div class="row g-3">
-                                                            <div class="col-md-6">
-                                                                <h6 class="fw-bold text-slate-800 mb-2">
-                                                                    <i class="bi bi-arrow-down-left text-success me-1"></i> Cobros / Abonos del Cliente
-                                                                </h6>
-                                                                <div class="table-responsive border rounded-3">
-                                                                    <table class="table table-hover align-middle mb-0 small">
-                                                                        <thead class="table-light">
-                                                                            <tr>
-                                                                                <th>Fecha</th>
-                                                                                <th>Método / Detalle</th>
-                                                                                <th class="text-end">Monto</th>
-                                                                            </tr>
-                                                                        </thead>
-                                                                        <tbody>
-                                                                            {% for a in item.cliente.ultimos_abonos %}
-                                                                            <tr>
-                                                                                <td>{{ a.Fecha.strftime('%d/%m/%Y') if a.Fecha else 'N/A' }}</td>
-                                                                                <td>
-                                                                                    {% if a.caja_movimientos == 'Cruce de Cuentas' %}
-                                                                                        <span class="badge bg-primary-subtle text-primary fw-bold">🔄 Cruce de Cuentas</span>
-                                                                                    {% else %}
-                                                                                        {{ a.Metodo or a.caja_movimientos or 'Abono' }}
-                                                                                    {% endif %}
-                                                                                </td>
-                                                                                <td class="text-end fw-bold font-monospace text-success">C$ {{ "{:,.2f}".format(a.Monto_Aplicado) }}</td>
-                                                                            </tr>
-                                                                            {% else %}
-                                                                            <tr><td colspan="3" class="text-center py-3 text-slate-500">Sin abonos registrados.</td></tr>
-                                                                            {% endfor %}
-                                                                        </tbody>
-                                                                    </table>
-                                                                </div>
-                                                            </div>
-                                                            <div class="col-md-6">
-                                                                <h6 class="fw-bold text-slate-800 mb-2">
-                                                                    <i class="bi bi-arrow-up-right text-danger me-1"></i> Pagos / Abonos al Proveedor
-                                                                </h6>
-                                                                <div class="table-responsive border rounded-3">
-                                                                    <table class="table table-hover align-middle mb-0 small">
-                                                                        <thead class="table-light">
-                                                                            <tr>
-                                                                                <th>Fecha</th>
-                                                                                <th>Método / Detalle</th>
-                                                                                <th class="text-end">Monto</th>
-                                                                            </tr>
-                                                                        </thead>
-                                                                        <tbody>
-                                                                            {% for p in item.proveedor.ultimos_pagos %}
-                                                                            <tr>
-                                                                                <td>{{ p.Fecha.strftime('%d/%m/%Y') if p.Fecha else 'N/A' }}</td>
-                                                                                <td>
-                                                                                    {% if 'Cruce' in (p.Detalles_Metodo or '') or 'Cruce' in (p.Comentarios or '') %}
-                                                                                        <span class="badge bg-primary-subtle text-primary fw-bold">🔄 Cruce de Cuentas</span>
-                                                                                    {% else %}
-                                                                                        {{ p.Metodo or p.Detalles_Metodo or 'Pago' }}
-                                                                                    {% endif %}
-                                                                                </td>
-                                                                                <td class="text-end fw-bold font-monospace text-danger">C$ {{ "{:,.2f}".format(p.Monto_Aplicado) }}</td>
-                                                                            </tr>
-                                                                            {% else %}
-                                                                            <tr><td colspan="3" class="text-center py-3 text-slate-500">Sin pagos registrados.</td></tr>
-                                                                            {% endfor %}
-                                                                        </tbody>
-                                                                    </table>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div class="modal-footer bg-light border-top">
-                                                <button type="button" class="btn btn-outline-secondary px-3 py-2 rounded-3" data-bs-dismiss="modal">Cerrar</button>
-                                                <a href="{{ url_for('admin.admin_detalle_cliente', id=item.cliente.id) }}" class="btn btn-outline-primary px-3 py-2 rounded-3 fw-bold">
-                                                    <i class="bi bi-box-arrow-up-right me-1"></i> Ver Expediente Cliente
-                                                </a>
-                                                <a href="{{ url_for('admin.admin_detalle_proveedor', id=item.proveedor.id) }}" class="btn btn-outline-secondary px-3 py-2 rounded-3 fw-bold">
-                                                    <i class="bi bi-box-arrow-up-right me-1"></i> Ver Expediente Proveedor
-                                                </a>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
                             </td>
                         </tr>
                         {% else %}
@@ -900,6 +690,159 @@
         </div>
     </div>
 </div>
+
+<!-- MODAL ÚNICO DINÁMICO DE MOVIMIENTOS DETALLADOS (CARGA BAJO DEMANDA VIA AJAX) -->
+<div class="modal fade" id="modalMovimientosDinamico" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content rounded-4 border-0 shadow-lg text-start">
+            <div class="modal-header bg-white border-bottom p-4">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="p-3 bg-primary bg-opacity-10 text-primary rounded-3">
+                        <i class="bi bi-arrow-left-right fs-3"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold text-slate-900 mb-1" id="dynModalTitle">
+                            Expediente de Cruce
+                        </h5>
+                        <div class="small text-slate-500">
+                            Contraparte vinculada: <strong class="text-slate-800" id="dynModalProvNombre"></strong> &bull;
+                            Saldo CxC: <span class="font-monospace text-slate-900 fw-bold" id="dynModalSaldoCxC"></span> &bull;
+                            Saldo CxP: <span class="font-monospace text-danger fw-bold" id="dynModalSaldoCxP"></span>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body p-4">
+                <!-- Spinner de carga inicial -->
+                <div id="dynModalLoading" class="text-center py-5">
+                    <div class="spinner-border text-primary" style="width: 2.75rem; height: 2.75rem;" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <div class="mt-3 text-slate-700 fw-semibold">Consultando movimientos en tiempo real...</div>
+                    <div class="text-slate-400 small">Extrayendo facturas, compras y abonos de ambas cuentas</div>
+                </div>
+
+                <!-- Contenido con Tabs -->
+                <div id="dynModalContent" style="display: none;">
+                    <ul class="nav nav-tabs mb-4" id="dynTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="dynTabVentasBtn" data-bs-toggle="tab" data-bs-target="#dynTabVentas" type="button" role="tab">
+                                <i class="bi bi-cart4 me-1"></i> Ventas al Cliente (<span id="dynVentasCount">0</span>)
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="dynTabComprasBtn" data-bs-toggle="tab" data-bs-target="#dynTabCompras" type="button" role="tab">
+                                <i class="bi bi-box-seam me-1"></i> Compras al Proveedor (<span id="dynComprasCount">0</span>)
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="dynTabAbonosBtn" data-bs-toggle="tab" data-bs-target="#dynTabAbonos" type="button" role="tab">
+                                <i class="bi bi-wallet2 me-1"></i> Abonos y Pagos Realizados
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content" id="dynTabsContent">
+                        <!-- Pestaña 1: Ventas -->
+                        <div class="tab-pane fade show active" id="dynTabVentas" role="tabpanel">
+                            <div class="table-responsive border rounded-3">
+                                <table class="table table-hover align-middle mb-0 small">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>N° Factura</th>
+                                            <th>Fecha</th>
+                                            <th>Tipo</th>
+                                            <th class="text-end">Total</th>
+                                            <th class="text-center">Estado</th>
+                                            <th class="text-center">Acción</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="dynTableVentasBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Pestaña 2: Compras -->
+                        <div class="tab-pane fade" id="dynTabCompras" role="tabpanel">
+                            <div class="table-responsive border rounded-3">
+                                <table class="table table-hover align-middle mb-0 small">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>N° Movimiento / Compra</th>
+                                            <th>Fecha</th>
+                                            <th>Tipo Compra</th>
+                                            <th class="text-end">Total</th>
+                                            <th class="text-center">Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="dynTableComprasBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Pestaña 3: Abonos y Pagos -->
+                        <div class="tab-pane fade" id="dynTabAbonos" role="tabpanel">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <h6 class="fw-bold text-slate-800 mb-2">
+                                        <i class="bi bi-arrow-down-left text-success me-1"></i> Cobros / Abonos del Cliente
+                                    </h6>
+                                    <div class="table-responsive border rounded-3">
+                                        <table class="table table-hover align-middle mb-0 small">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Fecha</th>
+                                                    <th>Método / Detalle</th>
+                                                    <th class="text-end">Monto</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="dynTableAbonosBody"></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6 class="fw-bold text-slate-800 mb-2">
+                                        <i class="bi bi-arrow-up-right text-danger me-1"></i> Pagos / Abonos al Proveedor
+                                    </h6>
+                                    <div class="table-responsive border rounded-3">
+                                        <table class="table table-hover align-middle mb-0 small">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Fecha</th>
+                                                    <th>Método / Detalle</th>
+                                                    <th class="text-end">Monto</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="dynTablePagosBody"></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mensaje de Error en caso de fallo -->
+                <div id="dynModalError" class="alert alert-danger rounded-3" style="display: none;">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    <span id="dynModalErrorMsg">No se pudieron cargar los movimientos.</span>
+                </div>
+            </div>
+
+            <div class="modal-footer bg-light border-top">
+                <button type="button" class="btn btn-outline-secondary px-3 py-2 rounded-3" data-bs-dismiss="modal">Cerrar</button>
+                <a href="#" id="dynLinkCliente" class="btn btn-outline-primary px-3 py-2 rounded-3 fw-bold">
+                    <i class="bi bi-box-arrow-up-right me-1"></i> Ver Expediente Cliente
+                </a>
+                <a href="#" id="dynLinkProveedor" class="btn btn-outline-secondary px-3 py-2 rounded-3 fw-bold">
+                    <i class="bi bi-box-arrow-up-right me-1"></i> Ver Expediente Proveedor
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -937,6 +880,174 @@
 
         searchInput?.addEventListener('input', filterTable);
         estadoFilter?.addEventListener('change', filterTable);
+
+        // ============================================================
+        // CARGA ASÍNCRONA (LAZY-LOAD) DEL MODAL DE MOVIMIENTOS
+        // ============================================================
+        const modalMovEl = document.getElementById('modalMovimientosDinamico');
+        let bsModalMov = null;
+
+        document.querySelectorAll('.btn-ver-movimientos').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const idCli = this.dataset.clienteId;
+                const idProv = this.dataset.proveedorId;
+                const nomCli = this.dataset.clienteNombre;
+                const nomProv = this.dataset.proveedorNombre;
+                const saldoCxc = this.dataset.saldoCxc;
+                const saldoCxp = this.dataset.saldoCxp;
+                const urlCli = this.dataset.urlCliente;
+                const urlProv = this.dataset.urlProveedor;
+
+                document.getElementById('dynModalTitle').textContent = `Expediente de Cruce: ${nomCli}`;
+                document.getElementById('dynModalProvNombre').textContent = nomProv;
+                document.getElementById('dynModalSaldoCxC').textContent = `C$ ${saldoCxc}`;
+                document.getElementById('dynModalSaldoCxP').textContent = `C$ ${saldoCxp}`;
+                document.getElementById('dynLinkCliente').setAttribute('href', urlCli);
+                document.getElementById('dynLinkProveedor').setAttribute('href', urlProv);
+
+                // Activar primera pestaña por defecto
+                const firstTabBtn = document.getElementById('dynTabVentasBtn');
+                if (firstTabBtn && window.bootstrap && bootstrap.Tab) {
+                    bootstrap.Tab.getOrCreateInstance(firstTabBtn).show();
+                }
+
+                // Mostrar spinner de carga
+                document.getElementById('dynModalLoading').style.display = 'block';
+                document.getElementById('dynModalContent').style.display = 'none';
+                document.getElementById('dynModalError').style.display = 'none';
+
+                if (!bsModalMov && window.bootstrap && bootstrap.Modal) {
+                    bsModalMov = bootstrap.Modal.getOrCreateInstance(modalMovEl);
+                }
+                if (bsModalMov) bsModalMov.show();
+
+                // Petición AJAX rápida (únicamente para esta pareja)
+                fetch(`/admin/cruce-cuentas/movimientos/${idCli}/${idProv}`)
+                    .then(response => {
+                        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (!data.success) {
+                            throw new Error(data.error || 'Error al obtener movimientos');
+                        }
+
+                        // 1. Renderizar Ventas
+                        const tbodyVentas = document.getElementById('dynTableVentasBody');
+                        tbodyVentas.innerHTML = '';
+                        document.getElementById('dynVentasCount').textContent = data.ventas.length;
+
+                        if (data.ventas.length === 0) {
+                            tbodyVentas.innerHTML = '<tr><td colspan="6" class="text-center py-3 text-slate-500">Sin facturas recientes registradas.</td></tr>';
+                        } else {
+                            data.ventas.forEach(v => {
+                                const badgeTipo = v.tipo === 'Contado' 
+                                    ? '<span class="badge-modern badge-contado" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">Contado</span>'
+                                    : '<span class="badge-modern badge-credito" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">Crédito</span>';
+                                const badgeEst = v.estado === 'Activa'
+                                    ? '<span class="badge-modern badge-activa" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">Activa</span>'
+                                    : '<span class="badge-modern badge-anulada" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">' + v.estado + '</span>';
+                                const totalFmt = v.total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+                                tbodyVentas.innerHTML += `
+                                    <tr>
+                                        <td class="fw-bold font-monospace">#${v.id}</td>
+                                        <td>${v.fecha}</td>
+                                        <td>${badgeTipo}</td>
+                                        <td class="text-end fw-bold font-monospace text-slate-900">C$ ${totalFmt}</td>
+                                        <td class="text-center">${badgeEst}</td>
+                                        <td class="text-center">
+                                            <a href="/admin/ventas/detalles/${v.id}" class="btn btn-sm btn-outline-primary py-0 px-2" target="_blank">
+                                                Ver
+                                            </a>
+                                        </td>
+                                    </tr>
+                                `;
+                            });
+                        }
+
+                        // 2. Renderizar Compras
+                        const tbodyCompras = document.getElementById('dynTableComprasBody');
+                        tbodyCompras.innerHTML = '';
+                        document.getElementById('dynComprasCount').textContent = data.compras.length;
+
+                        if (data.compras.length === 0) {
+                            tbodyCompras.innerHTML = '<tr><td colspan="5" class="text-center py-3 text-slate-500">Sin compras recientes registradas.</td></tr>';
+                        } else {
+                            data.compras.forEach(c => {
+                                const badgeEst = c.estado === 'Activa'
+                                    ? '<span class="badge-modern badge-activa" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">Activa</span>'
+                                    : '<span class="badge-modern badge-anulada" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">' + c.estado + '</span>';
+                                const totalFmt = c.total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+                                tbodyCompras.innerHTML += `
+                                    <tr>
+                                        <td class="fw-bold font-monospace">#${c.id}</td>
+                                        <td>${c.fecha}</td>
+                                        <td><span class="badge-modern badge-credito" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">${c.tipo}</span></td>
+                                        <td class="text-end fw-bold font-monospace text-slate-900">C$ ${totalFmt}</td>
+                                        <td class="text-center">${badgeEst}</td>
+                                    </tr>
+                                `;
+                            });
+                        }
+
+                        // 3. Renderizar Abonos del Cliente
+                        const tbodyAbonos = document.getElementById('dynTableAbonosBody');
+                        tbodyAbonos.innerHTML = '';
+                        if (data.abonos.length === 0) {
+                            tbodyAbonos.innerHTML = '<tr><td colspan="3" class="text-center py-3 text-slate-500">Sin abonos registrados.</td></tr>';
+                        } else {
+                            data.abonos.forEach(a => {
+                                const badgeMetodo = a.es_cruce 
+                                    ? '<span class="badge bg-primary-subtle text-primary fw-bold">🔄 Cruce de Cuentas</span>'
+                                    : a.metodo;
+                                const montoFmt = a.monto.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+                                tbodyAbonos.innerHTML += `
+                                    <tr>
+                                        <td>${a.fecha}</td>
+                                        <td>${badgeMetodo}</td>
+                                        <td class="text-end fw-bold font-monospace text-success">C$ ${montoFmt}</td>
+                                    </tr>
+                                `;
+                            });
+                        }
+
+                        // 4. Renderizar Pagos al Proveedor
+                        const tbodyPagos = document.getElementById('dynTablePagosBody');
+                        tbodyPagos.innerHTML = '';
+                        if (data.pagos.length === 0) {
+                            tbodyPagos.innerHTML = '<tr><td colspan="3" class="text-center py-3 text-slate-500">Sin pagos registrados.</td></tr>';
+                        } else {
+                            data.pagos.forEach(p => {
+                                const badgeMetodo = p.es_cruce 
+                                    ? '<span class="badge bg-primary-subtle text-primary fw-bold">🔄 Cruce de Cuentas</span>'
+                                    : p.metodo;
+                                const montoFmt = p.monto.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+                                tbodyPagos.innerHTML += `
+                                    <tr>
+                                        <td>${p.fecha}</td>
+                                        <td>${badgeMetodo}</td>
+                                        <td class="text-end fw-bold font-monospace text-danger">C$ ${montoFmt}</td>
+                                    </tr>
+                                `;
+                            });
+                        }
+
+                        // Ocultar spinner y mostrar tablas
+                        document.getElementById('dynModalLoading').style.display = 'none';
+                        document.getElementById('dynModalContent').style.display = 'block';
+                    })
+                    .catch(err => {
+                        console.error('Error al cargar movimientos:', err);
+                        document.getElementById('dynModalLoading').style.display = 'none';
+                        document.getElementById('dynModalError').style.display = 'block';
+                        document.getElementById('dynModalErrorMsg').textContent = `No se pudieron obtener los movimientos: ${err.message}`;
+                    });
+            });
+        });
     });
 </script>
 {% endblock %}

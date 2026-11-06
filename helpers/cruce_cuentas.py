@@ -292,7 +292,9 @@ def auto_compensar_saldos_mutuos(cursor, id_empresa=1, id_usuario=1):
               AND p.Saldo_Pendiente > 0.001
               AND c.Estado = 'ACTIVO'
               AND p.Estado = 'ACTIVO'
-        """)
+              AND c.ID_Empresa = %s
+              AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
+        """, (id_empresa, id_empresa))
         parejas = cursor.fetchall()
         total_compensados = 0
         for par in parejas:
