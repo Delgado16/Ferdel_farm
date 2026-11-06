@@ -14,6 +14,7 @@ from . import productos
 from . import bodega
 from . import herramientas
 from . import reportes
+from . import cruce_cuentas
 
 
 __all__ = ['admin_bp']

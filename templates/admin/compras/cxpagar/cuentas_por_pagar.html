@@ -279,6 +279,18 @@
                             <!-- Proveedor -->
                             <td>
                                 <div class="fw-bold mb-1 text-slate-800">{{ cuenta.Proveedor or 'N/A' }}</div>
+                                {% if cuenta.ID_Cliente_Vinculado %}
+                                <div class="mb-1">
+                                    <span class="badge" style="background-color: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; font-size: 0.72rem; font-weight: 700;">
+                                        <i class="fas fa-exchange-alt me-1"></i>Cli: {{ cuenta.Cliente_Vinculado }} 
+                                        {% if cuenta.Saldo_Cliente_Vinculado > 0 %}
+                                        <span class="text-danger ms-1">(Debe C$ {{ "{:,.2f}".format(cuenta.Saldo_Cliente_Vinculado) }})</span>
+                                        {% else %}
+                                        <span class="text-success ms-1">✓ Saldado</span>
+                                        {% endif %}
+                                    </span>
+                                </div>
+                                {% endif %}
                                 <small class="text-muted">
                                     <i class="fas fa-calendar-alt me-1"></i>
                                     {{ cuenta.Fecha.strftime('%d/%m/%Y') if cuenta.Fecha else 'Sin fecha' }}
@@ -398,6 +410,15 @@
                                         <i class="fas fa-money-bill-wave"></i>
                                         <span class="ms-1">Pagar</span>
                                     </a>
+                                    {% if cuenta.ID_Cliente_Vinculado and cuenta.Saldo_Cliente_Vinculado > 0 %}
+                                    <a href="{{ url_for('admin.admin_cruce_cuenta_pagar', id_cuenta=cuenta.ID_Cuenta) }}" 
+                                       class="btn btn-outline-info px-2 rounded-3 ms-1" 
+                                       title="Cruzar con saldo pendiente del cliente {{ cuenta.Cliente_Vinculado }} (Disponible: C${{ '{:,.2f}'.format(cuenta.Saldo_Cliente_Vinculado) }})"
+                                       onclick="return confirm('¿Deseas aplicar el Cruce de Cuentas para saldar esta cuenta por pagar con el saldo deudor del cliente vinculado ({{ cuenta.Cliente_Vinculado }})?');">
+                                        <i class="fas fa-exchange-alt"></i>
+                                        <span class="ms-1">Cruzar</span>
+                                    </a>
+                                    {% endif %}
                                     {% endif %}
                                     
                                     <a href="{{ url_for('admin.historial_pagos_cuenta', id_cuenta=cuenta.ID_Cuenta) }}" 

@@ -1,10 +1,27 @@
 """
 Utilidades de autenticación
 """
+import time
+import threading
 from werkzeug.security import check_password_hash
+from flask import g, has_app_context
 from flask_login import LoginManager
 from config.database import get_db_cursor
 from .models import User
+
+# Cache en memoria con TTL de 60 segundos para evitar saturación de BD por Flask-Login
+_USER_CACHE = {}
+_USER_CACHE_LOCK = threading.Lock()
+_CACHE_TTL_SECONDS = 60
+
+
+def invalidate_user_cache(user_id=None):
+    """Invalida el usuario en caché cuando cambie su rol, contraseña o estado"""
+    with _USER_CACHE_LOCK:
+        if user_id is not None:
+            _USER_CACHE.pop(str(user_id), None)
+        else:
+            _USER_CACHE.clear()
 
 
 def verify_credentials_debug(username, password):
@@ -64,7 +81,7 @@ def verify_credentials_debug(username, password):
 
 def load_user(user_id):
     """
-    Cargar un usuario de la BD para Flask-Login
+    Cargar un usuario de la BD para Flask-Login con caché de solicitud y TTL
     
     Args:
         user_id (str): ID del usuario
@@ -72,8 +89,29 @@ def load_user(user_id):
     Returns:
         User: Objeto User si existe, None en caso contrario
     """
+    if not user_id:
+        return None
+
+    str_uid = str(user_id)
+
+    # 1. Caché a nivel de request (g)
+    if has_app_context():
+        cached_user = getattr(g, f'_current_user_{str_uid}', None)
+        if cached_user is not None:
+            return cached_user
+
+    # 2. Caché en memoria con TTL
+    ahora = time.monotonic()
+    with _USER_CACHE_LOCK:
+        if str_uid in _USER_CACHE:
+            user_inst, expira = _USER_CACHE[str_uid]
+            if ahora < expira:
+                if has_app_context():
+                    setattr(g, f'_current_user_{str_uid}', user_inst)
+                return user_inst
+
     try:
-        with get_db_cursor() as cursor:
+        with get_db_cursor(commit=False) as cursor:
             cursor.execute(""" 
                 SELECT u.ID_Usuario, u.NombreUsuario, r.Nombre_Rol
                 FROM usuarios u
@@ -83,7 +121,12 @@ def load_user(user_id):
             user_data = cursor.fetchone()
             
             if user_data:
-                return User(user_data['ID_Usuario'], user_data['NombreUsuario'], user_data['Nombre_Rol'])
+                user_obj = User(user_data['ID_Usuario'], user_data['NombreUsuario'], user_data['Nombre_Rol'])
+                with _USER_CACHE_LOCK:
+                    _USER_CACHE[str_uid] = (user_obj, ahora + _CACHE_TTL_SECONDS)
+                if has_app_context():
+                    setattr(g, f'_current_user_{str_uid}', user_obj)
+                return user_obj
             return None
     except Exception as e:
         print(f"Error en load_user: {e}")

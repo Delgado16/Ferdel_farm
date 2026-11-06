@@ -2,6 +2,39 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+def obtener_o_crear_metodo_pago_cruce(cursor):
+    """
+    Obtiene el ID_MetodoPago válido para 'Cruce de Cuentas'.
+    Si no existe, intenta crearlo en la tabla metodos_pago.
+    Si no se puede crear, busca cualquier método existente para nunca violar Foreign Key.
+    """
+    try:
+        cursor.execute("SELECT ID_MetodoPago FROM metodos_pago WHERE Nombre = 'Cruce de Cuentas' LIMIT 1")
+        mp = cursor.fetchone()
+        if mp and mp.get('ID_MetodoPago'):
+            return mp['ID_MetodoPago']
+
+        # Buscar si existe con un nombre parecido
+        cursor.execute("SELECT ID_MetodoPago FROM metodos_pago WHERE Nombre LIKE '%Cruce%' OR Nombre LIKE '%Compensaci%' LIMIT 1")
+        mp = cursor.fetchone()
+        if mp and mp.get('ID_MetodoPago'):
+            return mp['ID_MetodoPago']
+
+        # Si no existe, crearlo
+        cursor.execute("INSERT INTO metodos_pago (Nombre) VALUES ('Cruce de Cuentas')")
+        return cursor.lastrowid
+    except Exception as e:
+        logger.warning(f"Aviso al obtener/crear 'Cruce de Cuentas': {e}")
+        try:
+            # Tomar el primer ID de método de pago que exista en la tabla para respetar FK
+            cursor.execute("SELECT ID_MetodoPago FROM metodos_pago ORDER BY ID_MetodoPago ASC LIMIT 1")
+            first_mp = cursor.fetchone()
+            if first_mp and first_mp.get('ID_MetodoPago'):
+                return first_mp['ID_MetodoPago']
+        except Exception:
+            pass
+        return 1
+
 def procesar_compensacion_vinculada(cursor, id_cliente=None, id_proveedor=None, id_empresa=1, id_usuario=1, monto_especifico=None, observacion="Cruce automático de cuentas"):
     """
     Compensa automáticamente o por monto específico los saldos pendientes
@@ -27,14 +60,15 @@ def procesar_compensacion_vinculada(cursor, id_cliente=None, id_proveedor=None, 
     }
     """
     try:
-        # 1. Identificar cliente y proveedor vinculados
+        # 1. Identificar cliente y proveedor vinculados (búsqueda bidireccional tolerante)
         if id_cliente and not id_proveedor:
             cursor.execute("""
                 SELECT c.ID_Cliente, c.Nombre as Nombre_Cliente, c.Saldo_Pendiente_Total, c.ID_Proveedor_Vinculado,
                        p.ID_Proveedor, p.Nombre as Nombre_Proveedor, p.Saldo_Pendiente as Saldo_PXP
                 FROM clientes c
-                INNER JOIN proveedores p ON c.ID_Proveedor_Vinculado = p.ID_Proveedor
-                WHERE c.ID_Cliente = %s AND c.ID_Empresa = %s AND p.ID_Empresa = %s
+                INNER JOIN proveedores p ON (c.ID_Proveedor_Vinculado = p.ID_Proveedor OR p.ID_Cliente_Vinculado = c.ID_Cliente)
+                WHERE c.ID_Cliente = %s AND c.ID_Empresa = %s AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
+                LIMIT 1
             """, (id_cliente, id_empresa, id_empresa))
             datos = cursor.fetchone()
         elif id_proveedor and not id_cliente:
@@ -42,8 +76,9 @@ def procesar_compensacion_vinculada(cursor, id_cliente=None, id_proveedor=None, 
                 SELECT p.ID_Proveedor, p.Nombre as Nombre_Proveedor, p.Saldo_Pendiente as Saldo_PXP, p.ID_Cliente_Vinculado,
                        c.ID_Cliente, c.Nombre as Nombre_Cliente, c.Saldo_Pendiente_Total
                 FROM proveedores p
-                INNER JOIN clientes c ON p.ID_Cliente_Vinculado = c.ID_Cliente
-                WHERE p.ID_Proveedor = %s AND p.ID_Empresa = %s AND c.ID_Empresa = %s
+                INNER JOIN clientes c ON (p.ID_Cliente_Vinculado = c.ID_Cliente OR c.ID_Proveedor_Vinculado = p.ID_Proveedor)
+                WHERE p.ID_Proveedor = %s AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL) AND c.ID_Empresa = %s
+                LIMIT 1
             """, (id_proveedor, id_empresa, id_empresa))
             datos = cursor.fetchone()
         elif id_cliente and id_proveedor:
@@ -52,7 +87,8 @@ def procesar_compensacion_vinculada(cursor, id_cliente=None, id_proveedor=None, 
                        p.ID_Proveedor, p.Nombre as Nombre_Proveedor, p.Saldo_Pendiente as Saldo_PXP
                 FROM clientes c
                 INNER JOIN proveedores p ON (c.ID_Proveedor_Vinculado = p.ID_Proveedor OR p.ID_Cliente_Vinculado = c.ID_Cliente)
-                WHERE c.ID_Cliente = %s AND p.ID_Proveedor = %s AND c.ID_Empresa = %s AND p.ID_Empresa = %s
+                WHERE c.ID_Cliente = %s AND p.ID_Proveedor = %s AND c.ID_Empresa = %s AND (p.ID_Empresa = %s OR p.ID_Empresa IS NULL)
+                LIMIT 1
             """, (id_cliente, id_proveedor, id_empresa, id_empresa))
             datos = cursor.fetchone()
         else:
@@ -63,6 +99,10 @@ def procesar_compensacion_vinculada(cursor, id_cliente=None, id_proveedor=None, 
 
         id_cli = datos['ID_Cliente']
         id_prov = datos['ID_Proveedor']
+        
+        # Asegurar vinculación bidireccional en base de datos si faltaba en alguno
+        cursor.execute("UPDATE clientes SET ID_Proveedor_Vinculado = %s WHERE ID_Cliente = %s AND (ID_Proveedor_Vinculado IS NULL OR ID_Proveedor_Vinculado != %s)", (id_prov, id_cli, id_prov))
+        cursor.execute("UPDATE proveedores SET ID_Cliente_Vinculado = %s WHERE ID_Proveedor = %s AND (ID_Cliente_Vinculado IS NULL OR ID_Cliente_Vinculado != %s)", (id_cli, id_prov, id_cli))
         nombre_cli = datos['Nombre_Cliente']
         nombre_prov = datos['Nombre_Proveedor']
         saldo_cxc = float(datos.get('Saldo_Pendiente_Total') or 0)
@@ -98,9 +138,7 @@ def procesar_compensacion_vinculada(cursor, id_cliente=None, id_proveedor=None, 
             }
 
         # Obtener o asegurar ID del método de pago 'Cruce de Cuentas'
-        cursor.execute("SELECT ID_MetodoPago FROM metodos_pago WHERE Nombre = 'Cruce de Cuentas' LIMIT 1")
-        mp = cursor.fetchone()
-        id_metodo_pago = mp['ID_MetodoPago'] if mp else 6
+        id_metodo_pago = obtener_o_crear_metodo_pago_cruce(cursor)
 
         nota_cxc = f"Cruce de Cuentas con Proveedor: {nombre_prov} (ID #{id_prov}). {observacion}".strip()
         nota_cxp = f"Cruce de Cuentas con Cliente: {nombre_cli} (ID #{id_cli}). {observacion}".strip()
@@ -219,7 +257,7 @@ def procesar_compensacion_vinculada(cursor, id_cliente=None, id_proveedor=None, 
         cursor.execute("""
             UPDATE proveedores
             SET Saldo_Pendiente = %s
-            WHERE ID_Proveedor = %s AND ID_Empresa = %s
+            WHERE ID_Proveedor = %s AND (ID_Empresa = %s OR ID_Empresa IS NULL)
         """, (nuevo_saldo_cxp, id_prov, id_empresa))
 
         logger.info(f"Cruce de cuentas aplicado: Cliente #{id_cli} y Proveedor #{id_prov} por monto C$ {monto_cruce:,.2f}")
@@ -237,3 +275,38 @@ def procesar_compensacion_vinculada(cursor, id_cliente=None, id_proveedor=None, 
     except Exception as e:
         logger.error(f"Error procesando compensación vinculada: {e}", exc_info=True)
         raise e
+
+
+def auto_compensar_saldos_mutuos(cursor, id_empresa=1, id_usuario=1):
+    """
+    Busca automáticamente todas las parejas de clientes y proveedores vinculados
+    que tengan saldos mutuos pendientes (ambos > 0) y ejecuta el cruce
+    de cuentas inmediato sin intervención del usuario.
+    """
+    try:
+        cursor.execute("""
+            SELECT c.ID_Cliente, p.ID_Proveedor
+            FROM clientes c
+            INNER JOIN proveedores p ON (c.ID_Proveedor_Vinculado = p.ID_Proveedor OR p.ID_Cliente_Vinculado = c.ID_Cliente)
+            WHERE c.Saldo_Pendiente_Total > 0.001 
+              AND p.Saldo_Pendiente > 0.001
+              AND c.Estado = 'ACTIVO'
+              AND p.Estado = 'ACTIVO'
+        """)
+        parejas = cursor.fetchall()
+        total_compensados = 0
+        for par in parejas:
+            res = procesar_compensacion_vinculada(
+                cursor,
+                id_cliente=par['ID_Cliente'],
+                id_proveedor=par['ID_Proveedor'],
+                id_empresa=id_empresa,
+                id_usuario=id_usuario,
+                observacion="Auto-compensación automática del sistema"
+            )
+            if res.get('success') and res.get('monto_compensado', 0) > 0:
+                total_compensados += 1
+        return total_compensados
+    except Exception as e:
+        logger.error(f"Error en auto_compensar_saldos_mutuos: {e}", exc_info=True)
+        return 0

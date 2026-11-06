@@ -1446,6 +1446,18 @@ def vendedor_carga_directa_proveedor():
                             SET Saldo_Pendiente = COALESCE(Saldo_Pendiente, 0) + %s
                             WHERE ID_Proveedor = %s
                         """, (total_costo_compra, id_proveedor))
+
+                        try:
+                            from helpers.cruce_cuentas import procesar_compensacion_vinculada
+                            procesar_compensacion_vinculada(
+                                cursor,
+                                id_proveedor=id_proveedor,
+                                id_empresa=id_empresa,
+                                id_usuario=id_usuario,
+                                observacion=f"Compensación automática por Compra Vendedor #{id_movimiento_entrada}"
+                            )
+                        except Exception as e_cruce_vend:
+                            print(f"Nota cruce compra vendedor: {e_cruce_vend}")
                     
                     # Guardar foto de factura
                     if 'foto_factura' in request.files:

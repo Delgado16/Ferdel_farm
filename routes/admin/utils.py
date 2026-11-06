@@ -8,8 +8,8 @@ from config.database import get_db_cursor
 
 
 def obtener_metricas_kpis():
-    """Obtiene las métricas principales del dashboard"""
-    with get_db_cursor() as cursor:
+    """Obtiene las métricas principales del dashboard optimizadas con índices y commit=False"""
+    with get_db_cursor(commit=False) as cursor:
         # Usuarios y empresas activos en una sola consulta
         cursor.execute("""
             SELECT 
@@ -20,7 +20,7 @@ def obtener_metricas_kpis():
         usuarios_count = conteos.get('usuarios_count', 0)
         empresas_count = conteos.get('empresas_count', 0)
         
-        # Ventas de hoy (solo contado)
+        # Ventas de hoy (solo contado) utilizando rangos indexados
         cursor.execute("""
             SELECT COALESCE(SUM(Ventas_Totales), 0) AS Total_Ventas_Contado_Hoy
             FROM (
@@ -45,20 +45,20 @@ def obtener_metricas_kpis():
         """)
         ventas_hoy = cursor.fetchone()['Total_Ventas_Contado_Hoy'] or 0
         
-        # Cobros de hoy (únicamente en efectivo - ID_MetodoPago = 1)
+        # Cobros de hoy (únicamente en efectivo - ID_MetodoPago = 1) con rangos sargables
         cursor.execute("""
             SELECT COALESCE(SUM(Monto_Cobrado), 0) AS Total_Cobrado_Hoy
             FROM (
                 SELECT Monto_Aplicado AS Monto_Cobrado
                 FROM abonos_detalle
-                WHERE DATE(Fecha) = CURDATE()
+                WHERE Fecha >= CURDATE() AND Fecha < CURDATE() + INTERVAL 1 DAY
                 AND ID_MetodoPago = 1
                 
                 UNION ALL
                 
                 SELECT Monto_Aplicado AS Monto_Cobrado
                 FROM abonos_general
-                WHERE DATE(Fecha) = CURDATE()
+                WHERE Fecha >= CURDATE() AND Fecha < CURDATE() + INTERVAL 1 DAY
                 AND ID_MetodoPago = 1
                 
                 UNION ALL
@@ -66,7 +66,7 @@ def obtener_metricas_kpis():
                 SELECT pc.Monto AS Monto_Cobrado
                 FROM pagos_cuentascobrar pc
                 INNER JOIN cuentas_por_cobrar cxc ON pc.ID_Movimiento = cxc.ID_Movimiento
-                WHERE DATE(pc.Fecha) = CURDATE()
+                WHERE pc.Fecha >= CURDATE() AND pc.Fecha < CURDATE() + INTERVAL 1 DAY
                 AND pc.ID_MetodoPago = 1
                 AND cxc.Estado != 'Anulada'
             ) AS Cobros
@@ -95,7 +95,7 @@ def obtener_metricas_kpis():
         """)
         productos_bajo_stock = cursor.fetchone()['count'] or 0
 
-        # Saldo en caja actual (del día activo)
+        # Saldo en caja actual (del día activo con rango sargable)
         cursor.execute("""
             SELECT 
                 COALESCE(SUM(CASE 
@@ -108,13 +108,13 @@ def obtener_metricas_kpis():
                         SELECT 1 FROM caja_movimientos 
                         WHERE Tipo_Movimiento = 'ENTRADA' 
                         AND Descripcion LIKE '%%Apertura%%'
-                        AND DATE(Fecha) = CURDATE()
+                        AND Fecha >= CURDATE() AND Fecha < CURDATE() + INTERVAL 1 DAY
                         AND Estado = 'ACTIVO'
                     ) THEN 'ABIERTA'
                     ELSE 'CERRADA'
                 END as estado_caja
             FROM caja_movimientos
-            WHERE DATE(Fecha) = CURDATE()
+            WHERE Fecha >= CURDATE() AND Fecha < CURDATE() + INTERVAL 1 DAY
             AND Estado = 'ACTIVO'
         """)
         caja_info = cursor.fetchone() or {}
@@ -134,16 +134,16 @@ def obtener_metricas_kpis():
     }
 
 def obtener_ventas_mes():
-    """Obtiene datos de ventas del mes actual para gráficos"""
-    with get_db_cursor() as cursor:
+    """Obtiene datos de ventas del mes actual para gráficos con rango indexado"""
+    with get_db_cursor(commit=False) as cursor:
         cursor.execute("""
             SELECT 
                 DAY(fac.Fecha_Creacion) AS Dia,
                 COALESCE(SUM(df.Total), 0) AS Total_Vendido
             FROM facturacion fac
             INNER JOIN detalle_facturacion df ON fac.ID_Factura = df.ID_Factura
-            WHERE MONTH(fac.Fecha_Creacion) = MONTH(CURDATE()) 
-              AND YEAR(fac.Fecha_Creacion) = YEAR(CURDATE())
+            WHERE fac.Fecha_Creacion >= DATE_FORMAT(CURDATE(), '%Y-%m-01 00:00:00')
+              AND fac.Fecha_Creacion < DATE_ADD(DATE_FORMAT(CURDATE(), '%Y-%m-01 00:00:00'), INTERVAL 1 MONTH)
               AND fac.Estado = 'Activa'
             GROUP BY DAY(fac.Fecha_Creacion)
             ORDER BY Dia ASC
@@ -152,7 +152,7 @@ def obtener_ventas_mes():
 
 def obtener_top_clientes_deudores():
     """Obtiene los 5 clientes con mayor deuda"""
-    with get_db_cursor() as cursor:
+    with get_db_cursor(commit=False) as cursor:
         cursor.execute("""
             SELECT 
                 c.Nombre AS Cliente,
@@ -169,7 +169,7 @@ def obtener_top_clientes_deudores():
 
 def obtener_productos_bajo_stock():
     """Obtiene productos con stock bajo (solo activos y de la bodega principal ID_Bodega = 1)"""
-    with get_db_cursor() as cursor:
+    with get_db_cursor(commit=False) as cursor:
         cursor.execute("""
             SELECT 
                 p.Descripcion AS Producto,
@@ -188,16 +188,16 @@ def obtener_productos_bajo_stock():
         return cursor.fetchall()
 
 def obtener_gastos_mes():
-    """Obtiene gastos del mes por categoría"""
-    with get_db_cursor() as cursor:
+    """Obtiene gastos del mes por categoría con rango indexado"""
+    with get_db_cursor(commit=False) as cursor:
         cursor.execute("""
             SELECT 
                 tg.Nombre AS Tipo_Gasto,
                 COALESCE(SUM(gg.Monto), 0) AS Total_Gastado
             FROM gastos_generales gg
             INNER JOIN tipos_gasto tg ON gg.ID_Tipo_Gasto = tg.ID_Tipo_Gasto
-            WHERE MONTH(gg.Fecha) = MONTH(CURDATE()) 
-              AND YEAR(gg.Fecha) = YEAR(CURDATE())
+            WHERE gg.Fecha >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+              AND gg.Fecha < DATE_ADD(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 1 MONTH)
               AND gg.Estado = 'Activo'
             GROUP BY tg.ID_Tipo_Gasto
             ORDER BY Total_Gastado DESC
@@ -206,8 +206,8 @@ def obtener_gastos_mes():
         return cursor.fetchall()
 
 def obtener_ventas_vendedores():
-    """Obtiene ventas por vendedor del día actual"""
-    with get_db_cursor() as cursor:
+    """Obtiene ventas por vendedor del día actual con rango indexado"""
+    with get_db_cursor(commit=False) as cursor:
         cursor.execute("""
             SELECT 
                 u.NombreUsuario AS Vendedor,
@@ -217,7 +217,9 @@ def obtener_ventas_vendedores():
             INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
             INNER JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
             INNER JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
-            WHERE DATE(fr.Fecha_Creacion) = CURDATE() AND fr.Estado = 'Activa'
+            WHERE fr.Fecha_Creacion >= CURDATE()
+              AND fr.Fecha_Creacion < CURDATE() + INTERVAL 1 DAY
+              AND fr.Estado = 'Activa'
             GROUP BY u.ID_Usuario
             ORDER BY Total_Vendido DESC
             LIMIT 5
@@ -226,7 +228,7 @@ def obtener_ventas_vendedores():
 
 def obtener_rutas_activas():
     """Obtiene rutas activas con vendedor y vehículo"""
-    with get_db_cursor() as cursor:
+    with get_db_cursor(commit=False) as cursor:
         cursor.execute("""
             SELECT 
                 r.Nombre_Ruta AS Ruta,
@@ -242,8 +244,8 @@ def obtener_rutas_activas():
         return cursor.fetchall()
 
 def obtener_ventas_7dias():
-    """Obtiene ventas de los últimos 7 días"""
-    with get_db_cursor() as cursor:
+    """Obtiene ventas de los últimos 7 días con rango indexado"""
+    with get_db_cursor(commit=False) as cursor:
         cursor.execute("""
             SELECT 
                 DATE(fac.Fecha_Creacion) AS Fecha,
@@ -258,22 +260,23 @@ def obtener_ventas_7dias():
         return cursor.fetchall()
 
 def obtener_movimientos_caja():
-    """Obtiene movimientos de caja del día actual"""
-    with get_db_cursor() as cursor:
+    """Obtiene movimientos de caja del día actual con rango indexado"""
+    with get_db_cursor(commit=False) as cursor:
         cursor.execute("""
             SELECT 
                 Tipo,
                 COUNT(*) as Cantidad,
                 COALESCE(SUM(Monto), 0) as Total
             FROM movimientos_caja_ruta
-            WHERE DATE(Fecha) = CURDATE() AND Estado = 'ACTIVO'
+            WHERE Fecha >= CURDATE() AND Fecha < CURDATE() + INTERVAL 1 DAY
+              AND Estado = 'ACTIVO'
             GROUP BY Tipo
         """)
         return cursor.fetchall()
 
 def obtener_proximos_vencimientos():
     """Obtiene facturas con próximos vencimientos (7 días)"""
-    with get_db_cursor() as cursor:
+    with get_db_cursor(commit=False) as cursor:
         cursor.execute("""
             SELECT 
                 c.Nombre AS Cliente,

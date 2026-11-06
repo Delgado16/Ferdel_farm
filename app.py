@@ -28,8 +28,8 @@ import logging
 from logging.handlers import RotatingFileHandler
 
 # Importar configuraciones
-from config.settings import SECRET_KEY, SESSION_CONFIG, CORS_CONFIG, RENDER_ENV, RAILWAY_ENV, print_db_config
-from config.database import init_pool, close_db
+from config.settings import SECRET_KEY, SESSION_CONFIG, CORS_CONFIG, RENDER_ENV, RAILWAY_ENV, ENABLE_INAPP_SCHEDULER, print_db_config
+from config.database import init_pool, close_db, DatabasePoolExhaustedError, DatabaseConnectionError
 
 # Importar autenticación
 from auth import setup_login_manager
@@ -108,7 +108,37 @@ def create_app():
     logging.getLogger('werkzeug').addHandler(file_handler)
     app.logger.info('Ferdel Startup')
 
+    # ===== OBSERVABILIDAD Y MÉTRICAS DE RESPUESTA =====
+    @app.before_request
+    def _start_request_timer():
+        g._req_start_time = time.perf_counter()
+
+    @app.after_request
+    def _log_request_metrics(response):
+        if hasattr(g, '_req_start_time'):
+            duracion = time.perf_counter() - g._req_start_time
+            response.headers['X-Response-Time'] = f"{duracion * 1000:.2f}ms"
+            # Registrar solicitudes lentas (> 800ms)
+            if duracion > 0.8 and not request.path.startswith('/static/'):
+                app.logger.warning(
+                    f"⚠️ LENTITUD: {request.method} {request.path} tomó {duracion * 1000:.1f}ms (Status: {response.status_code})"
+                )
+        return response
+
     # ===== CONTROL DE ERRORES GLOBAL =====
+    @app.errorhandler(DatabasePoolExhaustedError)
+    def pool_exhausted_error(error):
+        app.logger.error(f"503 Pool agotado: {error}")
+        accept = request.headers.get('Accept', '')
+        if request.path.startswith('/api/') or \
+           request.headers.get('X-Requested-With') == 'XMLHttpRequest' or \
+           ('application/json' in accept and 'text/html' not in accept):
+            return jsonify({
+                'status': 'error',
+                'message': 'El servicio se encuentra temporalmente ocupado. Por favor intente en unos segundos.'
+            }), 503
+        return render_template('errors/500.html'), 503
+
     @app.errorhandler(401)
     def unauthorized_error(error):
         app.logger.warning(f"401 No Autorizado: {request.path}")

@@ -66,7 +66,7 @@ def admin_dashboard():
         # Alertas de seguros de vehículos por vencer (14 días)
         try:
             from config.database import get_db_cursor
-            with get_db_cursor() as cursor:
+            with get_db_cursor(commit=False) as cursor:
                 cursor.execute("""
                     SELECT ID_Vehiculo, Placa, Marca, Modelo, Fecha_Vencimiento_Seguro,
                            DATEDIFF(Fecha_Vencimiento_Seguro, CURDATE()) AS Dias_Restantes

@@ -1,0 +1,943 @@
+{% extends "layout.html" %}
+
+{% block title %}Cruce de Cuentas / Contrapartes - FerDel{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    /* ========================================================
+       SISTEMA DE DISEÑO PREMIUM - CRUCE DE CUENTAS
+       ======================================================== */
+    :root {
+        --slate-50: #f8fafc;
+        --slate-100: #f1f5f9;
+        --slate-200: #e2e8f0;
+        --slate-300: #cbd5e1;
+        --slate-400: #94a3b8;
+        --slate-500: #64748b;
+        --slate-600: #475569;
+        --slate-700: #334155;
+        --slate-800: #1e293b;
+        --slate-900: #0f172a;
+
+        --primary-brand: #2c5e2e;
+        --primary-brand-dark: #1e4620;
+        --secondary-brand: #10b981;
+
+        --card-radius: 16px;
+        --card-shadow: 0 4px 15px -3px rgba(15, 23, 42, 0.06), 0 2px 6px -2px rgba(15, 23, 42, 0.04);
+        --card-shadow-hover: 0 12px 28px -4px rgba(15, 23, 42, 0.12), 0 4px 10px -2px rgba(15, 23, 42, 0.06);
+    }
+
+    .historial-header {
+        background: #ffffff;
+        border-radius: var(--card-radius);
+        padding: 1.5rem 1.75rem;
+        border: 1px solid var(--slate-200);
+        box-shadow: var(--card-shadow);
+    }
+
+    .historial-header h3 {
+        color: var(--slate-900);
+        font-weight: 800;
+        letter-spacing: -0.02em;
+    }
+
+    /* Tarjetas de Estadísticas */
+    .stat-card {
+        border-radius: var(--card-radius) !important;
+        background: #ffffff !important;
+        border: 1px solid var(--slate-200) !important;
+        transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+        box-shadow: var(--card-shadow);
+    }
+
+    .stat-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--card-shadow-hover);
+    }
+
+    .stat-card .card-title-sub {
+        color: var(--slate-500) !important;
+        font-weight: 700;
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .stat-card .stat-amount {
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        line-height: 1.15;
+    }
+
+    .stat-card .stat-note {
+        color: var(--slate-600) !important;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+
+    .stat-card .stat-icon-wrapper {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.35rem;
+    }
+
+    /* Tabla y Secciones */
+    .card-premium-section {
+        background: #ffffff;
+        border-radius: var(--card-radius);
+        border: 1px solid var(--slate-200);
+        box-shadow: var(--card-shadow);
+        overflow: hidden;
+    }
+
+    .card-premium-header {
+        background: #ffffff;
+        border-bottom: 1px solid var(--slate-200);
+        padding: 1.25rem 1.5rem;
+    }
+
+    .form-control-premium,
+    .form-select-premium {
+        background-color: var(--slate-50);
+        border: 1px solid var(--slate-300);
+        border-radius: 10px;
+        padding: 0.55rem 0.85rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--slate-800);
+        transition: all 0.2s ease;
+    }
+
+    .form-control-premium:focus,
+    .form-select-premium:focus {
+        background-color: #ffffff;
+        border-color: var(--secondary-brand, #10b981);
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
+        color: var(--slate-900);
+    }
+
+    .table-modern {
+        border-collapse: separate;
+        border-spacing: 0;
+        width: 100%;
+    }
+
+    .table-modern thead th {
+        background-color: #f8fafc;
+        color: #334155;
+        font-weight: 700;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 0.95rem 1rem;
+        border-bottom: 2px solid var(--slate-200);
+        white-space: nowrap;
+    }
+
+    .table-modern tbody td {
+        padding: 1rem 1rem;
+        vertical-align: middle;
+        color: #1e293b;
+        font-size: 0.875rem;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .table-modern tbody tr:hover {
+        background-color: #f8fafc;
+    }
+
+    /* Badges */
+    .badge-modern {
+        padding: 0.4rem 0.75rem;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 0.75rem;
+        letter-spacing: 0.02em;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+
+    .badge-compensable {
+        background-color: #e0f2fe;
+        color: #0369a1;
+        border: 1px solid #bae6fd;
+    }
+
+    .badge-ferdel {
+        background-color: #eff6ff;
+        color: #1d4ed8;
+        border: 1px solid #bfdbfe;
+    }
+
+    .badge-proveedor {
+        background-color: #fef2f2;
+        color: #b91c1c;
+        border: 1px solid #fecaca;
+    }
+
+    .badge-saldado {
+        background-color: #ecfdf5;
+        color: #047857;
+        border: 1px solid #a7f3d0;
+    }
+
+    .badge-contado {
+        background-color: #dcfce7;
+        color: #15803d;
+        border: 1px solid #bbf7d0;
+    }
+
+    .badge-credito {
+        background-color: #f1f5f9;
+        color: #334155;
+        border: 1px solid #cbd5e1;
+    }
+
+    .badge-activa {
+        background-color: #ecfdf5;
+        color: #047857;
+        border: 1px solid #a7f3d0;
+    }
+
+    .badge-anulada {
+        background-color: #fee2e2;
+        color: #b91c1c;
+        border: 1px solid #fca5a5;
+    }
+
+    /* Asegurar que ninguna etiqueta o texto herede letras blancas */
+    #tablaCruce *,
+    .modal * {
+        text-shadow: none;
+    }
+    #tablaCruce td,
+    .modal td {
+        color: #1e293b;
+    }
+
+    .btn-action {
+        border-radius: 8px;
+        padding: 0.4rem 0.75rem;
+        font-size: 0.82rem;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+
+    .btn-action:hover {
+        transform: translateY(-1px);
+    }
+
+    .entity-box {
+        background-color: var(--slate-50);
+        border: 1px solid var(--slate-200);
+        border-radius: 10px;
+        padding: 0.5rem 0.75rem;
+    }
+
+    .nav-tabs .nav-link {
+        font-weight: 600;
+        color: var(--slate-600);
+        border: none;
+        border-bottom: 2px solid transparent;
+        padding: 0.6rem 1rem;
+    }
+
+    .nav-tabs .nav-link.active {
+        color: var(--primary-brand);
+        border-bottom: 2px solid var(--primary-brand);
+        background: transparent;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb mb-0">
+            <li class="breadcrumb-item">
+                <a href="{{ url_for('admin.admin_dashboard') }}" class="text-decoration-none text-slate-600">
+                    <i class="fas fa-home me-1"></i>Dashboard
+                </a>
+            </li>
+            <li class="breadcrumb-item active fw-bold text-slate-800" aria-current="page">
+                <i class="bi bi-arrow-left-right text-primary me-1"></i>Cruce de Cuentas (Contrapartes)
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Encabezado con acciones -->
+    <div class="historial-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="mb-1 d-flex align-items-center gap-2">
+                <i class="bi bi-arrow-left-right text-primary"></i>
+                <span>Cruce de Cuentas</span>
+                <span class="badge bg-light text-dark border font-monospace ms-2" style="font-size: 0.95rem;">
+                    {{ contrapartes|length }} vinculadas
+                </span>
+            </h3>
+            <p class="text-slate-500 small mb-0">
+                Monitoreo consolidado y compensación bilateral rápida para Clientes y Proveedores vinculados
+            </p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <form method="POST" action="{{ url_for('admin.admin_cruce_cuentas_compensar_todos') }}" class="d-inline"
+                  onsubmit="return confirm('¿Deseas aplicar la compensación automática para todas las contrapartes con saldos mutuos?');">
+                <button type="submit" class="btn btn-outline-success btn-sm px-3 py-2 rounded-3 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5">
+                    <i class="bi bi-lightning-charge-fill"></i> Auto-compensar Saldos Mutuos
+                </button>
+            </form>
+            <a href="{{ url_for('admin.admin_clientes') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3 fw-semibold">
+                <i class="bi bi-person-plus me-1"></i> Ver Catálogo Clientes
+            </a>
+            <a href="{{ url_for('admin.admin_proveedores') }}" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-3 fw-semibold">
+                <i class="bi bi-building me-1"></i> Ver Catálogo Proveedores
+            </a>
+        </div>
+    </div>
+
+    <!-- TARJETAS KPI -->
+    <div class="row mb-4 g-3">
+        <!-- Tarjeta 1: Total CxC Vinculado -->
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card stat-card h-100 p-3">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <div class="card-title-sub">1. Saldo Deuda CxC</div>
+                        <div class="stat-amount fs-3 mt-1 text-primary">C$ {{ "{:,.2f}".format(resumen.total_saldo_cxc) }}</div>
+                    </div>
+                    <div class="stat-icon-wrapper" style="background-color: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;">
+                        <i class="bi bi-wallet2"></i>
+                    </div>
+                </div>
+                <div class="stat-note mt-auto pt-2 border-top border-slate-100 small">
+                    <i class="bi bi-info-circle me-1 text-primary"></i>Lo que adeudan los clientes vinculados
+                </div>
+            </div>
+        </div>
+
+        <!-- Tarjeta 2: Total CxP Vinculado -->
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card stat-card h-100 p-3">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <div class="card-title-sub">2. Saldo Deuda CxP</div>
+                        <div class="stat-amount fs-3 mt-1 text-danger">C$ {{ "{:,.2f}".format(resumen.total_saldo_cxp) }}</div>
+                    </div>
+                    <div class="stat-icon-wrapper" style="background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5;">
+                        <i class="bi bi-credit-card-2-front"></i>
+                    </div>
+                </div>
+                <div class="stat-note mt-auto pt-2 border-top border-slate-100 small">
+                    <i class="bi bi-info-circle me-1 text-danger"></i>Lo que FerDel adeuda a proveedores
+                </div>
+            </div>
+        </div>
+
+        <!-- Tarjeta 3: Compensable Inmediato -->
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card stat-card h-100 p-3">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <div class="card-title-sub">3. Monto Compensable</div>
+                        <div class="stat-amount fs-3 mt-1 text-success">C$ {{ "{:,.2f}".format(resumen.total_compensable) }}</div>
+                    </div>
+                    <div class="stat-icon-wrapper" style="background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0;">
+                        <i class="bi bi-arrow-left-right"></i>
+                    </div>
+                </div>
+                <div class="stat-note mt-auto pt-2 border-top border-slate-100 small">
+                    <i class="bi bi-check2-circle me-1 text-success"></i>Cruces posibles sin uso de efectivo
+                </div>
+            </div>
+        </div>
+
+        <!-- Tarjeta 4: Balance Neto Consolidado -->
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card stat-card h-100 p-3">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <div class="card-title-sub">4. Balance Neto Global</div>
+                        <div class="stat-amount fs-3 mt-1 text-slate-900">C$ {{ "{:,.2f}".format(resumen.saldo_neto_global) }}</div>
+                    </div>
+                    <div class="stat-icon-wrapper" style="background-color: #f8fafc; color: #334155; border: 1px solid #e2e8f0;">
+                        <i class="bi bi-pie-chart"></i>
+                    </div>
+                </div>
+                <div class="stat-note mt-auto pt-2 border-top border-slate-100 small">
+                    {% if resumen.diferencia_global > 0.01 %}
+                        <i class="bi bi-arrow-up-right me-1 text-primary"></i>Neto a favor de FerDel
+                    {% elif resumen.diferencia_global < -0.01 %}
+                        <i class="bi bi-arrow-down-left me-1 text-danger"></i>Neto a favor de Proveedores
+                    {% else %}
+                        <i class="bi bi-check2 me-1 text-success"></i>Saldos globales equilibrados
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECCIÓN PRINCIPAL: TABLA DE CONTRAPARTES -->
+    <div class="card-premium-section">
+        <div class="card-premium-header">
+            <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-3 w-100">
+                <div>
+                    <h5 class="fw-bold mb-0 text-slate-800">
+                        <i class="bi bi-people-fill text-primary me-2"></i>Contrapartes Activas en Cruce de Cuentas
+                    </h5>
+                    <p class="text-slate-500 small mb-0 mt-1">
+                        Mostrando únicamente clientes y proveedores vinculados para balance cruzado
+                    </p>
+                </div>
+
+                <!-- Búsqueda y Filtros -->
+                <div class="d-flex flex-wrap gap-2 w-100 w-lg-auto">
+                    <div class="position-relative flex-grow-1 flex-lg-grow-0" style="min-width: 280px;">
+                        <input type="text" class="form-control form-control-premium ps-5" id="cruceSearchInput"
+                               placeholder="Buscar por cliente, proveedor, RUC, teléfono..." autocomplete="off">
+                        <i class="fas fa-search position-absolute start-0 top-50 translate-middle-y ms-3 text-slate-400"></i>
+                    </div>
+                    <select class="form-select form-select-premium" id="estadoBalanceFilter" style="min-width: 220px;">
+                        <option value="">Todos los balances</option>
+                        <option value="COMPENSABLE">⚠️ Con saldo compensable</option>
+                        <option value="FAVOR_EMPRESA">🔹 A favor de FerDel</option>
+                        <option value="FAVOR_CONTRAPARTE">🔸 A favor de Contraparte</option>
+                        <option value="SALDADO">✅ Saldados / Al día</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabla -->
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-modern align-middle mb-0" id="tablaCruce">
+                    <thead>
+                        <tr>
+                            <th>Cliente Vinculado</th>
+                            <th class="text-end" style="width: 140px;">Saldo CxC</th>
+                            <th>Proveedor (Contraparte)</th>
+                            <th class="text-end" style="width: 140px;">Saldo CxP</th>
+                            <th class="text-center" style="width: 120px;">Ventas</th>
+                            <th class="text-center" style="width: 120px;">Compras</th>
+                            <th class="text-center" style="width: 130px;">Abonos / Cruces</th>
+                            <th class="text-center" style="width: 150px;">Balance Neto</th>
+                            <th class="text-center" style="width: 170px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cruceTableBody">
+                        {% for item in contrapartes %}
+                        <tr data-estado="{{ item.balance.estado }}"
+                            data-search="{{ item.cliente.nombre|lower }} {{ item.cliente.ruc or '' }} {{ item.proveedor.nombre|lower }} {{ item.proveedor.ruc or '' }} {{ item.cliente.telefono or '' }}">
+                            <!-- Cliente -->
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="p-2 bg-primary bg-opacity-10 text-primary rounded-3">
+                                        <i class="bi bi-person-fill"></i>
+                                    </div>
+                                    <div>
+                                        <a href="{{ url_for('admin.admin_detalle_cliente', id=item.cliente.id) }}" 
+                                           class="fw-bold text-slate-800 text-decoration-none" title="Ver Expediente de Cliente">
+                                            {{ item.cliente.nombre }}
+                                        </a>
+                                        <div class="small text-slate-500 font-monospace">
+                                            {% if item.cliente.ruc %}RUC: {{ item.cliente.ruc }}{% else %}ID #{{ item.cliente.id }}{% endif %}
+                                            {% if item.cliente.telefono %} &bull; {{ item.cliente.telefono }}{% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+
+                            <!-- Saldo CxC -->
+                            <td class="text-end">
+                                <div class="fw-bold font-monospace text-slate-900" style="font-size: 0.95rem;">
+                                    C$ {{ "{:,.2f}".format(item.cliente.saldo_cxc) }}
+                                </div>
+                                <small class="text-slate-500" style="font-size: 0.75rem;">Nos debe</small>
+                            </td>
+
+                            <!-- Proveedor -->
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="p-2 bg-slate-100 text-slate-700 rounded-3 border border-slate-200">
+                                        <i class="bi bi-building"></i>
+                                    </div>
+                                    <div>
+                                        <a href="{{ url_for('admin.admin_detalle_proveedor', id=item.proveedor.id) }}" 
+                                           class="fw-bold text-slate-800 text-decoration-none" title="Ver Expediente de Proveedor">
+                                            {{ item.proveedor.nombre }}
+                                        </a>
+                                        <div class="small text-slate-500 font-monospace">
+                                            {% if item.proveedor.ruc %}RUC: {{ item.proveedor.ruc }}{% else %}ID #{{ item.proveedor.id }}{% endif %}
+                                            {% if item.proveedor.telefono %} &bull; {{ item.proveedor.telefono }}{% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+
+                            <!-- Saldo CxP -->
+                            <td class="text-end">
+                                <div class="fw-bold font-monospace text-danger" style="font-size: 0.95rem;">
+                                    C$ {{ "{:,.2f}".format(item.proveedor.saldo_cxp) }}
+                                </div>
+                                <small class="text-slate-500" style="font-size: 0.75rem;">Le debemos</small>
+                            </td>
+
+                            <!-- Ventas -->
+                            <td class="text-center">
+                                <div class="fw-bold font-monospace" style="color: #0f172a; font-size: 0.95rem;">
+                                    C$ {{ "{:,.2f}".format(item.cliente.total_ventas_monto) }}
+                                </div>
+                                <div class="small fw-semibold mt-1" style="color: #475569; font-size: 0.78rem;">
+                                    <i class="bi bi-cart4 text-primary me-1"></i>{{ item.cliente.total_ventas_count }} venta(s)
+                                </div>
+                            </td>
+
+                            <!-- Compras -->
+                            <td class="text-center">
+                                <div class="fw-bold font-monospace text-slate-900" style="font-size: 0.95rem;">
+                                    C$ {{ "{:,.2f}".format(item.proveedor.total_compras_monto) }}
+                                </div>
+                                <div class="small fw-semibold mt-1" style="color: #475569; font-size: 0.78rem;">
+                                    <i class="bi bi-box-seam text-secondary me-1"></i>{{ item.proveedor.total_compras_count }} compra(s)
+                                </div>
+                            </td>
+
+                            <!-- Abonos y Cruces -->
+                            <td class="text-center">
+                                <div class="small text-slate-700">
+                                    <span class="text-success fw-bold font-monospace">C$ {{ "{:,.2f}".format(item.cliente.total_abonos_monto) }}</span> cobrado
+                                </div>
+                                <div class="small text-slate-500" style="font-size: 0.75rem;">
+                                    <span class="fw-bold text-primary font-monospace">C$ {{ "{:,.2f}".format(item.balance.total_cruzado_historico) }}</span> cruzado
+                                </div>
+                            </td>
+
+                            <!-- Balance Neto -->
+                            <td class="text-center">
+                                {% if item.balance.estado == 'COMPENSABLE' %}
+                                <span class="badge-modern badge-compensable" title="Compensación posible al instante">
+                                    <i class="bi bi-arrow-left-right"></i> Compensable
+                                </span>
+                                <div class="small text-success fw-bold font-monospace mt-1">
+                                    C$ {{ "{:,.2f}".format(item.balance.monto_compensable) }}
+                                </div>
+                                {% elif item.balance.estado == 'FAVOR_EMPRESA' %}
+                                <span class="badge-modern badge-ferdel">
+                                    <i class="bi bi-arrow-up-right"></i> A favor FerDel
+                                </span>
+                                <div class="small text-primary fw-bold font-monospace mt-1">
+                                    C$ {{ "{:,.2f}".format(item.balance.saldo_neto) }}
+                                </div>
+                                {% elif item.balance.estado == 'FAVOR_CONTRAPARTE' %}
+                                <span class="badge-modern badge-proveedor">
+                                    <i class="bi bi-arrow-down-left"></i> A favor Contraparte
+                                </span>
+                                <div class="small text-danger fw-bold font-monospace mt-1">
+                                    C$ {{ "{:,.2f}".format(item.balance.saldo_neto) }}
+                                </div>
+                                {% else %}
+                                <span class="badge-modern badge-saldado">
+                                    <i class="bi bi-check-circle"></i> Al Día (C$ 0)
+                                </span>
+                                {% endif %}
+                            </td>
+
+                            <!-- Acciones -->
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    {% if item.balance.monto_compensable > 0.001 %}
+                                    <button type="button" class="btn btn-outline-success btn-action fw-bold"
+                                            title="Aplicar Cruce de Cuentas"
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#modalCruce_{{ item.cliente.id }}_{{ item.proveedor.id }}">
+                                        <i class="bi bi-arrow-left-right"></i>
+                                        <span class="d-none d-md-inline ms-1">Cruzar</span>
+                                    </button>
+                                    {% endif %}
+                                    <button type="button" class="btn btn-outline-secondary btn-action" 
+                                            title="Ver Movimientos (Ventas, Compras, Abonos)"
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#modalMovimientos_{{ item.cliente.id }}_{{ item.proveedor.id }}">
+                                        <i class="bi bi-eye"></i>
+                                        <span class="d-none d-md-inline ms-1">Movimientos</span>
+                                    </button>
+                                </div>
+
+                                <!-- MODAL DE CRUCE DIRECTO -->
+                                {% if item.balance.monto_compensable > 0.001 %}
+                                <div class="modal fade" id="modalCruce_{{ item.cliente.id }}_{{ item.proveedor.id }}" tabindex="-1" aria-hidden="true">
+                                    <div class="modal-dialog modal-dialog-centered">
+                                        <div class="modal-content rounded-4 border-0 shadow-lg text-start">
+                                            <div class="modal-header bg-white border-bottom p-4">
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <div class="p-2 bg-success bg-opacity-10 text-success rounded-3">
+                                                        <i class="bi bi-arrow-left-right fs-4"></i>
+                                                    </div>
+                                                    <div>
+                                                        <h5 class="modal-title fw-bold mb-0 text-slate-900">Aplicar Cruce de Cuentas</h5>
+                                                        <small class="text-slate-500">{{ item.cliente.nombre }} ⇄ {{ item.proveedor.nombre }}</small>
+                                                    </div>
+                                                </div>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <form method="POST" action="{{ url_for('admin.admin_cruce_cuentas_aplicar') }}">
+                                                <input type="hidden" name="id_cliente" value="{{ item.cliente.id }}">
+                                                <input type="hidden" name="id_proveedor" value="{{ item.proveedor.id }}">
+                                                <div class="modal-body p-4">
+                                                    <div class="alert alert-info bg-info bg-opacity-10 border-info border-opacity-25 rounded-3 p-3 mb-3 small">
+                                                        <i class="bi bi-info-circle-fill text-info me-1"></i>
+                                                        Al aplicar este cruce se amortizarán automáticamente las facturas más antiguas (FIFO) en Cuentas por Cobrar y Cuentas por Pagar sin mover efectivo.
+                                                    </div>
+
+                                                    <div class="p-3 bg-light rounded-3 border mb-3 small">
+                                                        <div class="d-flex justify-content-between mb-1">
+                                                            <span class="text-slate-600">Saldo CxC (Cliente debe):</span>
+                                                            <strong class="font-monospace text-slate-900">C$ {{ "{:,.2f}".format(item.cliente.saldo_cxc) }}</strong>
+                                                        </div>
+                                                        <div class="d-flex justify-content-between mb-1">
+                                                            <span class="text-slate-600">Saldo CxP (Proveedor se adeuda):</span>
+                                                            <strong class="font-monospace text-danger">C$ {{ "{:,.2f}".format(item.proveedor.saldo_cxp) }}</strong>
+                                                        </div>
+                                                        <hr class="my-2">
+                                                        <div class="d-flex justify-content-between">
+                                                            <span class="fw-bold text-slate-800">Monto Máximo Compensable:</span>
+                                                            <strong class="font-monospace text-success fs-6">C$ {{ "{:,.2f}".format(item.balance.monto_compensable) }}</strong>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="mb-3">
+                                                        <label class="form-label fw-bold text-slate-800 small">Monto a Compensar (C$)</label>
+                                                        <input type="number" step="0.01" min="0.01" max="{{ item.balance.monto_compensable }}"
+                                                               name="monto_cruce" class="form-control form-control-premium font-monospace fw-bold"
+                                                               value="{{ item.balance.monto_compensable }}" required>
+                                                        <div class="form-text small">Puede cruzar el total o amortizar una parte específica.</div>
+                                                    </div>
+
+                                                    <div class="mb-3">
+                                                        <label class="form-label fw-bold text-slate-800 small">Observación / Nota Contable</label>
+                                                        <input type="text" name="observacion" class="form-control form-control-premium"
+                                                               value="Cruce de cuentas bilateral entre {{ item.cliente.nombre }} y {{ item.proveedor.nombre }}">
+                                                    </div>
+                                                </div>
+                                                <div class="modal-footer bg-light border-top">
+                                                    <button type="button" class="btn btn-outline-secondary px-3 py-2 rounded-3" data-bs-dismiss="modal">Cancelar</button>
+                                                    <button type="submit" class="btn btn-outline-success px-4 py-2 rounded-3 fw-bold shadow-sm">
+                                                        <i class="bi bi-check-circle me-1"></i> Confirmar Cruce
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                <!-- MODAL DE MOVIMIENTOS DETALLADOS -->
+                                <div class="modal fade" id="modalMovimientos_{{ item.cliente.id }}_{{ item.proveedor.id }}" tabindex="-1" aria-hidden="true">
+                                    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+                                        <div class="modal-content rounded-4 border-0 shadow-lg text-start">
+                                            <div class="modal-header bg-white border-bottom p-4">
+                                                <div class="d-flex align-items-center gap-3">
+                                                    <div class="p-3 bg-primary bg-opacity-10 text-primary rounded-3">
+                                                        <i class="bi bi-arrow-left-right fs-3"></i>
+                                                    </div>
+                                                    <div>
+                                                        <h5 class="modal-title fw-bold text-slate-900 mb-1">
+                                                            Expediente de Cruce: {{ item.cliente.nombre }}
+                                                        </h5>
+                                                        <div class="small text-slate-500">
+                                                            Contraparte vinculada: <strong class="text-slate-800">{{ item.proveedor.nombre }}</strong> &bull;
+                                                            Saldo CxC: <span class="font-monospace text-slate-900 fw-bold">C$ {{ "{:,.2f}".format(item.cliente.saldo_cxc) }}</span> &bull;
+                                                            Saldo CxP: <span class="font-monospace text-danger fw-bold">C$ {{ "{:,.2f}".format(item.proveedor.saldo_cxp) }}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+
+                                            <div class="modal-body p-4">
+                                                <!-- Pestañas de Movimientos -->
+                                                <ul class="nav nav-tabs mb-4" id="tabMov_{{ item.cliente.id }}_{{ item.proveedor.id }}" role="tablist">
+                                                    <li class="nav-item" role="presentation">
+                                                        <button class="nav-link active" id="tab-ventas-{{ item.cliente.id }}" data-bs-toggle="tab" data-bs-target="#content-ventas-{{ item.cliente.id }}" type="button" role="tab">
+                                                            <i class="bi bi-cart4 me-1"></i> Ventas al Cliente ({{ item.cliente.ultimas_ventas|length }})
+                                                        </button>
+                                                    </li>
+                                                    <li class="nav-item" role="presentation">
+                                                        <button class="nav-link" id="tab-compras-{{ item.cliente.id }}" data-bs-toggle="tab" data-bs-target="#content-compras-{{ item.cliente.id }}" type="button" role="tab">
+                                                            <i class="bi bi-box-seam me-1"></i> Compras al Proveedor ({{ item.proveedor.ultimas_compras|length }})
+                                                        </button>
+                                                    </li>
+                                                    <li class="nav-item" role="presentation">
+                                                        <button class="nav-link" id="tab-abonos-{{ item.cliente.id }}" data-bs-toggle="tab" data-bs-target="#content-abonos-{{ item.cliente.id }}" type="button" role="tab">
+                                                            <i class="bi bi-wallet2 me-1"></i> Abonos y Pagos Realizados
+                                                        </button>
+                                                    </li>
+                                                </ul>
+
+                                                <div class="tab-content" id="tabContent_{{ item.cliente.id }}_{{ item.proveedor.id }}">
+                                                    <!-- Pestaña 1: Ventas -->
+                                                    <div class="tab-pane fade show active" id="content-ventas-{{ item.cliente.id }}" role="tabpanel">
+                                                        <div class="table-responsive border rounded-3">
+                                                            <table class="table table-hover align-middle mb-0 small">
+                                                                <thead class="table-light">
+                                                                    <tr>
+                                                                        <th>N° Factura</th>
+                                                                        <th>Fecha</th>
+                                                                        <th>Tipo</th>
+                                                                        <th class="text-end">Total</th>
+                                                                        <th class="text-center">Estado</th>
+                                                                        <th class="text-center">Acción</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {% for v in item.cliente.ultimas_ventas %}
+                                                                    <tr>
+                                                                        <td class="fw-bold font-monospace">#{{ v.ID_Factura }}</td>
+                                                                        <td>{{ v.Fecha.strftime('%d/%m/%Y') if v.Fecha else 'N/A' }}</td>
+                                                                        <td>
+                                                                            {% if v.Credito_Contado == 0 %}
+                                                                                <span class="badge-modern badge-contado" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">Contado</span>
+                                                                            {% else %}
+                                                                                <span class="badge-modern badge-credito" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">Crédito</span>
+                                                                            {% endif %}
+                                                                        </td>
+                                                                        <td class="text-end fw-bold font-monospace" style="color: #0f172a;">C$ {{ "{:,.2f}".format(v.Total) }}</td>
+                                                                        <td class="text-center">
+                                                                            <span class="badge-modern {% if v.Estado == 'Activa' %}badge-activa{% else %}badge-anulada{% endif %}" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">
+                                                                                {{ v.Estado }}
+                                                                            </span>
+                                                                        </td>
+                                                                        <td class="text-center">
+                                                                            <a href="{{ url_for('admin.admin_detalles_venta', id_factura=v.ID_Factura) }}" 
+                                                                               class="btn btn-sm btn-outline-primary py-0 px-2" target="_blank">
+                                                                                Ver
+                                                                            </a>
+                                                                        </td>
+                                                                    </tr>
+                                                                    {% else %}
+                                                                    <tr><td colspan="6" class="text-center py-3 text-slate-500">Sin facturas recientes registradas.</td></tr>
+                                                                    {% endfor %}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- Pestaña 2: Compras -->
+                                                    <div class="tab-pane fade" id="content-compras-{{ item.cliente.id }}" role="tabpanel">
+                                                        <div class="table-responsive border rounded-3">
+                                                            <table class="table table-hover align-middle mb-0 small">
+                                                                <thead class="table-light">
+                                                                    <tr>
+                                                                        <th>N° Movimiento / Compra</th>
+                                                                        <th>Fecha</th>
+                                                                        <th>Tipo Compra</th>
+                                                                        <th class="text-end">Total</th>
+                                                                        <th class="text-center">Estado</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {% for c in item.proveedor.ultimas_compras %}
+                                                                    <tr>
+                                                                        <td class="fw-bold font-monospace">#{{ c.ID_Movimiento }}</td>
+                                                                        <td>{{ c.Fecha.strftime('%d/%m/%Y') if c.Fecha else 'N/A' }}</td>
+                                                                        <td>
+                                                                            <span class="badge-modern badge-credito" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">
+                                                                                {{ c.Tipo_Compra or 'Compra' }}
+                                                                            </span>
+                                                                        </td>
+                                                                        <td class="text-end fw-bold font-monospace text-slate-900">C$ {{ "{:,.2f}".format(c.Total) }}</td>
+                                                                        <td class="text-center">
+                                                                            <span class="badge-modern {% if c.Estado == 'Activa' %}badge-activa{% else %}badge-anulada{% endif %}" style="padding: 0.2rem 0.55rem; font-size: 0.72rem;">
+                                                                                {{ c.Estado }}
+                                                                            </span>
+                                                                        </td>
+                                                                    </tr>
+                                                                    {% else %}
+                                                                    <tr><td colspan="5" class="text-center py-3 text-slate-500">Sin compras recientes registradas.</td></tr>
+                                                                    {% endfor %}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- Pestaña 3: Abonos y Pagos -->
+                                                    <div class="tab-pane fade" id="content-abonos-{{ item.cliente.id }}" role="tabpanel">
+                                                        <div class="row g-3">
+                                                            <div class="col-md-6">
+                                                                <h6 class="fw-bold text-slate-800 mb-2">
+                                                                    <i class="bi bi-arrow-down-left text-success me-1"></i> Cobros / Abonos del Cliente
+                                                                </h6>
+                                                                <div class="table-responsive border rounded-3">
+                                                                    <table class="table table-hover align-middle mb-0 small">
+                                                                        <thead class="table-light">
+                                                                            <tr>
+                                                                                <th>Fecha</th>
+                                                                                <th>Método / Detalle</th>
+                                                                                <th class="text-end">Monto</th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody>
+                                                                            {% for a in item.cliente.ultimos_abonos %}
+                                                                            <tr>
+                                                                                <td>{{ a.Fecha.strftime('%d/%m/%Y') if a.Fecha else 'N/A' }}</td>
+                                                                                <td>
+                                                                                    {% if a.caja_movimientos == 'Cruce de Cuentas' %}
+                                                                                        <span class="badge bg-primary-subtle text-primary fw-bold">🔄 Cruce de Cuentas</span>
+                                                                                    {% else %}
+                                                                                        {{ a.Metodo or a.caja_movimientos or 'Abono' }}
+                                                                                    {% endif %}
+                                                                                </td>
+                                                                                <td class="text-end fw-bold font-monospace text-success">C$ {{ "{:,.2f}".format(a.Monto_Aplicado) }}</td>
+                                                                            </tr>
+                                                                            {% else %}
+                                                                            <tr><td colspan="3" class="text-center py-3 text-slate-500">Sin abonos registrados.</td></tr>
+                                                                            {% endfor %}
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-md-6">
+                                                                <h6 class="fw-bold text-slate-800 mb-2">
+                                                                    <i class="bi bi-arrow-up-right text-danger me-1"></i> Pagos / Abonos al Proveedor
+                                                                </h6>
+                                                                <div class="table-responsive border rounded-3">
+                                                                    <table class="table table-hover align-middle mb-0 small">
+                                                                        <thead class="table-light">
+                                                                            <tr>
+                                                                                <th>Fecha</th>
+                                                                                <th>Método / Detalle</th>
+                                                                                <th class="text-end">Monto</th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody>
+                                                                            {% for p in item.proveedor.ultimos_pagos %}
+                                                                            <tr>
+                                                                                <td>{{ p.Fecha.strftime('%d/%m/%Y') if p.Fecha else 'N/A' }}</td>
+                                                                                <td>
+                                                                                    {% if 'Cruce' in (p.Detalles_Metodo or '') or 'Cruce' in (p.Comentarios or '') %}
+                                                                                        <span class="badge bg-primary-subtle text-primary fw-bold">🔄 Cruce de Cuentas</span>
+                                                                                    {% else %}
+                                                                                        {{ p.Metodo or p.Detalles_Metodo or 'Pago' }}
+                                                                                    {% endif %}
+                                                                                </td>
+                                                                                <td class="text-end fw-bold font-monospace text-danger">C$ {{ "{:,.2f}".format(p.Monto_Aplicado) }}</td>
+                                                                            </tr>
+                                                                            {% else %}
+                                                                            <tr><td colspan="3" class="text-center py-3 text-slate-500">Sin pagos registrados.</td></tr>
+                                                                            {% endfor %}
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="modal-footer bg-light border-top">
+                                                <button type="button" class="btn btn-outline-secondary px-3 py-2 rounded-3" data-bs-dismiss="modal">Cerrar</button>
+                                                <a href="{{ url_for('admin.admin_detalle_cliente', id=item.cliente.id) }}" class="btn btn-outline-primary px-3 py-2 rounded-3 fw-bold">
+                                                    <i class="bi bi-box-arrow-up-right me-1"></i> Ver Expediente Cliente
+                                                </a>
+                                                <a href="{{ url_for('admin.admin_detalle_proveedor', id=item.proveedor.id) }}" class="btn btn-outline-secondary px-3 py-2 rounded-3 fw-bold">
+                                                    <i class="bi bi-box-arrow-up-right me-1"></i> Ver Expediente Proveedor
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="9" class="text-center py-5">
+                                <div class="py-4">
+                                    <div class="p-3 bg-light rounded-circle d-inline-flex mb-3">
+                                        <i class="bi bi-arrow-left-right fs-1 text-slate-400"></i>
+                                    </div>
+                                    <h5 class="text-slate-800 fw-bold mb-2">No hay Clientes o Proveedores Vinculados</h5>
+                                    <p class="text-slate-500 small mb-4 mx-auto" style="max-width: 500px;">
+                                        Para habilitar el cruce de cuentas, edite un Cliente o Proveedor y active la opción 
+                                        <strong>"Cliente Vinculado (Cruce de Cuentas / Contraparte)"</strong> para vincularlo bidireccionalmente.
+                                    </p>
+                                    <div class="d-flex justify-content-center gap-2">
+                                        <a href="{{ url_for('admin.admin_clientes') }}" class="btn btn-outline-primary px-4 py-2 rounded-3 fw-bold">
+                                            <i class="bi bi-person me-2"></i> Ir a Clientes
+                                        </a>
+                                        <a href="{{ url_for('admin.admin_proveedores') }}" class="btn btn-outline-secondary px-4 py-2 rounded-3 fw-bold">
+                                            <i class="bi bi-building me-2"></i> Ir a Proveedores
+                                        </a>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card-footer bg-white border-top border-slate-200 py-3 px-4">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 text-slate-600 small">
+                <div>
+                    <i class="bi bi-info-circle text-primary me-1"></i>
+                    Mostrando <strong class="text-slate-800" id="visibleCounter">{{ contrapartes|length }}</strong> contraparte(s) activa(s)
+                </div>
+                <div>
+                    El sistema compensa automáticamente los saldos mutuos bajo el principio contable de <strong>cruce bilateral sin salida de caja</strong>.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const searchInput = document.getElementById('cruceSearchInput');
+        const estadoFilter = document.getElementById('estadoBalanceFilter');
+        const rows = document.querySelectorAll('#cruceTableBody tr[data-estado]');
+        const counterEl = document.getElementById('visibleCounter');
+
+        function filterTable() {
+            const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
+            const estado = estadoFilter ? estadoFilter.value : '';
+            let visibleCount = 0;
+
+            rows.forEach(row => {
+                const rowSearch = row.getAttribute('data-search') || '';
+                const rowEstado = row.getAttribute('data-estado') || '';
+
+                const matchesQuery = !query || rowSearch.includes(query);
+                const matchesEstado = !estado || rowEstado === estado;
+
+                if (matchesQuery && matchesEstado) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            if (counterEl) {
+                counterEl.textContent = visibleCount;
+            }
+        }
+
+        searchInput?.addEventListener('input', filterTable);
+        estadoFilter?.addEventListener('change', filterTable);
+    });
+</script>
+{% endblock %}
+

@@ -13,12 +13,14 @@ from datetime import datetime, date, timedelta
 from decimal import Decimal
 
 from config.database import get_db_cursor
+from config.settings import ENABLE_INAPP_SCHEDULER
 from helpers.bitacora import registrar_bitacora
 
 logger = logging.getLogger(__name__)
 
 # Directorio por defecto para guardar los respaldos
 BACKUP_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'backups'))
+LOCK_NAME = 'ferdel_backup_job'
 
 
 def obtener_directorio_backups():
@@ -28,103 +30,118 @@ def obtener_directorio_backups():
     return BACKUP_DIR
 
 
-def generar_script_sql():
+def generar_script_sql(filepath=None):
     """
     Genera el script SQL completo de la base de datos actual (Pure Python).
     Incluye estructura DROP/CREATE, datos INSERT y vistas.
+    Si se proporciona 'filepath', escribe directamente en disco en streaming (ahorro de RAM).
     """
-    output = io.StringIO()
-    output.write("-- ========================================================\n")
-    output.write("-- Respaldador Automático de Base de Datos Ferdel (Pure Python)\n")
-    output.write(f"-- Fecha de generación: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-    output.write("-- ========================================================\n\n")
-    output.write("SET FOREIGN_KEY_CHECKS = 0;\n\n")
+    close_stream = False
+    if filepath:
+        output = open(filepath, "w", encoding="utf-8")
+        close_stream = True
+    else:
+        output = io.StringIO()
 
-    with get_db_cursor(commit=False) as cursor:
-        cursor.execute("SELECT DATABASE() as db_name")
-        res_db = cursor.fetchone()
-        db_name = res_db['db_name'] if res_db else 'ferdel'
+    try:
+        output.write("-- ========================================================\n")
+        output.write("-- Respaldador Automático de Base de Datos Ferdel (Pure Python)\n")
+        output.write(f"-- Fecha de generación: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        output.write("-- ========================================================\n\n")
+        output.write("SET FOREIGN_KEY_CHECKS = 0;\n\n")
 
-        output.write(f"CREATE DATABASE IF NOT EXISTS `{db_name}` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;\n")
-        output.write(f"USE `{db_name}`;\n\n")
+        with get_db_cursor(commit=False) as cursor:
+            cursor.execute("SELECT DATABASE() as db_name")
+            res_db = cursor.fetchone()
+            db_name = res_db['db_name'] if res_db else 'ferdel'
 
-        cursor.execute("SHOW TABLES")
-        tables = [list(row.values())[0] for row in cursor.fetchall()]
+            output.write(f"CREATE DATABASE IF NOT EXISTS `{db_name}` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;\n")
+            output.write(f"USE `{db_name}`;\n\n")
 
-        # 1. Tablas y sus registros
-        for table in tables:
-            cursor.execute(f"SHOW FULL TABLES LIKE '{table}'")
-            table_info = cursor.fetchone()
-            is_view = table_info and list(table_info.values())[1] == 'VIEW'
-            if is_view:
-                continue
+            cursor.execute("SHOW TABLES")
+            tables = [list(row.values())[0] for row in cursor.fetchall()]
 
-            output.write(f"-- --------------------------------------------------------\n")
-            output.write(f"-- Estructura de tabla para `{table}`\n")
-            output.write(f"-- --------------------------------------------------------\n")
-            output.write(f"DROP TABLE IF EXISTS `{table}`;\n")
+            # 1. Tablas y sus registros
+            for table in tables:
+                cursor.execute(f"SHOW FULL TABLES LIKE '{table}'")
+                table_info = cursor.fetchone()
+                is_view = table_info and list(table_info.values())[1] == 'VIEW'
+                if is_view:
+                    continue
 
-            cursor.execute(f"SHOW CREATE TABLE `{table}`")
-            create_stmt = cursor.fetchone()
-            sql_create = list(create_stmt.values())[1]
-            output.write(f"{sql_create};\n\n")
+                output.write(f"-- --------------------------------------------------------\n")
+                output.write(f"-- Estructura de tabla para `{table}`\n")
+                output.write(f"-- --------------------------------------------------------\n")
+                output.write(f"DROP TABLE IF EXISTS `{table}`;\n")
 
-            output.write(f"-- Registros de la tabla `{table}`\n")
-            cursor.execute(f"SELECT * FROM `{table}`")
-            rows = cursor.fetchall()
-            if rows:
-                columns = list(rows[0].keys())
-                col_names = ", ".join([f"`{col}`" for col in columns])
+                cursor.execute(f"SHOW CREATE TABLE `{table}`")
+                create_stmt = cursor.fetchone()
+                sql_create = list(create_stmt.values())[1]
+                output.write(f"{sql_create};\n\n")
 
-                # Escritura de INSERT en bloques de hasta 100 filas
-                chunk_size = 100
-                for i in range(0, len(rows), chunk_size):
-                    chunk = rows[i:i + chunk_size]
-                    rows_values = []
-                    for row in chunk:
-                        vals = []
-                        for col in columns:
-                            val = row[col]
-                            if val is None:
-                                vals.append("NULL")
-                            elif isinstance(val, (int, float, Decimal)):
-                                vals.append(str(val))
-                            elif isinstance(val, (datetime, date)):
-                                if isinstance(val, datetime):
-                                    vals.append(f"'{val.strftime('%Y-%m-%d %H:%M:%S')}'")
+                output.write(f"-- Registros de la tabla `{table}`\n")
+                cursor.execute(f"SELECT * FROM `{table}`")
+                rows = cursor.fetchall()
+                if rows:
+                    columns = list(rows[0].keys())
+                    col_names = ", ".join([f"`{col}`" for col in columns])
+
+                    # Escritura de INSERT en bloques de hasta 100 filas
+                    chunk_size = 100
+                    for i in range(0, len(rows), chunk_size):
+                        chunk = rows[i:i + chunk_size]
+                        rows_values = []
+                        for row in chunk:
+                            vals = []
+                            for col in columns:
+                                val = row[col]
+                                if val is None:
+                                    vals.append("NULL")
+                                elif isinstance(val, (int, float, Decimal)):
+                                    vals.append(str(val))
+                                elif isinstance(val, (datetime, date)):
+                                    if isinstance(val, datetime):
+                                        vals.append(f"'{val.strftime('%Y-%m-%d %H:%M:%S')}'")
+                                    else:
+                                        vals.append(f"'{val.strftime('%Y-%m-%d')}'")
+                                elif isinstance(val, bytes):
+                                    vals.append(f"0x{val.hex()}")
                                 else:
-                                    vals.append(f"'{val.strftime('%Y-%m-%d')}'")
-                            elif isinstance(val, bytes):
-                                vals.append(f"0x{val.hex()}")
-                            else:
-                                escaped_val = str(val).replace("\\", "\\\\").replace("'", "\\'")
-                                vals.append(f"'{escaped_val}'")
-                        rows_values.append(f"({', '.join(vals)})")
+                                    escaped_val = str(val).replace("\\", "\\\\").replace("'", "\\'")
+                                    vals.append(f"'{escaped_val}'")
+                            rows_values.append(f"({', '.join(vals)})")
 
-                    output.write(f"INSERT INTO `{table}` ({col_names}) VALUES\n")
-                    output.write(",\n".join(rows_values) + ";\n")
-            output.write("\n")
+                        output.write(f"INSERT INTO `{table}` ({col_names}) VALUES\n")
+                        output.write(",\n".join(rows_values) + ";\n")
+                output.write("\n")
 
-        # 2. Vistas
-        for table in tables:
-            cursor.execute(f"SHOW FULL TABLES LIKE '{table}'")
-            table_info = cursor.fetchone()
-            is_view = table_info and list(table_info.values())[1] == 'VIEW'
-            if not is_view:
-                continue
+            # 2. Vistas
+            for table in tables:
+                cursor.execute(f"SHOW FULL TABLES LIKE '{table}'")
+                table_info = cursor.fetchone()
+                is_view = table_info and list(table_info.values())[1] == 'VIEW'
+                if not is_view:
+                    continue
 
-            output.write(f"-- --------------------------------------------------------\n")
-            output.write(f"-- Estructura de vista `{table}`\n")
-            output.write(f"-- --------------------------------------------------------\n")
-            output.write(f"DROP VIEW IF EXISTS `{table}`;\n")
+                output.write(f"-- --------------------------------------------------------\n")
+                output.write(f"-- Estructura de vista `{table}`\n")
+                output.write(f"-- --------------------------------------------------------\n")
+                output.write(f"DROP VIEW IF EXISTS `{table}`;\n")
 
-            cursor.execute(f"SHOW CREATE VIEW `{table}`")
-            create_stmt = cursor.fetchone()
-            sql_create = list(create_stmt.values())[1]
-            output.write(f"{sql_create};\n\n")
+                cursor.execute(f"SHOW CREATE VIEW `{table}`")
+                create_stmt = cursor.fetchone()
+                sql_create = list(create_stmt.values())[1]
+                output.write(f"{sql_create};\n\n")
 
-    output.write("SET FOREIGN_KEY_CHECKS = 1;\n")
-    return output.getvalue()
+        output.write("SET FOREIGN_KEY_CHECKS = 1;\n")
+        if close_stream:
+            output.flush()
+            return filepath
+        else:
+            return output.getvalue()
+    finally:
+        if close_stream:
+            output.close()
 
 
 def rotar_backups_antiguos(dias_retencion=15, min_archivos=5):
@@ -157,55 +174,79 @@ def rotar_backups_antiguos(dias_retencion=15, min_archivos=5):
 def ejecutar_backup_servidor(es_automatico=True, dias_retencion=15):
     """
     Ejecuta el respaldo de base de datos y lo guarda en el disco del servidor.
-    Actualiza la bitácora y la configuración del sistema.
+    Utiliza GET_LOCK en MySQL para evitar ejecuciones concurrentes entre workers de Gunicorn.
+    Escribe directamente en disco vía streaming para no saturar memoria RAM.
     """
-    directorio = obtener_directorio_backups()
-    tipo = "auto" if es_automatico else "manual"
-    timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"backup_ferdel_{tipo}_{timestamp_str}.sql"
-    filepath = os.path.join(directorio, filename)
-
-    logger.info(f"Iniciando respaldo de base de datos ({tipo}): {filename}")
-    sql_content = generar_script_sql()
-
-    with open(filepath, "w", encoding="utf-8") as f:
-        f.write(sql_content)
-
-    tamano_bytes = os.path.getsize(filepath)
-    tamano_mb = round(tamano_bytes / (1024 * 1024), 2)
-
-    # Registrar en bitácora y en config_sistema
-    accion = f"{'BACKUP_AUTOMATICO_24H' if es_automatico else 'BACKUP_MANUAL_SERVIDOR'}: {filename} ({tamano_mb} MB)"
+    # 1. Intentar adquirir el candado distribuido de MySQL (0 segundos de espera = no bloqueante)
+    lock_adquirido = False
     try:
-        registrar_bitacora(modulo="RESPALDO", accion=accion)
-    except Exception as e:
-        logger.warning(f"No se pudo registrar bitácora para backup: {e}")
+        with get_db_cursor(commit=False) as cursor:
+            cursor.execute("SELECT GET_LOCK(%s, 0) AS lock_res", (LOCK_NAME,))
+            res = cursor.fetchone()
+            lock_adquirido = bool(res and res['lock_res'] == 1)
+    except Exception as e_lock:
+        logger.warning(f"No se pudo consultar GET_LOCK en MySQL: {e_lock}")
+        lock_adquirido = True  # Permitir continuar si no hay soporte de locks
+
+    if not lock_adquirido:
+        logger.warning("🔒 Operación de respaldo omitida: otro worker o proceso ya está ejecutando un respaldo.")
+        return {
+            'success': False,
+            'message': 'Otro proceso ya está ejecutando un respaldo simultáneo.'
+        }
 
     try:
-        ahora_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        with get_db_cursor(commit=True) as cursor:
-            cursor.execute("""
-                INSERT INTO config_sistema (llave, valor, descripcion)
-                VALUES ('ultimo_backup_automatico', %s, 'Fecha y hora del último respaldo generado en el servidor')
-                ON DUPLICATE KEY UPDATE valor = %s
-            """, (ahora_iso, ahora_iso))
-    except Exception as e:
-        logger.warning(f"No se pudo actualizar 'ultimo_backup_automatico' en config_sistema: {e}")
+        directorio = obtener_directorio_backups()
+        tipo = "auto" if es_automatico else "manual"
+        timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"backup_ferdel_{tipo}_{timestamp_str}.sql"
+        filepath = os.path.join(directorio, filename)
 
-    # Rotar backups antiguos
-    try:
-        rotar_backups_antiguos(dias_retencion=dias_retencion)
-    except Exception as e:
-        logger.warning(f"Error al rotar respaldos antiguos: {e}")
+        logger.info(f"Iniciando respaldo de base de datos ({tipo}): {filename}")
+        generar_script_sql(filepath=filepath)
 
-    logger.info(f"Respaldo generado exitosamente: {filepath} ({tamano_mb} MB)")
-    return {
-        'success': True,
-        'filename': filename,
-        'filepath': filepath,
-        'size_mb': tamano_mb,
-        'fecha': datetime.now()
-    }
+        tamano_bytes = os.path.getsize(filepath) if os.path.exists(filepath) else 0
+        tamano_mb = round(tamano_bytes / (1024 * 1024), 2)
+
+        # Registrar en bitácora y en config_sistema
+        accion = f"{'BACKUP_AUTOMATICO_24H' if es_automatico else 'BACKUP_MANUAL_SERVIDOR'}: {filename} ({tamano_mb} MB)"
+        try:
+            registrar_bitacora(modulo="RESPALDO", accion=accion)
+        except Exception as e:
+            logger.warning(f"No se pudo registrar bitácora para backup: {e}")
+
+        try:
+            ahora_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            with get_db_cursor(commit=True) as cursor:
+                cursor.execute("""
+                    INSERT INTO config_sistema (llave, valor, descripcion)
+                    VALUES ('ultimo_backup_automatico', %s, 'Fecha y hora del último respaldo generado en el servidor')
+                    ON DUPLICATE KEY UPDATE valor = %s
+                """, (ahora_iso, ahora_iso))
+        except Exception as e:
+            logger.warning(f"No se pudo actualizar 'ultimo_backup_automatico' en config_sistema: {e}")
+
+        # Rotar backups antiguos
+        try:
+            rotar_backups_antiguos(dias_retencion=dias_retencion)
+        except Exception as e:
+            logger.warning(f"Error al rotar respaldos antiguos: {e}")
+
+        logger.info(f"Respaldo generado exitosamente: {filepath} ({tamano_mb} MB)")
+        return {
+            'success': True,
+            'filename': filename,
+            'filepath': filepath,
+            'size_mb': tamano_mb,
+            'fecha': datetime.now()
+        }
+    finally:
+        # Liberar candado distribuido
+        try:
+            with get_db_cursor(commit=False) as cursor:
+                cursor.execute("SELECT RELEASE_LOCK(%s)", (LOCK_NAME,))
+        except Exception as e_rel:
+            logger.warning(f"Error al liberar lock de respaldo: {e_rel}")
 
 
 def listar_backups_servidor():
@@ -324,8 +365,13 @@ def _bucle_scheduler():
 
 def iniciar_scheduler_backup(app=None):
     """
-    Inicia el hilo en segundo plano para el respaldo diario si aún no está en ejecución.
+    Inicia el hilo en segundo plano para el respaldo diario si aún no está en ejecución
+    y si ENABLE_INAPP_SCHEDULER está activo.
     """
+    if not ENABLE_INAPP_SCHEDULER:
+        logger.info("ℹ️ Scheduler de respaldo en proceso desactivado por configuración (ENABLE_INAPP_SCHEDULER=False). Use Railway Cron o tarea externa.")
+        return
+
     global _scheduler_iniciado
     with _scheduler_lock:
         if _scheduler_iniciado:
@@ -334,3 +380,18 @@ def iniciar_scheduler_backup(app=None):
 
     hilo = threading.Thread(target=_bucle_scheduler, name="FerdelBackupScheduler", daemon=True)
     hilo.start()
+
+
+if __name__ == '__main__':
+    # Punto de entrada directo para Railway Cron o tareas CLI programadas
+    import sys
+    print("=" * 60)
+    print("EJECUTOR DE RESPALDO CLI — FERDEL FARM")
+    print("=" * 60)
+    res = ejecutar_backup_servidor(es_automatico=True)
+    if res.get('success'):
+        print(f"✅ Respaldo completado: {res.get('filename')} ({res.get('size_mb')} MB)")
+        sys.exit(0)
+    else:
+        print(f"⚠️ Respaldo omitido o fallido: {res.get('message')}")
+        sys.exit(0)  # No fallar el cron si otro worker ya lo tomó

@@ -35,7 +35,7 @@ def dashboard():
 
 @main_bp.route('/health')
 def health_check():
-    """Endpoint para monitoreo en Render"""
+    """Endpoint de salud para monitoreo en Railway y Render"""
     status = {
         'status': 'healthy',
         'timestamp': datetime.now().isoformat(),
@@ -43,17 +43,18 @@ def health_check():
         'database': False
     }
     
-    # Probar base de datos
+    # Probar base de datos de manera ligera (commit=False)
     try:
-        with get_db_cursor() as cursor:
+        with get_db_cursor(commit=False) as cursor:
             cursor.execute("SELECT 1")
             status['database'] = True
     except Exception as e:
         status['database'] = False
         status['error'] = str(e)
         status['status'] = 'unhealthy'
+        return jsonify(status), 503
     
-    return jsonify(status)
+    return jsonify(status), 200
 
 
 @main_bp.route('/debug-db')

@@ -1,3 +1,4 @@
+import logging
 from decimal import Decimal
 import traceback
 from flask import render_template, redirect, session, url_for, request, flash, jsonify
@@ -28,6 +29,13 @@ def admin_cuentas_por_pagar():
         filtro_num_documento = request.args.get('num_documento', '')
         
         with get_db_cursor(True) as cursor:
+            # Auto-compensar en segundo plano cuentas que tengan contraparte con saldo pendiente
+            try:
+                from helpers.cruce_cuentas import auto_compensar_saldos_mutuos
+                auto_compensar_saldos_mutuos(cursor, session.get('id_empresa', 1), current_user.id if current_user.is_authenticated else 1)
+            except Exception:
+                pass
+
             # Construir consulta dinámica
             query = """
                 SELECT 
@@ -42,9 +50,13 @@ def admin_cuentas_por_pagar():
                     cpp.Saldo_Pendiente,
                     cpp.Estado,
                     u.NombreUsuario as Usuario_Creacion,
-                    DATEDIFF(cpp.Fecha_Vencimiento, CURDATE()) as dias_vencimiento
+                    DATEDIFF(cpp.Fecha_Vencimiento, CURDATE()) as dias_vencimiento,
+                    c.ID_Cliente as ID_Cliente_Vinculado,
+                    c.Nombre as Cliente_Vinculado,
+                    COALESCE(c.Saldo_Pendiente_Total, 0) as Saldo_Cliente_Vinculado
                 FROM cuentas_por_pagar cpp
                 LEFT JOIN proveedores p ON cpp.ID_Proveedor = p.ID_Proveedor
+                LEFT JOIN clientes c ON (p.ID_Cliente_Vinculado = c.ID_Cliente OR c.ID_Proveedor_Vinculado = p.ID_Proveedor)
                 LEFT JOIN usuarios u ON cpp.ID_Usuario_Creacion = u.ID_Usuario
                 WHERE 1=1
             """
@@ -285,6 +297,61 @@ def registrar_pago_cuenta():
                         id_usuario
                     ))
                     print(f"💰 Se registró salida en caja_movimientos por C${monto_pago:,.2f} para Pago CxP #{id_pago}")
+                elif 'CRUCE' in nombre_mp:
+                    # Amortizar automáticamente en Cuentas por Cobrar del cliente vinculado
+                    try:
+                        cursor.execute("""
+                            SELECT c.ID_Cliente, c.Nombre as Nombre_Cliente, c.Saldo_Pendiente_Total
+                            FROM clientes c
+                            INNER JOIN proveedores p ON (c.ID_Proveedor_Vinculado = p.ID_Proveedor OR p.ID_Cliente_Vinculado = c.ID_Cliente)
+                            WHERE p.ID_Proveedor = %s
+                            LIMIT 1
+                        """, (cuenta['ID_Proveedor'],))
+                        cli_vinc = cursor.fetchone()
+                        if cli_vinc:
+                            id_cli = cli_vinc['ID_Cliente']
+                            saldo_cli = float(cli_vinc.get('Saldo_Pendiente_Total') or 0)
+                            cursor.execute("""
+                                SELECT ID_Movimiento, Num_Documento, Saldo_Pendiente
+                                FROM cuentas_por_cobrar
+                                WHERE ID_Cliente = %s AND Estado IN ('Pendiente', 'Vencida') AND Saldo_Pendiente > 0
+                                ORDER BY Fecha_Vencimiento ASC, ID_Movimiento ASC
+                            """, (id_cli,))
+                            cuentas_cxc = cursor.fetchall()
+                            rem_cxc = monto_pago
+                            nota_cxc = f"Cruce automático por Pago CxP #{id_cuenta} (Doc: {num_documento or 'S/D'}) a {proveedor}"
+                            for cxc in cuentas_cxc:
+                                if rem_cxc <= 0.0001:
+                                    break
+                                s_inv = float(cxc['Saldo_Pendiente'] or 0)
+                                abono_cxc = min(rem_cxc, s_inv)
+                                nuevo_s_inv = s_inv - abono_cxc
+                                nuevo_est_inv = 'Pagada' if nuevo_s_inv <= 0.0001 else 'Pendiente'
+                                cursor.execute("""
+                                    INSERT INTO pagos_cuentascobrar 
+                                    (ID_Movimiento, Monto, ID_MetodoPago, Comentarios, Detalles_Metodo, ID_Usuario_Creacion)
+                                    VALUES (%s, %s, %s, %s, %s, %s)
+                                """, (cxc['ID_Movimiento'], abono_cxc, id_metodo_pago, nota_cxc, 'Cruce de Cuentas Contable', id_usuario))
+                                cursor.execute("""
+                                    INSERT INTO abonos_general 
+                                    (ID_Usuario, ID_Cliente, ID_CuentaCobrar, Monto_Aplicado, Saldo_Anterior, Saldo_Nuevo, ID_MetodoPago, caja_movimientos)
+                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                                """, (id_usuario, id_cli, cxc['ID_Movimiento'], abono_cxc, s_inv, nuevo_s_inv, id_metodo_pago, 'Cruce de Cuentas'))
+                                cursor.execute("""
+                                    UPDATE cuentas_por_cobrar
+                                    SET Saldo_Pendiente = %s, Estado = %s
+                                    WHERE ID_Movimiento = %s
+                                """, (nuevo_s_inv, nuevo_est_inv, cxc['ID_Movimiento']))
+                                rem_cxc -= abono_cxc
+                            nuevo_saldo_cli = max(0.0, saldo_cli - monto_pago)
+                            cursor.execute("""
+                                UPDATE clientes
+                                SET Saldo_Pendiente_Total = %s, Fecha_Ultimo_Pago = NOW(), Fecha_Ultimo_Movimiento = NOW()
+                                WHERE ID_Cliente = %s
+                            """, (nuevo_saldo_cli, id_cli))
+                            print(f"🔄 Se amortizó cruce en Cliente #{id_cli} por C${monto_pago:,.2f}")
+                    except Exception as e_cxc_cruce:
+                        print(f"⚠️ Error amortizando CxC en cruce: {e_cxc_cruce}")
                 else:
                     print(f"🏦 Pago CxP #{id_pago} registrado por {nombre_mp} - No afecta caja física")
                 
@@ -529,6 +596,59 @@ def registrar_abono_proveedor_global():
                         id_usuario
                     ))
                     print(f"💰 Se registró salida en caja_movimientos por C${float(monto_abono):,.2f} para Abono Global Proveedor #{id_proveedor}")
+                elif 'CRUCE' in nombre_mp:
+                    try:
+                        cursor.execute("""
+                            SELECT c.ID_Cliente, c.Nombre as Nombre_Cliente, c.Saldo_Pendiente_Total
+                            FROM clientes c
+                            INNER JOIN proveedores p ON (c.ID_Proveedor_Vinculado = p.ID_Proveedor OR p.ID_Cliente_Vinculado = c.ID_Cliente)
+                            WHERE p.ID_Proveedor = %s
+                            LIMIT 1
+                        """, (id_proveedor,))
+                        cli_vinc = cursor.fetchone()
+                        if cli_vinc:
+                            id_cli = cli_vinc['ID_Cliente']
+                            saldo_cli = float(cli_vinc.get('Saldo_Pendiente_Total') or 0)
+                            cursor.execute("""
+                                SELECT ID_Movimiento, Num_Documento, Saldo_Pendiente
+                                FROM cuentas_por_cobrar
+                                WHERE ID_Cliente = %s AND Estado IN ('Pendiente', 'Vencida') AND Saldo_Pendiente > 0
+                                ORDER BY Fecha_Vencimiento ASC, ID_Movimiento ASC
+                            """, (id_cli,))
+                            cuentas_cxc = cursor.fetchall()
+                            rem_cxc = float(monto_abono)
+                            nota_cxc = f"Cruce automático por Abono Global a Proveedor #{id_proveedor} ({prov_nombre})"
+                            for cxc in cuentas_cxc:
+                                if rem_cxc <= 0.0001:
+                                    break
+                                s_inv = float(cxc['Saldo_Pendiente'] or 0)
+                                abono_cxc = min(rem_cxc, s_inv)
+                                nuevo_s_inv = s_inv - abono_cxc
+                                nuevo_est_inv = 'Pagada' if nuevo_s_inv <= 0.0001 else 'Pendiente'
+                                cursor.execute("""
+                                    INSERT INTO pagos_cuentascobrar 
+                                    (ID_Movimiento, Monto, ID_MetodoPago, Comentarios, Detalles_Metodo, ID_Usuario_Creacion)
+                                    VALUES (%s, %s, %s, %s, %s, %s)
+                                """, (cxc['ID_Movimiento'], abono_cxc, id_metodo_pago, nota_cxc, 'Cruce de Cuentas Contable', id_usuario))
+                                cursor.execute("""
+                                    INSERT INTO abonos_general 
+                                    (ID_Usuario, ID_Cliente, ID_CuentaCobrar, Monto_Aplicado, Saldo_Anterior, Saldo_Nuevo, ID_MetodoPago, caja_movimientos)
+                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                                """, (id_usuario, id_cli, cxc['ID_Movimiento'], abono_cxc, s_inv, nuevo_s_inv, id_metodo_pago, 'Cruce de Cuentas'))
+                                cursor.execute("""
+                                    UPDATE cuentas_por_cobrar
+                                    SET Saldo_Pendiente = %s, Estado = %s
+                                    WHERE ID_Movimiento = %s
+                                """, (nuevo_s_inv, nuevo_est_inv, cxc['ID_Movimiento']))
+                                rem_cxc -= abono_cxc
+                            nuevo_saldo_cli = max(0.0, saldo_cli - float(monto_abono))
+                            cursor.execute("""
+                                UPDATE clientes
+                                SET Saldo_Pendiente_Total = %s, Fecha_Ultimo_Pago = NOW(), Fecha_Ultimo_Movimiento = NOW()
+                                WHERE ID_Cliente = %s
+                            """, (nuevo_saldo_cli, id_cli))
+                    except Exception as e_cxc_cruce:
+                        print(f"⚠️ Error amortizando CxC en abono global cruce: {e_cxc_cruce}")
                 else:
                     print(f"🏦 Abono Global Proveedor #{id_proveedor} por {nombre_mp} - No afecta caja física")
                 
@@ -691,3 +811,52 @@ def admin_historial_abonos_proveedores():
         traceback.print_exc()
         flash(f"Error al cargar historial de pagos a proveedores: {e}", "danger")
         return redirect(url_for('admin.admin_cuentas_por_pagar'))
+
+
+@admin_bp.route('/admin/compras/cxpagar/cruce-cuenta/<int:id_cuenta>', methods=['POST', 'GET'])
+@admin_required
+@bitacora_decorator("COMPRAS-CXP-CRUCE-CUENTA")
+def admin_cruce_cuenta_pagar(id_cuenta):
+    """
+    Permite cancelar o amortizar directamente una Cuenta por Pagar
+    cruzándola contra el saldo que adeuda el cliente vinculado.
+    """
+    try:
+        id_empresa = session.get('id_empresa', 1)
+        id_usuario = session.get('user_id', current_user.id if current_user.is_authenticated else 1)
+        
+        with get_db_cursor(commit=True) as cursor:
+            # Obtener cuenta por pagar
+            cursor.execute("""
+                SELECT cpp.ID_Cuenta, cpp.ID_Proveedor, cpp.Saldo_Pendiente, cpp.Num_Documento,
+                       p.Nombre as Nombre_Proveedor
+                FROM cuentas_por_pagar cpp
+                INNER JOIN proveedores p ON cpp.ID_Proveedor = p.ID_Proveedor
+                WHERE cpp.ID_Cuenta = %s AND cpp.Estado IN ('Pendiente', 'Vencida', 'Parcial') AND cpp.Saldo_Pendiente > 0
+            """, (id_cuenta,))
+            cuenta = cursor.fetchone()
+            if not cuenta:
+                flash("Cuenta por pagar no válida o ya está pagada.", "warning")
+                return redirect(url_for('admin.admin_cuentas_por_pagar'))
+            
+            saldo_a_cruzar = float(cuenta['Saldo_Pendiente'])
+            from helpers.cruce_cuentas import procesar_compensacion_vinculada
+            res = procesar_compensacion_vinculada(
+                cursor,
+                id_proveedor=cuenta['ID_Proveedor'],
+                id_empresa=id_empresa,
+                id_usuario=id_usuario,
+                monto_especifico=saldo_a_cruzar,
+                observacion=f"Cruce directo desde Cuenta por Pagar #{id_cuenta} (Doc: {cuenta['Num_Documento'] or 'S/D'})"
+            )
+            
+            if res.get('success') and res.get('monto_compensado', 0) > 0:
+                flash(f"✅ ¡Cruce aplicado con éxito! Se cancelaron C$ {res['monto_compensado']:,.2f} en Cuentas por Pagar amortizando también la cuenta por cobrar del cliente vinculado.", "success")
+            else:
+                flash(res.get('mensaje', 'No se pudo aplicar la compensación. Verifique si el cliente vinculado tiene saldo pendiente.'), "info")
+                
+    except Exception as e:
+        logging.error(f"Error en cruce directo cuenta pagar: {e}", exc_info=True)
+        flash(f"Error al procesar cruce de cuenta: {str(e)}", "danger")
+        
+    return redirect(url_for('admin.admin_cuentas_por_pagar'))

@@ -31,38 +31,54 @@ if not hasattr(collections, 'Iterable'):
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 # ===== FIN DE MODIFICACIONES =====
 
-from .settings import DB_CONFIG, RENDER_ENV, RAILWAY_ENV
+from .settings import DB_CONFIG, DB_POOL_TIMEOUT, DB_AUTO_MIGRATE, DB_CHECK_VIEWS, RENDER_ENV, RAILWAY_ENV
 
 logger = logging.getLogger(__name__)
+
+# Excepciones personalizadas para el pool
+class DatabasePoolExhaustedError(Exception):
+    """Excepción lanzada cuando el pool de conexiones MySQL está saturado y se agotó el tiempo de espera"""
+    pass
+
+class DatabaseConnectionError(Exception):
+    """Excepción lanzada cuando MySQL no está disponible o falla la conexión de red"""
+    pass
 
 # Variables globales para el pool
 connection_pool = None
 pool_lock = threading.Lock()
+_tablas_verificadas = False
 
 
 def init_pool():
-    """Inicializar el pool con reintentos automáticos"""
-    global connection_pool
+    """Inicializar el pool con reintentos automáticos y soporte para Gunicorn multi-worker"""
+    global connection_pool, _tablas_verificadas
     max_retries = 3
     
     for attempt in range(max_retries):
         try:
             with pool_lock:
                 connection_pool = mysql.connector.pooling.MySQLConnectionPool(**DB_CONFIG)
-            print("✅ Conexión a la base de datos establecida correctamente.")
-            crear_tablas_sistema()
+            logger.info("✅ Conexión a la base de datos establecida correctamente en el pool.")
+            
+            # Solo verificar tablas si no se han verificado o si DB_AUTO_MIGRATE está activado
+            if not _tablas_verificadas:
+                crear_tablas_sistema()
+                _tablas_verificadas = True
             return True
         except Error as e:
-            print(f"❌ Intento {attempt + 1} fallado: {e}")
+            logger.warning(f"❌ Intento {attempt + 1} fallado al inicializar pool MySQL: {e}")
             if attempt < max_retries - 1:
-                time.sleep(2 * (attempt + 1))  # Espera exponencial
+                time.sleep(1.5 * (attempt + 1))  # Espera incremental
     return False
 
 
 def crear_tablas_sistema():
     """Crear tablas de configuración del sistema si no existen (optimizado para arranque rápido)"""
+    conn = None
+    cursor = None
     try:
-        conn = _obtener_nueva_conexion()
+        conn = _obtener_nueva_conexion(timeout=10.0)
         cursor = conn.cursor(dictionary=True)
         
         # Crear tabla config_sistema si no existe
@@ -75,7 +91,7 @@ def crear_tablas_sistema():
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
         """)
         
-        # Verificar si ya existen configuraciones para evitar 12 consultas innecesarias en cada arranque de worker
+        # Verificar si ya existen configuraciones para evitar consultas innecesarias en cada arranque
         cursor.execute("SELECT COUNT(*) AS total FROM config_sistema")
         conteo = cursor.fetchone()
         
@@ -122,107 +138,158 @@ def crear_tablas_sistema():
                 LEFT JOIN metodos_pago mp ON pc.ID_MetodoPago = mp.ID_MetodoPago;
             """)
         except Exception as e_view:
-            print(f"⚠️ Nota al verificar vista pagos_cxc: {e_view}")
+            logger.warning(f"Nota al verificar vista pagos_cxc: {e_view}")
 
-        # Reparar automáticamente cualquier vista en la BD que tenga DEFINER inexistente (ej. 'root'@'%' -> Error 1449)
-        try:
-            cursor.execute("""
-                SELECT TABLE_NAME, VIEW_DEFINITION
-                FROM INFORMATION_SCHEMA.VIEWS
-                WHERE TABLE_SCHEMA = DATABASE()
-                  AND SECURITY_TYPE = 'DEFINER'
-            """)
-            vistas_definer = cursor.fetchall() or []
-            for v_info in vistas_definer:
-                v_name = v_info.get('TABLE_NAME')
-                v_def = v_info.get('VIEW_DEFINITION')
-                if v_name and v_def:
-                    try:
-                        cursor.execute(f"SELECT 1 FROM `{v_name}` LIMIT 1")
-                        cursor.fetchall()
-                    except Exception as err_v:
-                        if '1449' in str(err_v):
-                            try:
-                                cursor.execute(f"CREATE OR REPLACE SQL SECURITY INVOKER VIEW `{v_name}` AS {v_def}")
-                                print(f"✅ Vista `{v_name}` reparada automáticamente con SQL SECURITY INVOKER.")
-                            except Exception as err_fix:
-                                print(f"⚠️ No se pudo reparar automáticamente la vista `{v_name}`: {err_fix}")
-        except Exception as e_views_check:
-            print(f"⚠️ Nota al verificar definers de vistas: {e_views_check}")
+        # Solo inspeccionar INFORMATION_SCHEMA.VIEWS si está explícitamente activado (evita demora en cada worker)
+        if DB_CHECK_VIEWS:
+            try:
+                cursor.execute("""
+                    SELECT TABLE_NAME, VIEW_DEFINITION
+                    FROM INFORMATION_SCHEMA.VIEWS
+                    WHERE TABLE_SCHEMA = DATABASE()
+                      AND SECURITY_TYPE = 'DEFINER'
+                """)
+                vistas_definer = cursor.fetchall() or []
+                for v_info in vistas_definer:
+                    v_name = v_info.get('TABLE_NAME')
+                    v_def = v_info.get('VIEW_DEFINITION')
+                    if v_name and v_def:
+                        try:
+                            cursor.execute(f"SELECT 1 FROM `{v_name}` LIMIT 1")
+                            cursor.fetchall()
+                        except Exception as err_v:
+                            if '1449' in str(err_v):
+                                try:
+                                    cursor.execute(f"CREATE OR REPLACE SQL SECURITY INVOKER VIEW `{v_name}` AS {v_def}")
+                                    logger.info(f"Vista `{v_name}` reparada automáticamente con SQL SECURITY INVOKER.")
+                                except Exception as err_fix:
+                                    logger.warning(f"No se pudo reparar automáticamente la vista `{v_name}`: {err_fix}")
+            except Exception as e_views_check:
+                logger.warning(f"Nota al verificar definers de vistas: {e_views_check}")
 
         conn.commit()
-        cursor.close()
-        conn.close()
-        print("⚙️ Tablas de sistema y vistas verificadas correctamente.")
+        logger.info("⚙️ Tablas de sistema y vistas verificadas correctamente.")
     except Exception as e:
-        print(f"⚠️ Error al inicializar tablas de sistema: {e}")
+        logger.warning(f"⚠️ Error al inicializar tablas de sistema: {e}")
+    finally:
+        if cursor:
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
 
+def _obtener_nueva_conexion(timeout=None):
+    """
+    Obtiene una conexión administrada exclusivamente desde el pool.
+    Bajo alta concurrencia o saturación temporal, espera hasta 'timeout' segundos
+    liberando la CPU con intervalos cortos.
+    Distingue entre saturación de pool, error de servidor y conexión rota.
+    Previene la creación de conexiones directas descontroladas que saturan MySQL.
+    """
+    global connection_pool
+    if timeout is None:
+        timeout = DB_POOL_TIMEOUT
 
-def _obtener_nueva_conexion():
-    """Crea una conexión desde el pool o conexión directa y ajusta zona horaria"""
-    conn = None
-    if connection_pool:
+    # Inicializar pool bajo demanda si aún no existe
+    if connection_pool is None:
+        with pool_lock:
+            if connection_pool is None:
+                if not init_pool():
+                    raise DatabaseConnectionError("No se pudo inicializar el pool de conexiones MySQL.")
+
+    start_time = time.monotonic()
+    attempts = 0
+
+    while True:
+        attempts += 1
         try:
             conn = connection_pool.get_connection()
-        except Exception:
-            conn = None
+            # Conexión obtenida exitosamente del pool
+            return conn
+            
+        except pooling.PoolError as pe:
+            # Pool temporalmente agotado: esperar y reintentar controladamente
+            elapsed = time.monotonic() - start_time
+            if elapsed >= timeout:
+                logger.critical(
+                    f"🚨 POOL AGOTADO: Se superó el tiempo máximo de espera ({timeout}s). "
+                    f"Pool size: {DB_CONFIG.get('pool_size')}. Solicitudes concurrentes elevadas."
+                )
+                raise DatabasePoolExhaustedError(
+                    f"El servidor de base de datos está temporalmente saturado ({timeout}s de espera). "
+                    "Por favor intente nuevamente en unos instantes."
+                ) from pe
+            # Pausa breve antes del próximo intento (evita busy-waiting)
+            time.sleep(0.05)
 
-    if conn is None:
-        config_simple = {k: v for k, v in DB_CONFIG.items() 
-                       if k not in ['pool_name', 'pool_size', 'pool_reset_session']}
-        conn = mysql.connector.connect(**config_simple)
-
-    try:
-        cur = conn.cursor()
-        cur.execute("SET time_zone = '-06:00'")
-        cur.close()
-    except Exception:
-        pass
-    return conn
+        except Error as e:
+            # Error de red o caída de MySQL
+            logger.error(f"❌ Error de conexión al obtener del pool: {e}")
+            raise DatabaseConnectionError(f"Error de comunicación con MySQL: {e}") from e
 
 
 def get_db():
-    """Obtener conexión de la base de datos con manejo de errores dentro o fuera de Flask"""
+    """Obtener conexión de la base de datos para el contexto actual de Flask o proceso"""
     if has_app_context():
         if 'db' not in g:
             g.db = _obtener_nueva_conexion()
+            g._db_verified = True
         return g.db
     else:
         return _obtener_nueva_conexion()
 
 
 def close_db(exception=None):
-    """Cerrar conexión al final de cada request"""
+    """Cerrar y devolver la conexión al pool al terminar cada request de Flask"""
     if has_app_context():
         db = g.pop('db', None)
+        g.pop('_db_verified', None)
         if db is not None:
+            if exception is not None:
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
             try:
-                if db.is_connected():
-                    db.close()
-            except Exception as e:
-                print(f"❌ Error al cerrar conexión: {e}")
+                db.close()
+            except Exception:
+                pass
 
 
 @contextlib.contextmanager
 def get_db_cursor(commit=True):
-    """Context manager para manejar cursor automáticamente tanto en Flask como en segundo plano"""
+    """
+    Context manager optimizado para operaciones de base de datos.
+    - No envía pings redundantes dentro del mismo request HTTP.
+    - Solo ejecuta commit si se solicita explícitamente (commit=True).
+    - Cierra cursores y conexiones garantizando retorno al pool.
+    """
     en_app_context = has_app_context()
     db = get_db()
     if db is None:
-        raise Exception("No se pudo conectar a la base de datos")
-    
+        raise DatabaseConnectionError("No se pudo obtener una conexión válida a la base de datos.")
+
     cursor = None
     try:
-        try:
-            db.ping(reconnect=True, attempts=2, delay=0)
-        except Exception:
-            if not db.is_connected():
-                db.reconnect(attempts=2, delay=0)
-    
+        # Solo verificar la conexión si estamos fuera de contexto web o si aún no fue verificada
+        if not en_app_context or not getattr(g, '_db_verified', False):
+            try:
+                db.ping(reconnect=True, attempts=1, delay=0)
+            except Exception:
+                if not db.is_connected():
+                    db.reconnect(attempts=1, delay=0)
+            if en_app_context:
+                g._db_verified = True
+
         cursor = db.cursor(dictionary=True)
         yield cursor
-        
+
         if commit:
             db.commit()
 
@@ -249,6 +316,7 @@ def get_db_cursor(commit=True):
 
 def test_connection():
     """Probar la conexión a la base de datos"""
+    conn = None
     try:
         conn = get_db()
         if conn:
@@ -264,6 +332,12 @@ def test_connection():
     except Error as e:
         print(f"❌ Error al probar conexión a la BD: {e}")
         return False
+    finally:
+        if conn and not has_app_context():
+            try:
+                conn.close()
+            except Exception:
+                pass
 
 
 def diagnose_db():

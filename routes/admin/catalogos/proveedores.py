@@ -29,6 +29,13 @@ def admin_proveedores():
         id_empresa = session.get('id_empresa', 1)
         
         with get_db_cursor() as cursor:
+            # Auto-compensar saldos mutuos en segundo plano para mantener todo cruzado al día
+            try:
+                from helpers.cruce_cuentas import auto_compensar_saldos_mutuos
+                auto_compensar_saldos_mutuos(cursor, id_empresa, current_user.id if current_user.is_authenticated else 1)
+            except Exception:
+                pass
+
             offset = (page - 1) * per_page
             
             # Consulta base (incluyendo Saldo_Pendiente y Cliente Vinculado)
@@ -644,10 +651,28 @@ def admin_detalle_proveedor(id):
             # 11. Balance Cruzado con Cliente Vinculado (Cruce de Cuentas)
             balance_cruzado = None
             if proveedor.get('ID_Cliente_Vinculado'):
+                # Cruce automático en tiempo real sin necesidad de presionar botones
+                try:
+                    from helpers.cruce_cuentas import procesar_compensacion_vinculada
+                    res_cruce_auto = procesar_compensacion_vinculada(
+                        cursor,
+                        id_proveedor=id,
+                        id_empresa=id_empresa,
+                        id_usuario=current_user.id if current_user.is_authenticated else 1,
+                        observacion="Compensación automática de cuentas vinculadas"
+                    )
+                    if res_cruce_auto.get('success') and res_cruce_auto.get('monto_compensado', 0) > 0:
+                        cursor.execute("SELECT Saldo_Pendiente FROM proveedores WHERE ID_Proveedor = %s", (id,))
+                        row_act = cursor.fetchone()
+                        if row_act:
+                            proveedor['Saldo_Pendiente'] = row_act['Saldo_Pendiente']
+                except Exception as e_cruce_det:
+                    print(f"Nota cruce automático detalle proveedor: {e_cruce_det}")
+
                 cursor.execute("""
                     SELECT ID_Cliente, Nombre, Telefono, RUC_CEDULA, Saldo_Pendiente_Total, Estado
                     FROM clientes
-                    WHERE ID_Cliente = %s AND ID_Empresa = %s
+                    WHERE ID_Cliente = %s AND (ID_Empresa = %s OR ID_Empresa IS NULL)
                 """, (proveedor['ID_Cliente_Vinculado'], id_empresa))
                 cli_vinculado = cursor.fetchone()
                 

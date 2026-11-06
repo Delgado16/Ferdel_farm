@@ -122,7 +122,7 @@ def vendedor_ventas():
         id_vendedor = current_user.id
         id_empresa = session.get('id_empresa', session.get('empresa_id', 1))
         
-        with get_db_cursor(True) as cursor:
+        with get_db_cursor(commit=False) as cursor:
             # Obtener asignaciones del vendedor para el filtro
             cursor.execute("""
                 SELECT av.ID_Asignacion, r.Nombre_Ruta, 
@@ -191,7 +191,7 @@ def vendedor_ventas():
                     INNER JOIN rutas r ON av.ID_Ruta = r.ID_Ruta
                     LEFT JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
                     WHERE fr.ID_Asignacion IN ({placeholders})
-                      AND DATE(fr.Fecha) = %s
+                      AND fr.Fecha = %s
                     GROUP BY fr.ID_FacturaRuta
                     ORDER BY fr.Fecha DESC, fr.ID_FacturaRuta DESC
                     LIMIT 15

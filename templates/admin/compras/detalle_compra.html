@@ -303,27 +303,50 @@
 {% block scripts %}
 <script>
 function anularCompra(idMovimiento) {
-    if (confirm('¿Está seguro que desea ANULAR esta compra? Esta acción no se puede deshacer y revertirá el inventario.')) {
-        fetch(`/admin/compras/anular/${idMovimiento}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                Swal.fire(data.message, '', 'info');
-                location.reload();
-            } else {
-                Swal.fire('Error: ' + (data.error || 'Error desconocido', '', 'info'));
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            Swal.fire('Error al anular la compra', '', 'info');
-        });
-    }
+    Swal.fire({
+        title: '¿Anular Compra?',
+        text: '¿Está seguro de que desea anular la compra #' + idMovimiento + '? Esta acción revertirá el inventario, los movimientos de caja y las cuentas por pagar asociadas.',
+        icon: 'warning',
+        input: 'text',
+        inputPlaceholder: 'Ingrese el motivo de la anulación (opcional)',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: '<i class="fas fa-ban me-1"></i> Confirmar Anulación',
+        cancelButtonText: 'Cancelar',
+        showLoaderOnConfirm: true,
+        preConfirm: (motivo) => {
+            return fetch(`/admin/compras/anular/${idMovimiento}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ motivo_anulacion: motivo || '' })
+            })
+            .then(async response => {
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || 'Error al procesar la anulación');
+                }
+                return data;
+            })
+            .catch(error => {
+                Swal.showValidationMessage(error.message || 'Error de conexión con el servidor');
+            });
+        },
+        allowOutsideClick: () => !Swal.isLoading()
+    }).then((result) => {
+        if (result.isConfirmed && result.value) {
+            Swal.fire({
+                icon: 'success',
+                title: '¡Anulada!',
+                text: result.value.message || 'La compra ha sido anulada exitosamente.'
+            }).then(() => {
+                window.location.reload();
+            });
+        }
+    });
 }
 </script>
 {% endblock %}

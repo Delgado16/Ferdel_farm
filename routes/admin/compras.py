@@ -839,16 +839,24 @@ def obtener_id_bodega_empresa(id_empresa=None):
         return None
 
 @admin_bp.route('/compras/compras-entradas/anular/<int:id_movimiento>', methods=['GET', 'POST'])
+@admin_bp.route('/compras/anular/<int:id_movimiento>', methods=['GET', 'POST'])
 @admin_required
 @bitacora_decorator("COMPRAS-ENTRADAS-ANULAR")
 def admin_anular_compra(id_movimiento):
-    """Anular una compra existente - REVIERTE INVENTARIO COMPLETAMENTE"""
+    """Anular una compra existente - REVIERTE INVENTARIO, CAJA Y CUENTAS POR PAGAR"""
+    
+    # Detectar si la petición es AJAX o espera JSON
+    is_ajax = (
+        request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+        request.is_json or
+        'application/json' in request.headers.get('Accept', '') or
+        'application/json' in request.headers.get('Content-Type', '')
+    )
     
     # Si es GET, mostrar información de la compra
     if request.method == 'GET':
         try:
             with get_db_cursor(commit=False) as cursor:
-                # ✅ CORREGIDO: Incluir ID_Bodega en la consulta
                 cursor.execute("""
                     SELECT 
                         mi.ID_Movimiento,
@@ -856,7 +864,7 @@ def admin_anular_compra(id_movimiento):
                         mi.Fecha,
                         mi.Tipo_Compra,
                         mi.Estado,
-                        mi.ID_Bodega,  # ← AGREGADO: necesario para consultar inventario
+                        mi.ID_Bodega,
                         p.Nombre as Proveedor,
                         b.Nombre as Bodega,
                         COALESCE((
@@ -887,7 +895,6 @@ def admin_anular_compra(id_movimiento):
                 carga_completa = request.args.get('completa', '0') == '1'
                 total_compra = float(compra['Total_Compra'] or 0)
                 
-                # ✅ CORREGIDO: Usar Existencias en lugar de Stock_Actual
                 cursor.execute("""
                     SELECT 
                         dmi.ID_Producto,
@@ -915,6 +922,17 @@ def admin_anular_compra(id_movimiento):
                             'necesita': cantidad_a_retirar
                         })
                 
+                # Verificar cuenta por pagar asociada
+                cursor.execute("""
+                    SELECT ID_Cuenta, Saldo_Pendiente, Estado 
+                    FROM cuentas_por_pagar 
+                    WHERE ID_Movimiento = %s
+                    LIMIT 1
+                """, (id_movimiento,))
+                cxp_info = cursor.fetchone()
+                tiene_cxp = cxp_info is not None and cxp_info['Estado'] != 'Anulada'
+                saldo_cxp = float(cxp_info['Saldo_Pendiente'] or 0) if cxp_info else 0
+                
                 datos_respuesta = {
                     'success': True,
                     'compra': {
@@ -926,17 +944,18 @@ def admin_anular_compra(id_movimiento):
                         'total_formateado': f"C${total_compra:,.2f}",
                         'proveedor': compra['Proveedor'] or 'Proveedor General',
                         'bodega': compra['Bodega'] or 'N/A',
-                        'id_bodega': compra['ID_Bodega'],  # ← AGREGADO
+                        'id_bodega': compra['ID_Bodega'],
                         'estado': compra['Estado'],
                         'total_productos': compra['Total_Productos'] or 0,
                         'carga_completa': carga_completa,
                         'stock_suficiente': stock_suficiente,
-                        'productos_sin_stock': productos_sin_stock
+                        'productos_sin_stock': productos_sin_stock,
+                        'tiene_cuenta_pagar': tiene_cxp,
+                        'saldo_cuenta_pagar': saldo_cxp
                     }
                 }
                 
                 if carga_completa:
-                    # ✅ CORREGIDO: Usar Existencias
                     cursor.execute("""
                         SELECT 
                             p.COD_Producto,
@@ -947,7 +966,7 @@ def admin_anular_compra(id_movimiento):
                             dmi.Subtotal,
                             COALESCE(ib.Existencias, 0) as Existencias
                         FROM detalle_movimientos_inventario dmi
-                        INNER JOIN Productos p ON dmi.ID_Producto = p.ID_Producto
+                        INNER JOIN productos p ON dmi.ID_Producto = p.ID_Producto
                         LEFT JOIN inventario_bodega ib ON ib.ID_Producto = dmi.ID_Producto AND ib.ID_Bodega = %s
                         WHERE dmi.ID_Movimiento = %s
                         ORDER BY p.Descripcion
@@ -990,25 +1009,38 @@ def admin_anular_compra(id_movimiento):
     # Si es POST, procesar la anulación CON REVERSIÓN DE INVENTARIO
     elif request.method == 'POST':
         try:
-            # Obtener datos del formulario
-            id_usuario_anulacion = current_user.id
-            motivo_anulacion = request.form.get('motivo_anulacion', '').strip()
+            # Obtener datos del formulario o JSON
+            id_usuario_anulacion = getattr(current_user, 'id', None) or session.get('user_id')
+            
+            data_json = request.get_json(silent=True) if request.is_json else {}
+            if not isinstance(data_json, dict):
+                data_json = {}
+                
+            motivo_anulacion = data_json.get('motivo_anulacion', '').strip()
+            if not motivo_anulacion:
+                motivo_anulacion = request.form.get('motivo_anulacion', '').strip()
             
             # Validaciones básicas
             if not id_usuario_anulacion:
-                flash('Error: No se especificó el usuario que realiza la anulación', 'error')
+                error_msg = 'Error: No se especificó el usuario que realiza la anulación'
+                if is_ajax:
+                    return jsonify({'success': False, 'error': error_msg}), 401
+                flash(error_msg, 'error')
                 return redirect(url_for('admin.admin_compras_entradas'))
             
             try:
                 id_usuario = int(id_usuario_anulacion)
             except (ValueError, TypeError):
-                flash('Error: ID de usuario inválido', 'error')
+                error_msg = 'Error: ID de usuario inválido'
+                if is_ajax:
+                    return jsonify({'success': False, 'error': error_msg}), 400
+                flash(error_msg, 'error')
                 return redirect(url_for('admin.admin_compras_entradas'))
             
             if not motivo_anulacion:
                 motivo_anulacion = f"Compra anulada por usuario ID {id_usuario}"
             
-            # 🔥 TRANSACCIÓN COMPLETA - Modifica inventario_bodega (campo Existencias)
+            # 🔥 TRANSACCIÓN COMPLETA - Modifica inventario_bodega, cuentas por pagar y caja
             with get_db_cursor(commit=True) as cursor:
                 # 1. Verificar que el movimiento existe, está activo y obtener datos
                 cursor.execute("""
@@ -1018,6 +1050,8 @@ def admin_anular_compra(id_movimiento):
                         mi.N_Factura_Externa,
                         mi.Observacion,
                         mi.ID_Bodega,
+                        mi.Tipo_Compra,
+                        mi.ID_Proveedor,
                         COALESCE((
                             SELECT SUM(Subtotal) 
                             FROM detalle_movimientos_inventario 
@@ -1031,16 +1065,15 @@ def admin_anular_compra(id_movimiento):
                 movimiento = cursor.fetchone()
                 
                 if not movimiento:
-                    flash('Error: Compra no encontrada', 'error')
-                    return redirect(url_for('admin.admin_compras_entradas'))
+                    raise Exception('Compra no encontrada')
                 
                 if movimiento['Estado'] != 'Activa':
-                    flash(f'Error: La compra ya está {movimiento["Estado"].lower()}', 'error')
-                    return redirect(url_for('admin.admin_compras_entradas'))
+                    raise Exception(f'La compra ya está {movimiento["Estado"].lower()}')
                 
                 n_factura_externa = movimiento['N_Factura_Externa']
                 total_compra = float(movimiento['Total_Compra'] or 0)
                 id_bodega = movimiento['ID_Bodega']
+                id_proveedor = movimiento['ID_Proveedor']
                 
                 # 2. Obtener los detalles de la compra (productos y cantidades)
                 cursor.execute("""
@@ -1051,15 +1084,14 @@ def admin_anular_compra(id_movimiento):
                         dmi.Subtotal,
                         p.Descripcion
                     FROM detalle_movimientos_inventario dmi
-                    INNER JOIN Productos p ON dmi.ID_Producto = p.ID_Producto
+                    INNER JOIN productos p ON dmi.ID_Producto = p.ID_Producto
                     WHERE dmi.ID_Movimiento = %s
                 """, (id_movimiento,))
                 
                 detalles = cursor.fetchall()
                 
                 if not detalles:
-                    flash('Error: No se encontraron productos en esta compra', 'error')
-                    return redirect(url_for('admin.admin_compras_entradas'))
+                    raise Exception('No se encontraron productos en esta compra')
                 
                 # 3. 🔥 REVERTIR EL INVENTARIO - ACTUALIZAR Existencias en inventario_bodega
                 productos_actualizados = []
@@ -1086,10 +1118,9 @@ def admin_anular_compra(id_movimiento):
                     inventario = cursor.fetchone()
                     
                     if not inventario:
-                        # Si no existe registro, significa que el producto no tiene existencias
                         raise Exception(
                             f"No se puede anular la compra. El producto '{nombre_producto}' "
-                            f"no tiene registro de inventario en la bodega. "
+                            f"no tiene registro de inventario en la bodega #{id_bodega}. "
                             f"Debe tener existencias para poder retirar {cantidad} unidades."
                         )
                     else:
@@ -1106,7 +1137,7 @@ def admin_anular_compra(id_movimiento):
                             f"Existencias actuales en bodega: {existencias_actuales}\n"
                             f"Cantidad a retirar (por la anulación): {cantidad}\n"
                             f"Resultaría en existencias negativas: {nuevas_existencias}\n\n"
-                            f"Sugerencia: Revise si este producto ya fue vendido o movido."
+                            f"Sugerencia: Revise si este producto ya fue vendido o trasladado."
                         )
                     
                     # 🔥 ACTUALIZAR inventario_bodega (RESTAR las existencias)
@@ -1165,7 +1196,34 @@ def admin_anular_compra(id_movimiento):
                     WHERE ID_Movimiento = %s
                 """, (id_usuario, nueva_observacion, id_movimiento))
                 
-                # 5.1 Anular salida en caja_movimientos si existía un registro activo de esta compra
+                # 5.1 Revertir cuentas por pagar asociadas y saldo de proveedor
+                cursor.execute("""
+                    SELECT ID_Cuenta, Saldo_Pendiente, Estado 
+                    FROM cuentas_por_pagar 
+                    WHERE ID_Movimiento = %s
+                    FOR UPDATE
+                """, (id_movimiento,))
+                cuenta_pagar = cursor.fetchone()
+                
+                if cuenta_pagar and cuenta_pagar['Estado'] != 'Anulada':
+                    saldo_cxp = float(cuenta_pagar['Saldo_Pendiente'] or 0)
+                    
+                    cursor.execute("""
+                        UPDATE cuentas_por_pagar 
+                        SET Estado = 'Anulada',
+                            Saldo_Pendiente = 0,
+                            Observacion = CONCAT(COALESCE(Observacion, ''), '\n[ANULADA por anulación de Compra #%s]')
+                        WHERE ID_Cuenta = %s
+                    """, (id_movimiento, cuenta_pagar['ID_Cuenta']))
+                    
+                    if saldo_cxp > 0 and id_proveedor:
+                        cursor.execute("""
+                            UPDATE proveedores 
+                            SET Saldo_Pendiente = GREATEST(0, COALESCE(Saldo_Pendiente, 0) - %s)
+                            WHERE ID_Proveedor = %s
+                        """, (saldo_cxp, id_proveedor))
+                
+                # 5.2 Anular salida en caja_movimientos si existía un registro activo de esta compra
                 cursor.execute("""
                     UPDATE caja_movimientos 
                     SET Estado = 'ANULADO',
@@ -1206,6 +1264,13 @@ def admin_anular_compra(id_movimiento):
                 )
                 
                 flash(mensaje, 'success')
+                
+                if is_ajax:
+                    return jsonify({
+                        'success': True,
+                        'message': f'Compra #{id_movimiento} anulada exitosamente.',
+                        'id_movimiento': id_movimiento
+                    })
             
             return redirect(url_for('admin.admin_compras_entradas'))
             
@@ -1213,6 +1278,13 @@ def admin_anular_compra(id_movimiento):
             print(f"Error al anular compra {id_movimiento}: {str(e)}")
             import traceback
             traceback.print_exc()
+            
+            if is_ajax:
+                return jsonify({
+                    'success': False,
+                    'error': str(e)
+                }), 400
+                
             flash(f'❌ Error al anular compra: {str(e)}', 'error')
             return redirect(url_for('admin.admin_compras_entradas'))
 

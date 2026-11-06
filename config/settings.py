@@ -98,15 +98,22 @@ DB_CONFIG = {
     'port': int(os.environ.get('DB_PORT', _default_port)),
     'database': os.environ.get('DB_NAME', _default_db),
     'pool_name': 'ferdel_pool',
-    'pool_size': int(os.environ.get('DB_POOL_SIZE', 10)),
+    'pool_size': int(os.environ.get('DB_POOL_SIZE', 6 if (RAILWAY_ENV or RENDER_ENV) else 10)),
     'pool_reset_session': True,
     'autocommit': os.environ.get('DB_AUTOCOMMIT', 'False') == 'True',
     'connect_timeout': 15,
     'use_pure': os.environ.get('DB_USE_PURE', 'True') == 'True',
     'charset': 'utf8mb4',
     'collation': 'utf8mb4_general_ci',
-    'ssl_disabled': DB_SSL_DISABLED
+    'ssl_disabled': DB_SSL_DISABLED,
+    'init_command': "SET time_zone = '-06:00'"
 }
+
+# Parámetros avanzados de base de datos y tareas
+DB_POOL_TIMEOUT = float(os.environ.get('DB_POOL_TIMEOUT', 4.0))
+DB_AUTO_MIGRATE = os.environ.get('DB_AUTO_MIGRATE', 'False') == 'True'
+DB_CHECK_VIEWS = os.environ.get('DB_CHECK_VIEWS', 'False') == 'True'
+ENABLE_INAPP_SCHEDULER = os.environ.get('ENABLE_INAPP_SCHEDULER', 'True') == 'True'
 
 if DB_SSL_CA:
     DB_CONFIG['ssl_ca'] = DB_SSL_CA

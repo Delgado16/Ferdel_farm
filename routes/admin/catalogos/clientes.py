@@ -37,6 +37,13 @@ def admin_clientes():
         id_empresa = session.get('id_empresa', 1)
         
         with get_db_cursor() as cursor:
+            # Auto-compensar saldos mutuos en segundo plano para mantener todo cruzado al día
+            try:
+                from helpers.cruce_cuentas import auto_compensar_saldos_mutuos
+                auto_compensar_saldos_mutuos(cursor, id_empresa, current_user.id if current_user.is_authenticated else 1)
+            except Exception:
+                pass
+
             # Obtener rutas activas para el formulario
             cursor.execute("""
                 SELECT ID_Ruta, Nombre_Ruta 
@@ -339,6 +346,13 @@ def admin_editar_cliente(id):
         id_empresa = session.get('id_empresa', 1)
         
         with get_db_cursor() as cursor:
+            # Auto-compensar saldos mutuos en segundo plano para mantener todo cruzado al día
+            try:
+                from helpers.cruce_cuentas import auto_compensar_saldos_mutuos
+                auto_compensar_saldos_mutuos(cursor, id_empresa, current_user.id if current_user.is_authenticated else 1)
+            except Exception:
+                pass
+
             # Obtener rutas activas para el formulario
             cursor.execute("""
                 SELECT ID_Ruta, Nombre_Ruta 
@@ -1211,10 +1225,36 @@ def admin_detalle_cliente(id):
             # 16. Balance Cruzado con Proveedor Vinculado (Cruce de Cuentas)
             balance_cruzado = None
             if cliente.get('ID_Proveedor_Vinculado'):
+                # Cruce automático en tiempo real sin necesidad de presionar botones
+                try:
+                    from helpers.cruce_cuentas import procesar_compensacion_vinculada
+                    res_cruce_auto = procesar_compensacion_vinculada(
+                        cursor,
+                        id_cliente=id,
+                        id_empresa=id_empresa,
+                        id_usuario=current_user.id if current_user.is_authenticated else 1,
+                        observacion="Compensación automática de cuentas vinculadas"
+                    )
+                    if res_cruce_auto.get('success') and res_cruce_auto.get('monto_compensado', 0) > 0:
+                        cursor.execute("SELECT Saldo_Pendiente_Total FROM clientes WHERE ID_Cliente = %s", (id,))
+                        row_act = cursor.fetchone()
+                        if row_act:
+                            cliente['Saldo_Pendiente_Total'] = row_act['Saldo_Pendiente_Total']
+                        cursor.execute("""
+                            SELECT ID_Movimiento, Num_Documento, Fecha, Fecha_Vencimiento, Monto_Movimiento, Saldo_Pendiente, Estado,
+                                   DATEDIFF(CURDATE(), Fecha_Vencimiento) as Dias_Mora
+                            FROM cuentas_por_cobrar
+                            WHERE ID_Cliente = %s AND Estado IN ('Pendiente', 'Vencida') AND Saldo_Pendiente > 0
+                            ORDER BY Fecha_Vencimiento ASC, ID_Movimiento ASC
+                        """, (id,))
+                        cuentas_pendientes = cursor.fetchall()
+                except Exception as e_cruce_det:
+                    print(f"Nota cruce automático detalle cliente: {e_cruce_det}")
+
                 cursor.execute("""
                     SELECT ID_Proveedor, Nombre, Telefono, RUC_CEDULA, Saldo_Pendiente, Estado
                     FROM proveedores
-                    WHERE ID_Proveedor = %s AND ID_Empresa = %s
+                    WHERE ID_Proveedor = %s AND (ID_Empresa = %s OR ID_Empresa IS NULL)
                 """, (cliente['ID_Proveedor_Vinculado'], id_empresa))
                 prov_vinculado = cursor.fetchone()
                 
@@ -1312,6 +1352,86 @@ def admin_cruzar_cuentas_cliente(id):
     except Exception as e:
         logging.error(f"Error en cruce de cuentas cliente: {str(e)}", exc_info=True)
         flash(f"Error al procesar el cruce de cuentas: {str(e)}", "danger")
+        
+    return redirect(url_for("admin.admin_detalle_cliente", id=id))
+
+
+@admin_bp.route('/admin/catalog/client/saldar-proveedor-cruce/<int:id>', methods=['GET', 'POST'])
+@admin_required
+@bitacora_decorator("CLIENTES-SALDAR-PROV-CRUCE")
+def admin_saldar_proveedor_cruce(id):
+    """
+    Saldar la cuenta por pagar del proveedor vinculado cuando el monto de la compra
+    ya fue amortizado / descontado del saldo del cliente, evitando el doble descuento.
+    """
+    try:
+        id_empresa = session.get('id_empresa', 1)
+        id_usuario = current_user.id
+        with get_db_cursor(commit=True) as cursor:
+            cursor.execute("""
+                SELECT c.ID_Cliente, c.Nombre as Nombre_Cliente, c.Saldo_Pendiente_Total, c.ID_Proveedor_Vinculado,
+                       p.ID_Proveedor, p.Nombre as Nombre_Proveedor, p.Saldo_Pendiente as Saldo_PXP
+                FROM clientes c
+                INNER JOIN proveedores p ON (c.ID_Proveedor_Vinculado = p.ID_Proveedor OR p.ID_Cliente_Vinculado = c.ID_Cliente)
+                WHERE c.ID_Cliente = %s
+                LIMIT 1
+            """, (id,))
+            datos = cursor.fetchone()
+            if not datos:
+                flash("No se encontró proveedor vinculado para este cliente.", "warning")
+                return redirect(url_for("admin.admin_detalle_cliente", id=id))
+
+            id_prov = datos['ID_Proveedor']
+            saldo_cxp = float(datos.get('Saldo_PXP') or 0)
+            nombre_prov = datos.get('Nombre_Proveedor', 'Proveedor')
+            nombre_cli = datos.get('Nombre_Cliente', 'Cliente')
+            
+            from helpers.cruce_cuentas import obtener_o_crear_metodo_pago_cruce
+            id_metodo_pago = obtener_o_crear_metodo_pago_cruce(cursor)
+            nota_cxp = f"Compensación contable por compra ya cruzada contra saldo de cliente #{id} ({nombre_cli})"
+
+            # Saldar todas las cuentas por pagar pendientes de este proveedor
+            cursor.execute("""
+                SELECT ID_Cuenta, Saldo_Pendiente 
+                FROM cuentas_por_pagar 
+                WHERE ID_Proveedor = %s AND Estado IN ('Pendiente', 'Vencida', 'Parcial') AND Saldo_Pendiente > 0
+                ORDER BY ID_Cuenta ASC
+            """, (id_prov,))
+            cuentas = cursor.fetchall()
+            
+            total_saldado = 0.0
+            for c in cuentas:
+                s_pend = float(c['Saldo_Pendiente'] or 0)
+                if s_pend > 0:
+                    cursor.execute("""
+                        INSERT INTO pagos_cuentaspagar 
+                        (ID_Cuenta, Fecha, Monto, ID_MetodoPago, Detalles_Metodo, Comentarios, ID_Usuario_Creacion)
+                        VALUES (%s, NOW(), %s, %s, %s, %s, %s)
+                    """, (c['ID_Cuenta'], s_pend, id_metodo_pago, 'Cruce de Cuentas Contable', nota_cxp, id_usuario))
+                    
+                    cursor.execute("""
+                        INSERT INTO abonos_proveedores_detalle 
+                        (ID_Usuario, ID_Proveedor, ID_CuentaPagar, Monto_Aplicado, Saldo_Anterior, Saldo_Nuevo, ID_MetodoPago, Detalles_Metodo, Comentarios)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (id_usuario, id_prov, c['ID_Cuenta'], s_pend, s_pend, 0.0, id_metodo_pago, 'Cruce de Cuentas Contable', nota_cxp))
+                    
+                    cursor.execute("""
+                        UPDATE cuentas_por_pagar SET Saldo_Pendiente = 0.0, Estado = 'Pagada' WHERE ID_Cuenta = %s
+                    """, (c['ID_Cuenta'],))
+                    total_saldado += s_pend
+            
+            # Poner saldo del proveedor en 0
+            cursor.execute("""
+                UPDATE proveedores 
+                SET Saldo_Pendiente = 0.0 
+                WHERE ID_Proveedor = %s
+            """, (id_prov,))
+
+            flash(f"✅ ¡Se saldó exitosamente la cuenta de {nombre_prov} por C$ {saldo_cxp:,.2f}! El saldo adeudado al proveedor ahora es C$ 0.00 y el saldo a cobrar al cliente queda en C$ {float(datos.get('Saldo_Pendiente_Total') or 0):,.2f} a favor de FerDel.", "success")
+            
+    except Exception as e:
+        logging.error(f"Error al saldar proveedor en cruce: {str(e)}", exc_info=True)
+        flash(f"Error al saldar cuenta de proveedor: {str(e)}", "danger")
         
     return redirect(url_for("admin.admin_detalle_cliente", id=id))
 

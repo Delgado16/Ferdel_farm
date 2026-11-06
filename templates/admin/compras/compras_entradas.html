@@ -361,7 +361,8 @@
                 <span class="badge bg-light text-dark border font-monospace ms-2" id="totalComprasCount"
                     style="font-size: 0.95rem;">{{ compras|length }}</span>
             </h3>
-            <p class="text-slate-500 small mb-0">Gestione y controle todos los movimientos de compra y entradas de productos</p>
+            <p class="text-slate-500 small mb-0">Gestione y controle todos los movimientos de compra y entradas de
+                productos</p>
         </div>
         <div class="d-flex gap-2 flex-wrap">
             <a href="{{ url_for('admin.admin_dashboard') }}"
@@ -476,7 +477,8 @@
                                 <i class="fas fa-chart-pie me-1"></i> Proporción de Pago
                             </span>
                             <h3 class="stat-amount mb-1 mt-2" style="font-size: 1.65rem;">
-                                {{ ((capital_contado / capital_total * 100) if capital_total > 0 else 0)|round(0) }}% Contado
+                                {{ ((capital_contado / capital_total * 100) if capital_total > 0 else 0)|round(0) }}%
+                                Contado
                             </h3>
                             <small class="stat-note">Relación de desembolsos</small>
                         </div>
@@ -487,14 +489,18 @@
 
                     <div class="stat-footer pt-2 mt-2">
                         <div class="d-flex justify-content-between align-items-center mb-1 small text-white">
-                            <span>Contado: <strong>{{ ((capital_contado / capital_total * 100) if capital_total > 0 else 0)|round(1) }}%</strong></span>
-                            <span>Crédito: <strong>{{ ((capital_credito / capital_total * 100) if capital_total > 0 else 0)|round(1) }}%</strong></span>
+                            <span>Contado: <strong>{{ ((capital_contado / capital_total * 100) if capital_total > 0 else
+                                    0)|round(1) }}%</strong></span>
+                            <span>Crédito: <strong>{{ ((capital_credito / capital_total * 100) if capital_total > 0 else
+                                    0)|round(1) }}%</strong></span>
                         </div>
                         <div class="progress"
                             style="height: 6px; border-radius: 3px; background-color: rgba(255, 255, 255, 0.3);">
                             {% if capital_total > 0 %}
-                            {% set porcentaje_contado = (capital_contado|default(0) / capital_total|default(1) * 100)|round(1) %}
-                            {% set porcentaje_credito = (capital_credito|default(0) / capital_total|default(1) * 100)|round(1) %}
+                            {% set porcentaje_contado = (capital_contado|default(0) / capital_total|default(1) *
+                            100)|round(1) %}
+                            {% set porcentaje_credito = (capital_credito|default(0) / capital_total|default(1) *
+                            100)|round(1) %}
                             <div class="progress-bar bg-white" role="progressbar"
                                 style="width: {{ porcentaje_contado }}%" aria-valuenow="{{ porcentaje_contado }}"
                                 aria-valuemin="0" aria-valuemax="100"></div>
@@ -522,7 +528,8 @@
                     <h5 class="fw-bold mb-0 text-slate-800">
                         <i class="fas fa-list text-primary me-2"></i>Registro de Compras
                     </h5>
-                    <p class="text-slate-500 small mb-0 mt-1">Consulte, filtre y exporte los registros de entradas de inventario</p>
+                    <p class="text-slate-500 small mb-0 mt-1">Consulte, filtre y exporte los registros de entradas de
+                        inventario</p>
                 </div>
 
                 <div class="d-flex flex-wrap gap-2 w-100 w-lg-auto">
@@ -534,7 +541,7 @@
                             class="fas fa-search position-absolute start-0 top-50 translate-middle-y ms-3 text-slate-400"></i>
                         <button
                             class="btn btn-link text-slate-400 p-0 border-0 position-absolute end-0 top-50 translate-middle-y me-3 text-decoration-none"
-                            type="button" id="clearSearchBtn" style="display: none;">
+                            type="button" id="clearSearchBtn" style="display: none;" aria-label="Limpiar búsqueda">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
@@ -548,20 +555,25 @@
                         <ul class="dropdown-menu dropdown-menu-end shadow border-0" style="border-radius: 12px;">
                             <li>
                                 <a class="dropdown-item py-2" href="#" id="exportExcel">
-                                    <i class="fas fa-file-excel text-success me-2"></i> Excel <small class="text-muted ms-1">(.xls)</small>
+                                    <i class="fas fa-file-excel text-success me-2"></i> Excel <small
+                                        class="text-muted ms-1">(.xls)</small>
                                 </a>
                             </li>
                             <li>
                                 <a class="dropdown-item py-2" href="#" id="exportCSV">
-                                    <i class="fas fa-file-csv text-primary me-2"></i> CSV <small class="text-muted ms-1">(.csv)</small>
+                                    <i class="fas fa-file-csv text-primary me-2"></i> CSV <small
+                                        class="text-muted ms-1">(.csv)</small>
                                 </a>
                             </li>
                             <li>
                                 <a class="dropdown-item py-2" href="#" id="printTableBtn">
-                                    <i class="fas fa-print text-info me-2"></i> Imprimir <small class="text-muted ms-1">(Ctrl+P)</small>
+                                    <i class="fas fa-print text-info me-2"></i> Imprimir <small
+                                        class="text-muted ms-1">(Ctrl+P)</small>
                                 </a>
                             </li>
-                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>
                             <li>
                                 <a class="dropdown-item py-2" href="#" id="copyTableBtn">
                                     <i class="fas fa-copy text-secondary me-2"></i> Copiar al portapapeles
@@ -577,23 +589,23 @@
                 <div class="col-12 col-sm-6 col-md-3">
                     <label class="filter-label-text"><i class="fas fa-toggle-on me-1"></i> Estado</label>
                     <select class="form-select form-select-premium" id="estadoFilter">
-                        <option value="">📊 Todos los estados</option>
-                        <option value="ACTIVA">✅ Activas</option>
-                        <option value="ANULADA">❌ Anuladas</option>
+                        <option value="">Todos los estados</option>
+                        <option value="ACTIVA">Activas</option>
+                        <option value="ANULADA">Anuladas</option>
                     </select>
                 </div>
                 <div class="col-12 col-sm-6 col-md-3">
                     <label class="filter-label-text"><i class="fas fa-money-check-alt me-1"></i> Tipo de Compra</label>
                     <select class="form-select form-select-premium" id="tipoCompraFilter">
-                        <option value="">💵 Todos los tipos</option>
-                        <option value="CONTADO">💰 Contado</option>
-                        <option value="CREDITO">💳 Crédito</option>
+                        <option value="">Todos los tipos</option>
+                        <option value="CONTADO">Contado</option>
+                        <option value="CREDITO">Crédito</option>
                     </select>
                 </div>
                 <div class="col-12 col-sm-6 col-md-3">
                     <label class="filter-label-text"><i class="fas fa-calendar-alt me-1"></i> Periodo</label>
                     <select class="form-select form-select-premium" id="fechaFilter">
-                        <option value="">📅 Todas las fechas</option>
+                        <option value="">Todas las fechas</option>
                         <option value="today">Hoy</option>
                         <option value="yesterday">Ayer</option>
                         <option value="week">Esta semana</option>
@@ -620,12 +632,10 @@
                 <table class="table table-hover table-modern align-middle mb-0" id="dataTable">
                     <thead>
                         <tr>
-                            <th style="width: 70px;">ID</th>
                             <th style="width: 110px;">Fecha</th>
                             <th>Factura</th>
                             <th>Proveedor</th>
                             <th style="width: 110px;" class="text-center">Tipo</th>
-                            <th>Bodega</th>
                             <th style="width: 85px;" class="text-center">Productos</th>
                             <th style="width: 135px;" class="text-end">Total</th>
                             <th>Usuario</th>
@@ -640,18 +650,11 @@
                             data-fecha="{{ compra.Fecha.strftime('%Y-%m-%d') if compra.Fecha else '' }}"
                             data-estado="{{ compra.Estado_Formateado }}"
                             data-tipo="{{ compra.Tipo_Compra_Formateado }}">
-                            <td class="fw-bold">
-                                <span class="badge badge-id">#{{ compra.ID_Movimiento }}</span>
-                            </td>
                             <td>
                                 <div class="fw-semibold text-slate-800">
                                     <i class="far fa-calendar-alt text-slate-400 me-1"></i>{{
                                     compra.Fecha.strftime('%d/%m/%Y') if compra.Fecha else 'N/A' }}
                                 </div>
-                                <small class="text-slate-500">
-                                    <i class="far fa-clock text-slate-400"></i> {{ compra.Fecha.strftime('%H:%M') if
-                                    compra.Fecha else '' }}
-                                </small>
                             </td>
                             <td>
                                 {% if compra.N_Factura_Externa %}
@@ -668,25 +671,24 @@
                             </td>
                             <td class="text-center">
                                 {% if compra.Tipo_Compra == 'CONTADO' %}
-                                    {% if compra.Metodo_Pago and ('TRANSF' in compra.Metodo_Pago|upper or 'DEPOS' in compra.Metodo_Pago|upper or 'TARJETA' in compra.Metodo_Pago|upper) %}
-                                    <span class="badge-modern" style="background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;" title="Transferencia/Banco{% if compra.Referencia_Pago %}: {{ compra.Referencia_Pago }}{% endif %}">
-                                        <i class="fas fa-university"></i> {{ compra.Metodo_Pago|upper }}
-                                    </span>
-                                    {% else %}
-                                    <span class="badge-modern badge-contado" title="Efectivo (Salida de caja)">
-                                        <i class="fas fa-money-bill-wave"></i> {{ (compra.Metodo_Pago or 'EFECTIVO')|upper }}
-                                    </span>
-                                    {% endif %}
+                                {% if compra.Metodo_Pago and ('TRANSF' in compra.Metodo_Pago|upper or 'DEPOS' in
+                                compra.Metodo_Pago|upper or 'TARJETA' in compra.Metodo_Pago|upper) %}
+                                <span class="badge-modern"
+                                    style="background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;"
+                                    title="Transferencia/Banco{% if compra.Referencia_Pago %}: {{ compra.Referencia_Pago }}{% endif %}">
+                                    <i class="fas fa-university"></i> {{ compra.Metodo_Pago|upper }}
+                                </span>
+                                {% else %}
+                                <span class="badge-modern badge-contado" title="Efectivo (Salida de caja)">
+                                    <i class="fas fa-money-bill-wave"></i> {{ (compra.Metodo_Pago or 'EFECTIVO')|upper
+                                    }}
+                                </span>
+                                {% endif %}
                                 {% else %}
                                 <span class="badge-modern badge-credito">
                                     <i class="fas fa-credit-card"></i> CRÉDITO
                                 </span>
                                 {% endif %}
-                            </td>
-                            <td>
-                                <span class="badge bg-light text-slate-700 border border-slate-200 fw-semibold">
-                                    <i class="fas fa-warehouse text-slate-400 me-1"></i>{{ compra.Bodega or 'N/A' }}
-                                </span>
                             </td>
                             <td class="text-center">
                                 <span
@@ -723,16 +725,15 @@
                                         <span class="d-none d-md-inline ms-1">Ver</span>
                                     </a>
                                     {% if compra.Estado_Formateado == 'ACTIVA' %}
-                                    <button type="button"
-                                        class="btn btn-outline-danger btn-action btn-anular-compra"
+                                    <button type="button" class="btn btn-outline-danger btn-action btn-anular-compra"
                                         data-bs-toggle="modal" data-bs-target="#anularCompraModal"
-                                        data-id="{{ compra.ID_Movimiento }}"
-                                        title="Anular compra">
+                                        data-id="{{ compra.ID_Movimiento }}" title="Anular compra">
                                         <i class="fas fa-ban"></i>
                                         <span class="d-none d-md-inline ms-1">Anular</span>
                                     </button>
                                     {% else %}
-                                    <button class="btn btn-outline-secondary btn-action" disabled title="Compra anulada">
+                                    <button class="btn btn-outline-secondary btn-action" disabled
+                                        title="Compra anulada">
                                         <i class="fas fa-lock"></i>
                                         <span class="d-none d-md-inline ms-1">Bloqueado</span>
                                     </button>
@@ -746,7 +747,8 @@
                                 <div class="py-4">
                                     <i class="fas fa-inbox fa-4x text-slate-300 mb-3"></i>
                                     <h5 class="text-slate-700 fw-bold mb-2">No hay compras registradas</h5>
-                                    <p class="text-slate-500 small mb-4">Comience registrando su primera compra en el sistema</p>
+                                    <p class="text-slate-500 small mb-4">Comience registrando su primera compra en el
+                                        sistema</p>
                                     <a href="{{ url_for('admin.admin_crear_compra') }}"
                                         class="btn btn-primary px-4 py-2 rounded-3 fw-bold"
                                         style="background-color: var(--primary-brand); border-color: var(--primary-brand);">
@@ -786,7 +788,8 @@
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
                 <div class="text-slate-600 small fw-semibold">
                     <i class="fas fa-chart-line text-primary me-1"></i>
-                    Mostrando <span id="footerVisibleCount" class="fw-bold text-slate-800">{{ compras|length }}</span> de
+                    Mostrando <span id="footerVisibleCount" class="fw-bold text-slate-800">{{ compras|length }}</span>
+                    de
                     {{ compras|length }} compra(s)
                 </div>
                 <div class="text-slate-600 small">
@@ -797,7 +800,8 @@
                 </div>
                 <div class="text-slate-600 small">
                     <i class="fas fa-percent text-secondary me-1"></i>
-                    % Crédito: <strong class="text-slate-800" id="porcentajeCredito">{{ ((compras_credito / total_compras
+                    % Crédito: <strong class="text-slate-800" id="porcentajeCredito">{{ ((compras_credito /
+                        total_compras
                         * 100) if total_compras > 0 else 0)|round(1) }}</strong>%
                 </div>
             </div>
@@ -847,7 +851,8 @@
                                 </div>
                                 <div>
                                     <h6 class="alert-heading mb-1 fw-bold text-dark">¡Atención! Acción irreversible</h6>
-                                    <p class="mb-0 small text-slate-700">Al anular la compra se revertirá el inventario de la bodega, los movimientos de caja y las cuentas por pagar asociadas.</p>
+                                    <p class="mb-0 small text-slate-700">Al anular la compra se revertirá el inventario
+                                        de la bodega, los movimientos de caja y las cuentas por pagar asociadas.</p>
                                 </div>
                             </div>
 
@@ -868,7 +873,8 @@
                             <div class="modal-card-info mb-3" id="infoFinancieraCard" style="display: none;">
                                 <div class="card-header">
                                     <span class="small fw-bold text-slate-800">
-                                        <i class="fas fa-money-bill-wave me-2 text-success"></i>Información Financiera Relacionada
+                                        <i class="fas fa-money-bill-wave me-2 text-success"></i>Información Financiera
+                                        Relacionada
                                     </span>
                                 </div>
                                 <div class="card-body p-3" id="infoFinancieraContent">
@@ -948,7 +954,8 @@
                                             </tbody>
                                             <tfoot class="table-light sticky-bottom border-top">
                                                 <tr>
-                                                    <td colspan="4" class="text-end fw-bold text-slate-800">Total Productos:</td>
+                                                    <td colspan="4" class="text-end fw-bold text-slate-800">Total
+                                                        Productos:</td>
                                                     <td class="text-end fw-bold text-danger pe-3 font-monospace"
                                                         id="productosTotal">C$ 0.00</td>
                                                 </tr>
@@ -1212,7 +1219,7 @@
                 activeFilters.search = '';
             } else {
                 const selectId = filtroKey === 'estado' ? 'estadoFilter' :
-                                (filtroKey === 'tipo' ? 'tipoCompraFilter' : 'fechaFilter');
+                    (filtroKey === 'tipo' ? 'tipoCompraFilter' : 'fechaFilter');
                 const select = document.getElementById(selectId);
                 if (select) select.value = '';
                 activeFilters[filtroKey] = '';
@@ -1573,7 +1580,7 @@
                 redirect: 'follow'
             });
 
-            if (response.ok || response.redirected) {
+            if (response.ok) {
                 const modalEl = document.getElementById('anularCompraModal');
                 const modal = bootstrap.Modal.getInstance(modalEl);
                 if (modal) modal.hide();
@@ -1584,8 +1591,8 @@
                 return;
             }
 
-            const text = await response.text();
-            throw new Error(`Error del servidor (${response.status})`);
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `Error del servidor (${response.status})`);
 
         } catch (error) {
             console.error('❌ Error:', error);

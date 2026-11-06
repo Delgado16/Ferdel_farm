@@ -22,6 +22,13 @@ def admin_cuentascobrar():
         hoy = datetime.now().date()
         
         with get_db_cursor(True) as cursor:
+            # Auto-compensar en segundo plano clientes vinculados a proveedores con saldo
+            try:
+                from helpers.cruce_cuentas import auto_compensar_saldos_mutuos
+                auto_compensar_saldos_mutuos(cursor, session.get('id_empresa', 1), current_user.id if current_user.is_authenticated else 1)
+            except Exception:
+                pass
+
             # Construir la consulta base con ambos tipos de documentos
             query = """
                 SELECT 

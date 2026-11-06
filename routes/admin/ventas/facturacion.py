@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import logging
 from decimal import Decimal
 import traceback
 from flask import render_template, redirect, session, url_for, request, flash, jsonify
@@ -68,24 +69,24 @@ def admin_ventas_salidas():
     search_filtro = request.args.get('search', '').strip()
     
     try:
-        with get_db_cursor(True) as cursor:
+        with get_db_cursor(commit=False) as cursor:
             # Construir condiciones WHERE dinámicamente
             where_conditions = []
             params = []
             
-            # Filtro de fecha
+            # Filtro de fecha optimizado con índices (sin envolver columna en DATE())
             if fecha_str == 'today':
-                where_conditions.append("DATE(f.Fecha) = CURDATE()")
+                where_conditions.append("f.Fecha = CURDATE()")
             elif fecha_str == 'yesterday':
-                where_conditions.append("DATE(f.Fecha) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)")
+                where_conditions.append("f.Fecha = DATE_SUB(CURDATE(), INTERVAL 1 DAY)")
             elif fecha_str == 'week':
-                where_conditions.append("YEARWEEK(f.Fecha, 1) = YEARWEEK(CURDATE(), 1)")
+                where_conditions.append("f.Fecha >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)")
             elif fecha_str == 'month':
-                where_conditions.append("MONTH(f.Fecha) = MONTH(CURDATE()) AND YEAR(f.Fecha) = YEAR(CURDATE())")
+                where_conditions.append("f.Fecha >= DATE_FORMAT(CURDATE(), '%Y-%m-01') AND f.Fecha < DATE_ADD(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 1 MONTH)")
             elif fecha_str:
                 try:
                     fecha_obj = datetime.strptime(fecha_str, '%Y-%m-%d').date()
-                    where_conditions.append("DATE(f.Fecha) = %s")
+                    where_conditions.append("f.Fecha = %s")
                     params.append(fecha_obj)
                 except ValueError:
                     pass
