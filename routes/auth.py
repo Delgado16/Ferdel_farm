@@ -54,7 +54,8 @@ def login():
                     # Verificar contraseña utilizando hash
                     if check_password_hash(user_data['Contraseña'], password):
                         user = User(user_data['ID_Usuario'], user_data['NombreUsuario'], user_data['Nombre_Rol'])
-                        login_user(user)
+                        login_user(user, remember=True)
+                        session.permanent = True
                         session['id_empresa'] = user_data['ID_Empresa']
                         session['empresa_id'] = user_data['ID_Empresa']
                         registrar_login_exitoso(username, user_data['ID_Usuario'])

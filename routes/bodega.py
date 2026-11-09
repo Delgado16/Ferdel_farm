@@ -2462,6 +2462,56 @@ def bodega_anular_movimiento(id_movimiento):
                     WHERE (ID_Factura = %s OR Referencia_Documento = %s) AND Estado = 'ACTIVO'
                 """, (session.get('user_id'), id_movimiento, id_fac_venta, f'FAC-{id_fac_venta:05d}'))
             
+            # Si el movimiento correspondía a una compra con proveedor, revertir cuentas por pagar y saldo de proveedor
+            id_prov_bod = movimiento.get('ID_Proveedor')
+            n_fac_bod = movimiento.get('N_Factura_Externa')
+            conds_cxp_bod = ["ID_Movimiento = %s"]
+            params_cxp_bod = [id_movimiento]
+            if n_fac_bod and id_prov_bod:
+                conds_cxp_bod.append("(Num_Documento = %s AND ID_Proveedor = %s)")
+                params_cxp_bod.extend([n_fac_bod, id_prov_bod])
+
+            cursor.execute(f"""
+                SELECT ID_Cuenta, Saldo_Pendiente, Estado, ID_Proveedor 
+                FROM cuentas_por_pagar 
+                WHERE ({' OR '.join(conds_cxp_bod)})
+            """, tuple(params_cxp_bod))
+            cxp_bod_rows = cursor.fetchall() or []
+            
+            saldo_desc_bod = 0.0
+            for c_bod in cxp_bod_rows:
+                if not id_prov_bod and c_bod.get('ID_Proveedor'):
+                    id_prov_bod = c_bod['ID_Proveedor']
+                if c_bod.get('Estado') != 'Anulada':
+                    saldo_desc_bod += float(c_bod.get('Saldo_Pendiente') or 0.0)
+                    cursor.execute("""
+                        UPDATE cuentas_por_pagar 
+                        SET Estado = 'Anulada', Saldo_Pendiente = 0
+                        WHERE ID_Cuenta = %s
+                    """, (c_bod['ID_Cuenta'],))
+
+            if id_prov_bod:
+                if saldo_desc_bod > 0:
+                    cursor.execute("""
+                        UPDATE proveedores 
+                        SET Saldo_Pendiente = GREATEST(0, COALESCE(Saldo_Pendiente, 0) - %s)
+                        WHERE ID_Proveedor = %s
+                    """, (saldo_desc_bod, id_prov_bod))
+                
+                # Sincronizar con la suma real de cuentas por pagar pendientes
+                cursor.execute("""
+                    SELECT COALESCE(SUM(Saldo_Pendiente), 0) as Saldo_Real
+                    FROM cuentas_por_pagar
+                    WHERE ID_Proveedor = %s AND Estado IN ('Pendiente', 'Parcial', 'Vencida')
+                """, (id_prov_bod,))
+                r_real = cursor.fetchone()
+                if r_real is not None:
+                    cursor.execute("""
+                        UPDATE proveedores 
+                        SET Saldo_Pendiente = %s
+                        WHERE ID_Proveedor = %s
+                    """, (float(r_real['Saldo_Real'] or 0.0), id_prov_bod))
+            
             flash(f"✅ Movimiento #{id_movimiento} anulado exitosamente", 'success')
             
     except Exception as e:

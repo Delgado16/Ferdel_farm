@@ -923,15 +923,23 @@ def admin_anular_compra(id_movimiento):
                         })
                 
                 # Verificar cuenta por pagar asociada
-                cursor.execute("""
+                condiciones_cxp_get = ["ID_Movimiento = %s"]
+                params_cxp_get = [id_movimiento]
+                if compra.get('N_Factura_Externa') and compra.get('ID_Proveedor'):
+                    condiciones_cxp_get.append("(Num_Documento = %s AND ID_Proveedor = %s)")
+                    params_cxp_get.extend([compra['N_Factura_Externa'], compra['ID_Proveedor']])
+
+                cursor.execute(f"""
                     SELECT ID_Cuenta, Saldo_Pendiente, Estado 
                     FROM cuentas_por_pagar 
-                    WHERE ID_Movimiento = %s
-                    LIMIT 1
-                """, (id_movimiento,))
-                cxp_info = cursor.fetchone()
-                tiene_cxp = cxp_info is not None and cxp_info['Estado'] != 'Anulada'
-                saldo_cxp = float(cxp_info['Saldo_Pendiente'] or 0) if cxp_info else 0
+                    WHERE ({' OR '.join(condiciones_cxp_get)})
+                      AND Estado != 'Anulada'
+                """, tuple(params_cxp_get))
+                cxp_rows_get = cursor.fetchall() or []
+                tiene_cxp = len(cxp_rows_get) > 0 or (compra['Tipo_Compra'] == 'CREDITO')
+                saldo_cxp = sum(float(r['Saldo_Pendiente'] or 0) for r in cxp_rows_get)
+                if not cxp_rows_get and compra['Tipo_Compra'] == 'CREDITO':
+                    saldo_cxp = total_compra
                 
                 datos_respuesta = {
                     'success': True,
@@ -951,7 +959,8 @@ def admin_anular_compra(id_movimiento):
                         'stock_suficiente': stock_suficiente,
                         'productos_sin_stock': productos_sin_stock,
                         'tiene_cuenta_pagar': tiene_cxp,
-                        'saldo_cuenta_pagar': saldo_cxp
+                        'saldo_cuenta_pagar': saldo_cxp,
+                        'saldo_pendiente': saldo_cxp
                     }
                 }
                 
@@ -1196,32 +1205,76 @@ def admin_anular_compra(id_movimiento):
                     WHERE ID_Movimiento = %s
                 """, (id_usuario, nueva_observacion, id_movimiento))
                 
-                # 5.1 Revertir cuentas por pagar asociadas y saldo de proveedor
-                cursor.execute("""
-                    SELECT ID_Cuenta, Saldo_Pendiente, Estado 
+                # 5.1 Revertir cuentas por pagar asociadas y descontar saldo del proveedor
+                condiciones_cxp_post = ["ID_Movimiento = %s"]
+                params_cxp_post = [id_movimiento]
+                if n_factura_externa and id_proveedor:
+                    condiciones_cxp_post.append("(Num_Documento = %s AND ID_Proveedor = %s)")
+                    params_cxp_post.extend([n_factura_externa, id_proveedor])
+
+                cursor.execute(f"""
+                    SELECT ID_Cuenta, Saldo_Pendiente, Monto_Movimiento, Estado, ID_Proveedor 
                     FROM cuentas_por_pagar 
-                    WHERE ID_Movimiento = %s
+                    WHERE ({' OR '.join(condiciones_cxp_post)})
                     FOR UPDATE
-                """, (id_movimiento,))
-                cuenta_pagar = cursor.fetchone()
-                
-                if cuenta_pagar and cuenta_pagar['Estado'] != 'Anulada':
-                    saldo_cxp = float(cuenta_pagar['Saldo_Pendiente'] or 0)
+                """, tuple(params_cxp_post))
+                cuentas_pagar = cursor.fetchall() or []
+
+                total_saldo_descontado = 0.0
+                id_prov_afectado = id_proveedor
+
+                for cp in cuentas_pagar:
+                    if not id_prov_afectado and cp.get('ID_Proveedor'):
+                        id_prov_afectado = cp['ID_Proveedor']
                     
-                    cursor.execute("""
-                        UPDATE cuentas_por_pagar 
-                        SET Estado = 'Anulada',
-                            Saldo_Pendiente = 0,
-                            Observacion = CONCAT(COALESCE(Observacion, ''), '\n[ANULADA por anulación de Compra #%s]')
-                        WHERE ID_Cuenta = %s
-                    """, (id_movimiento, cuenta_pagar['ID_Cuenta']))
-                    
-                    if saldo_cxp > 0 and id_proveedor:
+                    if cp['Estado'] != 'Anulada':
+                        saldo_item = float(cp.get('Saldo_Pendiente') or 0.0)
+                        total_saldo_descontado += saldo_item
+                        
+                        cursor.execute("""
+                            UPDATE cuentas_por_pagar 
+                            SET Estado = 'Anulada',
+                                Saldo_Pendiente = 0,
+                                Observacion = CONCAT(COALESCE(Observacion, ''), '\n[ANULADA por anulación de Compra #%s]')
+                            WHERE ID_Cuenta = %s
+                        """, (id_movimiento, cp['ID_Cuenta']))
+
+                # Si no se encontraron cuentas por pagar pero la compra fue a CRÉDITO,
+                # el valor de la compra incrementó el saldo adeudado del proveedor en su creación,
+                # por lo que debe descontarse directamente.
+                if not cuentas_pagar and movimiento.get('Tipo_Compra') == 'CREDITO' and total_compra > 0:
+                    total_saldo_descontado = total_compra
+
+                # Descontar del saldo pendiente del proveedor y sincronizar con exactitud
+                saldo_proveedor_actualizado = None
+                if id_prov_afectado:
+                    if total_saldo_descontado > 0:
                         cursor.execute("""
                             UPDATE proveedores 
                             SET Saldo_Pendiente = GREATEST(0, COALESCE(Saldo_Pendiente, 0) - %s)
                             WHERE ID_Proveedor = %s
-                        """, (saldo_cxp, id_proveedor))
+                        """, (total_saldo_descontado, id_prov_afectado))
+
+                    # Sincronización exacta con la suma de cuentas por pagar activas restantes
+                    cursor.execute("""
+                        SELECT COALESCE(SUM(Saldo_Pendiente), 0) as Saldo_Real
+                        FROM cuentas_por_pagar
+                        WHERE ID_Proveedor = %s AND Estado IN ('Pendiente', 'Parcial', 'Vencida')
+                    """, (id_prov_afectado,))
+                    row_real = cursor.fetchone()
+                    if row_real is not None:
+                        saldo_real_calc = float(row_real['Saldo_Real'] or 0.0)
+                        cursor.execute("""
+                            UPDATE proveedores 
+                            SET Saldo_Pendiente = %s
+                            WHERE ID_Proveedor = %s
+                        """, (saldo_real_calc, id_prov_afectado))
+                        saldo_proveedor_actualizado = saldo_real_calc
+                    else:
+                        cursor.execute("SELECT Saldo_Pendiente FROM proveedores WHERE ID_Proveedor = %s", (id_prov_afectado,))
+                        row_p = cursor.fetchone()
+                        if row_p:
+                            saldo_proveedor_actualizado = float(row_p['Saldo_Pendiente'] or 0.0)
                 
                 # 5.2 Anular salida en caja_movimientos si existía un registro activo de esta compra
                 cursor.execute("""
@@ -1251,11 +1304,18 @@ def admin_anular_compra(id_movimiento):
                 ])
                 
                 from markupsafe import Markup
+                detalle_saldo_prov = ""
+                if total_saldo_descontado > 0:
+                    detalle_saldo_prov = f"• Saldo descontado a proveedor: <strong>C${total_saldo_descontado:,.2f}</strong><br>"
+                if saldo_proveedor_actualizado is not None:
+                    detalle_saldo_prov += f"• Saldo pendiente actual del proveedor: <strong>C${saldo_proveedor_actualizado:,.2f}</strong><br>"
+
                 mensaje = Markup(
                     f"✅ <strong>Compra anulada exitosamente</strong><br>"
                     f"• Número de compra: #{id_movimiento}<br>"
                     f"• Factura: {n_factura_externa or 'N/A'}<br>"
                     f"• Total compra: C${total_compra:,.2f}<br>"
+                    f"{detalle_saldo_prov}"
                     f"• Productos retirados del inventario: {len(detalles)}<br>"
                     f"• Motivo: {motivo_anulacion[:100]}<br><br>"
                     f"<strong>📦 Detalle de inventario actualizado (tabla inventario_bodega):</strong><br>"
@@ -1269,7 +1329,9 @@ def admin_anular_compra(id_movimiento):
                     return jsonify({
                         'success': True,
                         'message': f'Compra #{id_movimiento} anulada exitosamente.',
-                        'id_movimiento': id_movimiento
+                        'id_movimiento': id_movimiento,
+                        'saldo_descontado_proveedor': total_saldo_descontado,
+                        'saldo_proveedor_actualizado': saldo_proveedor_actualizado
                     })
             
             return redirect(url_for('admin.admin_compras_entradas'))

@@ -9,10 +9,10 @@ from flask_login import LoginManager
 from config.database import get_db_cursor
 from .models import User
 
-# Cache en memoria con TTL de 60 segundos para evitar saturación de BD por Flask-Login
+# Cache en memoria con TTL de 5 minutos para evitar saturación de BD por Flask-Login
 _USER_CACHE = {}
 _USER_CACHE_LOCK = threading.Lock()
-_CACHE_TTL_SECONDS = 60
+_CACHE_TTL_SECONDS = 300
 
 
 def invalidate_user_cache(user_id=None):
@@ -130,6 +130,15 @@ def load_user(user_id):
             return None
     except Exception as e:
         print(f"Error en load_user: {e}")
+        # Respaldo de seguridad: si la BD tuvo un fallo transitorio de reconexión tras inactividad,
+        # pero el usuario ya estaba validado en caché, preservamos la sesión en lugar de expulsarlo.
+        with _USER_CACHE_LOCK:
+            if str_uid in _USER_CACHE:
+                user_obj, _ = _USER_CACHE[str_uid]
+                _USER_CACHE[str_uid] = (user_obj, ahora + 60)
+                if has_app_context():
+                    setattr(g, f'_current_user_{str_uid}', user_obj)
+                return user_obj
         return None
 
 

@@ -210,7 +210,18 @@ def _obtener_nueva_conexion(timeout=None):
         attempts += 1
         try:
             conn = connection_pool.get_connection()
-            # Conexión obtenida exitosamente del pool
+            # Verificar que la conexión obtenida del pool esté realmente viva
+            if not conn.is_connected():
+                try:
+                    if hasattr(conn, '_cnx') and hasattr(conn._cnx, 'reconnect'):
+                        conn._cnx.reconnect(attempts=2, delay=0.2)
+                except Exception:
+                    try:
+                        conn.close()
+                    except Exception:
+                        pass
+                    # Continuar para obtener otra conexión viva del pool
+                    continue
             return conn
             
         except pooling.PoolError as pe:
@@ -225,19 +236,21 @@ def _obtener_nueva_conexion(timeout=None):
                     f"El servidor de base de datos está temporalmente saturado ({timeout}s de espera). "
                     "Por favor intente nuevamente en unos instantes."
                 ) from pe
-            # Pausa breve antes del próximo intento (evita busy-waiting)
             time.sleep(0.05)
 
         except Error as e:
-            # Error de red o caída de MySQL
-            logger.error(f"❌ Error de conexión al obtener del pool: {e}")
-            raise DatabaseConnectionError(f"Error de comunicación con MySQL: {e}") from e
+            # Error de red o reconexión en pool
+            elapsed = time.monotonic() - start_time
+            if elapsed >= timeout:
+                logger.error(f"❌ Error de conexión al obtener del pool tras {elapsed:.1f}s: {e}")
+                raise DatabaseConnectionError(f"Error de comunicación con MySQL: {e}") from e
+            time.sleep(0.1)
 
 
-def get_db():
+def get_db(force_new=False):
     """Obtener conexión de la base de datos para el contexto actual de Flask o proceso"""
     if has_app_context():
-        if 'db' not in g:
+        if force_new or 'db' not in g or g.db is None:
             g.db = _obtener_nueva_conexion()
             g._db_verified = True
         return g.db
@@ -266,7 +279,7 @@ def close_db(exception=None):
 def get_db_cursor(commit=True):
     """
     Context manager optimizado para operaciones de base de datos.
-    - No envía pings redundantes dentro del mismo request HTTP.
+    - Valida que la conexión esté activa y se recupera limpiamente ante caídas por inactividad.
     - Solo ejecuta commit si se solicita explícitamente (commit=True).
     - Cierra cursores y conexiones garantizando retorno al pool.
     """
@@ -275,18 +288,33 @@ def get_db_cursor(commit=True):
     if db is None:
         raise DatabaseConnectionError("No se pudo obtener una conexión válida a la base de datos.")
 
+    # Verificar si la conexión sigue viva tras inactividad
+    if not en_app_context or not getattr(g, '_db_verified', False):
+        try:
+            if not db.is_connected():
+                if hasattr(db, '_cnx') and hasattr(db._cnx, 'reconnect'):
+                    db._cnx.reconnect(attempts=2, delay=0.2)
+                else:
+                    if en_app_context:
+                        try:
+                            db.close()
+                        except Exception:
+                            pass
+                        db = get_db(force_new=True)
+        except Exception:
+            # Si el socket expiró por inactividad, pedir una nueva conexión limpia
+            if en_app_context:
+                try:
+                    db.close()
+                except Exception:
+                    pass
+                db = get_db(force_new=True)
+
+        if en_app_context:
+            g._db_verified = True
+
     cursor = None
     try:
-        # Solo verificar la conexión si estamos fuera de contexto web o si aún no fue verificada
-        if not en_app_context or not getattr(g, '_db_verified', False):
-            try:
-                db.ping(reconnect=True, attempts=1, delay=0)
-            except Exception:
-                if not db.is_connected():
-                    db.reconnect(attempts=1, delay=0)
-            if en_app_context:
-                g._db_verified = True
-
         cursor = db.cursor(dictionary=True)
         yield cursor
 

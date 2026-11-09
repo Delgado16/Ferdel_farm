@@ -106,7 +106,7 @@ DB_CONFIG = {
     'charset': 'utf8mb4',
     'collation': 'utf8mb4_general_ci',
     'ssl_disabled': DB_SSL_DISABLED,
-    'init_command': "SET time_zone = '-06:00'"
+    'init_command': "SET time_zone = '-06:00', wait_timeout = 28800, interactive_timeout = 28800"
 }
 
 # Parámetros avanzados de base de datos y tareas
@@ -121,7 +121,7 @@ if DB_SSL_CA:
 
 # ===== CONFIGURACIÓN DE SESIÓN =====
 SESSION_CONFIG = {
-    'PERMANENT': False,
+    'PERMANENT': True,
     'TYPE': os.environ.get('SESSION_TYPE', None),
     'PERMANENT_LIFETIME': timedelta(hours=12),
     'TEMPLATES_AUTO_RELOAD': DEBUG,
