@@ -299,8 +299,6 @@
     .btn-action:hover {
         transform: translateY(-1px);
     }
-
-    
 </style>
 {% endblock %}
 
@@ -522,25 +520,25 @@
                 <div class="col-12 col-sm-6 col-md-3">
                     <label class="filter-label-text"><i class="fas fa-toggle-on me-1"></i> Estado</label>
                     <select class="form-select form-select-premium" id="estadoFilter">
-                        <option value="">📊 Todos los estados</option>
-                        <option value="ACTIVA" {% if estado_filtro=='ACTIVA' %}selected{% endif %}>✅ Activas</option>
-                        <option value="ANULADA" {% if estado_filtro=='ANULADA' %}selected{% endif %}>❌ Anuladas</option>
+                        <option value="">Todos los estados</option>
+                        <option value="ACTIVA" {% if estado_filtro=='ACTIVA' %}selected{% endif %}>Activas</option>
+                        <option value="ANULADA" {% if estado_filtro=='ANULADA' %}selected{% endif %}>Anuladas</option>
                     </select>
                 </div>
                 <div class="col-12 col-sm-6 col-md-3">
                     <label class="filter-label-text"><i class="fas fa-money-check-alt me-1"></i> Tipo de Venta</label>
                     <select class="form-select form-select-premium" id="tipoVentaFilter">
-                        <option value="">💵 Todos los tipos</option>
-                        <option value="CONTADO" {% if tipo_filtro=='CONTADO' %}selected{% endif %}>💰 Contado</option>
-                        <option value="CREDITO" {% if tipo_filtro=='CREDITO' %}selected{% endif %}>💳 Crédito</option>
-                        <option value="REPARTO" {% if tipo_filtro=='REPARTO' %}selected{% endif %}>🚚 En Reparto
+                        <option value="">Todos los tipos</option>
+                        <option value="CONTADO" {% if tipo_filtro=='CONTADO' %}selected{% endif %}>Contado</option>
+                        <option value="CREDITO" {% if tipo_filtro=='CREDITO' %}selected{% endif %}>Crédito</option>
+                        <option value="REPARTO" {% if tipo_filtro=='REPARTO' %}selected{% endif %}>En Reparto
                         </option>
                     </select>
                 </div>
                 <div class="col-12 col-sm-6 col-md-3">
                     <label class="filter-label-text"><i class="fas fa-calendar-alt me-1"></i> Periodo</label>
                     <select class="form-select form-select-premium" id="fechaFilter">
-                        <option value="">📅 Todas las fechas</option>
+                        <option value="">Todas las fechas</option>
                         <option value="today" {% if fecha_filtro=='today' %}selected{% endif %}>Hoy</option>
                         <option value="yesterday" {% if fecha_filtro=='yesterday' %}selected{% endif %}>Ayer</option>
                         <option value="week" {% if fecha_filtro=='week' %}selected{% endif %}>Esta semana</option>
@@ -562,12 +560,9 @@
                 <table class="table table-hover table-modern align-middle mb-0" id="dataTable">
                     <thead>
                         <tr>
-                            <th style="width: 70px;">ID</th>
                             <th style="width: 110px;">Fecha</th>
                             <th>Cliente</th>
-                            <th style="width: 120px;">Identificación</th>
                             <th style="width: 110px;" class="text-center">Tipo</th>
-                            <th>Bodega</th>
                             <th style="width: 85px;" class="text-center">Productos</th>
                             <th style="width: 135px;" class="text-end">Total</th>
                             <th>Vendedor</th>
@@ -582,18 +577,11 @@
                             data-fecha="{{ venta.Fecha.strftime('%Y-%m-%d') if venta.Fecha else '' }}"
                             data-estado="{{ venta.Estado_Formateado }}"
                             data-tipo="{% if venta.Credito_Contado == 0 %}CONTADO{% elif venta.Credito_Contado == 2 %}REPARTO{% else %}CREDITO{% endif %}">
-                            <td class="fw-bold">
-                                <span class="badge badge-id">#{{ venta.ID_Factura }}</span>
-                            </td>
                             <td>
                                 <div class="fw-semibold text-slate-800">
                                     <i class="far fa-calendar-alt text-slate-400 me-1"></i>{{
                                     venta.Fecha.strftime('%d/%m/%Y') if venta.Fecha else 'N/A' }}
                                 </div>
-                                <small class="text-slate-500">
-                                    <i class="far fa-clock text-slate-400"></i> {{ venta.Fecha.strftime('%H:%M') if
-                                    venta.Fecha else '' }}
-                                </small>
                             </td>
                             <td>
                                 <div class="fw-bold text-slate-800">{{ venta.Cliente or 'Consumidor Final' }}</div>
@@ -601,10 +589,6 @@
                                 <small class="text-slate-500"><i class="fas fa-id-card text-slate-400 me-1"></i>{{
                                     venta.RUC_Cliente }}</small>
                                 {% endif %}
-                            </td>
-                            <td>
-                                <span class="text-slate-700 font-monospace small">{{ venta.RUC_Cliente or 'N/A'
-                                    }}</span>
                             </td>
                             <td class="text-center">
                                 {% if venta.Credito_Contado == 0 %}
@@ -620,11 +604,6 @@
                                     <i class="fas fa-credit-card"></i> CRÉDITO
                                 </span>
                                 {% endif %}
-                            </td>
-                            <td>
-                                <span class="badge bg-light text-slate-700 border border-slate-200 fw-semibold">
-                                    <i class="fas fa-warehouse text-slate-400 me-1"></i>{{ venta.Bodega or 'N/A' }}
-                                </span>
                             </td>
                             <td class="text-center">
                                 <span
@@ -673,13 +652,13 @@
                                         <i class="fas fa-eye"></i>
                                         <span class="d-none d-md-inline ms-1">Ver</span>
                                     </a>
-                                    
+
                                 </div>
                             </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="11" class="text-center py-5">
+                            <td colspan="8" class="text-center py-5">
                                 <div class="py-4">
                                     <i class="fas fa-inbox fa-4x text-slate-300 mb-3"></i>
                                     <h5 class="text-slate-700 fw-bold mb-2">No hay ventas registradas</h5>
@@ -697,7 +676,7 @@
                     </tbody>
                     <tfoot class="table-light">
                         <tr>
-                            <td colspan="6" class="text-end fw-bold text-slate-700">
+                            <td colspan="3" class="text-end fw-bold text-slate-700">
                                 <small>Resumen de las <span id="visibleCount">0</span> ventas visibles:</small>
                             </td>
                             <td class="text-center fw-bold text-primary">
@@ -731,7 +710,8 @@
                 <div class="text-slate-600 small">
                     <i class="fas fa-chart-pie text-info me-1"></i>
                     Distribución:
-                    <span class="text-success fw-bold" id="footerContado">{{ ventas_contado|default(0) }} contado</span> |
+                    <span class="text-success fw-bold" id="footerContado">{{ ventas_contado|default(0) }} contado</span>
+                    |
                     <span class="text-warning fw-bold" id="footerCredito">{{ ventas_credito|default(0) }} crédito</span>
                 </div>
                 <div class="text-slate-600 small">
@@ -829,7 +809,7 @@
             }
 
             if (show && activeFilters.search) {
-                const text = row.textContent.toLowerCase();
+                const text = (row.textContent + ' ' + (row.getAttribute('data-id') || '')).toLowerCase();
                 if (!text.includes(activeFilters.search)) show = false;
             }
 
@@ -838,13 +818,13 @@
             if (show) {
                 visibleCount++;
 
-                const productosBadge = row.querySelector('td:nth-child(7) .badge');
+                const productosBadge = row.querySelector('td:nth-child(4) .badge');
                 if (productosBadge) {
                     const productos = parseInt(productosBadge.textContent) || 0;
                     totalProductosVisible += productos;
                 }
 
-                const montoCell = row.querySelector('td:nth-child(8)');
+                const montoCell = row.querySelector('td:nth-child(5)');
                 if (montoCell && montoCell.getAttribute('data-value')) {
                     const monto = parseFloat(montoCell.getAttribute('data-value')) || 0;
                     totalMontoVisible += monto;
@@ -989,23 +969,21 @@
             return;
         }
 
-        const headers = ['ID', 'Fecha', 'Cliente', 'Identificación', 'Tipo', 'Bodega', 'Productos', 'Total', 'Vendedor', 'Estado'];
+        const headers = ['ID', 'Fecha', 'Cliente', 'Tipo', 'Productos', 'Total', 'Vendedor', 'Estado'];
 
         const data = [headers];
         visibleRows.forEach(row => {
             const cols = row.querySelectorAll('td');
-            if (cols.length >= 10) {
+            if (cols.length >= 7) {
                 const rowData = [
-                    cols[0].textContent.trim().replace('#', ''),
-                    cols[1].textContent.trim(),
-                    cols[2].textContent.trim().split('\n')[0],
+                    row.getAttribute('data-id') || '',
+                    cols[0].textContent.trim(),
+                    cols[1].textContent.trim().split('\n')[0].trim(),
+                    cols[2].textContent.trim(),
                     cols[3].textContent.trim(),
                     cols[4].textContent.trim(),
                     cols[5].textContent.trim(),
-                    cols[6].textContent.trim(),
-                    cols[7].textContent.trim(),
-                    cols[8].textContent.trim(),
-                    cols[9].textContent.trim()
+                    cols[6].textContent.trim()
                 ];
                 data.push(rowData);
             }
@@ -1035,23 +1013,21 @@
             return;
         }
 
-        const headers = ['ID', 'Fecha', 'Cliente', 'Identificación', 'Tipo', 'Bodega', 'Productos', 'Total', 'Vendedor', 'Estado'];
+        const headers = ['ID', 'Fecha', 'Cliente', 'Tipo', 'Productos', 'Total', 'Vendedor', 'Estado'];
 
         const data = [headers];
         visibleRows.forEach(row => {
             const cols = row.querySelectorAll('td');
-            if (cols.length >= 10) {
+            if (cols.length >= 7) {
                 const rowData = [
-                    cols[0].textContent.trim().replace('#', ''),
-                    cols[1].textContent.trim(),
-                    cols[2].textContent.trim().split('\n')[0],
+                    row.getAttribute('data-id') || '',
+                    cols[0].textContent.trim(),
+                    cols[1].textContent.trim().split('\n')[0].trim(),
+                    cols[2].textContent.trim(),
                     cols[3].textContent.trim(),
                     cols[4].textContent.trim(),
                     cols[5].textContent.trim(),
-                    cols[6].textContent.trim(),
-                    cols[7].textContent.trim(),
-                    cols[8].textContent.trim(),
-                    cols[9].textContent.trim()
+                    cols[6].textContent.trim()
                 ];
                 data.push(rowData);
             }
@@ -1130,7 +1106,7 @@
             window.print();
         });
 
-        
+
 
         // Atajo teclado Ctrl+F
         document.addEventListener('keydown', function (e) {
