@@ -365,23 +365,31 @@ function aplicarFiltros() {
         }
         
         let cumpleFecha = true;
-        if (fechaFiltro !== '' && mov.Fecha_Movimiento) {
-            const fechaMov = new Date(mov.Fecha_Movimiento);
-            const hoy = new Date();
-            hoy.setHours(0, 0, 0, 0);
-            
-            if (fechaFiltro === 'today') {
-                const fechaMovDate = new Date(fechaMov);
-                fechaMovDate.setHours(0, 0, 0, 0);
-                cumpleFecha = fechaMovDate.getTime() === hoy.getTime();
-            } else if (fechaFiltro === 'week') {
-                const semanaPasada = new Date(hoy);
-                semanaPasada.setDate(hoy.getDate() - 7);
-                cumpleFecha = fechaMov >= semanaPasada;
-            } else if (fechaFiltro === 'month') {
-                const mesPasado = new Date(hoy);
-                mesPasado.setMonth(hoy.getMonth() - 1);
-                cumpleFecha = fechaMov >= mesPasado;
+        if (fechaFiltro !== '') {
+            let fechaMov = null;
+            if (mov.Fecha_Movimiento_iso) {
+                const partes = mov.Fecha_Movimiento_iso.split(' ')[0].split('-');
+                fechaMov = new Date(parseInt(partes[0]), parseInt(partes[1]) - 1, parseInt(partes[2]));
+            } else if (mov.Fecha_Movimiento) {
+                fechaMov = new Date(mov.Fecha_Movimiento);
+            }
+            if (fechaMov) {
+                const hoy = new Date();
+                hoy.setHours(0, 0, 0, 0);
+                
+                if (fechaFiltro === 'today') {
+                    const fechaMovDate = new Date(fechaMov);
+                    fechaMovDate.setHours(0, 0, 0, 0);
+                    cumpleFecha = fechaMovDate.getTime() === hoy.getTime();
+                } else if (fechaFiltro === 'week') {
+                    const semanaPasada = new Date(hoy);
+                    semanaPasada.setDate(hoy.getDate() - 7);
+                    cumpleFecha = fechaMov >= semanaPasada;
+                } else if (fechaFiltro === 'month') {
+                    const mesPasado = new Date(hoy);
+                    mesPasado.setMonth(hoy.getMonth() - 1);
+                    cumpleFecha = fechaMov >= mesPasado;
+                }
             }
         }
         
@@ -444,11 +452,10 @@ function actualizarVistaMovil(movimientos) {
         const totalSubtotal = toNumber(mov.Total_Subtotal);
         const totalItems = mov.Total_Items || 0;
         
-        let fechaStr = 'N/A';
-        if (mov.Fecha_Movimiento) {
+        let fechaStr = mov.Fecha_Movimiento_str || 'N/A';
+        if (fechaStr === 'N/A' && mov.Fecha_Movimiento) {
             try {
-                const fecha = new Date(mov.Fecha_Movimiento);
-                fechaStr = fecha.toLocaleDateString() + ' ' + fecha.toLocaleTimeString();
+                fechaStr = mov.Fecha_Movimiento.replace('T', ' ').substring(0, 16);
             } catch(e) {
                 fechaStr = mov.Fecha_Movimiento;
             }
@@ -542,11 +549,10 @@ function actualizarVistaDesktop(movimientos) {
         const totalSubtotal = toNumber(mov.Total_Subtotal);
         const totalItems = mov.Total_Items || 0;
         
-        let fechaStr = 'N/A';
-        if (mov.Fecha_Movimiento) {
+        let fechaStr = mov.Fecha_Movimiento_str || 'N/A';
+        if (fechaStr === 'N/A' && mov.Fecha_Movimiento) {
             try {
-                const fecha = new Date(mov.Fecha_Movimiento);
-                fechaStr = fecha.toLocaleString();
+                fechaStr = mov.Fecha_Movimiento.replace('T', ' ').substring(0, 16);
             } catch(e) {
                 fechaStr = mov.Fecha_Movimiento;
             }
@@ -636,14 +642,7 @@ function exportarExcel() {
         let tipoTexto = mov.Descripcion_Detallada || '';
         if (tipoTexto === 'Carga de Productos') tipoTexto = 'Entrada';
         
-        let fechaStr = '';
-        if (mov.Fecha_Movimiento) {
-            try {
-                fechaStr = new Date(mov.Fecha_Movimiento).toLocaleString();
-            } catch(e) {
-                fechaStr = mov.Fecha_Movimiento;
-            }
-        }
+        let fechaStr = mov.Fecha_Movimiento_str || mov.Fecha_Movimiento || '';
         
         const totalProductos = toNumber(mov.Total_Productos);
         const totalSubtotal = toNumber(mov.Total_Subtotal);

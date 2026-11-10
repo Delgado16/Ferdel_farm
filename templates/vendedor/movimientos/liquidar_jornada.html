@@ -208,12 +208,12 @@
                     <div class="alert alert-warning border-0 bg-warning bg-opacity-10 text-slate-800 rounded-3 p-3 mb-4 d-flex align-items-start gap-3">
                         <i class="fas fa-exclamation-triangle text-warning fa-lg mt-1"></i>
                         <div class="small">
-                            <strong>Aviso importante:</strong> Al confirmar la liquidación, el inventario sobrante retornará a la <strong>Bodega Central</strong> y el saldo neto en efectivo se registrará en la caja general del local. Esta acción finalizará tu jornada activa.
+                            <strong>Aviso importante:</strong> Al confirmar la liquidación, el inventario sobrante retornará a la <strong>Bodega Central</strong> y se finalizará tu jornada activa. Si recaudaste efectivo, se te consultará si el dinero fue depositado en banco o si debe trasladarse a la caja física del local.
                         </div>
                     </div>
 
                     <!-- Formulario de Liquidación -->
-                    <form method="POST">
+                    <form method="POST" id="formLiquidarJornada">
                         {% if not caja_cerrada %}
                         <!-- Sección para realizar arqueo físico si no se hizo previamente -->
                         <div class="card border border-warning bg-light rounded-3 p-3 mb-4 shadow-xs">
@@ -242,25 +242,14 @@
                         </div>
                         {% endif %}
 
+                        <!-- Input oculto para si el dinero fue depositado -->
+                        <input type="hidden" name="dinero_depositado" id="dinero_depositado" value="no">
+
                         <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 pt-2">
                             <a href="{{ url_for('vendedor.vendedor_dashboard') }}" class="btn btn-outline-secondary px-4 py-2.5 rounded-3 fw-bold">
                                 <i class="fas fa-arrow-left me-1"></i> Volver al Dashboard
                             </a>
-                            <button type="submit" class="btn btn-danger px-4 py-2.5 rounded-3 fw-bold shadow-sm" 
-                                    onclick="event.preventDefault(); Swal.fire({
-                                        title: '¿Confirmar liquidación y cierre?',
-                                        text: 'Se devolverán los productos sobrantes a bodega y se registrará la entrega del efectivo.',
-                                        icon: 'warning',
-                                        showCancelButton: true,
-                                        confirmButtonColor: '#dc2626',
-                                        cancelButtonColor: '#64748b',
-                                        confirmButtonText: 'Sí, liquidar jornada',
-                                        cancelButtonText: 'Cancelar'
-                                    }).then((result) => { 
-                                        if (result.isConfirmed) { 
-                                            this.closest('form').submit(); 
-                                        } 
-                                    });">
+                            <button type="button" id="btnConfirmarLiquidacion" class="btn btn-danger px-4 py-2.5 rounded-3 fw-bold shadow-sm">
                                 <i class="fas fa-check-circle me-1"></i> Confirmar Liquidación y Cierre
                             </button>
                         </div>
@@ -272,9 +261,9 @@
     </div>
 </div>
 
-{% if not caja_cerrada %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    {% if not caja_cerrada %}
     const montoInput = document.getElementById('monto_real');
     const statusDiv = document.getElementById('arqueoStatus');
     const saldoEsperado = {{ saldo_caja }};
@@ -288,16 +277,126 @@ document.addEventListener('DOMContentLoaded', function() {
                 statusDiv.innerHTML = '<i class="fas fa-check-circle me-1"></i> Caja Cuadrada: El efectivo físico coincide exactamente con el saldo esperado (C$ 0.00).';
             } else if (diff > 0.01) {
                 statusDiv.className = 'alert alert-success mb-0 py-2 small fw-bold';
-                statusDiv.innerHTML = `<i class="fas fa-arrow-up me-1"></i> Sobrante en Caja: + C$ ${diff.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} (El saldo en caja es mayor al esperado).`;
+                statusDiv.innerHTML = `<i class="fas fa-arrow-up me-1"></i> Sobrante en Caja: + C$ ${diff.toLocaleString('es-NI', {minimumFractionDigits: 2, maximumFractionDigits: 2})} (El saldo en caja es mayor al esperado).`;
             } else {
                 statusDiv.className = 'alert alert-danger mb-0 py-2 small fw-bold';
-                statusDiv.innerHTML = `<i class="fas fa-arrow-down me-1"></i> Faltante en Caja: - C$ ${Math.abs(diff).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} (El saldo en caja es menor al esperado).`;
+                statusDiv.innerHTML = `<i class="fas fa-arrow-down me-1"></i> Faltante en Caja: - C$ ${Math.abs(diff).toLocaleString('es-NI', {minimumFractionDigits: 2, maximumFractionDigits: 2})} (El saldo en caja es menor al esperado).`;
             }
         }
         montoInput.addEventListener('input', actualizarEstado);
         actualizarEstado();
     }
+    {% endif %}
+
+    const btnConfirmar = document.getElementById('btnConfirmarLiquidacion');
+    if (btnConfirmar) {
+        btnConfirmar.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            const inputMonto = document.getElementById('monto_real');
+            let montoEfectivo = 0;
+            
+            if (inputMonto) {
+                if (inputMonto.value === '' || isNaN(parseFloat(inputMonto.value)) || parseFloat(inputMonto.value) < 0) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Monto inválido',
+                        text: 'Por favor ingresa un monto físico válido en el arqueo de caja.',
+                        confirmButtonColor: '#3b82f6'
+                    });
+                    inputMonto.focus();
+                    return;
+                }
+                montoEfectivo = parseFloat(inputMonto.value);
+            } else {
+                montoEfectivo = {{ (monto_cierre_real if caja_cerrada else saldo_caja) | default(0) }};
+            }
+
+            const form = document.getElementById('formLiquidarJornada');
+            const inputDepositado = document.getElementById('dinero_depositado');
+
+            if (montoEfectivo > 0) {
+                const montoStr = montoEfectivo.toLocaleString('es-NI', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                
+                Swal.fire({
+                    title: '¿El dinero recaudado fue depositado?',
+                    html: `
+                        <div class="text-start">
+                            <div class="mb-3 p-3 bg-light rounded-3 border text-center">
+                                <span class="text-muted d-block small text-uppercase fw-semibold" style="letter-spacing: 0.05em;">Total en efectivo a liquidar</span>
+                                <h3 class="fw-bold text-success font-monospace mb-0">C$ ${montoStr}</h3>
+                            </div>
+                            
+                            <p class="text-secondary small mb-3">
+                                Selecciona una opción para el destino del dinero:
+                            </p>
+
+                            <div class="d-grid gap-2 mb-2">
+                                <div class="form-check p-3 border rounded-3 bg-white shadow-xs" style="cursor: pointer;" onclick="document.getElementById('radio_depositado_si').checked = true;">
+                                    <input class="form-check-input ms-0 me-2" type="radio" name="swal_opcion_deposito" id="radio_depositado_si" value="si">
+                                    <label class="form-check-label fw-bold text-dark cursor-pointer" for="radio_depositado_si" style="cursor: pointer;">
+                                        <i class="fas fa-university text-primary me-1"></i> Sí, el dinero fue depositado en banco
+                                    </label>
+                                    <div class="text-muted small ps-4 mt-1">
+                                        <i class="fas fa-shield-alt text-primary me-1"></i> El dinero <strong>NO</strong> se trasladará a la caja física del local.
+                                    </div>
+                                </div>
+
+                                <div class="form-check p-3 border rounded-3 bg-white shadow-xs" style="cursor: pointer;" onclick="document.getElementById('radio_depositado_no').checked = true;">
+                                    <input class="form-check-input ms-0 me-2" type="radio" name="swal_opcion_deposito" id="radio_depositado_no" value="no" checked>
+                                    <label class="form-check-label fw-bold text-dark cursor-pointer" for="radio_depositado_no" style="cursor: pointer;">
+                                        <i class="fas fa-cash-register text-success me-1"></i> No, entregar a la caja física del local
+                                    </label>
+                                    <div class="text-muted small ps-4 mt-1">
+                                        Se registrará como entrada en la caja física del local.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="text-muted small mt-3" style="font-size: 0.76rem;">
+                                <i class="fas fa-info-circle me-1 text-info"></i> Los productos sobrantes se devolverán automáticamente a la Bodega Central.
+                            </div>
+                        </div>
+                    `,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc2626',
+                    cancelButtonColor: '#64748b',
+                    confirmButtonText: '<i class="fas fa-check-circle me-1"></i> Confirmar y Liquidar',
+                    cancelButtonText: 'Cancelar',
+                    focusConfirm: false,
+                    preConfirm: () => {
+                        const esDepositado = document.getElementById('radio_depositado_si').checked;
+                        return {
+                            depositado: esDepositado ? 'si' : 'no'
+                        };
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        inputDepositado.value = result.value.depositado;
+                        form.submit();
+                    }
+                });
+            } else {
+                Swal.fire({
+                    title: '¿Confirmar liquidación y cierre?',
+                    text: 'Se devolverán los productos sobrantes a bodega y se finalizará la jornada activa.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc2626',
+                    cancelButtonColor: '#64748b',
+                    confirmButtonText: 'Sí, liquidar jornada',
+                    cancelButtonText: 'Cancelar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        inputDepositado.value = 'no';
+                        inputRef.value = '';
+                        form.submit();
+                    }
+                });
+            }
+        });
+    }
 });
 </script>
-{% endif %}
 {% endblock %}

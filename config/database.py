@@ -222,6 +222,15 @@ def _obtener_nueva_conexion(timeout=None):
                         pass
                     # Continuar para obtener otra conexión viva del pool
                     continue
+            
+            # Asegurar zona horaria local de Nicaragua (UTC-6) en la sesión MySQL
+            try:
+                cursor_tz = conn.cursor()
+                cursor_tz.execute("SET time_zone = '-06:00'")
+                cursor_tz.close()
+            except Exception as e_tz:
+                logger.debug(f"Aviso al configurar time_zone en sesión MySQL: {e_tz}")
+
             return conn
             
         except pooling.PoolError as pe:

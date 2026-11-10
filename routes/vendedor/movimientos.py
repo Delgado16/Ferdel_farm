@@ -24,6 +24,24 @@ def vendedor_movimiento_entrada_bodega():
             productos = request.form.getlist('producto_id[]')
             cantidades = request.form.getlist('cantidad[]')
             documento = request.form.get('documento_numero', '')
+            fecha_entrada_str = request.form.get('fecha_entrada', '').strip()
+            
+            # Determinar fecha/hora local del movimiento
+            fecha_movimiento = datetime.now()
+            if fecha_entrada_str:
+                try:
+                    if 'T' in fecha_entrada_str:
+                        fecha_movimiento = datetime.strptime(fecha_entrada_str, '%Y-%m-%dT%H:%M')
+                    elif '/' in fecha_entrada_str:
+                        if len(fecha_entrada_str.split(':')) == 3:
+                            fecha_movimiento = datetime.strptime(fecha_entrada_str, '%d/%m/%Y %H:%M:%S')
+                        else:
+                            fecha_movimiento = datetime.strptime(fecha_entrada_str, '%d/%m/%Y %H:%M')
+                    else:
+                        fecha_movimiento = datetime.strptime(fecha_entrada_str, '%Y-%m-%d %H:%M')
+                except Exception as e_fecha:
+                    print(f"Aviso parseando fecha_entrada '{fecha_entrada_str}': {e_fecha}")
+                    fecha_movimiento = datetime.now()
             
             with get_db_cursor(True) as cursor:
                 # ============================================
@@ -116,7 +134,7 @@ def vendedor_movimiento_entrada_bodega():
                     total_items, 
                     total_subtotal,
                     id_empresa,
-                    datetime.now()
+                    fecha_movimiento
                 ))
                 
                 id_movimiento = cursor.lastrowid
@@ -555,6 +573,8 @@ def vendedor_movimiento_liquidar_jornada():
             diferencia_cierre = round(monto_cierre_real - saldo_caja, 2) if cierre_existente else 0.0
 
             if request.method == 'POST':
+                fue_depositado = request.form.get('dinero_depositado', 'no').strip().lower() in ['si', '1', 'true', 'yes']
+
                 # Si la caja no estaba cerrada previamente, permitir ingresar arqueo físico o confirmar
                 if not caja_cerrada:
                     monto_real_input = request.form.get('monto_real')
@@ -568,7 +588,9 @@ def vendedor_movimiento_liquidar_jornada():
                         
                     obs_cierre = request.form.get('observacion_cierre', '').strip()
                     diferencia_cierre = round(monto_cierre_real - saldo_caja, 2)
-                    concepto = f"Cierre de caja en liquidación - Diferencia: C$ {diferencia_cierre:,.2f}. {obs_cierre}" if obs_cierre else f"Cierre de caja en liquidación - Diferencia: C$ {diferencia_cierre:,.2f}"
+                    
+                    dep_tag = " [DEPOSITADO EN BANCO]" if fue_depositado else ""
+                    concepto = f"Cierre de caja en liquidación - Diferencia: C$ {diferencia_cierre:,.2f}.{dep_tag} {obs_cierre}" if (obs_cierre or dep_tag) else f"Cierre de caja en liquidación - Diferencia: C$ {diferencia_cierre:,.2f}"
                     concepto = concepto[:200]
                     
                     cursor.execute("""
@@ -577,6 +599,14 @@ def vendedor_movimiento_liquidar_jornada():
                         VALUES (%s, %s, 'CIERRE', %s, %s, %s, 'ACTIVO')
                     """, (id_asignacion, user_id, concepto, monto_cierre_real, monto_cierre_real))
                     caja_cerrada = True
+                else:
+                    if fue_depositado:
+                        dep_tag = " | [DEPOSITADO EN BANCO]"
+                        cursor.execute("""
+                            UPDATE movimientos_caja_ruta 
+                            SET Concepto = CONCAT(SUBSTRING(Concepto, 1, 150), %s)
+                            WHERE ID_Asignacion = %s AND Tipo = 'CIERRE' AND Estado = 'ACTIVO'
+                        """, (dep_tag, id_asignacion))
 
                 # Validar si hay productos para devolver
                 if inventario:
@@ -643,31 +673,35 @@ def vendedor_movimiento_liquidar_jornada():
                 # 4. Consolidar efectivo en caja del local si hay saldo acumulado
                 monto_transferir = monto_cierre_real if caja_cerrada else saldo_caja
                 if monto_transferir > 0:
-                    cursor.execute("""
-                        SELECT ID_Movimiento 
-                        FROM caja_movimientos 
-                        WHERE Referencia_Documento IN (%s, %s) AND Estado = 'ACTIVO'
-                    """, (f"RUTA-{id_asignacion}", f"RUT-LIQ-{id_asignacion}"))
-                    ya_registrado = cursor.fetchone()
-                    
-                    if not ya_registrado:
-                        nombre_ruta = asignacion.get('Nombre_Ruta') or "Ruta"
-                        nombre_vendedor = asignacion.get('NombreUsuario') or getattr(current_user, 'NombreUsuario', None) or getattr(current_user, 'username', None) or "Vendedor"
-                        
-                        desc_dif = ""
-                        if abs(diferencia_cierre) <= 0.01:
-                            desc_dif = " (Caja Cuadrada)"
-                        elif diferencia_cierre > 0.01:
-                            desc_dif = f" (Sobrante: +C$ {diferencia_cierre:,.2f})"
-                        else:
-                            desc_dif = f" (Faltante: -C$ {abs(diferencia_cierre):,.2f})"
-                            
-                        descripcion = f"Consolidado de Ruta: {nombre_ruta} - Vendedor: {nombre_vendedor}{desc_dif}"
+                    if fue_depositado:
+                        # Si el dinero fue depositado en el banco, NO se traslada a la caja física del local
+                        pass
+                    else:
                         cursor.execute("""
-                            INSERT INTO caja_movimientos 
-                            (Fecha, Tipo_Movimiento, Descripcion, Monto, Referencia_Documento, ID_Usuario, Estado)
-                            VALUES (NOW(), 'ENTRADA', %s, %s, %s, %s, 'ACTIVO')
-                        """, (descripcion, monto_transferir, f"RUT-LIQ-{id_asignacion}", user_id))
+                            SELECT ID_Movimiento 
+                            FROM caja_movimientos 
+                            WHERE Referencia_Documento IN (%s, %s) AND Estado = 'ACTIVO'
+                        """, (f"RUTA-{id_asignacion}", f"RUT-LIQ-{id_asignacion}"))
+                        ya_registrado = cursor.fetchone()
+                        
+                        if not ya_registrado:
+                            nombre_ruta = asignacion.get('Nombre_Ruta') or "Ruta"
+                            nombre_vendedor = asignacion.get('NombreUsuario') or getattr(current_user, 'NombreUsuario', None) or getattr(current_user, 'username', None) or "Vendedor"
+                            
+                            desc_dif = ""
+                            if abs(diferencia_cierre) <= 0.01:
+                                desc_dif = " (Caja Cuadrada)"
+                            elif diferencia_cierre > 0.01:
+                                desc_dif = f" (Sobrante: +C$ {diferencia_cierre:,.2f})"
+                            else:
+                                desc_dif = f" (Faltante: -C$ {abs(diferencia_cierre):,.2f})"
+                                
+                            descripcion = f"Consolidado de Ruta: {nombre_ruta} - Vendedor: {nombre_vendedor}{desc_dif}"
+                            cursor.execute("""
+                                INSERT INTO caja_movimientos 
+                                (Fecha, Tipo_Movimiento, Descripcion, Monto, Referencia_Documento, ID_Usuario, Estado)
+                                VALUES (NOW(), 'ENTRADA', %s, %s, %s, %s, 'ACTIVO')
+                            """, (descripcion, monto_transferir, f"RUT-LIQ-{id_asignacion}", user_id))
                 
                 # 5. Finalizar asignación de ruta
                 cursor.execute("""
@@ -687,12 +721,14 @@ def vendedor_movimiento_liquidar_jornada():
                     """, (asignacion['ID_Vehiculo'],))
                     
                 if monto_transferir > 0:
-                    if abs(diferencia_cierre) <= 0.01:
-                        flash(f'Liquidación y cierre de jornada realizados con éxito. Caja cuadrada (C$ {monto_transferir:,.2f} transferidos a caja general).', 'success')
+                    if fue_depositado:
+                        flash(f'Liquidación y cierre de jornada realizados con éxito. El dinero recaudado (C$ {monto_transferir:,.2f}) fue registrado como DEPOSITADO y no se trasladó a la caja de dinero del local.', 'success')
+                    elif abs(diferencia_cierre) <= 0.01:
+                        flash(f'Liquidación y cierre de jornada realizados con éxito. Caja cuadrada (C$ {monto_transferir:,.2f} transferidos a caja general del local).', 'success')
                     elif diferencia_cierre > 0.01:
-                        flash(f'Liquidación y cierre de jornada realizados con éxito. Se registró un SOBRANTE de C$ {diferencia_cierre:,.2f} (Total C$ {monto_transferir:,.2f} transferidos a caja general).', 'success')
+                        flash(f'Liquidación y cierre de jornada realizados con éxito. Se registró un SOBRANTE de C$ {diferencia_cierre:,.2f} (Total C$ {monto_transferir:,.2f} transferidos a caja general del local).', 'success')
                     else:
-                        flash(f'Liquidación y cierre de jornada realizados con éxito. Se registró un FALTANTE de C$ {abs(diferencia_cierre):,.2f} (Total C$ {monto_transferir:,.2f} transferidos a caja general).', 'warning')
+                        flash(f'Liquidación y cierre de jornada realizados con éxito. Se registró un FALTANTE de C$ {abs(diferencia_cierre):,.2f} (Total C$ {monto_transferir:,.2f} transferidos a caja general del local).', 'warning')
                 else:
                     flash('Liquidación y cierre de jornada realizados con éxito. No se registró traslado de efectivo (saldo en caja de ruta en C$ 0.00).', 'info')
                 return redirect(url_for('vendedor.vendedor_dashboard', download_pdf=id_asignacion))
@@ -1010,7 +1046,7 @@ def vendedor_movimientos_historial():
             
             movimientos = cursor.fetchall()
             
-            # Convertir valores numericos
+            # Convertir valores numericos y formatear fechas para frontend
             for mov in movimientos:
                 if 'Total_Productos' in mov:
                     mov['Total_Productos'] = float(mov['Total_Productos']) if mov['Total_Productos'] else 0.0
@@ -1018,6 +1054,13 @@ def vendedor_movimientos_historial():
                     mov['Total_Subtotal'] = float(mov['Total_Subtotal']) if mov['Total_Subtotal'] else 0.0
                 if 'Total_Items' in mov:
                     mov['Total_Items'] = int(mov['Total_Items']) if mov['Total_Items'] else 0
+                if mov.get('Fecha_Movimiento'):
+                    if hasattr(mov['Fecha_Movimiento'], 'strftime'):
+                        mov['Fecha_Movimiento_str'] = mov['Fecha_Movimiento'].strftime('%d/%m/%Y %H:%M')
+                        mov['Fecha_Movimiento_iso'] = mov['Fecha_Movimiento'].strftime('%Y-%m-%d %H:%M:%S')
+                    else:
+                        mov['Fecha_Movimiento_str'] = str(mov['Fecha_Movimiento'])
+                        mov['Fecha_Movimiento_iso'] = str(mov['Fecha_Movimiento'])
             
             # ============================================
             # 3. RESUMEN SIMPLIFICADO

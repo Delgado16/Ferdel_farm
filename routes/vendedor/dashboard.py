@@ -678,8 +678,10 @@ def vendedor_finalizar_ruta(id):
                     WHERE ID_Vehiculo = %s
                 """, (asignacion['ID_Vehiculo'],))
 
-            # 5. Si hay dinero acumulado, enviar a la caja principal como consolidado
-            if monto_transferir > 0:
+            # 5. Si hay dinero acumulado, enviar a la caja principal como consolidado (si no fue depositado)
+            fue_depositado = request.form.get('dinero_depositado', 'no').strip().lower() in ['si', '1', 'true', 'yes']
+            
+            if monto_transferir > 0 and not fue_depositado:
                 cursor.execute("""
                     SELECT ID_Movimiento 
                     FROM caja_movimientos 
@@ -705,7 +707,9 @@ def vendedor_finalizar_ruta(id):
                     """, (descripcion, monto_transferir, f"RUTA-{id}", usuario_id))
             
         if monto_transferir > 0:
-            if cierre_existente and diferencia_cierre > 0.01:
+            if fue_depositado:
+                flash(f'Ruta finalizada exitosamente. El dinero recaudado (C$ {monto_transferir:,.2f}) fue registrado como DEPOSITADO y no se trasladó a la caja del local.', 'success')
+            elif cierre_existente and diferencia_cierre > 0.01:
                 flash(f'Ruta finalizada exitosamente. Caja con SOBRANTE de C$ {diferencia_cierre:,.2f}. Se transfirieron C$ {monto_transferir:,.2f} a la caja del local.', 'success')
             elif cierre_existente and diferencia_cierre < -0.01:
                 flash(f'Ruta finalizada exitosamente. Caja con FALTANTE de C$ {abs(diferencia_cierre):,.2f}. Se transfirieron C$ {monto_transferir:,.2f} a la caja del local.', 'warning')
