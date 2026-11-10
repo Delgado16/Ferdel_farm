@@ -937,8 +937,7 @@ def vendedor_venta_crear():
             
             # Redirigir al ticket
             return redirect(url_for('vendedor.vendedor_generar_ticket_ruta', 
-                                  id_venta=id_factura, 
-                                  autoPrint=1))
+                                  id_venta=id_factura))
                              
     except Exception as e:
         print(f"❌ Error en vendedor_venta_crear: {str(e)}")
