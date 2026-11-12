@@ -1814,13 +1814,16 @@ def vendedor_pdf_cierre(id_asignacion):
             movimientos_caja = cursor.fetchall()
             
             # 3. Obtener facturas/ventas realizadas en la asignación
-            cursor.execute("""
+            from .ventas import _asegurar_columna_descuento
+            tiene_descuento = _asegurar_columna_descuento(cursor)
+            expr_desc = " - COALESCE(fr.Descuento, 0)" if tiene_descuento else ""
+            cursor.execute(f"""
                 SELECT fr.ID_FacturaRuta, fr.Fecha, fr.Credito_Contado, fr.ID_MetodoPago,
                        c.Nombre as Cliente, fr.Observacion,
                        COALESCE(mp.Nombre, 'Efectivo') as MetodoPago,
-                       (SELECT COALESCE(SUM(Cantidad*Precio), 0) 
+                       GREATEST(0, (SELECT COALESCE(SUM(Cantidad*Precio), 0) 
                         FROM detalle_facturacion_ruta 
-                        WHERE ID_FacturaRuta = fr.ID_FacturaRuta) as Total
+                        WHERE ID_FacturaRuta = fr.ID_FacturaRuta){expr_desc}) as Total
                 FROM facturacion_ruta fr
                 LEFT JOIN clientes c ON fr.ID_Cliente = c.ID_Cliente
                 LEFT JOIN metodos_pago mp ON fr.ID_MetodoPago = mp.ID_MetodoPago
@@ -2261,13 +2264,16 @@ def vendedor_ticket_cierre(id_asignacion):
             movimientos_caja = cursor.fetchall()
             
             # 3. Obtener facturas/ventas realizadas en la asignación
-            cursor.execute("""
+            from .ventas import _asegurar_columna_descuento
+            tiene_descuento = _asegurar_columna_descuento(cursor)
+            expr_desc = " - COALESCE(fr.Descuento, 0)" if tiene_descuento else ""
+            cursor.execute(f"""
                 SELECT fr.ID_FacturaRuta, fr.Fecha, fr.Credito_Contado, fr.ID_MetodoPago,
                        COALESCE(mp.Nombre, 'Efectivo') as MetodoPago,
                        c.Nombre as Cliente, fr.Observacion,
-                       (SELECT COALESCE(SUM(Cantidad*Precio), 0) 
+                       GREATEST(0, (SELECT COALESCE(SUM(Cantidad*Precio), 0) 
                         FROM detalle_facturacion_ruta 
-                        WHERE ID_FacturaRuta = fr.ID_FacturaRuta) as Total
+                        WHERE ID_FacturaRuta = fr.ID_FacturaRuta){expr_desc}) as Total
                 FROM facturacion_ruta fr
                 LEFT JOIN clientes c ON fr.ID_Cliente = c.ID_Cliente
                 LEFT JOIN metodos_pago mp ON fr.ID_MetodoPago = mp.ID_MetodoPago

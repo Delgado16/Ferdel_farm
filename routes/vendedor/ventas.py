@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime, timedelta, date, time
+import threading
+import time as time_module
 import traceback
 from flask import json, jsonify, render_template, flash, redirect, request, url_for, session, Response
 from flask_login import login_required, current_user
@@ -7,6 +9,47 @@ from config.database import get_db_cursor
 from auth.decorators import vendedor_required
 from . import vendedor_bp
 from .utils import convertir_hora_db, procesar_asignacion, procesar_lista_asignaciones, TipoMovimientoRuta, calcular_saldo_caja_ruta
+
+_DESCUENTO_LOCK = threading.Lock()
+_COLUMNA_DESCUENTO_VERIFICADA = False
+
+def _asegurar_columna_descuento(cursor):
+    """Asegura que la columna Descuento exista en facturacion_ruta sin bloquear transacciones."""
+    global _COLUMNA_DESCUENTO_VERIFICADA
+    if _COLUMNA_DESCUENTO_VERIFICADA:
+        return True
+
+    with _DESCUENTO_LOCK:
+        if _COLUMNA_DESCUENTO_VERIFICADA:
+            return True
+        try:
+            cursor.execute("SHOW COLUMNS FROM facturacion_ruta LIKE 'Descuento'")
+            if cursor.fetchone():
+                _COLUMNA_DESCUENTO_VERIFICADA = True
+                return True
+
+            # Ejecutar DDL en una conexión separada para no interferir con transacciones activas
+            try:
+                with get_db_cursor(True) as ddl_cursor:
+                    ddl_cursor.execute("SHOW COLUMNS FROM facturacion_ruta LIKE 'Descuento'")
+                    if not ddl_cursor.fetchone():
+                        ddl_cursor.execute(
+                            "ALTER TABLE facturacion_ruta ADD COLUMN Descuento DECIMAL(10,2) NOT NULL DEFAULT 0.00"
+                        )
+                _COLUMNA_DESCUENTO_VERIFICADA = True
+                return True
+            except Exception as ddl_err:
+                # Si otro proceso/hilo la creó concurrentemente (1060 Duplicate / 1684 Concurrent DDL), reverificar
+                time_module.sleep(0.2)
+                cursor.execute("SHOW COLUMNS FROM facturacion_ruta LIKE 'Descuento'")
+                if cursor.fetchone():
+                    _COLUMNA_DESCUENTO_VERIFICADA = True
+                    return True
+                print(f"⚠️ No se pudo verificar/crear columna Descuento: {ddl_err}")
+                return False
+        except Exception as e:
+            print(f"⚠️ No se pudo verificar/crear columna Descuento: {e}")
+            return False
 
 @vendedor_bp.route('/api/productos', methods=['GET'])
 @vendedor_required
@@ -160,6 +203,8 @@ def vendedor_ventas():
                 placeholders = ','.join(['%s'] * len(ids_asignacion))
                 
                 hoy_local = date.today()
+                tiene_descuento = _asegurar_columna_descuento(cursor)
+                expr_total = "GREATEST(0, COALESCE(SUM(dfr.Total), 0) - COALESCE(fr.Descuento, 0))" if tiene_descuento else "COALESCE(SUM(dfr.Total), 0)"
                 
                 cursor.execute(f"""
                     SELECT fr.ID_FacturaRuta, 
@@ -172,7 +217,7 @@ def vendedor_ventas():
                            c.RUC_CEDULA,
                            c.Telefono,
                            r.Nombre_Ruta,
-                           COALESCE(SUM(dfr.Total), 0) as Total_Venta,
+                           {expr_total} as Total_Venta,
                            CASE 
                                WHEN fr.Credito_Contado = 1 THEN 'CONTADO'
                                ELSE 'CRÉDITO'
@@ -416,6 +461,12 @@ def vendedor_venta_crear():
                 if tipo_venta == '2':
                     id_metodo_pago_venta = None
                 
+                # Obtener descuento si aplica
+                try:
+                    descuento = max(0.0, float(request.form.get('descuento', '0') or 0))
+                except (ValueError, TypeError):
+                    descuento = 0.0
+
                 # Obtener datos del abono si existe
                 abono_monto = float(request.form.get('abono_monto', '0'))
                 abono_metodo_pago = request.form.get('abono_metodo_pago', '')
@@ -613,21 +664,35 @@ def vendedor_venta_crear():
                     return redirect(request.url)
                 
                 # Calcular total de la venta y subtotales
-                total_venta = 0
+                subtotal_productos = 0
                 total_items = 0
                 for prod in productos:
-                    total_venta += prod['cantidad'] * prod['precio']
+                    subtotal_productos += float(prod['cantidad']) * float(prod['precio'])
                     total_items += prod['cantidad']
+
+                if descuento > subtotal_productos:
+                    descuento = subtotal_productos
+                total_venta = max(0.0, subtotal_productos - descuento)
                 
-                # ===== 1. INSERTAR FACTURA (INCLUYENDO SALDO ANTERIOR Y MÉTODO DE PAGO) =====
+                # ===== 1. INSERTAR FACTURA (INCLUYENDO SALDO ANTERIOR, MÉTODO DE PAGO Y DESCUENTO) =====
                 from datetime import date
-                cursor.execute("""
-                    INSERT INTO facturacion_ruta 
-                    (Fecha, ID_Cliente, ID_Asignacion, Credito_Contado, ID_MetodoPago,
-                     Observacion, Saldo_Anterior_Cliente, ID_Empresa, ID_Usuario_Creacion, Estado)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'Activa')
-                """, (date.today(), int(id_cliente), asignacion['ID_Asignacion'], int(tipo_venta), id_metodo_pago_venta,
-                      observacion, saldo_anterior, asignacion['ID_Empresa'], id_vendedor))
+                tiene_descuento = _asegurar_columna_descuento(cursor)
+                if tiene_descuento:
+                    cursor.execute("""
+                        INSERT INTO facturacion_ruta 
+                        (Fecha, ID_Cliente, ID_Asignacion, Credito_Contado, ID_MetodoPago,
+                         Observacion, Saldo_Anterior_Cliente, ID_Empresa, ID_Usuario_Creacion, Estado, Descuento)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'Activa', %s)
+                    """, (date.today(), int(id_cliente), asignacion['ID_Asignacion'], int(tipo_venta), id_metodo_pago_venta,
+                          observacion, saldo_anterior, asignacion['ID_Empresa'], id_vendedor, descuento))
+                else:
+                    cursor.execute("""
+                        INSERT INTO facturacion_ruta 
+                        (Fecha, ID_Cliente, ID_Asignacion, Credito_Contado, ID_MetodoPago,
+                         Observacion, Saldo_Anterior_Cliente, ID_Empresa, ID_Usuario_Creacion, Estado)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'Activa')
+                    """, (date.today(), int(id_cliente), asignacion['ID_Asignacion'], int(tipo_venta), id_metodo_pago_venta,
+                          observacion, saldo_anterior, asignacion['ID_Empresa'], id_vendedor))
                 
                 id_factura = cursor.lastrowid
                 
@@ -955,8 +1020,10 @@ def vendedor_generar_ticket_ruta(id_venta):
         auto_print = request.args.get('autoPrint', 0)
         
         with get_db_cursor() as cursor:
+            tiene_descuento = _asegurar_columna_descuento(cursor)
+            campo_descuento = "COALESCE(fr.Descuento, 0) as Descuento," if tiene_descuento else "0 as Descuento,"
             # Obtener datos de la venta de ruta (INCLUYENDO SALDO_ANTERIOR_CLIENTE)
-            cursor.execute("""
+            cursor.execute(f"""
                 SELECT 
                     fr.ID_FacturaRuta as ID_Factura,
                     fr.Fecha,
@@ -964,6 +1031,7 @@ def vendedor_generar_ticket_ruta(id_venta):
                     fr.Observacion,
                     fr.Credito_Contado,
                     fr.ID_MetodoPago,
+                    {campo_descuento}
                     COALESCE(mp.Nombre, 'Efectivo') as Metodo_Pago_Nombre,
                     fr.Saldo_Anterior_Cliente,
                     fr.ID_Asignacion,
@@ -1031,11 +1099,16 @@ def vendedor_generar_ticket_ruta(id_venta):
                 flash('La venta no tiene detalles de productos', 'error')
                 return redirect(url_for('vendedor.vendedor_venta_detalle', id_venta=id_venta))
             
-            # Calcular total de la venta actual
-            total_venta = 0
+            # Calcular total de la venta actual (restando descuento si existe)
+            subtotal_productos = 0
             for detalle in detalles:
                 subtotal = float(detalle['Subtotal'] or 0)
-                total_venta += subtotal
+                subtotal_productos += subtotal
+            
+            descuento = float(factura.get('Descuento') or 0)
+            if descuento > subtotal_productos:
+                descuento = subtotal_productos
+            total_venta = max(0.0, subtotal_productos - descuento)
             
             # Filtrar productos con precio 0 para que no se muestren en la factura
             detalles = [detalle for detalle in detalles if float(detalle['Precio'] or 0) > 0]
@@ -1274,8 +1347,10 @@ def vendedor_generar_ticket_ruta(id_venta):
                 'detalles': detalles,
                 'total': total_venta,
                 'total_formateado': f"C$ {total_venta:,.2f}",
-                'subtotal_sin_descuento': total_venta,
-                'descuento': 0,
+                'subtotal_sin_descuento': subtotal_productos,
+                'subtotal_formateado': f"C$ {subtotal_productos:,.2f}",
+                'descuento': descuento,
+                'descuento_formateado': f"C$ {descuento:,.2f}",
                 'empresa': {
                     'nombre': factura['Nombre_Empresa'],
                     'ruc': factura['RUC_Empresa'],
@@ -1351,13 +1426,16 @@ def vendedor_venta_detalle(id_venta):
                 return redirect(url_for('vendedor.vendedor_ventas'))
             
             # Obtener información general de la venta
-            cursor.execute("""
+            tiene_descuento = _asegurar_columna_descuento(cursor)
+            campo_descuento = "COALESCE(fr.Descuento, 0) as Descuento," if tiene_descuento else "0 as Descuento,"
+            cursor.execute(f"""
                 SELECT fr.ID_FacturaRuta,
                        fr.Fecha,
                        fr.Credito_Contado,
                        fr.Observacion,
                        fr.Estado,
                        fr.Fecha_Creacion,
+                       {campo_descuento}
                         c.ID_Cliente,
                         c.Nombre as Cliente,
                         c.RUC_CEDULA,
@@ -1437,6 +1515,8 @@ def vendedor_venta_detalle(id_venta):
             subtotal = 0
             for d in detalles:
                 subtotal += float(d['Total'])
+            descuento = min(subtotal, max(0.0, float(venta.get('Descuento') or 0)))
+            total_neto = max(0.0, subtotal - descuento)
             
             # Obtener información de cuentas por cobrar si es crédito
             cuentas_cobrar = None
@@ -1485,6 +1565,8 @@ def vendedor_venta_detalle(id_venta):
                              venta=venta,
                              detalles=detalles,
                              subtotal=subtotal,
+                             descuento=descuento,
+                             total_neto=total_neto,
                              cuentas_cobrar=cuentas_cobrar,
                              pagos=pagos,
                              metodos_pago=metodos_pago)
@@ -1754,6 +1836,8 @@ def api_filtrar_ventas():
                     pass
             
              # Consulta SQL
+            tiene_descuento = _asegurar_columna_descuento(cursor)
+            expr_total = "GREATEST(0, COALESCE(SUM(dfr.Total), 0) - COALESCE(fr.Descuento, 0))" if tiene_descuento else "COALESCE(SUM(dfr.Total), 0)"
             query = f"""
                 SELECT fr.ID_FacturaRuta, 
                        fr.Fecha,
@@ -1765,7 +1849,7 @@ def api_filtrar_ventas():
                         c.RUC_CEDULA,
                        c.Telefono,
                        r.Nombre_Ruta,
-                       COALESCE(SUM(dfr.Total), 0) as Total_Venta,
+                       {expr_total} as Total_Venta,
                        CASE 
                            WHEN fr.Credito_Contado = 1 THEN 'CONTADO'
                            ELSE 'CRÉDITO'
@@ -1985,31 +2069,59 @@ def api_registrar_venta_offline():
             except (ValueError, TypeError):
                 id_metodo_pago_offline = 1
 
+            # Descuento offline
+            try:
+                descuento_offline = max(0.0, float(data.get('descuento', 0) or 0))
+            except (ValueError, TypeError):
+                descuento_offline = 0.0
+
+            subtotal_offline = sum(float(p['cantidad']) * float(p['precio']) for p in data['productos'])
+            if descuento_offline > subtotal_offline:
+                descuento_offline = subtotal_offline
+
             # Insertar factura
-            cursor.execute("""
-                INSERT INTO facturacion_ruta 
-                (Fecha, ID_Cliente, ID_Asignacion, Credito_Contado, 
-                 Observacion, Saldo_Anterior_Cliente, ID_Empresa, ID_Usuario_Creacion, Estado, ID_MetodoPago)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Activa', %s)
-            """, (
-                hoy_local,
-                int(data['cliente_id']), 
-                asignacion['ID_Asignacion'], 
-                int(data['tipo_venta']),
-                data.get('observacion', ''),
-                saldo_anterior,
-                asignacion['ID_Empresa'],
-                id_vendedor,
-                id_metodo_pago_offline
-            ))
+            tiene_descuento = _asegurar_columna_descuento(cursor)
+            if tiene_descuento:
+                cursor.execute("""
+                    INSERT INTO facturacion_ruta 
+                    (Fecha, ID_Cliente, ID_Asignacion, Credito_Contado, 
+                     Observacion, Saldo_Anterior_Cliente, ID_Empresa, ID_Usuario_Creacion, Estado, ID_MetodoPago, Descuento)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Activa', %s, %s)
+                """, (
+                    hoy_local,
+                    int(data['cliente_id']), 
+                    asignacion['ID_Asignacion'], 
+                    int(data['tipo_venta']),
+                    data.get('observacion', ''),
+                    saldo_anterior,
+                    asignacion['ID_Empresa'],
+                    id_vendedor,
+                    id_metodo_pago_offline,
+                    descuento_offline
+                ))
+            else:
+                cursor.execute("""
+                    INSERT INTO facturacion_ruta 
+                    (Fecha, ID_Cliente, ID_Asignacion, Credito_Contado, 
+                     Observacion, Saldo_Anterior_Cliente, ID_Empresa, ID_Usuario_Creacion, Estado, ID_MetodoPago)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Activa', %s)
+                """, (
+                    hoy_local,
+                    int(data['cliente_id']), 
+                    asignacion['ID_Asignacion'], 
+                    int(data['tipo_venta']),
+                    data.get('observacion', ''),
+                    saldo_anterior,
+                    asignacion['ID_Empresa'],
+                    id_vendedor,
+                    id_metodo_pago_offline
+                ))
             
             id_factura = cursor.lastrowid
             
             # Insertar detalles y actualizar inventario
-            total_venta = 0
             for producto in data['productos']:
                 total_linea = float(producto['cantidad']) * float(producto['precio'])
-                total_venta += total_linea
                 
                 cursor.execute("""
                     INSERT INTO detalle_facturacion_ruta
@@ -2024,6 +2136,8 @@ def api_registrar_venta_offline():
                     SET Cantidad = Cantidad - %s
                     WHERE ID_Asignacion = %s AND ID_Producto = %s
                 """, (producto['cantidad'], asignacion['ID_Asignacion'], producto['id']))
+            
+            total_venta = max(0.0, subtotal_offline - descuento_offline)
             
             # Registrar en caja según tipo de venta (SOLO SI ES CONTADO Y EFECTIVO FÍSICO)
             if data['tipo_venta'] == '1' and id_metodo_pago_offline == 1:

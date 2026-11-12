@@ -80,48 +80,69 @@ def vendedor_dashboard():
             """, (empresa_id, current_vehiculo_id))
             vehiculos_disponibles = cursor.fetchall()
         
+        from .ventas import _asegurar_columna_descuento
+        tiene_descuento = _asegurar_columna_descuento(cursor)
+        expr_neto_factura = "GREATEST(0, COALESCE(SUM(dfr.Total), 0) - COALESCE(fr.Descuento, 0))" if tiene_descuento else "COALESCE(SUM(dfr.Total), 0)"
+        group_desc = ", fr.Descuento" if tiene_descuento else ""
+
         # 2. Tarjeta: Ventas de Contado (Hoy) - EFECTIVO QUE ENTRA
         if asignacion_id:
-            cursor.execute("""
-                SELECT COALESCE(SUM(dfr.Total), 0) AS Total_Ventas_Contado_Hoy
-                FROM facturacion_ruta fr
-                JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
-                WHERE fr.ID_Asignacion = %s
-                  AND fr.Estado = 'Activa'
-                  AND fr.Credito_Contado = 1
+            cursor.execute(f"""
+                SELECT COALESCE(SUM(sub.Neto), 0) AS Total_Ventas_Contado_Hoy
+                FROM (
+                    SELECT {expr_neto_factura} AS Neto
+                    FROM facturacion_ruta fr
+                    JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                    WHERE fr.ID_Asignacion = %s
+                      AND fr.Estado = 'Activa'
+                      AND fr.Credito_Contado = 1
+                    GROUP BY fr.ID_FacturaRuta{group_desc}
+                ) sub
             """, (asignacion_id,))
         else:
-            cursor.execute("""
-                SELECT COALESCE(SUM(dfr.Total), 0) AS Total_Ventas_Contado_Hoy
-                FROM facturacion_ruta fr
-                JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
-                WHERE fr.ID_Usuario_Creacion = %s
-                  AND DATE(fr.Fecha) = CURDATE()
-                  AND fr.Estado = 'Activa'
-                  AND fr.Credito_Contado = 1
+            cursor.execute(f"""
+                SELECT COALESCE(SUM(sub.Neto), 0) AS Total_Ventas_Contado_Hoy
+                FROM (
+                    SELECT {expr_neto_factura} AS Neto
+                    FROM facturacion_ruta fr
+                    JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                    WHERE fr.ID_Usuario_Creacion = %s
+                      AND DATE(fr.Fecha) = CURDATE()
+                      AND fr.Estado = 'Activa'
+                      AND fr.Credito_Contado = 1
+                    GROUP BY fr.ID_FacturaRuta{group_desc}
+                ) sub
             """, (user_id,))
         result = cursor.fetchone()
         total_ventas_contado_hoy = result['Total_Ventas_Contado_Hoy'] if result else 0
         
         # 3. Tarjeta: Ventas a Crédito (Hoy) - FIADO
         if asignacion_id:
-            cursor.execute("""
-                SELECT COALESCE(SUM(dfr.Total), 0) AS Total_Ventas_Credito_Hoy
-                FROM facturacion_ruta fr
-                JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
-                WHERE fr.ID_Asignacion = %s
-                  AND fr.Estado = 'Activa'
-                  AND fr.Credito_Contado = 2
+            cursor.execute(f"""
+                SELECT COALESCE(SUM(sub.Neto), 0) AS Total_Ventas_Credito_Hoy
+                FROM (
+                    SELECT {expr_neto_factura} AS Neto
+                    FROM facturacion_ruta fr
+                    JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                    WHERE fr.ID_Asignacion = %s
+                      AND fr.Estado = 'Activa'
+                      AND fr.Credito_Contado = 2
+                    GROUP BY fr.ID_FacturaRuta{group_desc}
+                ) sub
             """, (asignacion_id,))
         else:
-            cursor.execute("""
-                SELECT COALESCE(SUM(dfr.Total), 0) AS Total_Ventas_Credito_Hoy
-                FROM facturacion_ruta fr
-                JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
-                WHERE fr.ID_Usuario_Creacion = %s
-                  AND DATE(fr.Fecha) = CURDATE()
-                  AND fr.Estado = 'Activa'
-                  AND fr.Credito_Contado = 2
+            cursor.execute(f"""
+                SELECT COALESCE(SUM(sub.Neto), 0) AS Total_Ventas_Credito_Hoy
+                FROM (
+                    SELECT {expr_neto_factura} AS Neto
+                    FROM facturacion_ruta fr
+                    JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                    WHERE fr.ID_Usuario_Creacion = %s
+                      AND DATE(fr.Fecha) = CURDATE()
+                      AND fr.Estado = 'Activa'
+                      AND fr.Credito_Contado = 2
+                    GROUP BY fr.ID_FacturaRuta{group_desc}
+                ) sub
             """, (user_id,))
         result = cursor.fetchone()
         total_ventas_credito_hoy = result['Total_Ventas_Credito_Hoy'] if result else 0
@@ -181,19 +202,26 @@ def vendedor_dashboard():
         monto_proximo = result['Monto_Proximo'] if result else 0
         
         # 8. Gráfico: Ventas Diarias (Últimos 30 días)
-        cursor.execute("""
+        cursor.execute(f"""
             SELECT 
-                DATE(fr.Fecha) as Dia,
-                COALESCE(SUM(CASE WHEN fr.Credito_Contado = 1 THEN dfr.Total ELSE 0 END), 0) as Ventas_Contado,
-                COALESCE(SUM(CASE WHEN fr.Credito_Contado = 2 THEN dfr.Total ELSE 0 END), 0) as Ventas_Credito,
-                COALESCE(SUM(dfr.Total), 0) as Total_Ventas
-            FROM facturacion_ruta fr
-            LEFT JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
-            WHERE fr.ID_Usuario_Creacion = %s
-              AND fr.Fecha BETWEEN DATE_SUB(CURDATE(), INTERVAL 30 DAY) AND CURDATE()
-              AND fr.Estado = 'Activa'
-            GROUP BY DATE(fr.Fecha)
-            ORDER BY Dia
+                sub.Dia,
+                COALESCE(SUM(CASE WHEN sub.Credito_Contado = 1 THEN sub.Neto ELSE 0 END), 0) as Ventas_Contado,
+                COALESCE(SUM(CASE WHEN sub.Credito_Contado = 2 THEN sub.Neto ELSE 0 END), 0) as Ventas_Credito,
+                COALESCE(SUM(sub.Neto), 0) as Total_Ventas
+            FROM (
+                SELECT 
+                    DATE(fr.Fecha) as Dia,
+                    fr.Credito_Contado,
+                    {expr_neto_factura} as Neto
+                FROM facturacion_ruta fr
+                LEFT JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                WHERE fr.ID_Usuario_Creacion = %s
+                  AND fr.Fecha BETWEEN DATE_SUB(CURDATE(), INTERVAL 30 DAY) AND CURDATE()
+                  AND fr.Estado = 'Activa'
+                GROUP BY fr.ID_FacturaRuta, DATE(fr.Fecha), fr.Credito_Contado{group_desc}
+            ) sub
+            GROUP BY sub.Dia
+            ORDER BY sub.Dia
         """, (user_id,))
         ventas_diarias = cursor.fetchall()
         
@@ -255,17 +283,17 @@ def vendedor_dashboard():
             movimientos_caja = cursor.fetchall()
         
         # 12. Tabla: Ventas Recientes
-        cursor.execute("""
+        cursor.execute(f"""
             SELECT fr.ID_FacturaRuta, fr.Fecha, c.Nombre as Cliente, 
                    fr.Credito_Contado,
-                   COALESCE(SUM(dfr.Total), 0) as Total_Venta,
+                   {expr_neto_factura} as Total_Venta,
                    COUNT(dfr.ID_DetalleRuta) as Num_Productos
             FROM facturacion_ruta fr
             JOIN clientes c ON fr.ID_Cliente = c.ID_Cliente
             LEFT JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
             WHERE fr.ID_Usuario_Creacion = %s
               AND fr.Estado = 'Activa'
-            GROUP BY fr.ID_FacturaRuta, fr.Fecha, c.Nombre, fr.Credito_Contado
+            GROUP BY fr.ID_FacturaRuta, fr.Fecha, c.Nombre, fr.Credito_Contado{group_desc}
             ORDER BY fr.Fecha_Creacion DESC
             LIMIT 10
         """, (user_id,))

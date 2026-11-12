@@ -493,10 +493,36 @@
                     </div>
                 </div>
 
+                <!-- Opción de Descuento (Check / Switch) -->
+                <div class="mb-2.5 p-2 rounded-3 border bg-light">
+                    <div class="form-check form-switch d-flex align-items-center justify-content-between ps-0 mb-0">
+                        <label class="form-check-label fw-bold text-dark small mb-0" for="check_aplicar_descuento" style="cursor: pointer;">
+                            <i class="bi bi-tag-fill text-warning me-1"></i>Aplicar Descuento (Devolución empaque / otro)
+                        </label>
+                        <input class="form-check-input ms-2" type="checkbox" role="switch" id="check_aplicar_descuento" style="width: 2.5em; height: 1.3em; cursor: pointer;">
+                    </div>
+                    <div id="contenedor_input_descuento" class="mt-2 pt-2 border-top" style="display: none;">
+                        <label for="descuento_monto" class="form-label small fw-bold text-secondary mb-1">Monto del Descuento (C$):</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text fw-bold text-danger">- C$</span>
+                            <input type="number" class="form-control fw-bold text-end text-danger" id="descuento_monto" name="descuento" min="0" step="0.01" value="0" placeholder="0.00" style="font-size: 16px;">
+                        </div>
+                        <small class="text-muted d-block mt-1" style="font-size: 0.72rem;">Se descontará del subtotal de la venta.</small>
+                    </div>
+                </div>
+
                 <div class="mb-2 pb-2 border-bottom">
                     <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted">Subtotal Productos:</span>
+                        <span class="fw-semibold text-dark" id="resumen_subtotal">C$ 0.00</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-1 d-none" id="fila_descuento_resumen">
+                        <span class="text-danger fw-semibold"><i class="bi bi-tag me-1"></i>Descuento:</span>
+                        <span class="fw-bold text-danger" id="resumen_descuento">- C$ 0.00</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1">
                         <span class="text-muted">Total de la Venta:</span>
-                        <span class="fw-bold text-dark fs-6" id="resumen_subtotal">C$ 0.00</span>
+                        <span class="fw-bold text-dark fs-6" id="resumen_neto">C$ 0.00</span>
                     </div>
                     <div class="d-flex justify-content-between align-items-center mb-1">
                         <span class="text-muted">Condición:</span>
@@ -586,6 +612,11 @@
                 <div id="contenedorResumenProductos" class="d-flex flex-column gap-2 mb-3"
                     style="max-height: 260px; overflow-y: auto; padding-right: 2px;">
                     <!-- Lista de productos generada dinámicamente -->
+                </div>
+
+                <div id="modalDescuentoInfo" class="p-2 px-3 bg-warning-subtle rounded-3 border border-warning-subtle d-flex justify-content-between align-items-center mb-2 d-none">
+                    <span class="small fw-bold text-dark"><i class="bi bi-tag-fill text-warning me-1"></i>Descuento aplicado:</span>
+                    <span class="fw-bold text-danger" id="modalDescuentoValor">- C$ 0.00</span>
                 </div>
 
                 <div
@@ -908,12 +939,27 @@
         }
     }
 
-    function calcularTotalVenta() {
+    function calcularSubtotalVenta() {
         return productos.reduce((total, prod) => {
             const c = parseFloat(prod.cantidad) || 0;
             const p = parseFloat(prod.precio) || 0;
             return total + (c * p);
         }, 0);
+    }
+
+    function calcularDescuento() {
+        const check = getElement('check_aplicar_descuento');
+        const input = getElement('descuento_monto');
+        if (!check || !check.checked || !input) return 0;
+        let desc = parseFloat(input.value) || 0;
+        if (desc < 0) desc = 0;
+        const subtotal = calcularSubtotalVenta();
+        if (desc > subtotal) desc = subtotal;
+        return desc;
+    }
+
+    function calcularTotalVenta() {
+        return Math.max(0, calcularSubtotalVenta() - calcularDescuento());
     }
 
     async function obtenerSiguienteConsecutivoOffline() {
@@ -1380,6 +1426,27 @@
             </tbody>
         </table>
         <div class="double-divider"></div>
+        ${(parseFloat(venta.datos?.descuento) || 0) > 0 ? `
+        <div style="margin: 6px 0; font-size: 11px;">
+            <div style="display: flex; justify-content: space-between;">
+                <span>Subtotal:</span>
+                <span>C$ ${(totalVenta + parseFloat(venta.datos.descuento)).toFixed(2)}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-weight: bold;">
+                <span>Descuento:</span>
+                <span>-C$ ${parseFloat(venta.datos.descuento).toFixed(2)}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 13px; border-top: 1px dashed #000; padding-top: 3px; margin-top: 3px;">
+                <span>TOTAL NETO:</span>
+                <span>C$ ${totalVenta.toFixed(2)}</span>
+            </div>
+        </div>
+        <div class="double-divider"></div>` : `
+        <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 13px; margin: 6px 0;">
+            <span>TOTAL:</span>
+            <span>C$ ${totalVenta.toFixed(2)}</span>
+        </div>
+        <div class="double-divider"></div>`}
         ${nuevoSaldo > 0 ? `
         <div class="saldos-container">
             <div class="saldos-title">ESTADO DE CUENTA</div>
@@ -2676,15 +2743,28 @@
 
             contenedorResumen.innerHTML = htmlResumen;
 
+            const descuento = calcularDescuento();
+            const modalDescuentoInfo = getElement('modalDescuentoInfo');
+            const modalDescuentoValor = getElement('modalDescuentoValor');
+            if (modalDescuentoInfo && modalDescuentoValor) {
+                if (descuento > 0) {
+                    modalDescuentoInfo.classList.remove('d-none');
+                    modalDescuentoValor.textContent = `- ${formatoCordoba(descuento)}`;
+                } else {
+                    modalDescuentoInfo.classList.add('d-none');
+                }
+            }
+
+            const totalNeto = Math.max(0, total - descuento);
             const abono = parseFloat(abonoSeleccionado) || 0;
-            const cantidadCobro = esContado ? (total + abono) : abono;
+            const cantidadCobro = esContado ? (totalNeto + abono) : abono;
 
             totalResumen.textContent = formatoCordoba(cantidadCobro);
 
             const modalDetalleCobro = getElement('modalDetalleCobro');
             if (modalDetalleCobro) {
                 if (esContado) {
-                    modalDetalleCobro.textContent = abono > 0 ? `Venta contado (C$ ${total.toFixed(2)}) + Abono (C$ ${abono.toFixed(2)})` : 'Cobro total en ruta al contado';
+                    modalDetalleCobro.textContent = abono > 0 ? `Venta contado (C$ ${totalNeto.toFixed(2)}) + Abono (C$ ${abono.toFixed(2)})` : 'Cobro total en ruta al contado';
                 } else {
                     modalDetalleCobro.textContent = abono > 0 ? `Cobro de abono hoy (Venta al crédito)` : 'Venta al crédito (Cobro hoy: C$ 0.00)';
                 }
@@ -2746,6 +2826,7 @@
             const formData = new FormData(form);
             formData.set('productos', JSON.stringify(productos));
             formData.set('metodo_pago', metodoPagoVentaSeleccionado);
+            formData.set('descuento', calcularDescuento().toFixed(2));
 
             if (navigator.onLine) {
                 const response = await fetch('/vendedor/venta/crear', {
@@ -2844,6 +2925,7 @@
                             cantidad: p.cantidad, precio: p.precio, subtotal: p.cantidad * p.precio
                         })),
                         total: totalVentaCalculada,
+                        descuento: calcularDescuento().toFixed(2),
                         abono_monto: abonoSeleccionado > 0 ? abonoSeleccionado.toString() : '0',
                         abono_metodo_pago: idMetodoPagoSeleccionado || '',
                         procesar_abono: abonoSeleccionado > 0 ? '1' : '0'
@@ -3034,6 +3116,7 @@
                     formData.append('metodo_pago', venta.datos?.metodo_pago || '1');
                     formData.append('observacion', venta.datos?.observacion || '');
                     formData.append('productos', JSON.stringify(venta.datos?.productos || []));
+                    formData.append('descuento', venta.datos?.descuento || '0');
                     formData.append('abono_monto', venta.datos?.abono_monto || '0');
                     formData.append('abono_metodo_pago', venta.datos?.abono_metodo_pago || '');
                     formData.append('procesar_abono', venta.datos?.procesar_abono || '0');
@@ -3458,6 +3541,13 @@
         enviandoFormulario = false;
         tipoVentaActual = '1';
         seleccionarMetodoPagoVenta(1, 'Efectivo');
+
+        const checkDescuento = getElement('check_aplicar_descuento');
+        if (checkDescuento) checkDescuento.checked = false;
+        const contenedorDescuento = getElement('contenedor_input_descuento');
+        if (contenedorDescuento) contenedorDescuento.style.display = 'none';
+        const descuentoInput = getElement('descuento_monto');
+        if (descuentoInput) descuentoInput.value = '0';
 
         actualizarVistasProductos();
         actualizarResumen();
@@ -3893,11 +3983,16 @@
 
     function actualizarResumen() {
         try {
+            const subtotalProductos = calcularSubtotalVenta();
+            const descuento = calcularDescuento();
             const totalVenta = calcularTotalVenta();
             const tipoVenta = document.querySelector('input[name="tipo_venta"]:checked');
             const esContado = tipoVenta ? (tipoVenta.value === '1') : (tipoVentaActual === '1');
 
             const resumenSubtotal = getElement('resumen_subtotal');
+            const filaDescuento = getElement('fila_descuento_resumen');
+            const resumenDescuento = getElement('resumen_descuento');
+            const resumenNeto = getElement('resumen_neto');
             const resumenTotal = getElement('resumen_total');
             const flotanteTotal = getElement('flotante_total');
             const kpiTotal = getElement('kpi_total_monto');
@@ -3908,7 +4003,10 @@
             const badgeProductos = getElement('resumen_badge_productos');
             const listaProductos = getElement('resumen_lista_productos');
 
-            if (resumenSubtotal) resumenSubtotal.textContent = formatoCordoba(totalVenta);
+            if (resumenSubtotal) resumenSubtotal.textContent = formatoCordoba(subtotalProductos);
+            if (filaDescuento) filaDescuento.classList.toggle('d-none', descuento <= 0);
+            if (resumenDescuento) resumenDescuento.textContent = `- ${formatoCordoba(descuento)}`;
+            if (resumenNeto) resumenNeto.textContent = formatoCordoba(totalVenta);
             if (flotanteTotal) flotanteTotal.textContent = formatoCordoba(totalVenta);
             if (kpiTotal) kpiTotal.textContent = formatoCordoba(totalVenta);
 
@@ -4277,6 +4375,35 @@
                     e.preventDefault();
                     return false;
                 }
+            });
+        }
+
+        const checkAplicarDescuento = getElement('check_aplicar_descuento');
+        const contenedorInputDescuento = getElement('contenedor_input_descuento');
+        const descuentoMontoInput = getElement('descuento_monto');
+
+        if (checkAplicarDescuento) {
+            checkAplicarDescuento.addEventListener('change', function () {
+                if (contenedorInputDescuento) {
+                    contenedorInputDescuento.style.display = this.checked ? 'block' : 'none';
+                }
+                if (!this.checked && descuentoMontoInput) {
+                    descuentoMontoInput.value = '0';
+                } else if (this.checked && descuentoMontoInput) {
+                    descuentoMontoInput.focus();
+                    descuentoMontoInput.select();
+                }
+                actualizarResumen();
+                actualizarContadores();
+                actualizarTotalesConSaldo();
+            });
+        }
+
+        if (descuentoMontoInput) {
+            descuentoMontoInput.addEventListener('input', function () {
+                actualizarResumen();
+                actualizarContadores();
+                actualizarTotalesConSaldo();
             });
         }
 

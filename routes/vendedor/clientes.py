@@ -1244,11 +1244,15 @@ def vendedor_cliente_detalle(id_cliente):
             cliente['Saldo_Pendiente_Total'] = float(cliente['Saldo_Pendiente_Total'] or 0)
             
             # 3. Obtener las últimas 15 facturas (ventas) de este cliente
-            cursor.execute("""
+            from .ventas import _asegurar_columna_descuento
+            tiene_descuento = _asegurar_columna_descuento(cursor)
+            expr_total = "GREATEST(0, COALESCE(SUM(dfr.Total), 0) - COALESCE(fr.Descuento, 0))" if tiene_descuento else "COALESCE(SUM(dfr.Total), 0)"
+            group_desc = ", fr.Descuento" if tiene_descuento else ""
+            cursor.execute(f"""
                 SELECT fr.ID_FacturaRuta, 
                        CONCAT('FAC-R', fr.ID_FacturaRuta) AS Num_Documento, 
                        fr.Fecha, 
-                       COALESCE(SUM(dfr.Total), 0) AS Total, 
+                       {expr_total} AS Total, 
                        fr.Credito_Contado, 
                        fr.Estado,
                        COALESCE(cxc.Saldo_Pendiente, 0) as Saldo_Pendiente
@@ -1256,7 +1260,7 @@ def vendedor_cliente_detalle(id_cliente):
                 LEFT JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
                 LEFT JOIN cuentas_por_cobrar cxc ON fr.ID_FacturaRuta = cxc.ID_FacturaRuta
                 WHERE fr.ID_Cliente = %s AND fr.Estado = 'Activa'
-                GROUP BY fr.ID_FacturaRuta, fr.Fecha, fr.Credito_Contado, fr.Estado, cxc.Saldo_Pendiente
+                GROUP BY fr.ID_FacturaRuta, fr.Fecha, fr.Credito_Contado, fr.Estado, cxc.Saldo_Pendiente{group_desc}
                 ORDER BY fr.Fecha DESC
                 LIMIT 15
             """, (id_cliente,))
