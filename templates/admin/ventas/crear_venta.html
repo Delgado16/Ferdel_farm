@@ -937,8 +937,14 @@
                 <div class="confirm-summary-item" id="confirm-fecha-vencimiento-container" style="display: none;">
                     <span>Fecha Vencimiento:</span> <strong id="confirm-fecha-vencimiento"></strong>
                 </div>
+                <div class="confirm-summary-item" id="confirm-subtotal-container" style="display: none;">
+                    <span>Subtotal Productos:</span> <strong id="confirm-subtotal"></strong>
+                </div>
+                <div class="confirm-summary-item" id="confirm-descuento-container" style="display: none; color: #dc3545;">
+                    <span>Descuento:</span> <strong id="confirm-descuento" style="color: #dc3545;"></strong>
+                </div>
                 <div class="confirm-summary-total">
-                    <span>TOTAL VENTA:</span> <strong id="confirm-total-venta"></strong>
+                    <span id="confirm-label-total">TOTAL VENTA:</span> <strong id="confirm-total-venta"></strong>
                 </div>
                 <div class="confirm-summary-item" id="confirm-total-pagado-container" style="display: none;">
                     <span>ABONO INICIAL:</span> <strong id="confirm-total-pagado" style="color: #28a745;"></strong>
@@ -968,6 +974,73 @@
                 Cancelar</button>
             <button type="button" class="btn btn-primary" id="confirmProceed"><i class="bi bi-check-lg me-1"></i> Sí,
                 Registrar Venta</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Abono para Clientes con Saldo Pendiente o Crédito -->
+<div class="modal fade" id="modalAbonoCreditoAdmin" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" style="z-index: 1060;">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-warning py-2.5">
+                <h5 class="modal-title text-dark fw-bold mb-0" id="modalAbonoAdminTitulo">
+                    <i class="bi bi-cash-stack me-2"></i>Abono / Pago de Venta
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-3">
+                <div class="alert alert-info py-2 px-3 small mb-2.5" id="modalAbonoAdminMensajeInfo">
+                    <i class="bi bi-info-circle me-1"></i>Registre el abono o pago recibido del cliente.
+                </div>
+                <div class="card mb-2.5 border bg-light">
+                    <div class="card-body p-2.5">
+                        <h6 class="fw-bold border-bottom pb-1.5 mb-2 small text-uppercase text-secondary">Resumen de Cuentas</h6>
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <small class="text-muted">Saldo Anterior del Cliente:</small>
+                            <span class="text-danger fw-bold" id="modalAdminSaldoAnterior">C$ 0.00</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-1" id="filaAdminNuevaVenta">
+                            <small class="text-muted">Nueva Venta (Neto):</small>
+                            <span class="text-primary fw-bold" id="modalAdminNuevaVenta">C$ 0.00</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center pt-1.5 border-top" id="filaAdminTotalDeber">
+                            <strong>Total a Deber:</strong>
+                            <strong class="text-danger fs-6" id="modalAdminTotalDeber">C$ 0.00</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-dark mb-1">
+                        <i class="bi bi-cash-coin me-1 text-success"></i>Monto del Abono / Pago:
+                    </label>
+                    <div class="input-group">
+                        <span class="input-group-text fw-bold">C$</span>
+                        <input type="number" class="form-control form-control-lg fw-bold text-end text-success" id="modalAdminMontoAbono" min="0" step="0.01" value="0.00" placeholder="0.00" style="font-size: 1.25rem;">
+                    </div>
+                    <small class="text-muted d-block mt-1" style="font-size: 0.72rem;">Ingrese 0.00 si la venta a crédito no tiene abono hoy.</small>
+                </div>
+
+                <!-- Simulación de saldos resultantes -->
+                <div class="p-2.5 rounded-2 border bg-white small">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted">Abono a aplicar:</span>
+                        <strong class="text-success" id="modalAdminAbonoSimulado">C$ 0.00</strong>
+                    </div>
+                    <div class="d-flex justify-content-between pt-1 border-top">
+                        <span class="fw-bold">Nuevo Saldo Pendiente:</span>
+                        <strong class="text-danger" id="modalAdminNuevoSaldoSimulado">C$ 0.00</strong>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer py-2 bg-light">
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="btnAdminContinuarSinAbono">
+                    <i class="bi bi-arrow-right me-1"></i>Continuar sin Abono
+                </button>
+                <button type="button" class="btn btn-success btn-sm px-3" id="btnAdminConfirmarConAbono">
+                    <i class="bi bi-check-circle me-1"></i>Confirmar con Abono
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -1245,6 +1318,13 @@
                                         <span class="cliente-nombre-label d-none"></span>
                                     </div>
                                 </div>
+                                <div class="col-12" id="fila-total-con-nueva-venta" style="display: none;">
+                                    <div class="p-2 rounded d-flex justify-content-between align-items-center"
+                                        style="background: #fff7ed; border: 1px solid #ffedd5; color: #9a3412; font-size: 0.82rem;">
+                                        <span class="fw-bold"><i class="bi bi-calculator me-1"></i>Deuda + Nueva Venta:</span>
+                                        <strong id="saldo-con-nueva-venta" class="fs-6 text-danger">C$ 0.00</strong>
+                                    </div>
+                                </div>
                                 <div class="col-12" id="saldo-favor-consolidado-col" style="display: none;">
                                     <div class="p-2 rounded d-flex justify-content-between align-items-center"
                                         style="background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; font-size: 0.82rem;">
@@ -1317,6 +1397,24 @@
                         </div>
                     </div>
 
+                    <!-- Opción de Descuento (Check / Switch) -->
+                    <div class="mb-2 p-2 rounded-2 border bg-light">
+                        <div class="form-check form-switch d-flex align-items-center justify-content-between ps-0 mb-0">
+                            <label class="form-check-label fw-bold text-dark small mb-0" for="check_aplicar_descuento" style="cursor: pointer;">
+                                <i class="bi bi-tag-fill text-warning me-1"></i>Aplicar Descuento (Devolución empaque / otro)
+                            </label>
+                            <input class="form-check-input ms-2" type="checkbox" role="switch" id="check_aplicar_descuento" style="width: 2.3em; height: 1.2em; cursor: pointer;">
+                        </div>
+                        <div id="contenedor_input_descuento" class="mt-2 pt-2 border-top" style="display: none;">
+                            <label for="descuento_monto" class="form-label small fw-bold text-secondary mb-1" style="font-size: 0.75rem;">Monto del Descuento (C$):</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text fw-bold text-danger">- C$</span>
+                                <input type="number" class="form-control fw-bold text-end text-danger" id="descuento_monto" name="descuento" min="0" step="0.01" value="0" placeholder="0.00" style="font-size: 14px;">
+                            </div>
+                            <small class="text-muted d-block mt-1" style="font-size: 0.7rem;">Se descontará del subtotal de la venta.</small>
+                        </div>
+                    </div>
+
                     <!-- 3. RESUMEN DE TOTALES -->
                     <div class="total-summary">
                         <div class="total-row">
@@ -1327,14 +1425,23 @@
                             <span>Subtotal:</span>
                             <span id="subtotal" class="fw-bold text-dark">C$ 0.00</span>
                         </div>
+                        <div class="total-row d-none" id="fila_descuento_resumen" style="color: #dc2626;">
+                            <span>Descuento aplicado:</span>
+                            <span id="resumen_descuento" class="fw-bold">- C$ 0.00</span>
+                        </div>
                         <div class="total-row grand-total">
-                            <span>TOTAL:</span>
+                            <span id="label_total_venta">TOTAL:</span>
                             <span id="total-venta">C$ 0.00</span>
                         </div>
                         <div class="total-row mt-2 pt-1 border-top" id="pendiente-por-pagar"
                             style="display: none; color: #dc2626;">
                             <span class="fw-bold">SALDO A CRÉDITO:</span>
                             <span id="pendiente-monto" class="fw-bold">C$ 0.00</span>
+                        </div>
+                        <div class="total-row mt-1 pt-1 border-top" id="fila-resumen-deuda-total"
+                            style="display: none; color: #b91c1c; background: #fff5f5; padding: 4px 6px; border-radius: 4px;">
+                            <span class="fw-bold"><i class="bi bi-wallet2 me-1"></i>TOTAL A DEBER (Deuda + Venta):</span>
+                            <span id="resumen-deuda-total-monto" class="fw-bold fs-6">C$ 0.00</span>
                         </div>
                     </div>
 
@@ -1925,6 +2032,7 @@
         perfilClienteActual = '';
         saldoConsolidadoActual = 0;
         saldoAnticiposActual = 0;
+        actualizarTotalesConSaldo();
 
         // Limpiar indicadores de último precio en las filas
         document.querySelectorAll('.ultimo-precio-info-admin').forEach(el => {
@@ -2102,6 +2210,7 @@
         cargarFacturasPendientes(cliente.id);
         cargarProductosPorCliente(cliente.id);
         actualizarPreciosProductosPorPerfil();
+        actualizarTotalesConSaldo();
 
         if (filtroCategoriaActual !== '0') aplicarFiltroCategoria();
     }
@@ -2825,24 +2934,98 @@
         actualizarTotales();
     };
 
-    function actualizarTotales() {
-        let totalVenta = 0, totalProductos = 0;
+    function calcularSubtotalVenta() {
+        let subtotalTotal = 0;
         const todasTarjetas = document.querySelectorAll('.product-card');
         todasTarjetas.forEach(producto => {
             const subtotalInput = producto.querySelector('.subtotal');
             if (subtotalInput) {
                 const valor = extraerNumeroDeMoneda(subtotalInput.value);
-                if (valor > 0) { totalVenta += valor; totalProductos++; }
+                if (valor > 0) subtotalTotal += valor;
             }
         });
-        document.getElementById('total-venta').textContent = formatearMoneda(totalVenta);
-        document.getElementById('subtotal').textContent = formatearMoneda(totalVenta);
+        return subtotalTotal;
+    }
+
+    function calcularDescuento() {
+        const check = document.getElementById('check_aplicar_descuento');
+        const input = document.getElementById('descuento_monto');
+        if (!check || !check.checked || !input) return 0;
+        const subtotal = calcularSubtotalVenta();
+        const monto = parseFloat(input.value) || 0;
+        return Math.min(subtotal, Math.max(0, monto));
+    }
+
+    function calcularTotalVenta() {
+        const subtotal = calcularSubtotalVenta();
+        const descuento = calcularDescuento();
+        return Math.max(0, subtotal - descuento);
+    }
+
+    function actualizarTotales() {
+        let totalProductos = 0;
+        const todasTarjetas = document.querySelectorAll('.product-card');
+        todasTarjetas.forEach(producto => {
+            const subtotalInput = producto.querySelector('.subtotal');
+            if (subtotalInput) {
+                const valor = extraerNumeroDeMoneda(subtotalInput.value);
+                if (valor > 0) { totalProductos++; }
+            }
+        });
+
+        const subtotal = calcularSubtotalVenta();
+        const descuento = calcularDescuento();
+        const totalNeto = calcularTotalVenta();
+
+        const subtotalSpan = document.getElementById('subtotal');
+        if (subtotalSpan) subtotalSpan.textContent = formatearMoneda(subtotal);
+
+        const filaDescuento = document.getElementById('fila_descuento_resumen');
+        const resumenDescuento = document.getElementById('resumen_descuento');
+        if (filaDescuento) {
+            filaDescuento.classList.toggle('d-none', descuento <= 0);
+        }
+        if (resumenDescuento) {
+            resumenDescuento.textContent = `- ${formatearMoneda(descuento)}`;
+        }
+
+        const labelTotal = document.getElementById('label_total_venta');
+        if (labelTotal) {
+            labelTotal.textContent = descuento > 0 ? 'TOTAL NETO:' : 'TOTAL:';
+        }
+
+        const totalVentaSpan = document.getElementById('total-venta');
+        if (totalVentaSpan) totalVentaSpan.textContent = formatearMoneda(totalNeto);
+
         document.getElementById('total-productos').textContent = totalProductos;
         const badgeItems = document.getElementById('badge-items-count');
         if (badgeItems) {
             badgeItems.textContent = `${todasTarjetas.length} ${todasTarjetas.length === 1 ? 'fila' : 'filas'}`;
         }
+        actualizarTotalesConSaldo();
         actualizarTotalPagado();
+    }
+
+    function actualizarTotalesConSaldo() {
+        const saldoAnterior = saldoConsolidadoActual || 0;
+        const totalVentaNeto = calcularTotalVenta();
+
+        const filaConNueva = document.getElementById('fila-total-con-nueva-venta');
+        const saldoConNueva = document.getElementById('saldo-con-nueva-venta');
+        const filaResumenDeudaTotal = document.getElementById('fila-resumen-deuda-total');
+        const resumenDeudaTotalMonto = document.getElementById('resumen-deuda-total-monto');
+
+        if (saldoAnterior > 0) {
+            const totalDeber = saldoAnterior + totalVentaNeto;
+            if (filaConNueva) filaConNueva.style.display = 'block';
+            if (saldoConNueva) saldoConNueva.textContent = formatearMoneda(totalDeber);
+
+            if (filaResumenDeudaTotal) filaResumenDeudaTotal.style.display = 'flex';
+            if (resumenDeudaTotalMonto) resumenDeudaTotalMonto.textContent = formatearMoneda(totalDeber);
+        } else {
+            if (filaConNueva) filaConNueva.style.display = 'none';
+            if (filaResumenDeudaTotal) filaResumenDeudaTotal.style.display = 'none';
+        }
     }
 
     async function aplicarFiltroCategoria() {
@@ -3016,8 +3199,9 @@
                 return false;
             }
 
-            if (abonoInicial > totalVenta) {
-                mostrarAlerta('danger', '❌ Error!', `El abono inicial (${formatearMoneda(abonoInicial)}) no puede ser mayor al total de la venta (${formatearMoneda(totalVenta)})`);
+            const totalDeber = (saldoConsolidadoActual || 0) + totalVenta;
+            if (abonoInicial > totalDeber) {
+                mostrarAlerta('danger', '❌ Error!', `El abono inicial (${formatearMoneda(abonoInicial)}) no puede ser mayor al total a deber (${formatearMoneda(totalDeber)})`);
                 return false;
             }
 
@@ -3155,6 +3339,28 @@
         document.getElementById('confirm-tipo-venta').textContent = tipoVenta;
         document.getElementById('confirm-total-productos').textContent = totalProductos;
         document.getElementById('confirm-total-venta').textContent = totalVenta;
+
+        const subtotalNum = calcularSubtotalVenta();
+        const descuentoNum = calcularDescuento();
+        const subtotalContainer = document.getElementById('confirm-subtotal-container');
+        const descuentoContainer = document.getElementById('confirm-descuento-container');
+        const confirmLabelTotal = document.getElementById('confirm-label-total');
+
+        if (descuentoNum > 0) {
+            if (subtotalContainer) {
+                subtotalContainer.style.display = 'flex';
+                document.getElementById('confirm-subtotal').textContent = formatearMoneda(subtotalNum);
+            }
+            if (descuentoContainer) {
+                descuentoContainer.style.display = 'flex';
+                document.getElementById('confirm-descuento').textContent = `- ${formatearMoneda(descuentoNum)}`;
+            }
+            if (confirmLabelTotal) confirmLabelTotal.textContent = 'TOTAL NETO:';
+        } else {
+            if (subtotalContainer) subtotalContainer.style.display = 'none';
+            if (descuentoContainer) descuentoContainer.style.display = 'none';
+            if (confirmLabelTotal) confirmLabelTotal.textContent = 'TOTAL VENTA:';
+        }
 
         const totalPagadoContainer = document.getElementById('confirm-total-pagado-container');
         const saldoContainer = document.getElementById('confirm-saldo-container');
@@ -3349,6 +3555,92 @@
         document.body.style.overflow = 'auto';
     }
 
+    function abrirModalAbonoAdmin() {
+        const saldoAnterior = saldoConsolidadoActual || 0;
+        const totalVentaNeto = calcularTotalVenta();
+        const tipoVenta = document.getElementById('tipo_venta').value;
+        const esCredito = tipoVenta === 'credito';
+
+        const modalTitulo = document.getElementById('modalAbonoAdminTitulo');
+        const modalMsg = document.getElementById('modalAbonoAdminMensajeInfo');
+        const saldoAnteriorSpan = document.getElementById('modalAdminSaldoAnterior');
+        const nuevaVentaSpan = document.getElementById('modalAdminNuevaVenta');
+        const totalDeberSpan = document.getElementById('modalAdminTotalDeber');
+        const montoInput = document.getElementById('modalAdminMontoAbono');
+
+        let totalDeber = 0;
+        if (esCredito) {
+            totalDeber = saldoAnterior + totalVentaNeto;
+            if (modalTitulo) modalTitulo.innerHTML = '<i class="bi bi-calendar-check me-2"></i>Abono para Venta a Crédito';
+            if (modalMsg) modalMsg.innerHTML = '<i class="bi bi-info-circle me-1"></i>Cliente en venta a crédito con saldo. Ingrese el monto a abonar hoy si el cliente realiza un pago.';
+        } else {
+            totalDeber = saldoAnterior;
+            if (modalTitulo) modalTitulo.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-2"></i>Cliente con Saldo Pendiente';
+            if (modalMsg) modalMsg.innerHTML = '<i class="bi bi-info-circle me-1"></i>El cliente tiene saldo pendiente anterior. Puede registrar un abono a su deuda además de esta venta de contado.';
+        }
+
+        if (saldoAnteriorSpan) saldoAnteriorSpan.textContent = formatearMoneda(saldoAnterior);
+        if (nuevaVentaSpan) nuevaVentaSpan.textContent = formatearMoneda(totalVentaNeto);
+        if (totalDeberSpan) totalDeberSpan.textContent = formatearMoneda(totalDeber);
+
+        const abonoActual = parseFloat(document.getElementById('abono_inicial')?.value) || 0;
+        if (montoInput) {
+            montoInput.value = abonoActual > 0 ? abonoActual.toFixed(2) : '0.00';
+            montoInput.max = totalDeber.toFixed(2);
+        }
+        actualizarSimulacionModalAbono();
+
+        const modalEl = document.getElementById('modalAbonoCreditoAdmin');
+        if (modalEl) {
+            const modal = new bootstrap.Modal(modalEl, { backdrop: 'static' });
+            modal.show();
+            setTimeout(() => { if (montoInput) { montoInput.focus(); montoInput.select(); } }, 300);
+        }
+    }
+
+    function actualizarSimulacionModalAbono() {
+        const saldoAnterior = saldoConsolidadoActual || 0;
+        const totalVentaNeto = calcularTotalVenta();
+        const tipoVenta = document.getElementById('tipo_venta').value;
+        const esCredito = tipoVenta === 'credito';
+        const totalDeber = esCredito ? (saldoAnterior + totalVentaNeto) : saldoAnterior;
+
+        const montoInput = document.getElementById('modalAdminMontoAbono');
+        const abono = Math.max(0, parseFloat(montoInput?.value) || 0);
+
+        const abonoSimulado = document.getElementById('modalAdminAbonoSimulado');
+        const nuevoSaldoSimulado = document.getElementById('modalAdminNuevoSaldoSimulado');
+
+        if (abonoSimulado) abonoSimulado.textContent = formatearMoneda(abono);
+        const nuevoSaldo = Math.max(0, totalDeber - abono);
+        if (nuevoSaldoSimulado) nuevoSaldoSimulado.textContent = formatearMoneda(nuevoSaldo);
+    }
+
+    function aplicarAbonoDesdeModal(montoAbono) {
+        const abonoInput = document.getElementById('abono_inicial');
+        if (abonoInput) {
+            abonoInput.value = montoAbono.toFixed(2);
+        }
+
+        const tipoVenta = document.getElementById('tipo_venta').value;
+        const usarAvanzados = document.getElementById('usar_pagos_avanzados').value === '1';
+
+        if (tipoVenta === 'credito' && !usarAvanzados) {
+            const primerMonto = document.querySelector('.monto-pago');
+            if (primerMonto) primerMonto.value = montoAbono > 0 ? montoAbono.toFixed(2) : '0.00';
+        }
+
+        actualizarTotalPagado();
+
+        const modalEl = document.getElementById('modalAbonoCreditoAdmin');
+        if (modalEl) {
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
+        }
+
+        mostrarModalConfirmacion();
+    }
+
     function confirmarVenta() {
         cerrarModalConfirmacion();
         procesarVenta();
@@ -3361,6 +3653,7 @@
         formData.append('id_cliente', document.getElementById('id_cliente').value);
         formData.append('tipo_venta', tipoVenta);
         formData.append('observacion', document.getElementById('observacion').value);
+        formData.append('descuento', calcularDescuento().toFixed(2));
 
         if (tipoVenta === 'credito') {
             const fechaVencimiento = document.getElementById('fecha_vencimiento')?.value;
@@ -3501,7 +3794,16 @@
             mostrarAlerta('danger', '❌ Stock Insuficiente!', mensaje);
             return;
         }
-        mostrarModalConfirmacion();
+
+        const tipoVenta = document.getElementById('tipo_venta').value;
+        const saldoAnterior = saldoConsolidadoActual || 0;
+
+        // Abrir modal de abono si es crédito o si el cliente tiene saldo anterior pendiente
+        if (tipoVenta === 'credito' || saldoAnterior > 0) {
+            abrirModalAbonoAdmin();
+        } else {
+            mostrarModalConfirmacion();
+        }
     });
 
     document.getElementById('btn-agregar-producto').addEventListener('click', agregarProducto);
@@ -3834,6 +4136,53 @@
         if (e.target === this) cerrarModalConfirmacion();
     });
 
+    // Listeners del Modal de Abono
+    const modalAdminMontoAbono = document.getElementById('modalAdminMontoAbono');
+    if (modalAdminMontoAbono) {
+        modalAdminMontoAbono.addEventListener('input', actualizarSimulacionModalAbono);
+    }
+
+    const btnAdminConfirmarConAbono = document.getElementById('btnAdminConfirmarConAbono');
+    if (btnAdminConfirmarConAbono) {
+        btnAdminConfirmarConAbono.addEventListener('click', function () {
+            const monto = Math.max(0, parseFloat(document.getElementById('modalAdminMontoAbono')?.value) || 0);
+            aplicarAbonoDesdeModal(monto);
+        });
+    }
+
+    const btnAdminContinuarSinAbono = document.getElementById('btnAdminContinuarSinAbono');
+    if (btnAdminContinuarSinAbono) {
+        btnAdminContinuarSinAbono.addEventListener('click', function () {
+            aplicarAbonoDesdeModal(0);
+        });
+    }
+
+    // Listeners para Descuento
+    const checkAplicarDescuento = document.getElementById('check_aplicar_descuento');
+    const contenedorInputDescuento = document.getElementById('contenedor_input_descuento');
+    const descuentoMontoInput = document.getElementById('descuento_monto');
+
+    if (checkAplicarDescuento) {
+        checkAplicarDescuento.addEventListener('change', function () {
+            if (contenedorInputDescuento) {
+                contenedorInputDescuento.style.display = this.checked ? 'block' : 'none';
+            }
+            if (!this.checked && descuentoMontoInput) {
+                descuentoMontoInput.value = '0';
+            } else if (this.checked && descuentoMontoInput) {
+                descuentoMontoInput.focus();
+                descuentoMontoInput.select();
+            }
+            actualizarTotales();
+        });
+    }
+
+    if (descuentoMontoInput) {
+        descuentoMontoInput.addEventListener('input', function () {
+            actualizarTotales();
+        });
+    }
+
     const abonoInput = document.getElementById('abono_inicial');
     if (abonoInput) {
         abonoInput.addEventListener('input', function () {
@@ -3849,9 +4198,10 @@
                 actualizarTotalPagado();
 
                 const totalVenta = parseFloat(extraerNumeroDeMoneda(document.getElementById('total-venta').textContent));
-                if (parseFloat(this.value) > totalVenta) {
+                const totalDeber = (saldoConsolidadoActual || 0) + totalVenta;
+                if (parseFloat(this.value) > totalDeber) {
                     document.getElementById('error-abono').style.display = 'block';
-                    document.getElementById('error-abono').textContent = 'El abono no puede ser mayor al total de la venta';
+                    document.getElementById('error-abono').textContent = 'El abono no puede ser mayor al total a deber (deuda + venta)';
                     this.classList.add('is-invalid');
                 } else {
                     document.getElementById('error-abono').style.display = 'none';

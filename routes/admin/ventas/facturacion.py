@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import logging
 from decimal import Decimal
+import threading
+import time as time_module
 import traceback
 from flask import render_template, redirect, session, url_for, request, flash, jsonify
 from flask_login import current_user, login_required
@@ -9,6 +11,45 @@ from config.database import get_db_cursor
 from auth.decorators import admin_required, admin_or_bodega_required
 from helpers.bitacora import bitacora_decorator
 from .. import admin_bp
+
+_DESCUENTO_ADMIN_LOCK = threading.Lock()
+_COLUMNA_DESCUENTO_ADMIN_VERIFICADA = False
+
+def _asegurar_columna_descuento_facturacion(cursor):
+    """Asegura que la columna Descuento exista en facturacion sin bloqueos de concurrencia."""
+    global _COLUMNA_DESCUENTO_ADMIN_VERIFICADA
+    if _COLUMNA_DESCUENTO_ADMIN_VERIFICADA:
+        return True
+
+    with _DESCUENTO_ADMIN_LOCK:
+        if _COLUMNA_DESCUENTO_ADMIN_VERIFICADA:
+            return True
+        try:
+            cursor.execute("SHOW COLUMNS FROM facturacion LIKE 'Descuento'")
+            if cursor.fetchone():
+                _COLUMNA_DESCUENTO_ADMIN_VERIFICADA = True
+                return True
+
+            try:
+                with get_db_cursor(True) as ddl_cursor:
+                    ddl_cursor.execute("SHOW COLUMNS FROM facturacion LIKE 'Descuento'")
+                    if not ddl_cursor.fetchone():
+                        ddl_cursor.execute(
+                            "ALTER TABLE facturacion ADD COLUMN Descuento DECIMAL(10,2) NOT NULL DEFAULT 0.00"
+                        )
+                _COLUMNA_DESCUENTO_ADMIN_VERIFICADA = True
+                return True
+            except Exception as ddl_err:
+                time_module.sleep(0.2)
+                cursor.execute("SHOW COLUMNS FROM facturacion LIKE 'Descuento'")
+                if cursor.fetchone():
+                    _COLUMNA_DESCUENTO_ADMIN_VERIFICADA = True
+                    return True
+                print(f"⚠️ No se pudo verificar/crear columna Descuento en facturacion: {ddl_err}")
+                return False
+        except Exception as e:
+            print(f"⚠️ No se pudo verificar/crear columna Descuento en facturacion: {e}")
+            return False
 
 @admin_bp.route('/api/ultimo_precio_cliente', methods=['GET'])
 @admin_or_bodega_required
@@ -408,6 +449,12 @@ def admin_crear_venta():
             tipo_venta = request.form.get('tipo_venta')
             observacion = request.form.get('observacion', '')
             fecha_vencimiento = request.form.get('fecha_vencimiento', '')
+
+            # Obtener descuento si aplica
+            try:
+                descuento = max(0.0, float(request.form.get('descuento', '0') or 0))
+            except (ValueError, TypeError):
+                descuento = 0.0
             
             # Obtener métodos de pago del formulario
             metodos_pago_ids = request.form.getlist('metodo_pago_id[]')
@@ -736,6 +783,11 @@ def admin_crear_venta():
                     raise Exception(f'El monto pagado con Saldo a Favor (C${monto_usado_saldo_favor:,.2f}) excede el saldo disponible del cliente (C${saldo_anticipos_cliente:,.2f})')
                 
                 
+                subtotal_productos = total_venta
+                if descuento > subtotal_productos:
+                    descuento = subtotal_productos
+                total_venta = max(0.0, subtotal_productos - descuento)
+
                 exceso_pago = 0
                 if total_pagado > total_venta:
                     exceso_pago = total_pagado - total_venta
@@ -782,21 +834,40 @@ def admin_crear_venta():
                 else:
                     es_credito = 1 if saldo_pendiente > 0 else 0
                 
-                cursor.execute("""
-                    INSERT INTO facturacion (
-                        Fecha, IDCliente, Credito_Contado, Observacion, 
-                        metodos_pago, ID_Empresa, ID_Usuario_Creacion, Saldo_Anterior_Cliente
-                    )
-                    VALUES (CURDATE(), %s, %s, %s, %s, %s, %s, %s)
-                """, (
-                    id_cliente,
-                    es_credito,
-                    observacion,
-                    metodos_pago_json,
-                    id_empresa,
-                    id_usuario,
-                    saldo_actual_cliente
-                ))
+                tiene_columna_descuento = _asegurar_columna_descuento_facturacion(cursor)
+                if tiene_columna_descuento:
+                    cursor.execute("""
+                        INSERT INTO facturacion (
+                            Fecha, IDCliente, Credito_Contado, Observacion, 
+                            metodos_pago, ID_Empresa, ID_Usuario_Creacion, Saldo_Anterior_Cliente, Descuento
+                        )
+                        VALUES (CURDATE(), %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        id_cliente,
+                        es_credito,
+                        observacion,
+                        metodos_pago_json,
+                        id_empresa,
+                        id_usuario,
+                        saldo_actual_cliente,
+                        descuento
+                    ))
+                else:
+                    cursor.execute("""
+                        INSERT INTO facturacion (
+                            Fecha, IDCliente, Credito_Contado, Observacion, 
+                            metodos_pago, ID_Empresa, ID_Usuario_Creacion, Saldo_Anterior_Cliente
+                        )
+                        VALUES (CURDATE(), %s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        id_cliente,
+                        es_credito,
+                        observacion,
+                        metodos_pago_json,
+                        id_empresa,
+                        id_usuario,
+                        saldo_actual_cliente
+                    ))
                 
                 # Obtener el ID de la factura
                 cursor.execute("SELECT LAST_INSERT_ID() as id_factura")
@@ -937,6 +1008,53 @@ def admin_crear_venta():
                     pass
                 
                 # 7. Crear cuenta por cobrar si hay saldo pendiente
+                # Si el pago excedió el total de la venta actual (exceso_pago > 0), amortizar facturas pendientes anteriores del cliente
+                if exceso_pago > 0 and saldo_actual_cliente > 0:
+                    cursor.execute("""
+                        SELECT ID_Movimiento, Num_Documento, Saldo_Pendiente, Fecha_Vencimiento
+                        FROM cuentas_por_cobrar
+                        WHERE ID_Cliente = %s
+                          AND Estado IN ('Pendiente', 'Vencida')
+                          AND Saldo_Pendiente > 0
+                        ORDER BY Fecha_Vencimiento ASC, ID_Movimiento ASC
+                    """, (id_cliente,))
+                    cxc_pendientes_anteriores = cursor.fetchall()
+
+                    monto_a_distribuir = exceso_pago
+                    for cxc in cxc_pendientes_anteriores:
+                        if monto_a_distribuir <= 0:
+                            break
+                        saldo_doc = float(cxc['Saldo_Pendiente'])
+                        monto_aplicar_cxc = min(monto_a_distribuir, saldo_doc)
+                        nuevo_saldo_doc = saldo_doc - monto_aplicar_cxc
+                        nuevo_estado_doc = 'Pagada' if nuevo_saldo_doc <= 0 else 'Pendiente'
+
+                        cursor.execute("""
+                            UPDATE cuentas_por_cobrar
+                            SET Saldo_Pendiente = %s,
+                                Estado = %s
+                            WHERE ID_Movimiento = %s
+                        """, (nuevo_saldo_doc, nuevo_estado_doc, cxc['ID_Movimiento']))
+
+                        # Registrar en pagos_cuentascobrar para trazabilidad
+                        id_mp_principal = metodos_pago_list[0]['id_metodo'] if metodos_pago_list else 1
+                        cursor.execute("""
+                            INSERT INTO pagos_cuentascobrar 
+                            (ID_Movimiento, Monto, ID_MetodoPago, Comentarios, ID_Usuario_Creacion)
+                            VALUES (%s, %s, %s, %s, %s)
+                        """, (
+                            cxc['ID_Movimiento'],
+                            monto_aplicar_cxc,
+                            id_mp_principal,
+                            f"Abono excedente desde Factura #{id_factura}",
+                            id_usuario
+                        ))
+
+                        monto_a_distribuir -= monto_aplicar_cxc
+                        saldo_actual_cliente = max(0.0, saldo_actual_cliente - monto_aplicar_cxc)
+
+                    exceso_pago = monto_a_distribuir
+
                 nuevo_saldo_anticipos = max(0.0, saldo_anticipos_cliente - monto_usado_saldo_favor + exceso_pago)
                 
                 if saldo_pendiente > 0:
@@ -1070,7 +1188,9 @@ def admin_generar_ticket(id_factura):
         
         with get_db_cursor(True) as cursor:
             # Obtener datos de la factura (usando SOLO facturacion)
-            cursor.execute("""
+            tiene_columna_descuento = _asegurar_columna_descuento_facturacion(cursor)
+            campo_descuento = "COALESCE(f.Descuento, 0) as Descuento," if tiene_columna_descuento else "0 as Descuento,"
+            cursor.execute(f"""
                 SELECT 
                     f.ID_Factura,
                     f.Fecha,
@@ -1079,6 +1199,7 @@ def admin_generar_ticket(id_factura):
                     f.ID_Usuario_Creacion,
                     f.metodos_pago,
                     f.Saldo_Anterior_Cliente,
+                    {campo_descuento}
                     c.ID_Cliente,
                     c.Nombre as Cliente,
                     c.RUC_CEDULA as RUC_Cliente,
@@ -1135,7 +1256,11 @@ def admin_generar_ticket(id_factura):
                 return redirect(url_for('admin.admin_ventas_salidas'))
             
             # Calcular total de la venta actual
-            total_venta_actual = sum(float(detalle['Subtotal'] or 0) for detalle in detalles)
+            subtotal_productos = sum(float(detalle['Subtotal'] or 0) for detalle in detalles)
+            descuento = float(factura.get('Descuento') or 0)
+            if descuento > subtotal_productos:
+                descuento = subtotal_productos
+            total_venta_actual = max(0.0, subtotal_productos - descuento)
             
             # Filtrar productos con precio 0 para que no se muestren en la factura
             detalles = [detalle for detalle in detalles if float(detalle['Precio'] or 0) > 0]
@@ -1280,6 +1405,10 @@ def admin_generar_ticket(id_factura):
                 'observacion': factura['Observacion'],
                 'usuario': factura['Usuario'] or 'Usuario No Especificado',
                 'detalles': detalles,
+                'subtotal_sin_descuento': subtotal_productos,
+                'subtotal_formateado': f"C$ {subtotal_productos:,.2f}",
+                'descuento': descuento,
+                'descuento_formateado': f"C$ {descuento:,.2f}",
                 'total': total_venta_actual,
                 'total_formateado': f"C$ {total_venta_actual:,.2f}",
                 'total_pagado': total_pagado,
@@ -1325,8 +1454,10 @@ def admin_detalles_venta(id_factura):
         id_empresa = session.get('id_empresa', 1)
         
         with get_db_cursor(True) as cursor:
-            # 1. Obtener información general de la factura - INCLUYENDO MÉTODOS DE PAGO
-            cursor.execute("""
+            # 1. Obtener información general de la factura - INCLUYENDO MÉTODOS DE PAGO Y DESCUENTO
+            tiene_columna_descuento = _asegurar_columna_descuento_facturacion(cursor)
+            campo_descuento = "COALESCE(f.Descuento, 0) as Descuento," if tiene_columna_descuento else "0 as Descuento,"
+            cursor.execute(f"""
                 SELECT 
                     f.ID_Factura,
                     DATE_FORMAT(f.Fecha, '%d/%m/%Y') as Fecha_Formateada, 
@@ -1337,6 +1468,7 @@ def admin_detalles_venta(id_factura):
                     f.Estado as Estado_Factura,
                     f.ID_Empresa,
                     f.metodos_pago,
+                    {campo_descuento}
                     c.ID_Cliente,
                     c.Nombre as Cliente,
                     c.RUC_CEDULA as RUC_Cliente,
@@ -1411,18 +1543,22 @@ def admin_detalles_venta(id_factura):
                     metodos_pago = []
                     total_pagado = 0
             
+            subtotal_productos = float(factura['Total_Factura'] or 0)
+            descuento = float(factura.get('Descuento') or 0)
+            if descuento > subtotal_productos:
+                descuento = subtotal_productos
+            total_venta = max(0.0, subtotal_productos - descuento)
+
             # Si es contado pero no hay métodos registrados, mostrar como efectivo completo
             if factura['Credito_Contado'] == 0 and not metodos_pago:
-                total_venta = float(factura['Total_Factura'] or 0)
                 metodos_pago = [{
                     'nombre': 'Efectivo',
                     'monto': total_venta,
                     'referencia': ''
                 }]
                 total_pagado = total_venta
-            
+
             # Calcular saldo pendiente
-            total_venta = float(factura['Total_Factura'] or 0)
             saldo_pendiente = total_venta - total_pagado if factura['Credito_Contado'] == 1 else 0
             
             # 3. Obtener detalles de los productos vendidos
@@ -1556,6 +1692,8 @@ def admin_detalles_venta(id_factura):
                                  detalles=detalles,
                                  movimiento_info=movimiento_info,
                                  total_productos=total_productos,
+                                 subtotal_productos=subtotal_productos,
+                                 descuento=descuento,
                                  total_venta=total_venta,
                                  total_pagado=total_pagado,
                                  saldo_pendiente=saldo_pendiente,
