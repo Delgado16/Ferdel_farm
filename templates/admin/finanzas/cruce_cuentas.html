@@ -573,7 +573,8 @@
                                             data-saldo-cxc="{{ '{:,.2f}'.format(item.cliente.saldo_cxc) }}"
                                             data-saldo-cxp="{{ '{:,.2f}'.format(item.proveedor.saldo_cxp) }}"
                                             data-url-cliente="{{ url_for('admin.admin_detalle_cliente', id=item.cliente.id) }}"
-                                            data-url-proveedor="{{ url_for('admin.admin_detalle_proveedor', id=item.proveedor.id) }}">
+                                            data-url-proveedor="{{ url_for('admin.admin_detalle_proveedor', id=item.proveedor.id) }}"
+                                            data-url-movimientos="{{ url_for('admin.admin_cruce_cuentas_movimientos', id_cliente=item.cliente.id, id_proveedor=item.proveedor.id) }}">
                                         <i class="bi bi-eye"></i>
                                         <span class="d-none d-md-inline ms-1">Movimientos</span>
                                     </button>
@@ -897,6 +898,7 @@
                 const saldoCxp = this.dataset.saldoCxp;
                 const urlCli = this.dataset.urlCliente;
                 const urlProv = this.dataset.urlProveedor;
+                const urlMovimientos = this.dataset.urlMovimientos;
 
                 document.getElementById('dynModalTitle').textContent = `Expediente de Cruce: ${nomCli}`;
                 document.getElementById('dynModalProvNombre').textContent = nomProv;
@@ -922,7 +924,7 @@
                 if (bsModalMov) bsModalMov.show();
 
                 // Petición AJAX rápida (únicamente para esta pareja)
-                fetch(`/admin/cruce-cuentas/movimientos/${idCli}/${idProv}`)
+                fetch(urlMovimientos)
                     .then(response => {
                         if (!response.ok) throw new Error(`HTTP ${response.status}`);
                         return response.json();

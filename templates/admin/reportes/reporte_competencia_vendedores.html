@@ -79,26 +79,63 @@
     /* Contenedor de Filtros */
     .filter-box-spacious {
         background: white;
-        border-radius: 18px;
+        border-radius: 20px;
         border: 1px solid #e2e8f0;
         padding: 1.75rem 2rem;
-        margin-bottom: 2.5rem;
-        box-shadow: 0 6px 20px rgba(15, 23, 42, 0.02);
+        margin-bottom: 2.25rem;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
     }
 
     .period-pill {
         border-radius: 25px;
-        padding: 0.5rem 1.15rem;
-        font-size: 0.85rem;
+        padding: 0.45rem 1.1rem;
+        font-size: 0.82rem;
         font-weight: 600;
-        transition: all 0.2s ease;
+        border: 1px solid #cbd5e1;
+        background: #f8fafc;
+        color: #475569;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        cursor: pointer;
+    }
+
+    .period-pill:hover {
+        background: #f1f5f9;
+        border-color: #94a3b8;
+        color: #1e293b;
+        transform: translateY(-1px);
     }
 
     .period-pill.active,
     .period-pill.btn-primary {
         background: linear-gradient(135deg, #059669, #10b981) !important;
         border-color: transparent !important;
-        box-shadow: 0 4px 14px rgba(16, 185, 129, 0.28);
+        color: white !important;
+        box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+    }
+
+    .filter-input-label {
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: #475569;
+        margin-bottom: 0.35rem;
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+
+    .filter-active-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        background: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        border-radius: 50px;
+        padding: 0.25rem 0.75rem;
+        font-size: 0.78rem;
+        color: #334155;
+        font-weight: 500;
     }
 
     /* ===================================================
@@ -379,15 +416,15 @@
             </button>
             <!-- Botones de Exportación -->
             <div class="btn-group">
-                <a href="{{ url_for('admin.reporte_competencia_vendedores', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, ruta_id=ruta_id, ordenar_por=ordenar_por, formato='pdf') }}"
+                <a href="{{ url_for('admin.reporte_competencia_vendedores', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, ruta_id=ruta_id, vendedor_id=vendedor_id, ordenar_por=ordenar_por, formato='pdf') }}"
                     class="btn btn-danger px-3.5 py-2 fw-semibold shadow-sm" title="Descargar Reporte Ejecutivo en PDF" target="_blank">
                     <i class="bi bi-file-earmark-pdf-fill me-1.5"></i> Descargar PDF
                 </a>
-                <a href="{{ url_for('admin.reporte_competencia_vendedores', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, ruta_id=ruta_id, ordenar_por=ordenar_por, formato='excel') }}"
+                <a href="{{ url_for('admin.reporte_competencia_vendedores', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, ruta_id=ruta_id, vendedor_id=vendedor_id, ordenar_por=ordenar_por, formato='excel') }}"
                     class="btn btn-outline-light px-3 py-2" title="Exportar a Excel">
                     <i class="bi bi-file-earmark-excel me-1"></i> Excel
                 </a>
-                <a href="{{ url_for('admin.reporte_competencia_vendedores', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, ruta_id=ruta_id, ordenar_por=ordenar_por, formato='csv') }}"
+                <a href="{{ url_for('admin.reporte_competencia_vendedores', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, ruta_id=ruta_id, vendedor_id=vendedor_id, ordenar_por=ordenar_por, formato='csv') }}"
                     class="btn btn-outline-light px-3 py-2" title="Exportar a CSV">
                     <i class="bi bi-file-earmark-spreadsheet me-1"></i> CSV
                 </a>
@@ -398,49 +435,91 @@
         </div>
     </div>
 
-    <!-- Barra de Filtros y Períodos Despejada y Suelta -->
+    <!-- Barra de Filtros Optimizada y Organizada -->
     <div class="filter-box-spacious">
         <form method="GET" action="{{ url_for('admin.reporte_competencia_vendedores') }}" id="filtroCompetenciaForm">
-            <div class="row g-4 align-items-center">
-                
-                <!-- Botones de Filtro Rápido -->
-                <div class="col-12 col-xl-5">
-                    <label class="form-label small fw-bold text-muted mb-2 d-block">Período Rápido:</label>
-                    <div class="d-flex flex-wrap gap-2">
-                        <a href="{{ url_for('admin.reporte_competencia_vendedores', periodo='dia', ruta_id=ruta_id, ordenar_por=ordenar_por) }}" 
-                           class="btn period-pill {% if periodo == 'dia' %}btn-primary text-white active{% else %}btn-outline-secondary{% endif %}">
-                            <i class="bi bi-calendar-day me-1"></i> Hoy
-                        </a>
-                        <a href="{{ url_for('admin.reporte_competencia_vendedores', periodo='semana', ruta_id=ruta_id, ordenar_por=ordenar_por) }}" 
-                           class="btn period-pill {% if periodo == 'semana' %}btn-primary text-white active{% else %}btn-outline-secondary{% endif %}">
-                            <i class="bi bi-calendar-week me-1"></i> 7 Días
-                        </a>
-                        <a href="{{ url_for('admin.reporte_competencia_vendedores', periodo='mes', ruta_id=ruta_id, ordenar_por=ordenar_por) }}" 
-                           class="btn period-pill {% if periodo == 'mes' %}btn-primary text-white active{% else %}btn-outline-secondary{% endif %}">
-                            <i class="bi bi-calendar-month me-1"></i> Este Mes
-                        </a>
-                        <a href="{{ url_for('admin.reporte_competencia_vendedores', periodo='ano', ruta_id=ruta_id, ordenar_por=ordenar_por) }}" 
-                           class="btn period-pill {% if periodo == 'ano' %}btn-primary text-white active{% else %}btn-outline-secondary{% endif %}">
-                            <i class="bi bi-calendar3 me-1"></i> Este Año
-                        </a>
+            <input type="hidden" name="periodo" id="periodoInput" value="{{ periodo }}">
+
+            <!-- Encabezado del Formulario -->
+            <div class="d-flex flex-wrap justify-content-between align-items-center pb-3 mb-3 border-bottom gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="p-2 bg-success bg-opacity-10 text-success rounded-3 d-inline-flex">
+                        <i class="bi bi-funnel-fill fs-5"></i>
+                    </span>
+                    <div>
+                        <h6 class="mb-0 fw-bold text-dark">Filtros y Criterios de Competencia</h6>
+                        <small class="text-muted">Ajusta los períodos, rutas, vendedores y criterio de orden para auditar el rendimiento comercial</small>
                     </div>
                 </div>
-
-                <!-- Fechas Manuales -->
-                <div class="col-6 col-sm-3 col-xl-2">
-                    <label class="form-label small fw-bold text-muted mb-2">Desde:</label>
-                    <input type="date" name="fecha_inicio" class="form-control rounded-3 py-2" value="{{ fecha_inicio }}">
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1.5" onclick="restablecerFiltros()" title="Restablecer filtros">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> Restablecer
+                    </button>
+                    <button type="submit" class="btn btn-sm btn-success rounded-pill px-3.5 py-1.5 fw-semibold shadow-sm">
+                        <i class="bi bi-check2-circle me-1"></i> Aplicar Filtros
+                    </button>
                 </div>
-                <div class="col-6 col-sm-3 col-xl-2">
-                    <label class="form-label small fw-bold text-muted mb-2">Hasta:</label>
-                    <input type="date" name="fecha_fin" class="form-control rounded-3 py-2" value="{{ fecha_fin }}">
+            </div>
+
+            <!-- Fila 1: Botones de Períodos Rápidos -->
+            <div class="mb-3">
+                <label class="filter-input-label">
+                    <i class="bi bi-lightning-charge-fill text-warning"></i> Período Rápido:
+                </label>
+                <div class="d-flex flex-wrap gap-2">
+                    <button type="button" onclick="seleccionarPeriodo('dia')" 
+                        class="period-pill {% if periodo == 'dia' %}active{% endif %}">
+                        <i class="bi bi-calendar-day me-1"></i> Hoy
+                    </button>
+                    <button type="button" onclick="seleccionarPeriodo('ayer')" 
+                        class="period-pill {% if periodo == 'ayer' %}active{% endif %}">
+                        <i class="bi bi-clock-history me-1"></i> Ayer
+                    </button>
+                    <button type="button" onclick="seleccionarPeriodo('semana')" 
+                        class="period-pill {% if periodo == 'semana' %}active{% endif %}">
+                        <i class="bi bi-calendar-week me-1"></i> 7 Días
+                    </button>
+                    <button type="button" onclick="seleccionarPeriodo('mes')" 
+                        class="period-pill {% if periodo == 'mes' %}active{% endif %}">
+                        <i class="bi bi-calendar-month me-1"></i> Este Mes
+                    </button>
+                    <button type="button" onclick="seleccionarPeriodo('mes_anterior')" 
+                        class="period-pill {% if periodo == 'mes_anterior' %}active{% endif %}">
+                        <i class="bi bi-calendar-minus me-1"></i> Mes Anterior
+                    </button>
+                    <button type="button" onclick="seleccionarPeriodo('ano')" 
+                        class="period-pill {% if periodo == 'ano' %}active{% endif %}">
+                        <i class="bi bi-calendar3 me-1"></i> Este Año
+                    </button>
+                </div>
+            </div>
+
+            <!-- Fila 2: Inputs Principales Balanceados -->
+            <div class="row g-3 align-items-end">
+                
+                <!-- Fecha Desde -->
+                <div class="col-12 col-sm-6 col-lg-3 col-xl-2">
+                    <label class="filter-input-label">
+                        <i class="bi bi-calendar-event text-primary"></i> Desde:
+                    </label>
+                    <input type="date" name="fecha_inicio" id="fecha_inicio" class="form-control rounded-3 py-2 shadow-sm" value="{{ fecha_inicio }}" onchange="marcarPersonalizado()">
+                </div>
+
+                <!-- Fecha Hasta -->
+                <div class="col-12 col-sm-6 col-lg-3 col-xl-2">
+                    <label class="filter-input-label">
+                        <i class="bi bi-calendar-check text-primary"></i> Hasta:
+                    </label>
+                    <input type="date" name="fecha_fin" id="fecha_fin" class="form-control rounded-3 py-2 shadow-sm" value="{{ fecha_fin }}" onchange="marcarPersonalizado()">
                 </div>
 
                 <!-- Filtro por Ruta -->
-                <div class="col-6 col-sm-3 col-xl-1">
-                    <label class="form-label small fw-bold text-muted mb-2">Ruta:</label>
-                    <select name="ruta_id" class="form-select rounded-3 py-2">
-                        <option value="">Todas</option>
+                <div class="col-12 col-sm-6 col-lg-3 col-xl-2">
+                    <label class="filter-input-label">
+                        <i class="bi bi-geo-alt text-danger"></i> Ruta:
+                    </label>
+                    <select name="ruta_id" id="ruta_id" class="form-select rounded-3 py-2 shadow-sm">
+                        <option value="">Todas las Rutas</option>
                         {% for r in rutas_lista %}
                         <option value="{{ r.ID_Ruta }}" {% if ruta_id|string == r.ID_Ruta|string %}selected{% endif %}>
                             {{ r.Nombre_Ruta }}
@@ -449,10 +528,27 @@
                     </select>
                 </div>
 
-                <!-- Criterio de Ordenamiento (100% Monetario y Efectivo) -->
-                <div class="col-6 col-sm-3 col-xl-2">
-                    <label class="form-label small fw-bold text-muted mb-2">Ordenar por:</label>
-                    <select name="ordenar_por" class="form-select rounded-3 py-2" onchange="this.form.submit()">
+                <!-- Filtro por Vendedor -->
+                <div class="col-12 col-sm-6 col-lg-3 col-xl-2">
+                    <label class="filter-input-label">
+                        <i class="bi bi-person text-info"></i> Vendedor:
+                    </label>
+                    <select name="vendedor_id" id="vendedor_id" class="form-select rounded-3 py-2 shadow-sm">
+                        <option value="">Todos los Vendedores</option>
+                        {% for v in vendedores_lista %}
+                        <option value="{{ v.ID_Usuario }}" {% if vendedor_id|string == v.ID_Usuario|string %}selected{% endif %}>
+                            {{ v.NombreUsuario }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Criterio de Ordenamiento -->
+                <div class="col-12 col-sm-8 col-lg-4 col-xl-3">
+                    <label class="filter-input-label">
+                        <i class="bi bi-sort-down text-warning"></i> Ordenar Ranking por:
+                    </label>
+                    <select name="ordenar_por" id="ordenar_por" class="form-select rounded-3 py-2 shadow-sm" onchange="this.form.submit()">
                         <option value="efectivo" {% if ordenar_por == 'efectivo' or not ordenar_por %}selected{% endif %}>💵 Mayor Efectivo Traído (Total)</option>
                         <option value="contado" {% if ordenar_por == 'contado' %}selected{% endif %}>💰 Mayor Venta de Contado</option>
                         <option value="abonos" {% if ordenar_por == 'abonos' %}selected{% endif %}>📑 Mayor Cobro de Cartera</option>
@@ -461,14 +557,52 @@
                     </select>
                 </div>
 
-                <!-- Botón Aplicar -->
-                <div class="col-12 text-end pt-1">
-                    <button type="submit" class="btn btn-dark px-4 py-2 rounded-3 fw-semibold">
-                        <i class="bi bi-filter me-1.5"></i> Aplicar Filtros
+                <!-- Botón de Filtrar -->
+                <div class="col-12 col-sm-4 col-lg-2 col-xl-1">
+                    <button type="submit" class="btn btn-dark w-100 py-2 rounded-3 fw-semibold shadow-sm d-flex align-items-center justify-content-center gap-1.5" title="Aplicar filtros">
+                        <i class="bi bi-filter"></i> Filtrar
                     </button>
                 </div>
 
             </div>
+
+            <!-- Fila 3: Barra de Estado con Filtros Activos -->
+            <div class="d-flex flex-wrap align-items-center gap-2 mt-3 pt-3 border-top text-muted small">
+                <span class="fw-bold text-dark"><i class="bi bi-info-circle me-1 text-primary"></i> Vista Actual:</span>
+                <span class="filter-active-pill">
+                    <i class="bi bi-calendar-range text-primary"></i> {{ fecha_inicio_formatted }} al {{ fecha_fin_formatted }}
+                </span>
+                <span class="filter-active-pill">
+                    <i class="bi bi-geo-alt text-danger"></i> 
+                    {% if ruta_id %}
+                        {% for r in rutas_lista if r.ID_Ruta|string == ruta_id|string %}
+                            Ruta: {{ r.Nombre_Ruta }}
+                        {% endfor %}
+                    {% else %}
+                        Todas las Rutas
+                    {% endif %}
+                </span>
+                {% if vendedor_id %}
+                <span class="filter-active-pill">
+                    <i class="bi bi-person text-info"></i>
+                    {% for v in vendedores_lista if v.ID_Usuario|string == vendedor_id|string %}
+                        Vendedor: {{ v.NombreUsuario }}
+                    {% endfor %}
+                </span>
+                {% endif %}
+                <span class="filter-active-pill">
+                    <i class="bi bi-trophy text-warning"></i> 
+                    {% if ordenar_por == 'contado' %}Orden: Contado
+                    {% elif ordenar_por == 'abonos' %}Orden: Cobro Cartera
+                    {% elif ordenar_por == 'ventas' %}Orden: Venta Total
+                    {% elif ordenar_por == 'credito' %}Orden: Crédito
+                    {% else %}Orden: Efectivo Total{% endif %}
+                </span>
+                <span class="ms-auto fw-bold text-success d-flex align-items-center gap-1">
+                    <i class="bi bi-people-fill"></i> {{ competidores|length }} Vendedores Evaluados
+                </span>
+            </div>
+
         </form>
     </div>
 
@@ -992,6 +1126,54 @@ function copiarResumenEjecutivo() {
     }).catch(() => {
         Swal.fire('Error', 'No se pudo copiar el texto automáticamente.', 'error');
     });
+}
+
+// Manejo de Períodos Rápidos con Auto-envío
+function seleccionarPeriodo(periodo) {
+    const inputPeriodo = document.getElementById('periodoInput');
+    if (inputPeriodo) {
+        inputPeriodo.value = periodo;
+    }
+    const form = document.getElementById('filtroCompetenciaForm');
+    if (form) {
+        form.submit();
+    }
+}
+
+function marcarPersonalizado() {
+    const inputPeriodo = document.getElementById('periodoInput');
+    if (inputPeriodo) {
+        inputPeriodo.value = 'personalizado';
+    }
+    document.querySelectorAll('.period-pill').forEach(btn => btn.classList.remove('active'));
+}
+
+function restablecerFiltros() {
+    const inputPeriodo = document.getElementById('periodoInput');
+    if (inputPeriodo) inputPeriodo.value = 'mes';
+    
+    const rutaEl = document.getElementById('ruta_id');
+    if (rutaEl) rutaEl.value = '';
+    
+    const vendedorEl = document.getElementById('vendedor_id');
+    if (vendedorEl) vendedorEl.value = '';
+    
+    const ordenEl = document.getElementById('ordenar_por');
+    if (ordenEl) ordenEl.value = 'efectivo';
+    
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    
+    const fi = document.getElementById('fecha_inicio');
+    if (fi) fi.value = `${yyyy}-${mm}-01`;
+    
+    const ff = document.getElementById('fecha_fin');
+    if (ff) ff.value = `${yyyy}-${mm}-${dd}`;
+    
+    const form = document.getElementById('filtroCompetenciaForm');
+    if (form) form.submit();
 }
 
 document.addEventListener('DOMContentLoaded', function () {

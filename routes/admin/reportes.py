@@ -2873,19 +2873,39 @@ def reporte_competencia_vendedores():
     """Reporte de competencia y ranking comercial entre vendedores y rutas"""
     fecha_inicio, fecha_fin, periodo = get_period_date_range('mes')
     ruta_id = request.args.get('ruta_id', '')
-    ordenar_por = request.args.get('ordenar_por', 'efectivo')  # 'efectivo', 'ventas', 'abonos', 'contado'
+    vendedor_id = request.args.get('vendedor_id', '')
+    ordenar_por = request.args.get('ordenar_por', 'efectivo')  # 'efectivo', 'ventas', 'abonos', 'contado', 'credito'
     
     with get_db_cursor() as cursor:
         # 1. Obtener catálogo de rutas para filtros
         cursor.execute("SELECT ID_Ruta, Nombre_Ruta FROM rutas WHERE Estado = 'ACTIVO' OR Estado = 'Activo' ORDER BY Nombre_Ruta")
         rutas_lista = cursor.fetchall()
         
+        # 1.1 Obtener catálogo de vendedores para filtros
+        cursor.execute("""
+            SELECT DISTINCT u.ID_Usuario, u.NombreUsuario
+            FROM usuarios u
+            INNER JOIN roles ro ON u.ID_Rol = ro.ID_Rol
+            WHERE (ro.Nombre_Rol LIKE '%Vendedor%' OR u.ID_Usuario IN (
+                SELECT DISTINCT ID_Usuario_Creacion FROM facturacion
+                UNION
+                SELECT DISTINCT av.ID_Usuario FROM asignacion_vendedores av
+            ))
+            AND (u.Estado = 'ACTIVO' OR u.Estado = 'Activo' OR u.Estado IS NULL)
+            ORDER BY u.NombreUsuario
+        """)
+        vendedores_lista = cursor.fetchall()
+        
         # 2. Obtener lista de vendedores activos o que tienen asignaciones
         filter_ruta_asig = ""
+        filter_vendedor_asig = ""
         params_asig = []
         if ruta_id:
             filter_ruta_asig = " AND av.ID_Ruta = %s"
             params_asig.append(ruta_id)
+        if vendedor_id:
+            filter_vendedor_asig = " AND u.ID_Usuario = %s"
+            params_asig.append(vendedor_id)
             
         cursor.execute(f"""
             SELECT DISTINCT 
@@ -2902,6 +2922,7 @@ def reporte_competencia_vendedores():
                 SELECT DISTINCT av2.ID_Usuario FROM facturacion_ruta fr2 JOIN asignacion_vendedores av2 ON fr2.ID_Asignacion = av2.ID_Asignacion WHERE DATE(fr2.Fecha_Creacion) BETWEEN %s AND %s AND fr2.Estado = 'Activa'
             ))
             {filter_ruta_asig}
+            {filter_vendedor_asig}
             GROUP BY u.ID_Usuario, u.NombreUsuario
             ORDER BY u.NombreUsuario
         """, [fecha_inicio, fecha_fin, fecha_inicio, fecha_fin] + params_asig)
@@ -3150,6 +3171,8 @@ def reporte_competencia_vendedores():
             'total_abonos_global': total_abonos_global,
             'rutas_lista': rutas_lista,
             'ruta_id': ruta_id,
+            'vendedores_lista': vendedores_lista,
+            'vendedor_id': vendedor_id,
             'ordenar_por': ordenar_por,
             'periodo': periodo,
             'fecha_inicio': fecha_inicio,
