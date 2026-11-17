@@ -261,12 +261,16 @@ def config_general():
         try:
             llaves_config = [
                 'empresa_nombre', 'empresa_ruc', 'empresa_direccion', 'empresa_telefono',
-                'iva_porcentaje', 'smtp_host', 'smtp_port', 'smtp_user', 'smtp_password'
+                'iva_porcentaje', 'ticket_reparto_firma',
+                'smtp_host', 'smtp_port', 'smtp_user', 'smtp_password'
             ]
             
             with get_db_cursor(commit=True) as cursor:
                 for llave in llaves_config:
-                    valor = request.form.get(llave, '').strip()
+                    if llave == 'ticket_reparto_firma':
+                        valor = '1' if request.form.get(llave) == '1' else '0'
+                    else:
+                        valor = request.form.get(llave, '').strip()
                     
                     # Validar porcentaje de IVA
                     if llave == 'iva_porcentaje':
@@ -301,11 +305,12 @@ def config_general():
             # Asegurar que todas las llaves existan en el diccionario para evitar KeyError en plantilla
             llaves_esperadas = [
                 'empresa_nombre', 'empresa_ruc', 'empresa_direccion', 'empresa_telefono',
-                'iva_porcentaje', 'smtp_host', 'smtp_port', 'smtp_user', 'smtp_password'
+                'iva_porcentaje', 'ticket_reparto_firma',
+                'smtp_host', 'smtp_port', 'smtp_user', 'smtp_password'
             ]
             for llave in llaves_esperadas:
                 if llave not in config:
-                    config[llave] = ""
+                    config[llave] = "1" if llave == 'ticket_reparto_firma' else ""
                     
             return render_template('admin/config/general.html', config=config)
     except Exception as e:

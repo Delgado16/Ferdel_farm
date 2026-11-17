@@ -1426,6 +1426,10 @@ def admin_generar_ticket(id_factura):
                 'facturas_pendientes': facturas_pendientes
             }
             
+            cursor.execute("SELECT valor FROM config_sistema WHERE llave = 'ticket_reparto_firma' LIMIT 1")
+            row_reparto_cfg = cursor.fetchone()
+            mostrar_firma_reparto = (row_reparto_cfg['valor'] == '1') if row_reparto_cfg else True
+
             return render_template('admin/ventas/ticket_venta.html', 
                                  ticket=ticket_data,
                                  venta_realizada_formateada=venta_realizada_formateada,
@@ -1438,7 +1442,8 @@ def admin_generar_ticket(id_factura):
                                  nuevo_saldo_pendiente_formateado=nuevo_saldo_pendiente_formateado,
                                  concepto_abono=concepto_abono,
                                  fecha_abono=fecha_abono,
-                                 facturas_pendientes=facturas_pendientes)
+                                 facturas_pendientes=facturas_pendientes,
+                                 mostrar_firma_reparto=mostrar_firma_reparto)
                              
     except Exception as e:
         flash(f'Error al generar ticket: {str(e)}', 'error')

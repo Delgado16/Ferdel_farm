@@ -417,10 +417,13 @@
                 <span class="info-value">{{ ticket.cliente_detalles.direccion or 'N/A' }}</span>
             </div>
 
+            {% set tipo_venta_upper_info = (ticket.tipo_venta|default('')|string)|trim|upper %}
+            {% if tipo_venta_upper_info in ['CONTADO', 'CREDITO', 'CRÉDITO'] %}
             <div class="info-row">
                 <span class="info-label">Tipo Venta:</span>
                 <span class="info-value">{{ ticket.tipo_venta }}</span>
             </div>
+            {% endif %}
 
             {% if ticket.metodos_pago and ticket.metodos_pago|length > 0 %}
             <div class="info-row">
@@ -598,6 +601,19 @@
                 {% endfor %}
             </tbody>
         </table>
+        {% endif %}
+
+        {% if mostrar_firma_reparto|default(true) and tipo_venta_upper == 'REPARTO' %}
+        <div class="reparto-firma-box" style="margin-top: 10px; border-top: 1px dashed #000; padding-top: 6px; font-size: 11px;">
+            <div class="bold" style="margin-bottom: 4px; font-size: 12px;">CONTROL DE REPARTO:</div>
+            <div style="margin-bottom: 10px;">
+                Condición: &nbsp;[ &nbsp;] Contado &nbsp;&nbsp;[ &nbsp;] Crédito
+            </div>
+            <div style="margin-top: 14px; text-align: center;">
+                _________________________________<br>
+                Firma de recibido
+            </div>
+        </div>
         {% endif %}
 
         <!-- ==========================================================
