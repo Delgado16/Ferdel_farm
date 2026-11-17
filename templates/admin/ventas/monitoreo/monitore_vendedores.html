@@ -732,34 +732,31 @@ function renderizarInventario(inventario, totalInventario) {
             </div>`;
     }
     
+    let totalUnidades = 0;
     let html = `
         <div class="table-responsive">
             <table class="table table-sm table-hover mb-0">
                 <thead>
                     <tr>
                         <th>Producto</th>
-                        <th class="text-center">Cantidad</th>
-                        <th class="text-end">Precio</th>
-                        <th class="text-end">Subtotal</th>
+                        <th class="text-end">Cantidad</th>
                     </tr>
                 </thead>
                 <tbody>`;
     
     inventario.forEach(p => {
-        const subtotal = p.cantidad * p.precio;
+        totalUnidades += parseFloat(p.cantidad || 0);
         html += `
             <tr>
                 <td><strong>${escapeHtml(p.nombre)}</strong></td>
-                <td class="text-center">${formatNumber(p.cantidad, 0)}</td>
-                <td class="text-end">${formatCurrency(p.precio)}</td>
-                <td class="text-end fw-bold">${formatCurrency(subtotal)}</td>
+                <td class="text-end fw-bold">${formatNumber(p.cantidad, 0)}</td>
              </tr>`;
     });
     
     html += `
             <tr class="table-secondary fw-bold">
-                <td colspan="3" class="text-end">TOTAL INVENTARIO:</td>
-                <td class="text-end">${formatCurrency(totalInventario)}</td>
+                <td class="text-end">TOTAL UNIDADES:</td>
+                <td class="text-end">${formatNumber(totalUnidades, 0)}</td>
              </tr>
         </tbody>
     </table>

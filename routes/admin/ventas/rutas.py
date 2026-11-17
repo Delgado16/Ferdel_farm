@@ -90,7 +90,7 @@ def admin_monitoreo_vendedores():
                         c.Nombre as cliente,
                         COALESCE(mp.Nombre, 'Efectivo') as metodo_pago,
                         COALESCE(SUM(ad.Monto_Aplicado), 0) as monto,
-                        COUNT(DISTINCT COALESCE(CAST(ad.ID_Movimiento_Caja AS CHAR), DATE_FORMAT(ad.Fecha, '%%Y-%%m-%%d %%H:%%i:%%s'))) as cantidad_abonos,
+                        COUNT(DISTINCT COALESCE(CAST(ad.ID_Movimiento_Caja AS CHAR), CAST(ad.Fecha AS CHAR))) as cantidad_abonos,
                         COUNT(ad.ID_Detalle) as cantidad_facturas,
                         GROUP_CONCAT(DISTINCT COALESCE(cc.Num_Documento, 'Saldo General') ORDER BY cc.Num_Documento SEPARATOR ', ') as documentos,
                         MAX(ad.Fecha) as ultima_fecha
@@ -144,18 +144,30 @@ def admin_monitoreo_vendedores():
                 cargas_combustible = cursor.fetchall() or []
                 total_combustible = sum(float(c['Monto'] or 0) for c in cargas_combustible)
                 
-                # Inventario actual en ruta
+                # Inventario actual en ruta (usando el último precio facturado en la asignación o Precio_Ruta como respaldo)
                 cursor.execute("""
                     SELECT ir.ID_Producto,
                            p.COD_Producto as Codigo,
                            p.Descripcion as NombreProducto,
                            ir.Cantidad,
-                           COALESCE(p.Precio_Ruta, 0) as PrecioVenta
+                           COALESCE(
+                               (SELECT dfr.Precio
+                                FROM detalle_facturacion_ruta dfr
+                                INNER JOIN facturacion_ruta fr ON dfr.ID_FacturaRuta = fr.ID_FacturaRuta
+                                WHERE fr.ID_Asignacion = %s
+                                  AND fr.Estado = 'Activa'
+                                  AND dfr.ID_Producto = ir.ID_Producto
+                                  AND dfr.Precio > 0
+                                ORDER BY fr.ID_FacturaRuta DESC
+                                LIMIT 1),
+                               p.Precio_Ruta,
+                               0
+                           ) as PrecioVenta
                     FROM inventario_ruta ir
                     JOIN productos p ON ir.ID_Producto = p.ID_Producto
                     WHERE ir.ID_Asignacion = %s AND ir.Cantidad > 0
                     ORDER BY p.Descripcion ASC
-                """, (id_asignacion,))
+                """, (id_asignacion, id_asignacion))
                 inventario = cursor.fetchall() or []
                 
                 # Cuentas a crédito y sus saldos actuales (desde cuentas_por_cobrar)
