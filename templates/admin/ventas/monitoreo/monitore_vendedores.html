@@ -611,11 +611,11 @@ function renderizarDashboard(data) {
                 </div>
             </div>
             
-            <!-- FACTURAS PENDIENTES -->
+            <!-- CUENTAS A CRÉDITO Y SALDOS ACTUALES -->
             <div class="col-12 col-md-6">
                 <div class="card card-facturas info-card h-100 mb-0">
                     <div class="card-header">
-                        <i class="fas fa-file-invoice-dollar"></i> Facturas Pendientes por Cobrar
+                        <i class="fas fa-file-invoice-dollar"></i> Cuentas a Crédito y Saldos Actuales
                         <span class="badge bg-danger text-white float-end">
                             ${data.facturas_pendientes ? data.facturas_pendientes.length : 0} pendientes
                         </span>
@@ -628,13 +628,13 @@ function renderizarDashboard(data) {
         </div>
         
         <div class="row g-4 mb-4">
-            <!-- ABONOS REGISTRADOS HOY -->
+            <!-- ABONOS REGISTRADOS HOY (AGRUPADOS) -->
             <div class="col-12 col-md-6">
                 <div class="card card-abonos info-card h-100 mb-0">
                     <div class="card-header">
-                        <i class="fas fa-hand-holding-usd"></i> Abonos Registrados Hoy
+                        <i class="fas fa-hand-holding-usd"></i> Abonos Registrados Hoy (Agrupados)
                         <span class="badge bg-light text-dark float-end">
-                            ${data.abonos_hoy ? data.abonos_hoy.length : 0} abonos
+                            ${data.resumen ? data.resumen.total_abonos : (data.abonos_hoy ? data.abonos_hoy.length : 0)} abonos
                         </span>
                     </div>
                     <div class="card-body p-0">
@@ -772,35 +772,48 @@ function renderizarFacturasPendientes(facturas) {
     if (!facturas || facturas.length === 0) {
         return `
             <div class="alert alert-success m-3 mb-0">
-                <i class="fas fa-check-circle"></i> No hay facturas pendientes de cobro
+                <i class="fas fa-check-circle"></i> No hay cuentas a crédito con saldo pendiente
             </div>`;
     }
     
     let totalPendiente = 0;
-    facturas.forEach(f => totalPendiente += f.total);
+    facturas.forEach(f => totalPendiente += (f.saldo_actual !== undefined ? f.saldo_actual : f.total));
     
     let html = `
         <div class="alert alert-warning m-2 mb-0 bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20">
             <strong>
                 <i class="fas fa-exclamation-circle"></i> 
-                Total pendiente: ${formatCurrency(totalPendiente)}
+                Saldo total por cobrar: ${formatCurrency(totalPendiente)}
             </strong>
         </div>
         <div class="table-responsive">
             <table class="table table-modern table-hover mb-0">
                 <thead>
                     <tr>
+                        <th>Documento</th>
                         <th>Cliente</th>
-                        <th class="text-end">Total</th>
+                        <th class="text-end">Original</th>
+                        <th class="text-end">Saldo Actual</th>
                     </tr>
                 </thead>
                 <tbody>`;
     
     facturas.forEach(f => {
+        const saldo = f.saldo_actual !== undefined ? f.saldo_actual : f.total;
+        const orig = f.monto_original !== undefined ? f.monto_original : saldo;
+        const badgeEstado = f.estado === 'Vencida'
+            ? '<span class="badge bg-danger ms-1" style="font-size:0.7em;">Vencida</span>'
+            : '<span class="badge bg-warning text-dark ms-1" style="font-size:0.7em;">Pendiente</span>';
+        const vencInfo = f.fecha_vencimiento && f.fecha_vencimiento !== 'N/A'
+            ? `<br><small class="text-muted">Vence: ${escapeHtml(f.fecha_vencimiento)}</small>`
+            : '';
+
         html += `
             <tr>
+                <td><strong>${escapeHtml(f.documento || 'CXC')}</strong>${badgeEstado}${vencInfo}</td>
                 <td><strong>${escapeHtml(f.cliente)}</strong></td>
-                <td class="text-end text-danger fw-bold">${formatCurrency(f.total)}</td>
+                <td class="text-end text-muted">${formatCurrency(orig)}</td>
+                <td class="text-end text-danger fw-bold">${formatCurrency(saldo)}</td>
              </tr>`;
     });
     
@@ -839,9 +852,12 @@ function renderizarAbonos(abonos, totalMonto) {
     
     abonos.forEach(a => {
         const badgeHtml = renderMetodoPagoBadge(a.metodo_pago);
+        const cant = a.cantidad_abonos || 1;
+        const docs = a.documentos ? `<br><small class="text-muted">${escapeHtml(a.documentos)}</small>` : '';
+        const badgeCant = cant > 1 ? ` <span class="badge bg-secondary ms-1" style="font-size:0.7em;">${cant} abonos</span>` : '';
         html += `
             <tr>
-                <td><strong>${escapeHtml(a.cliente)}</strong></td>
+                <td><strong>${escapeHtml(a.cliente)}</strong>${badgeCant}${docs}</td>
                 <td class="text-end text-success fw-bold">${formatCurrency(a.monto)}</td>
                 <td>${badgeHtml}</td>
              </tr>`;

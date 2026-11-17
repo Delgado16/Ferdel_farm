@@ -502,12 +502,10 @@
         <div class="double-divider"></div>
 
         <!-- ==========================================================
-        SECCIÓN DE SALDOS - SI ES CRÉDITO, HAY SALDO PENDIENTE O HUBO ABONO
+        SECCIÓN DE SALDOS - ÚNICAMENTE SI LA VENTA ES A CRÉDITO
         ========================================================== -->
-        {% set mostrar_seccion_saldos = false %}
-        {% if ticket.tipo_venta == 'CREDITO' or ticket.tipo_venta == 'CRÉDITO' or (saldo_anterior is defined and saldo_anterior > 0) or (nuevo_saldo_pendiente is defined and nuevo_saldo_pendiente > 0) or (abono_cliente is defined and abono_cliente > 0) %}
-            {% set mostrar_seccion_saldos = true %}
-        {% endif %}
+        {% set tipo_venta_upper = (ticket.tipo_venta|default('')|string)|trim|upper %}
+        {% set mostrar_seccion_saldos = tipo_venta_upper in ['CREDITO', 'CRÉDITO'] %}
 
         {% if mostrar_seccion_saldos %}
         <div class="saldos-container">
