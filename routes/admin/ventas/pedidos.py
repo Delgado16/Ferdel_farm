@@ -2473,3 +2473,63 @@ def api_productos_consolidados(id_pedido):
         }), 500
 
 
+@admin_bp.route('/api/clientes/<int:id_cliente>/ultima-factura-productos')
+@admin_required
+def api_ultima_factura_productos(id_cliente):
+    """Obtiene los productos y precios facturados de la última factura activa de un cliente."""
+    try:
+        with get_db_cursor(True) as cursor:
+            cursor.execute("""
+                SELECT ID_Factura, Fecha
+                FROM facturacion
+                WHERE IDCliente = %s AND Estado = 'Activa'
+                ORDER BY Fecha DESC, ID_Factura DESC
+                LIMIT 1
+            """, (id_cliente,))
+            factura = cursor.fetchone()
+
+            if not factura:
+                return jsonify({'success': True, 'factura': None, 'productos': []})
+
+            cursor.execute("""
+                SELECT
+                    df.ID_Producto AS id,
+                    p.Descripcion AS nombre,
+                    p.COD_Producto AS codigo,
+                    df.Cantidad AS cantidad,
+                    df.Costo AS precio,
+                    COALESCE(um.Abreviatura, um.Descripcion, 'Unidad') AS unidad,
+                    COALESCE((SELECT SUM(Existencias) FROM inventario_bodega ib WHERE ib.ID_Producto = p.ID_Producto), 0) AS stock
+                FROM detalle_facturacion df
+                INNER JOIN productos p ON df.ID_Producto = p.ID_Producto
+                LEFT JOIN unidades_medida um ON p.Unidad_Medida = um.ID_Unidad
+                WHERE df.ID_Factura = %s
+            """, (factura['ID_Factura'],))
+            productos = cursor.fetchall()
+
+            productos_formateados = []
+            for prod in productos:
+                productos_formateados.append({
+                    'id': int(prod['id']),
+                    'nombre': prod['nombre'],
+                    'codigo': prod['codigo'] or '',
+                    'cantidad': float(prod['cantidad'] or 0),
+                    'precio': float(prod['precio'] or 0),
+                    'unidad': prod['unidad'] or 'Unidad',
+                    'stock': float(prod['stock'] or 0)
+                })
+
+            return jsonify({
+                'success': True,
+                'factura': {
+                    'id': factura['ID_Factura'],
+                    'numero': factura['ID_Factura'],
+                    'fecha': str(factura['Fecha']) if factura['Fecha'] else ''
+                },
+                'productos': productos_formateados
+            })
+    except Exception as e:
+        print(f"Error API última factura cliente: {str(e)}")
+        return jsonify({'success': False, 'message': str(e), 'productos': []}), 500
+
+

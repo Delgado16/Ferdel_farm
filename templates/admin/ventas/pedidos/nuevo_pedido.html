@@ -665,6 +665,7 @@
         color: #000000;
     }
 </style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pedidos_form.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -1231,6 +1232,45 @@ function procesarClienteSeleccionado() {
     actualizarTablaProductos();
     
     validarFormulario();
+    cargarProductosUltimaFactura(option.value);
+}
+
+function cargarProductosUltimaFactura(clienteId) {
+    if (!clienteId) return;
+    fetch(`/admin/api/clientes/${clienteId}/ultima-factura-productos`)
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success || !data.productos || data.productos.length === 0) {
+                return;
+            }
+            const select = document.getElementById('selectCliente');
+            if (!select || select.value !== String(clienteId)) return;
+
+            productosSeleccionados = data.productos.map(p => {
+                const cantidad = p.cantidad > 0 ? p.cantidad : 1;
+                const precio = p.precio > 0 ? p.precio : 0;
+                return {
+                    id: p.id,
+                    nombre: p.nombre,
+                    codigo: p.codigo || '',
+                    precio: precio,
+                    cantidad: cantidad,
+                    stock: p.stock || 0,
+                    unidad: p.unidad || 'Unidad',
+                    subtotal: precio * cantidad,
+                    tipoPrecio: 'Última Factura',
+                    tipoPrecioClase: 'badge-info'
+                };
+            });
+
+            actualizarTablaProductos();
+            validarFormulario();
+            const numFactura = data.factura && data.factura.numero ? ` #${data.factura.numero}` : '';
+            showToast('info', 'Última factura cargada', `Se cargaron ${productosSeleccionados.length} productos de la factura${numFactura} con sus precios facturados.`);
+        })
+        .catch(err => {
+            console.error('Error al cargar productos de la última factura:', err);
+        });
 }
 
 function mostrarInfoCliente(option) {
