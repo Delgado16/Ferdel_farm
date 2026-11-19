@@ -1,9 +1,7 @@
-from flask import render_template, redirect, url_for, request, flash, jsonify, session
-from flask_login import current_user
+from flask import render_template, redirect, url_for, request, flash, jsonify, session, current_app
 from datetime import datetime
 from config.database import get_db_cursor
-from auth.decorators import admin_required, admin_or_bodega_required
-from helpers.bitacora import bitacora_decorator, registrar_bitacora
+from auth.decorators import admin_required
 from helpers.export import exportar_csv, exportar_json, exportar_excel, exportar_pdf
 from . import admin_bp
 import functools
@@ -120,6 +118,7 @@ def report_handler(filename):
                     return render_template(template_name, **context)
                 return result
             except Exception as e:
+                current_app.logger.exception(f"Error al generar reporte '{filename}': {e}")
                 flash(f"Error al generar reporte: {e}", "danger")
                 return redirect(url_for('admin.reportes'))
         return wrapper
@@ -224,67 +223,27 @@ def reporte_ventas():
         cursor.execute(query, params)
         ventas = cursor.fetchall()
         
-        # Resumen general (incluye ambas fuentes)
-        cursor.execute("""
-            SELECT 
-                COUNT(*) AS Total_Facturas,
-                COUNT(DISTINCT Cliente) AS Clientes_Atendidos,
-                COALESCE(SUM(Total_Venta), 0) AS Monto_Total,
-                COALESCE(AVG(Total_Venta), 0) AS Ticket_Promedio
-            FROM (
-                -- Facturación normal
-                SELECT 
-                    c.Nombre AS Cliente,
-                    SUM(df.Total) AS Total_Venta
-                FROM facturacion fac
-                INNER JOIN detalle_facturacion df ON fac.ID_Factura = df.ID_Factura
-                INNER JOIN clientes c ON fac.IDCliente = c.ID_Cliente
-                WHERE DATE(fac.Fecha_Creacion) BETWEEN %s AND %s
-                  AND fac.Estado = 'Activa'
-                GROUP BY fac.ID_Factura, c.Nombre
-                
-                UNION ALL
-                
-                -- Facturación de ruta
-                SELECT 
-                    c.Nombre AS Cliente,
-                    SUM(dfr.Total) AS Total_Venta
-                FROM facturacion_ruta fr
-                INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
-                INNER JOIN clientes c ON fr.ID_Cliente = c.ID_Cliente
-                WHERE DATE(fr.Fecha_Creacion) BETWEEN %s AND %s
-                  AND fr.Estado = 'Activa'
-                GROUP BY fr.ID_FacturaRuta, c.Nombre
-            ) AS resumen
-        """, [fecha_inicio, fecha_fin, fecha_inicio, fecha_fin])
-        resumen = cursor.fetchone()
+        # Calcular resumen general y por origen directamente sobre las ventas filtradas
+        total_facturas = len(ventas)
+        clientes_unicos = len(set(v['Cliente'] for v in ventas if v.get('Cliente')))
+        monto_total = sum(float(v['Total_Venta'] or 0) for v in ventas)
+        ticket_promedio = (monto_total / total_facturas) if total_facturas > 0 else 0.0
         
-        # Resumen por tipo de origen (normal vs ruta)
-        cursor.execute("""
-            SELECT 
-                Origen,
-                COUNT(*) AS Cantidad,
-                COALESCE(SUM(Total_Venta), 0) AS Total
-            FROM (
-                SELECT 'NORMAL' AS Origen, SUM(df.Total) AS Total_Venta
-                FROM facturacion fac
-                INNER JOIN detalle_facturacion df ON fac.ID_Factura = df.ID_Factura
-                WHERE DATE(fac.Fecha_Creacion) BETWEEN %s AND %s 
-                  AND fac.Estado = 'Activa'
-                GROUP BY fac.ID_Factura
-                
-                UNION ALL
-                
-                SELECT 'RUTA' AS Origen, SUM(dfr.Total) AS Total_Venta
-                FROM facturacion_ruta fr
-                INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
-                WHERE DATE(fr.Fecha_Creacion) BETWEEN %s AND %s 
-                  AND fr.Estado = 'Activa'
-                GROUP BY fr.ID_FacturaRuta
-            ) AS origen_ventas
-            GROUP BY Origen
-        """, [fecha_inicio, fecha_fin, fecha_inicio, fecha_fin])
-        resumen_origen = cursor.fetchall()
+        resumen = {
+            'Total_Facturas': total_facturas,
+            'Clientes_Atendidos': clientes_unicos,
+            'Monto_Total': monto_total,
+            'Ticket_Promedio': ticket_promedio
+        }
+        
+        origenes_map = {}
+        for v in ventas:
+            orig = v.get('Origen') or 'NORMAL'
+            if orig not in origenes_map:
+                origenes_map[orig] = {'Origen': orig, 'Cantidad': 0, 'Total': 0.0}
+            origenes_map[orig]['Cantidad'] += 1
+            origenes_map[orig]['Total'] += float(v['Total_Venta'] or 0)
+        resumen_origen = list(origenes_map.values())
         
         # Vendedores para filtro (de ambas fuentes)
         cursor.execute("""
@@ -362,26 +321,37 @@ def reporte_cartera():
         cursor.execute(query, params)
         cartera = cursor.fetchall()
         
-        # Resumen de cartera
-        cursor.execute("""
-            SELECT 
-                COALESCE(SUM(CASE WHEN Dias_Vencido <= 0 THEN Saldo_Pendiente ELSE 0 END), 0) AS Cartera_Al_Dia,
-                COALESCE(SUM(CASE WHEN Dias_Vencido BETWEEN 1 AND 30 THEN Saldo_Pendiente ELSE 0 END), 0) AS Cartera_30_Dias,
-                COALESCE(SUM(CASE WHEN Dias_Vencido BETWEEN 31 AND 60 THEN Saldo_Pendiente ELSE 0 END), 0) AS Cartera_60_Dias,
-                COALESCE(SUM(CASE WHEN Dias_Vencido BETWEEN 61 AND 90 THEN Saldo_Pendiente ELSE 0 END), 0) AS Cartera_90_Dias,
-                COALESCE(SUM(CASE WHEN Dias_Vencido > 90 THEN Saldo_Pendiente ELSE 0 END), 0) AS Cartera_90_Mas,
-                COALESCE(SUM(Saldo_Pendiente), 0) AS Total_Cartera
-            FROM (
-                SELECT 
-                    cxc.Saldo_Pendiente,
-                    DATEDIFF(%s, cxc.Fecha_Vencimiento) AS Dias_Vencido
-                FROM cuentas_por_cobrar cxc
-                WHERE cxc.Estado IN ('Pendiente', 'Vencida')
-                  AND cxc.Fecha <= %s
-                  AND cxc.Saldo_Pendiente > 0
-            ) AS calculo
-        """, [fecha_corte, fecha_corte])
-        resumen = cursor.fetchone()
+        # Resumen de cartera calculado directamente sobre las filas filtradas
+        cartera_al_dia = 0.0
+        cartera_30 = 0.0
+        cartera_60 = 0.0
+        cartera_90 = 0.0
+        cartera_90_mas = 0.0
+        total_cartera = 0.0
+        
+        for row in cartera:
+            saldo = float(row['Saldo_Pendiente'] or 0)
+            dias = int(row['Dias_Vencido'] or 0)
+            total_cartera += saldo
+            if dias <= 0:
+                cartera_al_dia += saldo
+            elif dias <= 30:
+                cartera_30 += saldo
+            elif dias <= 60:
+                cartera_60 += saldo
+            elif dias <= 90:
+                cartera_90 += saldo
+            else:
+                cartera_90_mas += saldo
+                
+        resumen = {
+            'Cartera_Al_Dia': cartera_al_dia,
+            'Cartera_30_Dias': cartera_30,
+            'Cartera_60_Dias': cartera_60,
+            'Cartera_90_Dias': cartera_90,
+            'Cartera_90_Mas': cartera_90_mas,
+            'Total_Cartera': total_cartera
+        }
         
         return cartera, 'admin/reportes/reporte_cartera.html', {
             'cartera': cartera,
@@ -418,12 +388,21 @@ def reporte_inventario():
             LEFT JOIN inventario_bodega ib ON p.ID_Producto = ib.ID_Producto
             LEFT JOIN bodegas b ON ib.ID_Bodega = b.ID_Bodega AND b.Estado = 'activa'
             LEFT JOIN (
-                SELECT df.ID_Producto, SUM(df.Cantidad) AS Vendido_Ultimo_Mes
-                FROM detalle_facturacion df
-                INNER JOIN facturacion fac ON df.ID_Factura = fac.ID_Factura 
-                WHERE fac.Fecha_Creacion >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-                  AND fac.Estado = 'Activa'
-                GROUP BY df.ID_Producto
+                SELECT ID_Producto, SUM(Cantidad) AS Vendido_Ultimo_Mes
+                FROM (
+                    SELECT df.ID_Producto, df.Cantidad
+                    FROM detalle_facturacion df
+                    INNER JOIN facturacion fac ON df.ID_Factura = fac.ID_Factura 
+                    WHERE fac.Fecha_Creacion >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                      AND fac.Estado = 'Activa'
+                    UNION ALL
+                    SELECT dfr.ID_Producto, dfr.Cantidad
+                    FROM detalle_facturacion_ruta dfr
+                    INNER JOIN facturacion_ruta fr ON dfr.ID_FacturaRuta = fr.ID_FacturaRuta
+                    WHERE fr.Fecha_Creacion >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                      AND fr.Estado = 'Activa'
+                ) ventas_30d
+                GROUP BY ID_Producto
             ) Vendido ON p.ID_Producto = Vendido.ID_Producto
             WHERE p.Estado = 'activo'
         """
@@ -484,50 +463,93 @@ def reporte_inventario():
 def reporte_estado_resultados():
     """Estado de resultados financiero"""
     mes = request.args.get('mes', datetime.now().strftime('%Y-%m'))
-    
-    año = int(mes.split('-')[0])
-    mes_num = int(mes.split('-')[1])
+    try:
+        año = int(mes.split('-')[0])
+        mes_num = int(mes.split('-')[1])
+    except (ValueError, IndexError):
+        now = datetime.now()
+        mes = now.strftime('%Y-%m')
+        año = now.year
+        mes_num = now.month
     
     with get_db_cursor() as cursor:
-        # Ingresos por ventas (solo contado)
+        # Ingresos por ventas de contado (Oficina: Credito_Contado=0 + Ruta: Credito_Contado=1)
         cursor.execute("""
             SELECT 
                 'INGRESOS' AS Tipo,
                 'Ventas de Contado' AS Concepto,
-                COALESCE(SUM(df.Total), 0) AS Monto
-            FROM facturacion fac
-            INNER JOIN detalle_facturacion df ON fac.ID_Factura = df.ID_Factura
-            WHERE MONTH(fac.Fecha_Creacion) = %s 
-              AND YEAR(fac.Fecha_Creacion) = %s
-              AND fac.Estado = 'Activa'
-              AND fac.Credito_Contado = 1
-        """, [mes_num, año])
+                COALESCE(SUM(Monto), 0) AS Monto
+            FROM (
+                SELECT SUM(df.Total) AS Monto
+                FROM facturacion fac
+                INNER JOIN detalle_facturacion df ON fac.ID_Factura = df.ID_Factura
+                WHERE MONTH(fac.Fecha_Creacion) = %s 
+                  AND YEAR(fac.Fecha_Creacion) = %s
+                  AND fac.Estado = 'Activa'
+                  AND fac.Credito_Contado = 0
+                UNION ALL
+                SELECT SUM(dfr.Total) AS Monto
+                FROM facturacion_ruta fr
+                INNER JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                WHERE MONTH(fr.Fecha_Creacion) = %s 
+                  AND YEAR(fr.Fecha_Creacion) = %s
+                  AND fr.Estado = 'Activa'
+                  AND fr.Credito_Contado = 1
+            ) ventas_contado
+        """, [mes_num, año, mes_num, año])
         ingresos_ventas = cursor.fetchall()
         
-        # Ingresos por cobros de cartera
+        # Ingresos por cobros de cartera (Ruta + General + Pagos CxC)
         cursor.execute("""
             SELECT 
                 'INGRESOS' AS Tipo,
                 'Cobros de Cartera' AS Concepto,
-                COALESCE(SUM(ad.Monto_Aplicado), 0) AS Monto
-            FROM abonos_detalle ad
-            WHERE MONTH(ad.Fecha) = %s AND YEAR(ad.Fecha) = %s
-        """, [mes_num, año])
+                COALESCE(SUM(Monto), 0) AS Monto
+            FROM (
+                SELECT ad.Monto_Aplicado AS Monto
+                FROM abonos_detalle ad
+                WHERE MONTH(ad.Fecha) = %s AND YEAR(ad.Fecha) = %s
+                UNION ALL
+                SELECT ag.Monto_Aplicado AS Monto
+                FROM abonos_general ag
+                WHERE MONTH(ag.Fecha) = %s AND YEAR(ag.Fecha) = %s
+                UNION ALL
+                SELECT pc.Monto AS Monto
+                FROM pagos_cuentascobrar pc
+                INNER JOIN cuentas_por_cobrar cxc ON pc.ID_Movimiento = cxc.ID_Movimiento
+                WHERE MONTH(pc.Fecha) = %s AND YEAR(pc.Fecha) = %s
+                  AND cxc.Estado != 'Anulada'
+            ) cobros_cartera
+        """, [mes_num, año, mes_num, año, mes_num, año])
         ingresos_abonos = cursor.fetchall()
         
-        # Gastos generales
+        # Gastos generales y operativos de ruta
         cursor.execute("""
             SELECT 
                 'GASTOS' AS Tipo,
-                tg.Nombre AS Concepto,
-                COALESCE(SUM(gg.Monto), 0) AS Monto
-            FROM gastos_generales gg
-            INNER JOIN tipos_gasto tg ON gg.ID_Tipo_Gasto = tg.ID_Tipo_Gasto
-            WHERE MONTH(gg.Fecha) = %s AND YEAR(gg.Fecha) = %s
-              AND gg.Estado = 'Activo'
-            GROUP BY tg.ID_Tipo_Gasto
+                Concepto,
+                COALESCE(SUM(Monto), 0) AS Monto
+            FROM (
+                SELECT 
+                    tg.Nombre AS Concepto,
+                    gg.Monto AS Monto
+                FROM gastos_generales gg
+                INNER JOIN tipos_gasto tg ON gg.ID_Tipo_Gasto = tg.ID_Tipo_Gasto
+                WHERE MONTH(gg.Fecha) = %s AND YEAR(gg.Fecha) = %s
+                  AND gg.Estado = 'Activo'
+                UNION ALL
+                SELECT 
+                    'Gastos Operativos de Ruta' AS Concepto,
+                    mcr.Monto AS Monto
+                FROM movimientos_caja_ruta mcr
+                WHERE MONTH(mcr.Fecha) = %s AND YEAR(mcr.Fecha) = %s
+                  AND mcr.Tipo = 'GASTO'
+                  AND mcr.Estado = 'ACTIVO'
+            ) gastos_unificados
+            GROUP BY Concepto
+            HAVING Monto > 0
             ORDER BY Monto DESC
-        """, [mes_num, año])
+        """, [mes_num, año, mes_num, año])
         gastos = cursor.fetchall()
         
         # Consolidar resultados
@@ -589,10 +611,10 @@ def reporte_utilidad_ventas():
                 Cliente,
                 Producto,
                 Cantidad_Vendidas,
-                Costo_Total,
+                (Costo_Unitario * Cantidad_Vendidas) AS Costo_Total,
                 Venta_Total,
-                Utilidad_Neta,
-                Porcentaje_Margen
+                (Venta_Total - (Costo_Unitario * Cantidad_Vendidas)) AS Utilidad_Neta,
+                ROUND(((Venta_Total - (Costo_Unitario * Cantidad_Vendidas)) / NULLIF(Venta_Total, 0)) * 100, 2) AS Porcentaje_Margen
             FROM (
                 SELECT 
                     'Local' AS Canal,
@@ -615,38 +637,8 @@ def reporte_utilidad_ventas():
                         ),
                         df.Costo, 
                         0.00
-                    ) * df.Cantidad AS Costo_Total,
-                    df.Total AS Venta_Total,
-                    (df.Total - (COALESCE(
-                        (SELECT dmi_c.Costo_Unitario 
-                         FROM detalle_movimientos_inventario dmi_c
-                         JOIN movimientos_inventario mi_c ON dmi_c.ID_Movimiento = mi_c.ID_Movimiento
-                         JOIN catalogo_movimientos cm_c ON mi_c.ID_TipoMovimiento = cm_c.ID_TipoMovimiento
-                         WHERE dmi_c.ID_Producto = df.ID_Producto
-                           AND mi_c.Estado = 'Activa'
-                           AND (cm_c.Adicion LIKE '%%SUMA%%' OR cm_c.Letra IN ('E', 'C'))
-                           AND mi_c.Fecha <= DATE(f.Fecha_Creacion)
-                         ORDER BY mi_c.Fecha DESC, mi_c.ID_Movimiento DESC
-                         LIMIT 1
-                        ),
-                        df.Costo, 
-                        0.00
-                    ) * df.Cantidad)) AS Utilidad_Neta,
-                    ROUND(((df.Total - (COALESCE(
-                        (SELECT dmi_c.Costo_Unitario 
-                         FROM detalle_movimientos_inventario dmi_c
-                         JOIN movimientos_inventario mi_c ON dmi_c.ID_Movimiento = mi_c.ID_Movimiento
-                         JOIN catalogo_movimientos cm_c ON mi_c.ID_TipoMovimiento = cm_c.ID_TipoMovimiento
-                         WHERE dmi_c.ID_Producto = df.ID_Producto
-                           AND mi_c.Estado = 'Activa'
-                           AND (cm_c.Adicion LIKE '%%SUMA%%' OR cm_c.Letra IN ('E', 'C'))
-                           AND mi_c.Fecha <= DATE(f.Fecha_Creacion)
-                         ORDER BY mi_c.Fecha DESC, mi_c.ID_Movimiento DESC
-                         LIMIT 1
-                        ),
-                        df.Costo, 
-                        0.00
-                    ) * df.Cantidad)) / NULLIF(df.Total, 0)) * 100, 2) AS Porcentaje_Margen
+                    ) AS Costo_Unitario,
+                    df.Total AS Venta_Total
                 FROM facturacion f
                 JOIN detalle_facturacion df ON f.ID_Factura = df.ID_Factura
                 JOIN clientes c ON f.IDCliente = c.ID_Cliente
@@ -677,38 +669,8 @@ def reporte_utilidad_ventas():
                         ),
                         dfr.Costo, 
                         0.00
-                    ) * dfr.Cantidad AS Costo_Total,
-                    dfr.Total AS Venta_Total,
-                    (dfr.Total - (COALESCE(
-                        (SELECT dmi_c.Costo_Unitario 
-                         FROM detalle_movimientos_inventario dmi_c
-                         JOIN movimientos_inventario mi_c ON dmi_c.ID_Movimiento = mi_c.ID_Movimiento
-                         JOIN catalogo_movimientos cm_c ON mi_c.ID_TipoMovimiento = cm_c.ID_TipoMovimiento
-                         WHERE dmi_c.ID_Producto = dfr.ID_Producto
-                           AND mi_c.Estado = 'Activa'
-                           AND (cm_c.Adicion LIKE '%%SUMA%%' OR cm_c.Letra IN ('E', 'C'))
-                           AND mi_c.Fecha <= DATE(fr.Fecha_Creacion)
-                         ORDER BY mi_c.Fecha DESC, mi_c.ID_Movimiento DESC
-                         LIMIT 1
-                        ),
-                        dfr.Costo, 
-                        0.00
-                    ) * dfr.Cantidad)) AS Utilidad_Neta,
-                    ROUND(((dfr.Total - (COALESCE(
-                        (SELECT dmi_c.Costo_Unitario 
-                         FROM detalle_movimientos_inventario dmi_c
-                         JOIN movimientos_inventario mi_c ON dmi_c.ID_Movimiento = mi_c.ID_Movimiento
-                         JOIN catalogo_movimientos cm_c ON mi_c.ID_TipoMovimiento = cm_c.ID_TipoMovimiento
-                         WHERE dmi_c.ID_Producto = dfr.ID_Producto
-                           AND mi_c.Estado = 'Activa'
-                           AND (cm_c.Adicion LIKE '%%SUMA%%' OR cm_c.Letra IN ('E', 'C'))
-                           AND mi_c.Fecha <= DATE(fr.Fecha_Creacion)
-                         ORDER BY mi_c.Fecha DESC, mi_c.ID_Movimiento DESC
-                         LIMIT 1
-                        ),
-                        dfr.Costo, 
-                        0.00
-                    ) * dfr.Cantidad)) / NULLIF(dfr.Total, 0)) * 100, 2) AS Porcentaje_Margen
+                    ) AS Costo_Unitario,
+                    dfr.Total AS Venta_Total
                 FROM facturacion_ruta fr
                 JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
                 JOIN clientes c ON fr.ID_Cliente = c.ID_Cliente
@@ -721,92 +683,18 @@ def reporte_utilidad_ventas():
         cursor.execute(query, [fecha_inicio, fecha_fin, fecha_inicio, fecha_fin])
         resultados = cursor.fetchall()
         
-        # Resumen acumulativo
-        cursor.execute("""
-            SELECT 
-                COALESCE(SUM(Costo_Total), 0) AS Costo_Acumulado,
-                COALESCE(SUM(Venta_Total), 0) AS Venta_Acumulada,
-                COALESCE(SUM(Utilidad_Neta), 0) AS Utilidad_Acumulada,
-                ROUND((COALESCE(SUM(Utilidad_Neta), 0) / NULLIF(COALESCE(SUM(Venta_Total), 0), 0)) * 100, 2) AS Margen_Promedio
-            FROM (
-                SELECT 
-                    COALESCE(
-                        (SELECT dmi_c.Costo_Unitario 
-                         FROM detalle_movimientos_inventario dmi_c
-                         JOIN movimientos_inventario mi_c ON dmi_c.ID_Movimiento = mi_c.ID_Movimiento
-                         JOIN catalogo_movimientos cm_c ON mi_c.ID_TipoMovimiento = cm_c.ID_TipoMovimiento
-                         WHERE dmi_c.ID_Producto = df.ID_Producto
-                           AND mi_c.Estado = 'Activa'
-                           AND (cm_c.Adicion LIKE '%%SUMA%%' OR cm_c.Letra IN ('E', 'C'))
-                           AND mi_c.Fecha <= DATE(f.Fecha_Creacion)
-                         ORDER BY mi_c.Fecha DESC, mi_c.ID_Movimiento DESC
-                         LIMIT 1
-                        ),
-                        df.Costo, 
-                        0.00
-                    ) * df.Cantidad AS Costo_Total,
-                    df.Total AS Venta_Total,
-                    (df.Total - (COALESCE(
-                        (SELECT dmi_c.Costo_Unitario 
-                         FROM detalle_movimientos_inventario dmi_c
-                         JOIN movimientos_inventario mi_c ON dmi_c.ID_Movimiento = mi_c.ID_Movimiento
-                         JOIN catalogo_movimientos cm_c ON mi_c.ID_TipoMovimiento = cm_c.ID_TipoMovimiento
-                         WHERE dmi_c.ID_Producto = df.ID_Producto
-                           AND mi_c.Estado = 'Activa'
-                           AND (cm_c.Adicion LIKE '%%SUMA%%' OR cm_c.Letra IN ('E', 'C'))
-                           AND mi_c.Fecha <= DATE(f.Fecha_Creacion)
-                         ORDER BY mi_c.Fecha DESC, mi_c.ID_Movimiento DESC
-                         LIMIT 1
-                        ),
-                        df.Costo, 
-                        0.00
-                    ) * df.Cantidad)) AS Utilidad_Neta
-                FROM facturacion f
-                JOIN detalle_facturacion df ON f.ID_Factura = df.ID_Factura
-                WHERE f.Estado = 'Activa'
-                  AND DATE(f.Fecha_Creacion) BETWEEN %s AND %s
-                
-                UNION ALL
-                
-                SELECT 
-                    COALESCE(
-                        (SELECT dmi_c.Costo_Unitario 
-                         FROM detalle_movimientos_inventario dmi_c
-                         JOIN movimientos_inventario mi_c ON dmi_c.ID_Movimiento = mi_c.ID_Movimiento
-                         JOIN catalogo_movimientos cm_c ON mi_c.ID_TipoMovimiento = cm_c.ID_TipoMovimiento
-                         WHERE dmi_c.ID_Producto = dfr.ID_Producto
-                           AND mi_c.Estado = 'Activa'
-                           AND (cm_c.Adicion LIKE '%%SUMA%%' OR cm_c.Letra IN ('E', 'C'))
-                           AND mi_c.Fecha <= DATE(fr.Fecha_Creacion)
-                         ORDER BY mi_c.Fecha DESC, mi_c.ID_Movimiento DESC
-                         LIMIT 1
-                        ),
-                        dfr.Costo, 
-                        0.00
-                    ) * dfr.Cantidad AS Costo_Total,
-                    dfr.Total AS Venta_Total,
-                    (dfr.Total - (COALESCE(
-                        (SELECT dmi_c.Costo_Unitario 
-                         FROM detalle_movimientos_inventario dmi_c
-                         JOIN movimientos_inventario mi_c ON dmi_c.ID_Movimiento = mi_c.ID_Movimiento
-                         JOIN catalogo_movimientos cm_c ON mi_c.ID_TipoMovimiento = cm_c.ID_TipoMovimiento
-                         WHERE dmi_c.ID_Producto = dfr.ID_Producto
-                           AND mi_c.Estado = 'Activa'
-                           AND (cm_c.Adicion LIKE '%%SUMA%%' OR cm_c.Letra IN ('E', 'C'))
-                           AND mi_c.Fecha <= DATE(fr.Fecha_Creacion)
-                         ORDER BY mi_c.Fecha DESC, mi_c.ID_Movimiento DESC
-                         LIMIT 1
-                        ),
-                        dfr.Costo, 
-                        0.00
-                    ) * dfr.Cantidad)) AS Utilidad_Neta
-                FROM facturacion_ruta fr
-                JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
-                WHERE fr.Estado = 'Activa'
-                  AND DATE(fr.Fecha_Creacion) BETWEEN %s AND %s
-            ) AS resumen
-        """, [fecha_inicio, fecha_fin, fecha_inicio, fecha_fin])
-        resumen = cursor.fetchone()
+        # Resumen acumulativo calculado directamente en memoria sobre los resultados obtenidos
+        costo_acumulado = sum(float(r['Costo_Total'] or 0) for r in resultados)
+        venta_acumulada = sum(float(r['Venta_Total'] or 0) for r in resultados)
+        utilidad_acumulada = sum(float(r['Utilidad_Neta'] or 0) for r in resultados)
+        margen_promedio = round((utilidad_acumulada / venta_acumulada) * 100, 2) if venta_acumulada > 0 else 0.0
+        
+        resumen = {
+            'Costo_Acumulado': costo_acumulado,
+            'Venta_Acumulada': venta_acumulada,
+            'Utilidad_Acumulada': utilidad_acumulada,
+            'Margen_Promedio': margen_promedio
+        }
         
         return resultados, 'admin/reportes/reporte_utilidad_ventas.html', {
             'resultados': resultados,
@@ -1022,7 +910,13 @@ def reporte_conciliacion_monetaria():
     
     with get_db_cursor() as cursor:
         query = """
-            WITH Facturado_CTE AS (
+            WITH Asignaciones_Periodo AS (
+                SELECT ID_Asignacion
+                FROM asignacion_vendedores
+                WHERE Estado IN ('Activa', 'Finalizada')
+                  AND Fecha_Asignacion BETWEEN %s AND %s
+            ),
+            Facturado_CTE AS (
                 SELECT 
                     fr.ID_Asignacion,
                     COALESCE(SUM(dfr.Total), 0.00) AS Total_Facturado_Contado
@@ -1030,6 +924,7 @@ def reporte_conciliacion_monetaria():
                 JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
                 WHERE fr.Credito_Contado = 1
                   AND fr.Estado = 'Activa'
+                  AND fr.ID_Asignacion IN (SELECT ID_Asignacion FROM Asignaciones_Periodo)
                 GROUP BY fr.ID_Asignacion
             ),
             Abonos_CTE AS (
@@ -1037,6 +932,7 @@ def reporte_conciliacion_monetaria():
                     ad.ID_Asignacion,
                     COALESCE(SUM(ad.Monto_Aplicado), 0.00) AS Total_Abonos_Detallados
                 FROM abonos_detalle ad
+                WHERE ad.ID_Asignacion IN (SELECT ID_Asignacion FROM Asignaciones_Periodo)
                 GROUP BY ad.ID_Asignacion
             ),
             Caja_CTE AS (
@@ -1049,6 +945,7 @@ def reporte_conciliacion_monetaria():
                     COALESCE(SUM(CASE WHEN mcr.Tipo = 'CIERRE' THEN mcr.Monto ELSE 0 END), 0.00) AS Caja_Cierre_Declarado
                 FROM movimientos_caja_ruta mcr
                 WHERE mcr.Estado = 'ACTIVO'
+                  AND mcr.ID_Asignacion IN (SELECT ID_Asignacion FROM Asignaciones_Periodo)
                 GROUP BY mcr.ID_Asignacion
             )
             SELECT 
@@ -1092,7 +989,7 @@ def reporte_conciliacion_monetaria():
             WHERE av.Estado IN ('Activa', 'Finalizada')
               AND av.Fecha_Asignacion BETWEEN %s AND %s
         """
-        params = [fecha_inicio, fecha_fin]
+        params = [fecha_inicio, fecha_fin, fecha_inicio, fecha_fin]
         
         if vendedor_id:
             query += " AND av.ID_Usuario = %s"
@@ -1174,26 +1071,37 @@ def reporte_cxp():
         cursor.execute(query, params)
         cartera = cursor.fetchall()
         
-        # Resumen de CxP
-        cursor.execute("""
-            SELECT 
-                COALESCE(SUM(CASE WHEN Dias_Vencido <= 0 THEN Saldo_Pendiente ELSE 0 END), 0) AS Cartera_Al_Dia,
-                COALESCE(SUM(CASE WHEN Dias_Vencido BETWEEN 1 AND 30 THEN Saldo_Pendiente ELSE 0 END), 0) AS Cartera_30_Dias,
-                COALESCE(SUM(CASE WHEN Dias_Vencido BETWEEN 31 AND 60 THEN Saldo_Pendiente ELSE 0 END), 0) AS Cartera_60_Dias,
-                COALESCE(SUM(CASE WHEN Dias_Vencido BETWEEN 61 AND 90 THEN Saldo_Pendiente ELSE 0 END), 0) AS Cartera_90_Dias,
-                COALESCE(SUM(CASE WHEN Dias_Vencido > 90 THEN Saldo_Pendiente ELSE 0 END), 0) AS Cartera_90_Mas,
-                COALESCE(SUM(Saldo_Pendiente), 0) AS Total_Cartera
-            FROM (
-                SELECT 
-                    cpp.Saldo_Pendiente,
-                    DATEDIFF(%s, cpp.Fecha_Vencimiento) AS Dias_Vencido
-                FROM cuentas_por_pagar cpp
-                WHERE cpp.Estado IN ('Pendiente', 'Vencida')
-                  AND cpp.Fecha <= %s
-                  AND cpp.Saldo_Pendiente > 0
-            ) AS calculo
-        """, [fecha_corte, fecha_corte])
-        resumen = cursor.fetchone()
+        # Resumen de CxP calculado directamente sobre las filas filtradas
+        cartera_al_dia = 0.0
+        cartera_30 = 0.0
+        cartera_60 = 0.0
+        cartera_90 = 0.0
+        cartera_90_mas = 0.0
+        total_cartera = 0.0
+        
+        for row in cartera:
+            saldo = float(row['Saldo_Pendiente'] or 0)
+            dias = int(row['Dias_Vencido'] or 0)
+            total_cartera += saldo
+            if dias <= 0:
+                cartera_al_dia += saldo
+            elif dias <= 30:
+                cartera_30 += saldo
+            elif dias <= 60:
+                cartera_60 += saldo
+            elif dias <= 90:
+                cartera_90 += saldo
+            else:
+                cartera_90_mas += saldo
+                
+        resumen = {
+            'Cartera_Al_Dia': cartera_al_dia,
+            'Cartera_30_Dias': cartera_30,
+            'Cartera_60_Dias': cartera_60,
+            'Cartera_90_Dias': cartera_90,
+            'Cartera_90_Mas': cartera_90_mas,
+            'Total_Cartera': total_cartera
+        }
         
         return cartera, 'admin/reportes/reporte_cxp.html', {
             'cartera': cartera,
@@ -1229,16 +1137,21 @@ def reporte_flujo_caja():
         cursor.execute(query, [fecha_inicio, fecha_fin])
         resultados = cursor.fetchall()
         
-        # Totales del período (activos)
-        cursor.execute("""
-            SELECT 
-                COALESCE(SUM(CASE WHEN Tipo_Movimiento = 'ENTRADA' THEN Monto ELSE 0 END), 0) AS Total_Entradas,
-                COALESCE(SUM(CASE WHEN Tipo_Movimiento = 'SALIDA' THEN Monto ELSE 0 END), 0) AS Total_Salidas
-            FROM caja_movimientos
-            WHERE Estado = 'ACTIVO'
-              AND DATE(Fecha) BETWEEN %s AND %s
-        """, [fecha_inicio, fecha_fin])
-        resumen = cursor.fetchone()
+        # Totales del período (activos) calculados directamente en memoria
+        total_entradas = sum(
+            float(r['Monto'] or 0)
+            for r in resultados
+            if r.get('Estado') == 'ACTIVO' and r.get('Tipo_Movimiento') == 'ENTRADA'
+        )
+        total_salidas = sum(
+            float(r['Monto'] or 0)
+            for r in resultados
+            if r.get('Estado') == 'ACTIVO' and r.get('Tipo_Movimiento') == 'SALIDA'
+        )
+        resumen = {
+            'Total_Entradas': total_entradas,
+            'Total_Salidas': total_salidas
+        }
         
         return resultados, 'admin/reportes/reporte_flujo_caja.html', {
             'resultados': resultados,
@@ -1276,7 +1189,21 @@ def reporte_rotacion_productos():
                     p.ID_Categoria,
                     df.Cantidad,
                     df.Total AS Total_Venta,
-                    df.Cantidad * COALESCE(df.Costo, 0) AS Costo_Total
+                    df.Cantidad * COALESCE(
+                        NULLIF(df.Costo, 0),
+                        (SELECT dmi_c.Costo_Unitario 
+                         FROM detalle_movimientos_inventario dmi_c
+                         JOIN movimientos_inventario mi_c ON dmi_c.ID_Movimiento = mi_c.ID_Movimiento
+                         JOIN catalogo_movimientos cm_c ON mi_c.ID_TipoMovimiento = cm_c.ID_TipoMovimiento
+                         WHERE dmi_c.ID_Producto = df.ID_Producto
+                           AND mi_c.Estado = 'Activa'
+                           AND (cm_c.Adicion LIKE '%%SUMA%%' OR cm_c.Letra IN ('E', 'C'))
+                           AND mi_c.Fecha <= DATE(fac.Fecha_Creacion)
+                         ORDER BY mi_c.Fecha DESC, mi_c.ID_Movimiento DESC
+                         LIMIT 1
+                        ),
+                        0.00
+                    ) AS Costo_Total
                   FROM facturacion fac
                   JOIN detalle_facturacion df ON fac.ID_Factura = df.ID_Factura
                   JOIN productos p ON df.ID_Producto = p.ID_Producto
@@ -1294,7 +1221,21 @@ def reporte_rotacion_productos():
                       p.ID_Categoria,
                       dfr.Cantidad,
                       dfr.Total AS Total_Venta,
-                      dfr.Cantidad * COALESCE(dfr.Costo, 0) AS Costo_Total
+                      dfr.Cantidad * COALESCE(
+                          NULLIF(dfr.Costo, 0),
+                          (SELECT dmi_c.Costo_Unitario 
+                           FROM detalle_movimientos_inventario dmi_c
+                           JOIN movimientos_inventario mi_c ON dmi_c.ID_Movimiento = mi_c.ID_Movimiento
+                           JOIN catalogo_movimientos cm_c ON mi_c.ID_TipoMovimiento = cm_c.ID_TipoMovimiento
+                           WHERE dmi_c.ID_Producto = dfr.ID_Producto
+                             AND mi_c.Estado = 'Activa'
+                             AND (cm_c.Adicion LIKE '%%SUMA%%' OR cm_c.Letra IN ('E', 'C'))
+                             AND mi_c.Fecha <= DATE(fr.Fecha_Creacion)
+                           ORDER BY mi_c.Fecha DESC, mi_c.ID_Movimiento DESC
+                           LIMIT 1
+                          ),
+                          0.00
+                      ) AS Costo_Total
                   FROM facturacion_ruta fr
                   JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
                   JOIN productos p ON dfr.ID_Producto = p.ID_Producto
@@ -1388,7 +1329,7 @@ def reporte_consolidado_carga_ventas():
         params_venta = [fecha_inicio, fecha_fin, vendedor_id]
         params_devolucion = [fecha_inicio, fecha_fin, vendedor_id]
         params_merma = [fecha_inicio, fecha_fin, vendedor_id]
-        params_stock = [fecha_inicio, fecha_fin, vendedor_id]
+        params_stock = [vendedor_id]
         
         query = """
             SELECT 
@@ -1444,7 +1385,7 @@ def reporte_consolidado_carga_ventas():
                 JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
                 JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
                 WHERE fr.Estado = 'Activa'
-                  AND DATE(fr.Fecha) BETWEEN %s AND %s
+                  AND DATE(COALESCE(fr.Fecha_Creacion, fr.Fecha)) BETWEEN %s AND %s
                   AND av.ID_Usuario = %s
                 GROUP BY dfr.ID_Producto
             ) venta ON p.ID_Producto = venta.ID_Producto
@@ -1480,7 +1421,7 @@ def reporte_consolidado_carga_ventas():
                     SUM(ir.Cantidad) AS Stock_Camion
                 FROM inventario_ruta ir
                 JOIN asignacion_vendedores av ON ir.ID_Asignacion = av.ID_Asignacion
-                WHERE (av.Fecha_Asignacion BETWEEN %s AND %s OR av.Estado = 'Activa')
+                WHERE av.Estado = 'Activa'
                   AND av.ID_Usuario = %s
                 GROUP BY ir.ID_Producto
             ) stock ON p.ID_Producto = stock.ID_Producto
@@ -1518,7 +1459,7 @@ def reporte_consolidado_carga_ventas():
             JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
             WHERE fr.Estado = 'Activa'
               AND av.ID_Usuario = %s
-              AND DATE(fr.Fecha) BETWEEN %s AND %s
+              AND DATE(COALESCE(fr.Fecha_Creacion, fr.Fecha)) BETWEEN %s AND %s
             GROUP BY fr.ID_FacturaRuta, fr.Fecha_Creacion, c.Nombre, fr.Credito_Contado
             ORDER BY fr.Fecha_Creacion DESC
         """, (vendedor_id, fecha_inicio, fecha_fin))
@@ -1704,7 +1645,7 @@ def reporte_consolidado_carga_ventas_detalle():
                 JOIN clientes c ON fr.ID_Cliente = c.ID_Cliente
                 WHERE dfr.ID_Producto = %s
                   AND fr.Estado = 'Activa'
-                  AND DATE(fr.Fecha) BETWEEN %s AND %s
+                  AND DATE(COALESCE(fr.Fecha_Creacion, fr.Fecha)) BETWEEN %s AND %s
                   AND av.Estado IN ('Activa', 'Finalizada')
                   {filter_vendedor}
                 ORDER BY fr.Fecha_Creacion ASC

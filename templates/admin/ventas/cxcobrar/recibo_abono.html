@@ -38,17 +38,42 @@
             }
 
             /* Escalar clases de tamaños en impresión */
-            .size-9 { font-size: 12px !important; }
-            .size-10 { font-size: 13.5px !important; }
-            .size-11 { font-size: 14.5px !important; }
-            .size-12 { font-size: 15.5px !important; }
-            .size-14 { font-size: 17.5px !important; }
-            .size-16 { font-size: 20px !important; }
+            .size-9 {
+                font-size: 12px !important;
+            }
+
+            .size-10 {
+                font-size: 13.5px !important;
+            }
+
+            .size-11 {
+                font-size: 14.5px !important;
+            }
+
+            .size-12 {
+                font-size: 15.5px !important;
+            }
+
+            .size-14 {
+                font-size: 17.5px !important;
+            }
+
+            .size-16 {
+                font-size: 20px !important;
+            }
 
             /* Ajustar filas de saldo y filas de info */
-            .saldo-row { font-size: 13.5px !important; }
-            .info-row { font-size: 13px !important; }
-            .total-row { font-size: 16px !important; }
+            .saldo-row {
+                font-size: 13.5px !important;
+            }
+
+            .info-row {
+                font-size: 13px !important;
+            }
+
+            .total-row {
+                font-size: 16px !important;
+            }
 
             /* Logo */
             .logo-ajustada {
@@ -218,7 +243,7 @@
 
         <!-- TÍTULO -->
         <div class="text-center bold size-16">
-            RECIBO DE ABONO (ADMIN)
+            RECIBO DE ABONO
         </div>
         <div class="text-center size-10">N° {{ "%08d"|format(ticket.id_abono) }}</div>
         <div class="text-center size-9">{{ ticket.fecha }}</div>
@@ -237,7 +262,7 @@
 
         <!-- USUARIO QUE REGISTRÓ EL ABONO -->
         <div class="info-row">
-            <span class="bold">Registrado por:</span>
+            <span class="bold">Recibido:</span>
             <span>{{ ticket.vendedor }}</span>
         </div>
 
@@ -286,8 +311,10 @@
     <!-- BOTONES (NO SE IMPRIMEN) -->
     <div class="no-print text-center" style="margin-top: 15px;">
         <button onclick="window.print()" class="btn">🖨️ Imprimir</button>
-        <button onclick="imprimirRapidoRawBT(event)" class="btn" style="background: #ff9800; color: white;">⚡ Imprimir Rápido (Bluetooth)</button>
-        <a href="{{ url_for('admin.admin_cuentascobrar') }}" class="btn btn-secondary" style="text-decoration: none; display: inline-block;">📋 Volver</a>
+        <button onclick="imprimirRapidoRawBT(event)" class="btn" style="background: #ff9800; color: white;">⚡ Imprimir
+            Rápido (Bluetooth)</button>
+        <a href="{{ url_for('admin.admin_cuentascobrar') }}" class="btn btn-secondary"
+            style="text-decoration: none; display: inline-block;">📋 Volver</a>
     </div>
 
     <script src="{{ url_for('static', filename='js/html2canvas.min.js') }}"></script>
@@ -317,12 +344,12 @@
                 useCORS: true,
                 allowTaint: true,
                 backgroundColor: '#ffffff',
-                onclone: function(clonedDoc) {
+                onclone: function (clonedDoc) {
                     const clonedContainer = clonedDoc.querySelector('.ticket');
                     if (clonedContainer) {
                         // Forzar fuente base más grande
                         clonedContainer.style.setProperty('font-size', '14px', 'important');
-                        
+
                         // Escalar clases de tamaños
                         const sizes = {
                             'size-9': '12px',
@@ -337,7 +364,7 @@
                                 el.style.setProperty('font-size', newSize, 'important');
                             });
                         }
-                        
+
                         // Ajustar filas de saldo y filas de info
                         clonedContainer.querySelectorAll('.saldo-row').forEach(el => {
                             el.style.setProperty('font-size', '13.5px', 'important');
@@ -348,14 +375,14 @@
                         clonedContainer.querySelectorAll('.total-row').forEach(el => {
                             el.style.setProperty('font-size', '16px', 'important');
                         });
-                        
+
                         // Ajustar tamaño del Logo
                         const logo = clonedContainer.querySelector('.logo-ajustada');
                         if (logo) {
                             logo.style.setProperty('max-width', '35%', 'important');
                             logo.style.setProperty('width', '35%', 'important');
                         }
-                        
+
                         // Darle un poco más de margen interno para que no quede pegado al borde
                         clonedContainer.style.setProperty('padding', '12px', 'important');
                     }
@@ -364,12 +391,12 @@
                 const imgData = canvas.toDataURL('image/png');
                 const base64Data = imgData.split(',')[1];
                 const url = "rawbt:data:image/png;base64," + base64Data;
-                
+
                 if (btn) {
                     btn.disabled = false;
                     btn.innerHTML = originalText;
                 }
-                
+
                 window.location.href = url;
             }).catch(err => {
                 console.error("Error al capturar ticket:", err);

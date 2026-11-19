@@ -646,7 +646,7 @@
             <button onclick="imprimirRapidoRawBT(event)" class="btn btn-warning btn-sm">
                 ⚡ Imprimir Rápido (Bluetooth)
             </button>
-            <button onclick="window.history.back()" class="btn btn-secondary btn-sm">
+            <button onclick="cerrarTicket()" class="btn btn-secondary btn-sm">
                 ⬅️ Cerrar
             </button>
             <a href="{{ url_for('admin.admin_ventas_salidas') }}" class="btn btn-success btn-sm">
@@ -665,6 +665,17 @@
     <script>
         function imprimirTicket() {
             window.print();
+        }
+
+        function cerrarTicket() {
+            const referrer = document.referrer || '';
+            if (referrer.includes('/ventas/crear')) {
+                window.location.replace("{{ url_for('admin.admin_crear_venta') }}");
+            } else if (referrer) {
+                window.location.href = referrer;
+            } else {
+                window.location.replace("{{ url_for('admin.admin_crear_venta') }}");
+            }
         }
 
         function imprimirRapidoRawBT(event) {
