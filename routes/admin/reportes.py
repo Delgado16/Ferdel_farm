@@ -3431,3 +3431,275 @@ def reporte_gastos_categorias():
         }
         
         return datos_exportar, 'admin/reportes/reporte_gastos_categorias.html', context
+
+
+@admin_bp.route('/admin/reporte/auditoria')
+@admin_required
+@report_handler('expediente_auditoria_fiscal')
+def reporte_auditoria():
+    """Centro de Auditoría Integral y Cumplimiento Fiscal (Vista Interactiva + Exportación Excel Multipestaña / PDF)"""
+    import io
+    from flask import make_response
+    fecha_inicio, fecha_fin, periodo = get_period_date_range('mes')
+    formato = request.args.get('formato', 'html')
+
+    with get_db_cursor() as cursor:
+        # 1. TODAS LAS FACTURAS EMITIDAS (OFICINA Y RUTA - ACTIVAS Y ANULADAS) PARA VERIFICAR CORRELATIVIDAD
+        cursor.execute("""
+            SELECT 
+                Origen,
+                ID_Raw,
+                Numero_Documento,
+                DATE_FORMAT(Fecha_Emision, '%Y-%m-%d %H:%i') AS Fecha_Emision,
+                Cliente,
+                RUC_Cliente,
+                Vendedor,
+                Condicion_Pago,
+                Estado,
+                ROUND(Subtotal_Bruto, 2) AS Subtotal_Bruto,
+                ROUND(Descuento, 2) AS Descuento,
+                ROUND(GREATEST(0, Subtotal_Bruto - Descuento), 2) AS Total_Neto,
+                Observacion
+            FROM (
+                SELECT 
+                    'OFICINA' AS Origen,
+                    fac.ID_Factura AS ID_Raw,
+                    CONCAT('FAC-', LPAD(fac.ID_Factura, 5, '0')) AS Numero_Documento,
+                    fac.Fecha_Creacion AS Fecha_Emision,
+                    COALESCE(c.Nombre, 'Consumidor Final') AS Cliente,
+                    COALESCE(c.RUC_CEDULA, 'N/A') AS RUC_Cliente,
+                    COALESCE(u.NombreUsuario, 'Sistema') AS Vendedor,
+                    CASE WHEN fac.Credito_Contado = 0 THEN 'CONTADO' WHEN fac.Credito_Contado = 1 THEN 'CREDITO' ELSE 'REPARTO' END AS Condicion_Pago,
+                    fac.Estado AS Estado,
+                    COALESCE(SUM(df.Total), 0) AS Subtotal_Bruto,
+                    0.00 AS Descuento,
+                    COALESCE(fac.Observacion, '') AS Observacion
+                FROM facturacion fac
+                LEFT JOIN detalle_facturacion df ON fac.ID_Factura = df.ID_Factura
+                LEFT JOIN clientes c ON fac.IDCliente = c.ID_Cliente
+                LEFT JOIN usuarios u ON fac.ID_Usuario_Creacion = u.ID_Usuario
+                WHERE DATE(fac.Fecha_Creacion) BETWEEN %s AND %s
+                GROUP BY fac.ID_Factura, fac.Fecha_Creacion, c.Nombre, c.RUC_CEDULA, u.NombreUsuario, fac.Credito_Contado, fac.Estado, fac.Observacion
+
+                UNION ALL
+
+                SELECT 
+                    'RUTA' AS Origen,
+                    fr.ID_FacturaRuta AS ID_Raw,
+                    CONCAT('RUT-', LPAD(fr.ID_FacturaRuta, 5, '0')) AS Numero_Documento,
+                    fr.Fecha_Creacion AS Fecha_Emision,
+                    COALESCE(c.Nombre, 'Cliente Ruta') AS Cliente,
+                    COALESCE(c.RUC_CEDULA, 'N/A') AS RUC_Cliente,
+                    COALESCE(u.NombreUsuario, 'Vendedor') AS Vendedor,
+                    CASE WHEN fr.Credito_Contado = 1 THEN 'CONTADO' ELSE 'CREDITO' END AS Condicion_Pago,
+                    fr.Estado AS Estado,
+                    COALESCE(SUM(dfr.Total), 0) AS Subtotal_Bruto,
+                    0.00 AS Descuento,
+                    COALESCE(fr.Observacion, '') AS Observacion
+                FROM facturacion_ruta fr
+                LEFT JOIN detalle_facturacion_ruta dfr ON fr.ID_FacturaRuta = dfr.ID_FacturaRuta
+                LEFT JOIN clientes c ON fr.ID_Cliente = c.ID_Cliente
+                LEFT JOIN asignacion_vendedores av ON fr.ID_Asignacion = av.ID_Asignacion
+                LEFT JOIN usuarios u ON av.ID_Usuario = u.ID_Usuario
+                WHERE DATE(fr.Fecha_Creacion) BETWEEN %s AND %s
+                GROUP BY fr.ID_FacturaRuta, fr.Fecha_Creacion, c.Nombre, c.RUC_CEDULA, u.NombreUsuario, fr.Credito_Contado, fr.Estado, fr.Observacion
+            ) AS libro_ventas
+            ORDER BY Origen ASC, ID_Raw ASC
+        """, [fecha_inicio, fecha_fin, fecha_inicio, fecha_fin])
+        facturas_auditoria = cursor.fetchall()
+
+        # Verificar saltos de correlatividad en Oficina y en Ruta dentro del rango
+        ids_oficina = sorted([int(f['ID_Raw']) for f in facturas_auditoria if f['Origen'] == 'OFICINA'])
+        ids_ruta = sorted([int(f['ID_Raw']) for f in facturas_auditoria if f['Origen'] == 'RUTA'])
+
+        def detectar_saltos(lista_ids):
+            saltos = []
+            for i in range(1, len(lista_ids)):
+                if lista_ids[i] - lista_ids[i - 1] > 1:
+                    for faltante in range(lista_ids[i - 1] + 1, lista_ids[i]):
+                        saltos.append(faltante)
+            return saltos
+
+        saltos_oficina = detectar_saltos(ids_oficina)
+        saltos_ruta = detectar_saltos(ids_ruta)
+
+        # 2. REGISTRO DE FACTURAS ANULADAS Y MOTIVOS (log_anulaciones + facturas con Estado='Anulada')
+        cursor.execute("""
+            SELECT 
+                la.ID_Log,
+                UPPER(la.Tipo) AS Origen,
+                CASE WHEN LOWER(la.Tipo) = 'ruta' THEN CONCAT('RUT-', LPAD(la.ID_Factura, 5, '0')) ELSE CONCAT('FAC-', LPAD(la.ID_Factura, 5, '0')) END AS Numero_Documento,
+                DATE_FORMAT(la.Fecha_Anulacion, '%Y-%m-%d %H:%i:%S') AS Fecha_Anulacion,
+                COALESCE(u.NombreUsuario, 'Admin') AS Usuario_Autoriza,
+                la.Motivo
+            FROM log_anulaciones la
+            LEFT JOIN usuarios u ON la.ID_Usuario_Anula = u.ID_Usuario
+            WHERE DATE(la.Fecha_Anulacion) BETWEEN %s AND %s
+            ORDER BY la.Fecha_Anulacion DESC
+        """, [fecha_inicio, fecha_fin])
+        anulaciones_log = cursor.fetchall()
+
+        # 3. LIBRO DE COMPRAS Y GASTOS RESPALDADOS CON FACTURA
+        cursor.execute("""
+            SELECT 
+                'COMPRA INVENTARIO' AS Tipo_Egreso,
+                DATE_FORMAT(mi.Fecha, '%Y-%m-%d') AS Fecha,
+                COALESCE(mi.N_Factura_Externa, CONCAT('MOV-', mi.ID_Movimiento)) AS Numero_Factura,
+                COALESCE(p.Nombre, 'Proveedor General') AS Proveedor,
+                COALESCE(p.RUC_CEDULA, 'N/A') AS RUC_Proveedor,
+                COALESCE(mi.Tipo_Compra, 'CONTADO') AS Condicion,
+                ROUND(COALESCE(SUM(dmi.Subtotal), 0), 2) AS Monto_Total,
+                mi.Estado,
+                COALESCE(u.NombreUsuario, 'Sistema') AS Registrado_Por
+            FROM movimientos_inventario mi
+            INNER JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
+            LEFT JOIN proveedores p ON mi.ID_Proveedor = p.ID_Proveedor
+            LEFT JOIN usuarios u ON mi.ID_Usuario_Creacion = u.ID_Usuario
+            WHERE mi.ID_TipoMovimiento = 1
+              AND DATE(mi.Fecha) BETWEEN %s AND %s
+            GROUP BY mi.ID_Movimiento, mi.Fecha, mi.N_Factura_Externa, p.Nombre, p.RUC_CEDULA, mi.Tipo_Compra, mi.Estado, u.NombreUsuario
+
+            UNION ALL
+
+            SELECT 
+                CONCAT('GASTO: ', tg.Nombre) AS Tipo_Egreso,
+                DATE_FORMAT(gg.Fecha, '%Y-%m-%d') AS Fecha,
+                COALESCE(gg.N_Factura, 'S/F') AS Numero_Factura,
+                COALESCE(pr.Nombre, 'Gasto Operativo') AS Proveedor,
+                COALESCE(pr.RUC_CEDULA, 'N/A') AS RUC_Proveedor,
+                COALESCE(gg.Metodo_Pago, 'EFECTIVO') AS Condicion,
+                ROUND(gg.Monto, 2) AS Monto_Total,
+                gg.Estado,
+                COALESCE(u.NombreUsuario, 'Admin') AS Registrado_Por
+            FROM gastos_generales gg
+            INNER JOIN tipos_gasto tg ON gg.ID_Tipo_Gasto = tg.ID_Tipo_Gasto
+            LEFT JOIN proveedores pr ON gg.ID_Proveedor = pr.ID_Proveedor
+            LEFT JOIN usuarios u ON gg.ID_Usuario_Registro = u.ID_Usuario
+            WHERE DATE(gg.Fecha) BETWEEN %s AND %s
+            ORDER BY Fecha DESC
+        """, [fecha_inicio, fecha_fin, fecha_inicio, fecha_fin])
+        compras_gastos_auditoria = cursor.fetchall()
+
+        # 4. RESUMEN DE KARDEX DE INVENTARIO (ENTRADAS VS SALIDAS EN EL PERÍODO)
+        cursor.execute("""
+            SELECT 
+                p.COD_Producto AS Codigo,
+                p.Descripcion AS Producto,
+                ROUND(SUM(CASE WHEN cm.Letra IN ('E', 'C', 'TE') THEN ABS(dmi.Cantidad) ELSE 0 END), 2) AS Entradas_Periodo,
+                ROUND(SUM(CASE WHEN cm.Letra IN ('S', 'V', 'TS', 'T') THEN ABS(dmi.Cantidad) ELSE 0 END), 2) AS Salidas_Periodo,
+                ROUND(COALESCE((SELECT SUM(ib.Existencias) FROM inventario_bodega ib WHERE ib.ID_Producto = p.ID_Producto), 0), 2) AS Stock_Bodega_Actual
+            FROM movimientos_inventario mi
+            INNER JOIN detalle_movimientos_inventario dmi ON mi.ID_Movimiento = dmi.ID_Movimiento
+            INNER JOIN productos p ON dmi.ID_Producto = p.ID_Producto
+            INNER JOIN catalogo_movimientos cm ON mi.ID_TipoMovimiento = cm.ID_TipoMovimiento
+            WHERE mi.Estado = 'Activa'
+              AND DATE(mi.Fecha) BETWEEN %s AND %s
+            GROUP BY p.ID_Producto, p.COD_Producto, p.Descripcion
+            ORDER BY Salidas_Periodo DESC
+        """, [fecha_inicio, fecha_fin])
+        kardex_resumen = cursor.fetchall()
+
+        # 5. BITÁCORA DE SEGURIDAD, ACCESOS Y OPERACIONES CRÍTICAS
+        cursor.execute("""
+            SELECT 
+                b.ID_Bitacora,
+                DATE_FORMAT(b.Fecha, '%Y-%m-%d %H:%i:%S') AS Fecha_Hora,
+                COALESCE(u.NombreUsuario, 'Sistema') AS Usuario,
+                COALESCE(b.Modulo, 'GENERAL') AS Modulo,
+                COALESCE(b.Accion, '') AS Accion,
+                COALESCE(b.IP_Acceso, '127.0.0.1') AS IP_Acceso
+            FROM bitacora b
+            LEFT JOIN usuarios u ON b.ID_Usuario = u.ID_Usuario
+            WHERE DATE(b.Fecha) BETWEEN %s AND %s
+            ORDER BY b.Fecha DESC
+            LIMIT 500
+        """, [fecha_inicio, fecha_fin])
+        bitacora_auditoria = cursor.fetchall()
+
+        # 6. MÉTRICAS EJECUTIVAS DE AUDITORÍA
+        facturas_activas = [f for f in facturas_auditoria if f['Estado'] == 'Activa']
+        facturas_anuladas = [f for f in facturas_auditoria if f['Estado'] == 'Anulada']
+        total_facturado_activo = sum(float(f['Total_Neto'] or 0) for f in facturas_activas)
+        total_facturado_anulado = sum(float(f['Total_Neto'] or 0) for f in facturas_anuladas)
+        total_egresos_respaldados = sum(float(c['Monto_Total'] or 0) for c in compras_gastos_auditoria if c['Estado'] in ('Activa', 'Activo'))
+
+        # Si el usuario solicita descarga de EXPEDIENTE COMPLETO EN EXCEL (Multipestaña)
+        if formato == 'expediente_excel':
+            import openpyxl
+            from openpyxl.styles import Font, Alignment, PatternFill
+
+            wb = openpyxl.Workbook()
+            header_fill = PatternFill(start_color="0F172A", end_color="0F172A", fill_type="solid")
+            header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+
+            def llenar_hoja(ws, titulo_hoja, filas_dict):
+                ws.title = titulo_hoja
+                if not filas_dict:
+                    ws.append(["Sin registros en el período seleccionado"])
+                    return
+                headers = list(filas_dict[0].keys())
+                ws.append(headers)
+                for col_num in range(1, len(headers) + 1):
+                    cell = ws.cell(row=1, column=col_num)
+                    cell.fill = header_fill
+                    cell.font = header_font
+                    cell.alignment = Alignment(horizontal="center", vertical="center")
+                for r in filas_dict:
+                    ws.append([r[k] if r[k] is not None else "" for k in headers])
+                for col in ws.columns:
+                    col_letter = openpyxl.utils.get_column_letter(col[0].column)
+                    max_len = max((len(str(c.value or "")) for c in col), default=10)
+                    ws.column_dimensions[col_letter].width = min(max(max_len + 3, 12), 48)
+
+            # Hoja 1: Carátula Resumen
+            resumen_rows = [
+                {'Indicador de Auditoría': 'Período Auditado', 'Valor': f"{fecha_inicio} al {fecha_fin}"},
+                {'Indicador de Auditoría': 'Total Facturas Emitidas (Oficina + Ruta)', 'Valor': len(facturas_auditoria)},
+                {'Indicador de Auditoría': 'Facturas Activas', 'Valor': len(facturas_activas)},
+                {'Indicador de Auditoría': 'Facturas Anuladas (Con Respaldo)', 'Valor': len(facturas_anuladas)},
+                {'Indicador de Auditoría': 'Saltos de Correlatividad Detectados (Oficina)', 'Valor': len(saltos_oficina)},
+                {'Indicador de Auditoría': 'Saltos de Correlatividad Detectados (Ruta)', 'Valor': len(saltos_ruta)},
+                {'Indicador de Auditoría': 'Monto Total Ventas Activas (C$)', 'Valor': round(total_facturado_activo, 2)},
+                {'Indicador de Auditoría': 'Monto Total Facturas Anuladas (C$)', 'Valor': round(total_facturado_anulado, 2)},
+                {'Indicador de Auditoría': 'Total Compras y Gastos Respaldados (C$)', 'Valor': round(total_egresos_respaldados, 2)},
+                {'Indicador de Auditoría': 'Eventos Registrados en Bitácora de Seguridad', 'Valor': len(bitacora_auditoria)},
+            ]
+            llenar_hoja(wb.active, "1_Resumen_Ejecutivo", resumen_rows)
+            llenar_hoja(wb.create_sheet(), "2_Libro_Facturacion", facturas_auditoria)
+            llenar_hoja(wb.create_sheet(), "3_Historial_Anulaciones", anulaciones_log)
+            llenar_hoja(wb.create_sheet(), "4_Compras_y_Gastos", compras_gastos_auditoria)
+            llenar_hoja(wb.create_sheet(), "5_Kardex_Inventario", kardex_resumen)
+            llenar_hoja(wb.create_sheet(), "6_Bitacora_Seguridad", bitacora_auditoria)
+
+            output = io.BytesIO()
+            wb.save(output)
+            output.seek(0)
+            response = make_response(output.getvalue())
+            response.headers['Content-Disposition'] = f'attachment; filename=Expediente_Auditoria_FerDel_{fecha_inicio}_{fecha_fin}.xlsx'
+            response.headers['Content-type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            return response
+
+        fecha_inicio_formatted = datetime.strptime(fecha_inicio, '%Y-%m-%d').strftime('%d/%m/%Y')
+        fecha_fin_formatted = datetime.strptime(fecha_fin, '%Y-%m-%d').strftime('%d/%m/%Y')
+
+        context = {
+            'fecha_inicio': fecha_inicio,
+            'fecha_fin': fecha_fin,
+            'fecha_inicio_formatted': fecha_inicio_formatted,
+            'fecha_fin_formatted': fecha_fin_formatted,
+            'periodo': periodo,
+            'facturas_auditoria': facturas_auditoria,
+            'facturas_activas_count': len(facturas_activas),
+            'facturas_anuladas_count': len(facturas_anuladas),
+            'total_facturado_activo': total_facturado_activo,
+            'total_facturado_anulado': total_facturado_anulado,
+            'total_egresos_respaldados': total_egresos_respaldados,
+            'saltos_oficina': saltos_oficina,
+            'saltos_ruta': saltos_ruta,
+            'anulaciones_log': anulaciones_log,
+            'compras_gastos_auditoria': compras_gastos_auditoria,
+            'kardex_resumen': kardex_resumen,
+            'bitacora_auditoria': bitacora_auditoria,
+        }
+
+        return facturas_auditoria, 'admin/reportes/reporte_auditoria.html', context

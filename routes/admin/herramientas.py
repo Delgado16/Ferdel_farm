@@ -71,29 +71,9 @@ def admin_bitacora():
 @admin_bp.route('/admin/bitacora/limpiar', methods=['POST'])
 @admin_required
 def limpiar_bitacora():
-    """Limpiar registros antiguos de la bitácora"""
-    try:
-        with get_db_cursor(commit=True) as cursor:
-            # Mantener solo los últimos 1000 registros
-            cursor.execute("""
-                DELETE FROM bitacora 
-                WHERE ID_Bitacora NOT IN (
-                    SELECT ID_Bitacora FROM (
-                        SELECT ID_Bitacora FROM bitacora 
-                        ORDER BY Fecha DESC 
-                        LIMIT 1000
-                    ) AS temp
-                )
-            """)
-            
-            registros_eliminados = cursor.rowcount
-            registrar_bitacora(modulo="BITACORA", accion=f"LIMPIAR_BITACORA: {registros_eliminados} registros eliminados")
-            
-            flash(f"Bitácora limpiada exitosamente. Se eliminaron {registros_eliminados} registros antiguos.", "success")
-            
-    except Exception as e:
-        flash(f"Error al limpiar bitácora: {e}", "danger")
-    
+    """Política de protección de auditoría: no se permite eliminar registros de la bitácora"""
+    registrar_bitacora(modulo="BITACORA", accion="INTENTO_BLOQUEADO_LIMPIAR_BITACORA (Protección de Auditoría Fiscal)")
+    flash("Por políticas de auditoría y cumplimiento fiscal, los registros de la bitácora son inmutables y no pueden eliminarse. Puede exportarlos a CSV para respaldo externo.", "warning")
     return redirect(url_for('admin.admin_bitacora'))
 
 @admin_bp.route('/admin/bitacora/exportar')

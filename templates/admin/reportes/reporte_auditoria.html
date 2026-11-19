@@ -1,0 +1,457 @@
+{% extends "layout.html" %}
+
+{% block title %}Centro de Auditoría y Cumplimiento Fiscal - FerDel{% endblock %}
+
+{% block extra_css %}
+<style>
+    .audit-hero {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #064e3b 100%);
+        color: white;
+        border-radius: 20px;
+        padding: 2rem 2.25rem;
+        margin-bottom: 1.75rem;
+        box-shadow: 0 14px 32px rgba(15, 23, 42, 0.2);
+    }
+
+    .audit-kpi-card {
+        background: white;
+        border-radius: 16px;
+        padding: 1.35rem 1.5rem;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+        height: 100%;
+    }
+
+    .audit-filter-card {
+        background: white;
+        border-radius: 18px;
+        padding: 1.35rem 1.75rem;
+        border: 1px solid #e2e8f0;
+        margin-bottom: 1.75rem;
+        box-shadow: 0 6px 20px rgba(15, 23, 42, 0.03);
+    }
+
+    .audit-tabs .nav-link {
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 0.88rem;
+        color: #475569;
+        padding: 0.75rem 1.2rem;
+        border: 1px solid transparent;
+        transition: all 0.2s;
+    }
+
+    .audit-tabs .nav-link:hover {
+        background: #f1f5f9;
+        color: #0f172a;
+    }
+
+    .audit-tabs .nav-link.active {
+        background: #0f172a;
+        color: white;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.18);
+    }
+
+    .audit-panel-card {
+        background: white;
+        border-radius: 18px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 6px 22px rgba(15, 23, 42, 0.03);
+        overflow: hidden;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-0 pb-5 fade-in">
+
+    <!-- Encabezado Principal -->
+    <div class="audit-hero d-flex flex-column flex-xl-row justify-content-between align-items-xl-center gap-4">
+        <div>
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <span class="badge bg-success px-3 py-1.5 rounded-pill fw-bold">
+                    <i class="bi bi-shield-lock-fill me-1"></i> Defensa y Cumplimiento Fiscal
+                </span>
+                <span class="badge bg-light text-dark px-3 py-1.5 rounded-pill fw-semibold">
+                    <i class="bi bi-calendar-check me-1"></i> Período: {{ fecha_inicio_formatted }} — {{ fecha_fin_formatted }}
+                </span>
+            </div>
+            <h1 class="h2 fw-bold text-white mb-1">Centro de Auditoría Integral y Trazabilidad</h1>
+            <p class="text-white-50 mb-0" style="max-width: 780px;">
+                Inspecciona en pantalla la correlatividad de facturas, historial de anulaciones, respaldos de compras/gastos, kardex de inventario y bitácora de seguridad, o descarga el expediente completo en un solo archivo.
+            </p>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <!-- Expediente Completo Excel Multipestaña -->
+            <a href="{{ url_for('admin.reporte_auditoria', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, periodo=periodo, formato='expediente_excel') }}"
+               class="btn btn-success px-3.5 py-2.5 fw-bold rounded-3 shadow-sm">
+                <i class="bi bi-file-earmark-excel-fill me-1.5"></i> Descargar Expediente Completo (.XLSX)
+            </a>
+            <!-- Libro Ventas PDF -->
+            <a href="{{ url_for('admin.reporte_auditoria', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin, periodo=periodo, formato='pdf') }}"
+               class="btn btn-danger px-3 py-2.5 fw-semibold rounded-3 shadow-sm" target="_blank">
+                <i class="bi bi-file-earmark-pdf-fill me-1"></i> Libro Facturas PDF
+            </a>
+            <a href="{{ url_for('admin.reportes') }}" class="btn btn-outline-light px-3 py-2.5 rounded-3">
+                <i class="bi bi-arrow-left me-1"></i> Reportes
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtro de Fechas y Períodos -->
+    <div class="audit-filter-card">
+        <form method="GET" action="{{ url_for('admin.reporte_auditoria') }}" class="row g-3 align-items-end">
+            <div class="col-12 col-md-3">
+                <label class="form-label small fw-bold text-uppercase text-muted mb-1">Período Rápido</label>
+                <select name="periodo" class="form-select rounded-3" onchange="this.form.submit()">
+                    <option value="dia" {% if periodo == 'dia' %}selected{% endif %}>Hoy</option>
+                    <option value="ayer" {% if periodo == 'ayer' %}selected{% endif %}>Ayer</option>
+                    <option value="semana" {% if periodo == 'semana' %}selected{% endif %}>Últimos 7 Días</option>
+                    <option value="mes" {% if periodo == 'mes' %}selected{% endif %}>Este Mes</option>
+                    <option value="mes_anterior" {% if periodo == 'mes_anterior' %}selected{% endif %}>Mes Anterior</option>
+                    <option value="ano" {% if periodo == 'ano' %}selected{% endif %}>Este Año Fiscal</option>
+                    <option value="personalizado" {% if periodo == 'personalizado' %}selected{% endif %}>Rango Personalizado</option>
+                </select>
+            </div>
+            <div class="col-12 col-sm-6 col-md-3">
+                <label class="form-label small fw-bold text-uppercase text-muted mb-1">Fecha Inicio</label>
+                <input type="date" name="fecha_inicio" value="{{ fecha_inicio }}" class="form-control rounded-3">
+            </div>
+            <div class="col-12 col-sm-6 col-md-3">
+                <label class="form-label small fw-bold text-uppercase text-muted mb-1">Fecha Fin</label>
+                <input type="date" name="fecha_fin" value="{{ fecha_fin }}" class="form-control rounded-3">
+            </div>
+            <div class="col-12 col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-dark flex-grow-1 rounded-3 fw-semibold py-2">
+                    <i class="bi bi-search me-1"></i> Auditar Período
+                </button>
+                <a href="{{ url_for('admin.admin_backup') }}" class="btn btn-outline-secondary rounded-3 py-2" title="Respaldos de Base de Datos">
+                    <i class="bi bi-database-check"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Tarjetas de Diagnóstico de Cumplimiento -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="audit-kpi-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <span class="text-muted small fw-bold text-uppercase">Correlatividad de Facturas</span>
+                        {% if saltos_oficina|length == 0 and saltos_ruta|length == 0 %}
+                        <h4 class="fw-bold text-success mt-1 mb-1"><i class="bi bi-check-circle-fill me-1"></i> 100% Continua</h4>
+                        <small class="text-muted">Sin saltos de numeración en el período</small>
+                        {% else %}
+                        <h4 class="fw-bold text-warning mt-1 mb-1"><i class="bi bi-exclamation-triangle-fill me-1"></i> {{ saltos_oficina|length + saltos_ruta|length }} Saltos</h4>
+                        <small class="text-muted">Oficina: {{ saltos_oficina|length }} | Ruta: {{ saltos_ruta|length }}</small>
+                        {% endif %}
+                    </div>
+                    <span class="p-2.5 bg-success bg-opacity-10 text-success rounded-3">
+                        <i class="bi bi-list-ol fs-4"></i>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="audit-kpi-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <span class="text-muted small fw-bold text-uppercase">Facturación Activa Auditada</span>
+                        <h4 class="fw-bold text-dark mt-1 mb-1">C$ {{ "{:,.2f}".format(total_facturado_activo) }}</h4>
+                        <small class="text-success fw-semibold">{{ facturas_activas_count }} facturas válidas emitidas</small>
+                    </div>
+                    <span class="p-2.5 bg-primary bg-opacity-10 text-primary rounded-3">
+                        <i class="bi bi-receipt-cutoff fs-4"></i>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="audit-kpi-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <span class="text-muted small fw-bold text-uppercase">Facturas Anuladas</span>
+                        <h4 class="fw-bold text-danger mt-1 mb-1">C$ {{ "{:,.2f}".format(total_facturado_anulado) }}</h4>
+                        <small class="text-muted">{{ facturas_anuladas_count }} documentos anulados con motivo</small>
+                    </div>
+                    <span class="p-2.5 bg-danger bg-opacity-10 text-danger rounded-3">
+                        <i class="bi bi-file-earmark-x fs-4"></i>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="audit-kpi-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <span class="text-muted small fw-bold text-uppercase">Compras y Gastos Respaldados</span>
+                        <h4 class="fw-bold text-dark mt-1 mb-1">C$ {{ "{:,.2f}".format(total_egresos_respaldados) }}</h4>
+                        <small class="text-muted">{{ compras_gastos_auditoria|length }} documentos de soporte</small>
+                    </div>
+                    <span class="p-2.5 bg-warning bg-opacity-10 text-warning rounded-3">
+                        <i class="bi bi-folder-check fs-4"></i>
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pestañas de Inspección en Pantalla -->
+    <ul class="nav nav-pills audit-tabs gap-2 mb-3" id="auditTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-facturas" type="button" role="tab">
+                <i class="bi bi-receipt me-1.5"></i> 1. Libro de Facturas ({{ facturas_auditoria|length }})
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-anulaciones" type="button" role="tab">
+                <i class="bi bi-x-octagon me-1.5"></i> 2. Historial de Anulaciones ({{ anulaciones_log|length }})
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-egresos" type="button" role="tab">
+                <i class="bi bi-cart-check me-1.5"></i> 3. Compras y Gastos ({{ compras_gastos_auditoria|length }})
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-kardex" type="button" role="tab">
+                <i class="bi bi-box-seam me-1.5"></i> 4. Trazabilidad Inventario ({{ kardex_resumen|length }})
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-bitacora" type="button" role="tab">
+                <i class="bi bi-terminal me-1.5"></i> 5. Bitácora de Seguridad ({{ bitacora_auditoria|length }})
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+        <!-- TAB 1: LIBRO DE FACTURAS -->
+        <div class="tab-pane fade show active" id="tab-facturas" role="tabpanel">
+            <div class="audit-panel-card">
+                <div class="p-3.5 border-bottom d-flex justify-content-between align-items-center bg-light">
+                    <div>
+                        <h6 class="fw-bold mb-0">Libro Correlativo de Facturación (Oficina y Rutas)</h6>
+                        <small class="text-muted">Incluye facturas activas y anuladas en orden secuencial</small>
+                    </div>
+                </div>
+                <div class="table-responsive" style="max-height: 540px;">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-dark sticky-top">
+                            <tr>
+                                <th>N° Documento</th>
+                                <th>Origen</th>
+                                <th>Fecha Emisión</th>
+                                <th>Cliente</th>
+                                <th>RUC / Cédula</th>
+                                <th>Condición</th>
+                                <th>Estado</th>
+                                <th class="text-end">Total Neto (C$)</th>
+                                <th>Observación / Respaldo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for f in facturas_auditoria %}
+                            <tr class="{% if f.Estado == 'Anulada' %}table-danger{% endif %}">
+                                <td class="fw-bold font-monospace">{{ f.Numero_Documento }}</td>
+                                <td><span class="badge bg-secondary">{{ f.Origen }}</span></td>
+                                <td class="small">{{ f.Fecha_Emision }}</td>
+                                <td class="fw-semibold">{{ f.Cliente }}</td>
+                                <td class="small text-muted">{{ f.RUC_Cliente }}</td>
+                                <td><span class="badge bg-light text-dark border">{{ f.Condicion_Pago }}</span></td>
+                                <td>
+                                    {% if f.Estado == 'Activa' %}
+                                    <span class="badge bg-success">ACTIVA</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">ANULADA</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end fw-bold">C$ {{ "{:,.2f}".format(f.Total_Neto) }}</td>
+                                <td class="small text-muted" style="max-width: 280px;">{{ f.Observacion }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="9" class="text-center py-4 text-muted">No hay facturas registradas en este período.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: HISTORIAL DE ANULACIONES -->
+        <div class="tab-pane fade" id="tab-anulaciones" role="tabpanel">
+            <div class="audit-panel-card">
+                <div class="p-3.5 border-bottom bg-light">
+                    <h6 class="fw-bold mb-0">Registro Forense de Facturas Anuladas</h6>
+                    <small class="text-muted">Respaldo de quién autorizó cada anulación, fecha exacta y motivo justificado</small>
+                </div>
+                <div class="table-responsive" style="max-height: 540px;">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-dark sticky-top">
+                            <tr>
+                                <th>Documento</th>
+                                <th>Origen</th>
+                                <th>Fecha y Hora Anulación</th>
+                                <th>Autorizado Por</th>
+                                <th>Motivo Justificado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for a in anulaciones_log %}
+                            <tr>
+                                <td class="fw-bold font-monospace text-danger">{{ a.Numero_Documento }}</td>
+                                <td><span class="badge bg-secondary">{{ a.Origen }}</span></td>
+                                <td class="small font-monospace">{{ a.Fecha_Anulacion }}</td>
+                                <td><span class="badge bg-info text-dark">{{ a.Usuario_Autoriza }}</span></td>
+                                <td class="fw-semibold">{{ a.Motivo }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center py-4 text-muted">No se registraron anulaciones en este período.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: COMPRAS Y GASTOS -->
+        <div class="tab-pane fade" id="tab-egresos" role="tabpanel">
+            <div class="audit-panel-card">
+                <div class="p-3.5 border-bottom bg-light">
+                    <h6 class="fw-bold mb-0">Libro de Compras y Gastos Operativos</h6>
+                    <small class="text-muted">Respaldo de egresos con número de factura, proveedor y RUC</small>
+                </div>
+                <div class="table-responsive" style="max-height: 540px;">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-dark sticky-top">
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Tipo Egreso</th>
+                                <th>N° Factura / Doc</th>
+                                <th>Proveedor</th>
+                                <th>RUC Proveedor</th>
+                                <th>Condición / Pago</th>
+                                <th>Estado</th>
+                                <th class="text-end">Monto (C$)</th>
+                                <th>Registrado Por</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cg in compras_gastos_auditoria %}
+                            <tr>
+                                <td class="small">{{ cg.Fecha }}</td>
+                                <td class="fw-semibold">{{ cg.Tipo_Egreso }}</td>
+                                <td class="font-monospace fw-bold">{{ cg.Numero_Factura }}</td>
+                                <td>{{ cg.Proveedor }}</td>
+                                <td class="small text-muted">{{ cg.RUC_Proveedor }}</td>
+                                <td><span class="badge bg-light text-dark border">{{ cg.Condicion }}</span></td>
+                                <td><span class="badge bg-success">{{ cg.Estado }}</span></td>
+                                <td class="text-end fw-bold">C$ {{ "{:,.2f}".format(cg.Monto_Total) }}</td>
+                                <td class="small text-muted">{{ cg.Registrado_Por }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="9" class="text-center py-4 text-muted">No hay compras ni gastos registrados en este período.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: TRAZABILIDAD DE INVENTARIO -->
+        <div class="tab-pane fade" id="tab-kardex" role="tabpanel">
+            <div class="audit-panel-card">
+                <div class="p-3.5 border-bottom d-flex justify-content-between align-items-center bg-light">
+                    <div>
+                        <h6 class="fw-bold mb-0">Resumen de Movimientos de Inventario (Entradas vs. Salidas)</h6>
+                        <small class="text-muted">Para ver el detalle documento por documento, puedes abrir el Kardex Completo</small>
+                    </div>
+                    <a href="{{ url_for('admin.reporte_kardex', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-sm btn-outline-primary rounded-3">
+                        <i class="bi bi-box-arrow-up-right me-1"></i> Abrir Kardex Detallado
+                    </a>
+                </div>
+                <div class="table-responsive" style="max-height: 540px;">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-dark sticky-top">
+                            <tr>
+                                <th>Código</th>
+                                <th>Producto</th>
+                                <th class="text-end text-success">Entradas en Período</th>
+                                <th class="text-end text-danger">Salidas en Período</th>
+                                <th class="text-end">Stock Actual en Bodegas</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for k in kardex_resumen %}
+                            <tr>
+                                <td class="font-monospace fw-bold">{{ k.Codigo }}</td>
+                                <td class="fw-semibold">{{ k.Producto }}</td>
+                                <td class="text-end text-success fw-bold">+{{ "{:,.2f}".format(k.Entradas_Periodo) }}</td>
+                                <td class="text-end text-danger fw-bold">-{{ "{:,.2f}".format(k.Salidas_Periodo) }}</td>
+                                <td class="text-end fw-bold">{{ "{:,.2f}".format(k.Stock_Bodega_Actual) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center py-4 text-muted">Sin movimientos de inventario en este período.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 5: BITÁCORA DE SEGURIDAD -->
+        <div class="tab-pane fade" id="tab-bitacora" role="tabpanel">
+            <div class="audit-panel-card">
+                <div class="p-3.5 border-bottom bg-light">
+                    <h6 class="fw-bold mb-0">Bitácora Inmutable de Seguridad y Accesos</h6>
+                    <small class="text-muted">Registro cronológico de inicios de sesión, direcciones IP y operaciones críticas</small>
+                </div>
+                <div class="table-responsive" style="max-height: 540px;">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-dark sticky-top">
+                            <tr>
+                                <th>ID</th>
+                                <th>Fecha y Hora</th>
+                                <th>Usuario</th>
+                                <th>Módulo</th>
+                                <th>Acción Registrada</th>
+                                <th>Dirección IP</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for b in bitacora_auditoria %}
+                            <tr>
+                                <td class="font-monospace small text-muted">#{{ b.ID_Bitacora }}</td>
+                                <td class="font-monospace small">{{ b.Fecha_Hora }}</td>
+                                <td><span class="badge bg-info text-dark">{{ b.Usuario }}</span></td>
+                                <td><span class="badge bg-primary">{{ b.Modulo }}</span></td>
+                                <td class="font-monospace small">{{ b.Accion }}</td>
+                                <td class="font-monospace small text-muted">{{ b.IP_Acceso }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-muted">No hay eventos en la bitácora para este período.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

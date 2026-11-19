@@ -1262,8 +1262,9 @@ def admin_generar_ticket(id_factura):
                 descuento = subtotal_productos
             total_venta_actual = max(0.0, subtotal_productos - descuento)
             
-            # Filtrar productos con precio 0 para que no se muestren en la factura
-            detalles = [detalle for detalle in detalles if float(detalle['Precio'] or 0) > 0]
+            # Marcar productos con precio 0 como Bonificación / Regalía para que el ticket refleje todo el inventario despachado
+            for detalle in detalles:
+                detalle['Es_Bonificacion'] = float(detalle.get('Precio') or 0) <= 0
             
             # (El saldo pendiente se calculará después de obtener el abono)
             
@@ -3318,6 +3319,14 @@ def admin_anular_factura():
                 # Mensaje de éxito
                 total_cantidad = sum(float(d['Cantidad']) for d in detalles)
                 total_monto = sum(float(d['Total']) for d in detalles if d['Total'])
+                
+                # Registrar detalle completo en la bitácora de auditoría
+                from helpers.bitacora import registrar_bitacora
+                registrar_bitacora(
+                    id_usuario=user_id,
+                    modulo="FACTURA_ANULAR",
+                    accion=f"ANULACIÓN FACTURA ({tipo.upper()}) #{id_factura} | Monto: C${total_monto:,.2f} | Unids: {total_cantidad} | Motivo: {motivo}"
+                )
                 
                 caja_msg = f' y C${monto_caja_anulado:,.2f} anulados de caja' if monto_caja_anulado > 0 else ''
                 
