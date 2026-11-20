@@ -192,11 +192,15 @@
                     <!-- VISTA MÓVIL: Tarjetas de productos -->
                     <div class="d-block d-lg-none">
                         {% for item in detalles %}
+                        {% set es_regalia = (item.Precio|default(0)|float) <= 0 %}
                         <div class="producto-card p-2 border-bottom">
                             <div class="d-flex justify-content-between align-items-start mb-1">
                                 <div>
                                     <span class="badge bg-secondary">{{ item.COD_Producto }}</span>
                                     <span class="badge bg-info">{{ loop.index }}</span>
+                                    {% if es_regalia %}
+                                    <span class="badge bg-success">🎁 REGALÍA</span>
+                                    {% endif %}
                                 </div>
                                 <span class="fw-bold text-success">C$ {{ item.Total|round(2) }}</span>
                             </div>
@@ -208,7 +212,11 @@
                                 </div>
                                 <div class="col-6">
                                     <small class="text-muted d-block">Precio Unit.:</small>
+                                    {% if es_regalia %}
+                                    <span class="badge bg-success">REGALÍA (C$ 0.00)</span>
+                                    {% else %}
                                     <span>C$ {{ item.Precio|round(2) }}</span>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -230,16 +238,26 @@
                             </thead>
                             <tbody>
                                 {% for item in detalles %}
+                                {% set es_regalia = (item.Precio|default(0)|float) <= 0 %}
                                 <tr>
                                     <td>{{ loop.index }}</td>
                                     <td><small>{{ item.COD_Producto }}</small></td>
                                     <td>
                                         {{ item.Producto }}
+                                        {% if es_regalia %}
+                                        <span class="badge bg-success ms-1">🎁 REGALÍA</span>
+                                        {% endif %}
                                         <small class="d-block text-muted">{{ item.Unidad_Medida or 'U' }}</small>
                                     </td>
                                     <td class="text-center">{{ item.Cantidad | cantidad }}</td>
-                                    <td class="text-end">C$ {{ item.Precio|round(2) }}</td>
-                                    <td class="text-end fw-bold">$ {{ item.Total|round(2) }}</td>
+                                    <td class="text-end">
+                                        {% if es_regalia %}
+                                        <span class="badge bg-success">REGALÍA (C$ 0.00)</span>
+                                        {% else %}
+                                        C$ {{ item.Precio|round(2) }}
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end fw-bold">C$ {{ item.Total|round(2) }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>

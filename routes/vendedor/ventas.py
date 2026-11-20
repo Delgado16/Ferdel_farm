@@ -1110,14 +1110,13 @@ def vendedor_generar_ticket_ruta(id_venta):
                 descuento = subtotal_productos
             total_venta = max(0.0, subtotal_productos - descuento)
             
-            # Filtrar productos con precio 0 para que no se muestren en la factura
-            detalles = [detalle for detalle in detalles if float(detalle['Precio'] or 0) > 0]
-            
-            # Calcular subtotales por producto
+            # Marcar productos con precio 0 como Bonificación / Regalía para que se muestren en la factura
             for detalle in detalles:
+                es_regalia = float(detalle.get('Precio') or 0) <= 0
+                detalle['Es_Bonificacion'] = es_regalia
                 detalle['Subtotal_Calculado'] = float(detalle['Cantidad']) * float(detalle['Precio'])
                 detalle['Cantidad_Formateada'] = f"{float(detalle['Cantidad']):g}"
-                detalle['Precio_Formateado'] = f"C$ {float(detalle['Precio']):,.2f}"
+                detalle['Precio_Formateado'] = "REGALÍA" if es_regalia else f"C$ {float(detalle['Precio']):,.2f}"
                 detalle['Subtotal_Formateado'] = f"C$ {float(detalle['Subtotal']):,.2f}"
             
             # Variables para información de crédito

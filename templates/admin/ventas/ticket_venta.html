@@ -462,8 +462,8 @@
                     <td class="text-left">
                         <div class="product-desc">
                             {{ item.Producto[:30] }}{% if item.Producto|length > 30 %}...{% endif %}
-                            {% if item.Es_Bonificacion %}
-                            <span class="product-code">(BONIF.)</span>
+                            {% if item.Es_Bonificacion or (item.Precio is defined and (item.Precio|float) <= 0) %}
+                            <span class="bold">(REGALÍA)</span>
                             {% endif %}
                         </div>
                         {% if item.COD_Producto and item.COD_Producto != 'N/A' %}
@@ -471,7 +471,13 @@
                         {% endif %}
                     </td>
                     <td class="text-right">{{ item.Cantidad_Formateada }}</td>
-                    <td class="text-right">{{ item.Precio_Formateado }}</td>
+                    <td class="text-right">
+                        {% if item.Es_Bonificacion or (item.Precio is defined and (item.Precio|float) <= 0) %}
+                        REGALÍA
+                        {% else %}
+                        {{ item.Precio_Formateado }}
+                        {% endif %}
+                    </td>
                     <td class="text-right">{{ item.Subtotal_Formateado }}</td>
                 </tr>
                 {% endfor %}

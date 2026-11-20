@@ -2338,19 +2338,38 @@
         if (!select) return;
         const valorGuardado = select.value;
         select.innerHTML = '';
-        let productosAMostrar = productosFiltradosPorCliente.length > 0 ? productosFiltradosPorCliente : productosBase;
 
-        // Aplicar filtro de categoría si está activo
-        if (filtroCategoriaActual && filtroCategoriaActual !== '0') {
-            productosAMostrar = productosAMostrar.filter(p => (p.ID_Categoria || p.id_categoria) == filtroCategoriaActual);
-        }
+        // Detectar si esta fila es una Regalía / Bonificación o Producto Extra
+        const card = select.closest('.product-card');
+        const esBonif = card?.querySelector('.es-bonificacion-flag')?.value === '1';
+        const esExtra = card?.querySelector('.es-extra-flag')?.value === '1';
 
-        // Aplicar filtro de bodegas seleccionadas
-        const bodegasSeleccionadas = Array.from(document.querySelectorAll('.filtro-bodega-cb:checked')).map(cb => cb.value);
-        if (bodegasSeleccionadas.length > 0) {
-            productosAMostrar = productosAMostrar.filter(p => bodegasSeleccionadas.includes(String(p.ID_Bodega || '1')));
+        // Si es regalía (o extra sin categoría filtrada), mostrar TODOS los productos de TODAS las bodegas sin importar el tipo de cliente
+        let productosAMostrar = [];
+        if (esBonif) {
+            productosAMostrar = (productosBase && productosBase.length > 0) ? [...productosBase] : [...productosFiltradosPorCliente];
+        } else if (esExtra) {
+            const catId = card?.querySelector('.categoria-extra-select')?.value;
+            if (catId) {
+                productosAMostrar = productosBase.filter(p => (p.ID_Categoria || p.id_categoria) == catId);
+            } else {
+                productosAMostrar = [...productosBase];
+            }
         } else {
-            productosAMostrar = []; // Si no hay ninguna bodega seleccionada, no mostrar nada
+            productosAMostrar = productosFiltradosPorCliente.length > 0 ? [...productosFiltradosPorCliente] : [...productosBase];
+
+            // Aplicar filtro de categoría si está activo (solo para filas de venta normal)
+            if (filtroCategoriaActual && filtroCategoriaActual !== '0') {
+                productosAMostrar = productosAMostrar.filter(p => (p.ID_Categoria || p.id_categoria) == filtroCategoriaActual);
+            }
+
+            // Aplicar filtro de bodegas seleccionadas (solo para filas de venta normal)
+            const bodegasSeleccionadas = Array.from(document.querySelectorAll('.filtro-bodega-cb:checked')).map(cb => cb.value);
+            if (bodegasSeleccionadas.length > 0) {
+                productosAMostrar = productosAMostrar.filter(p => bodegasSeleccionadas.includes(String(p.ID_Bodega || '1')));
+            } else {
+                productosAMostrar = [];
+            }
         }
 
         if (productosAMostrar.length === 0) {

@@ -1492,13 +1492,25 @@
                             </thead>
                             <tbody>
                                 {% for detalle in detalles_factura %}
+                                {% set precio_item = (detalle.Precio if detalle.Precio is defined else detalle.Costo)|default(0)|float %}
+                                {% set es_regalia = precio_item <= 0 or (detalle.Total|default(0)|float) <= 0 %}
                                 <tr>
                                     <td><span class="badge-pill-custom badge-slate font-monospace">{{
                                             detalle.Codigo_Producto }}</span></td>
-                                    <td><strong class="text-slate-800">{{ detalle.Nombre_Producto }}</strong></td>
+                                    <td>
+                                        <strong class="text-slate-800">{{ detalle.Nombre_Producto }}</strong>
+                                        {% if es_regalia %}
+                                        <span class="badge-pill-custom badge-emerald ms-1">🎁 REGALÍA</span>
+                                        {% endif %}
+                                    </td>
                                     <td class="text-end fw-bold">{{ detalle.Cantidad }}</td>
-                                    <td class="text-end font-monospace">C$ {{
-                                        "{:,.2f}".format((detalle.Precio|default(0))|float) }}</td>
+                                    <td class="text-end font-monospace">
+                                        {% if es_regalia %}
+                                        <span class="badge-pill-custom badge-emerald">REGALÍA (C$ 0.00)</span>
+                                        {% else %}
+                                        C$ {{ "{:,.2f}".format(precio_item) }}
+                                        {% endif %}
+                                    </td>
                                     <td class="text-end font-monospace text-muted">C$ {{
                                         "{:,.2f}".format((detalle.Costo|default(0))|float) }}</td>
                                     <td class="text-end fw-bold font-monospace text-success">

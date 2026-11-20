@@ -149,10 +149,16 @@
                             </thead>
                             <tbody>
                                 {% for detalle in detalles %}
+                                {% set es_regalia_prov = (detalle.Costo_Unitario|default(0)|float) <= 0 %}
                                 <tr>
                                     <td>{{ loop.index }}</td>
                                     <td class="fw-bold text-slate-800">{{ detalle.COD_Producto or 'N/A' }}</td>
-                                    <td>{{ detalle.Producto_Desc or 'N/A' }}</td>
+                                    <td>
+                                        {{ detalle.Producto_Desc or 'N/A' }}
+                                        {% if es_regalia_prov %}
+                                        <span class="badge bg-warning text-dark ms-1">🎁 Bonificación Prov.</span>
+                                        {% endif %}
+                                    </td>
                                     <td class="text-center text-slate-800 fw-bold">{{ detalle.Cantidad | cantidad }}</td>
                                     <td class="text-center"><span class="badge bg-light text-dark border">{{ detalle.Unidad_Medida or detalle.Simbolo_Medida or 'UNIDAD' }}</span></td>
                                     <td class="text-end">C$ {{ detalle.Costo_Unitario | cantidad }}</td>
@@ -163,10 +169,25 @@
                                 {% endfor %}
                             </tbody>
                             <tfoot class="table-light border-top">
+                                {% if descuento_compra is defined and descuento_compra > 0 %}
+                                <tr>
+                                    <th colspan="8" class="text-end fw-semibold text-secondary">SUBTOTAL BRUTO:</th>
+                                    <th class="text-end fw-semibold text-slate-800">C$ {{ subtotal_bruto | cantidad }}</th>
+                                </tr>
+                                <tr class="text-danger">
+                                    <th colspan="8" class="text-end fw-bold"><i class="fas fa-tag me-1"></i>DESCUENTO PROVEEDOR:</th>
+                                    <th class="text-end fw-bold">- C$ {{ descuento_compra | cantidad }}</th>
+                                </tr>
+                                <tr>
+                                    <th colspan="8" class="text-end fw-bold">TOTAL NETO COMPRA:</th>
+                                    <th class="text-end fw-bold text-success" style="font-size: 1.15rem;">C$ {{ total_compra | cantidad }}</th>
+                                </tr>
+                                {% else %}
                                 <tr>
                                     <th colspan="8" class="text-end fw-bold">TOTAL COMPRA:</th>
                                     <th class="text-end fw-bold text-success" style="font-size: 1.15rem;">C$ {{ total_compra | cantidad }}</th>
                                 </tr>
+                                {% endif %}
                                 <tr>
                                     <th colspan="8" class="text-end text-muted small">CANTIDAD TOTAL:</th>
                                     <th class="text-end text-muted small">{{ total_cantidad | cantidad }} unidades</th>

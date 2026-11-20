@@ -551,8 +551,14 @@
                 <div class="confirm-summary-item" id="confirm-fecha-vencimiento-container" style="display: none;">
                     <span>Fecha Vencimiento:</span> <strong id="confirm-fecha-vencimiento"></strong>
                 </div>
+                <div class="confirm-summary-item" id="confirm-subtotal-bruto-container" style="display: none;">
+                    <span>Subtotal Bruto:</span> <strong id="confirm-subtotal-bruto"></strong>
+                </div>
+                <div class="confirm-summary-item text-danger" id="confirm-descuento-container" style="display: none;">
+                    <span>Descuento Proveedor:</span> <strong id="confirm-descuento"></strong>
+                </div>
                 <div class="confirm-summary-total">
-                    <span>TOTAL COMPRA:</span> <strong id="confirm-total-compra"></strong>
+                    <span>TOTAL NETO COMPRA:</span> <strong id="confirm-total-compra"></strong>
                 </div>
                 <div class="confirm-summary-item" id="confirm-total-pagado-container" style="display: none;">
                     <span>MONTO PAGADO HOY:</span> <strong id="confirm-total-pagado" style="color: #198754;"></strong>
@@ -623,6 +629,9 @@
                     <div class="quick-actions mb-0">
                         <button type="button" class="btn btn-success btn-sm" id="btn-agregar-producto" title="Agregar fila vacía">
                             <i class="fas fa-plus me-1"></i>Fila Normal
+                        </button>
+                        <button type="button" class="btn btn-warning btn-sm text-dark fw-semibold" id="btn-agregar-regalia-compra" title="Agregar producto bonificado / regalía del proveedor a costo C$ 0.00">
+                            <i class="fas fa-gift me-1"></i>+ Bonificación / Regalía
                         </button>
                     </div>
                 </div>
@@ -772,6 +781,35 @@
                         </div>
                     </div>
 
+                    <!-- 3.5 DESCUENTO OPCIONAL DE PROVEEDOR -->
+                    <div class="mb-2 p-2 rounded border" style="background: #fffdf5; border-color: #fde68a !important;">
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" id="check_aplicar_descuento_compra">
+                            <label class="form-check-label small fw-bold text-dark" for="check_aplicar_descuento_compra" style="cursor: pointer;">
+                                <i class="fas fa-tags text-warning me-1"></i>¿El proveedor aplicó Descuento?
+                            </label>
+                        </div>
+                        <div id="contenedor_input_descuento_compra" style="display: none; margin-top: 0.5rem;">
+                            <div class="row g-1 align-items-center">
+                                <div class="col-5">
+                                    <select id="tipo_descuento_compra" class="form-select form-select-sm">
+                                        <option value="monto" selected>Monto (C$)</option>
+                                        <option value="porcentaje">Porcentaje (%)</option>
+                                    </select>
+                                </div>
+                                <div class="col-7">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text" id="simbolo_descuento_compra">C$</span>
+                                        <input type="number" class="form-control" id="descuento_valor_compra" step="0.01" min="0" value="0" placeholder="0.00">
+                                    </div>
+                                </div>
+                            </div>
+                            <small class="text-muted d-block mt-1" style="font-size: 0.72rem;">
+                                Se descontará del total a pagar y prorrateará el costo neto en Kardex.
+                            </small>
+                        </div>
+                    </div>
+
                     <!-- 4. RESUMEN DE TOTALES -->
                     <div class="total-summary">
                         <div class="total-row">
@@ -779,8 +817,12 @@
                             <span id="total-productos" class="fw-bold text-dark">0</span>
                         </div>
                         <div class="total-row">
-                            <span>Subtotal:</span>
+                            <span>Subtotal Bruto:</span>
                             <span id="subtotal" class="fw-bold text-dark">C$ 0.00</span>
+                        </div>
+                        <div class="total-row text-danger" id="fila-descuento-resumen-compra" style="display: none;">
+                            <span class="fw-bold"><i class="fas fa-tag me-1"></i>Descuento Prov.:</span>
+                            <span id="descuento-compra-resumen" class="fw-bold">-C$ 0.00</span>
                         </div>
                         <div class="total-row grand-total">
                             <span>TOTAL COMPRA:</span>
@@ -1466,6 +1508,71 @@
         return id;
     };
 
+    window.agregarRegaliaCompra = function() {
+        contadorProductos++;
+        const id = contadorProductos;
+
+        const template = `
+        <div class="product-card" id="producto-card-${id}" style="border-left: 4px solid #ffc107; background-color: #fffdf5;">
+            <input type="hidden" class="es-regalia-compra-flag" value="1">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="small fw-bold text-warning-emphasis" style="font-size: 0.74rem;">
+                    <i class="fas fa-gift me-1"></i>Bonificación / Regalía de Proveedor (Costo C$ 0.00)
+                </span>
+            </div>
+            <div class="product-grid">
+                <div class="producto-col">
+                    <label class="form-label required-field">Producto</label>
+                    <select class="form-select form-select-sm producto-select" name="productos[]" required onchange="actualizarInfoProducto(${id})">
+                    </select>
+                    <div class="invalid-feedback">Seleccione un producto</div>
+                    <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+                        <small class="stock-info" id="stock-info-${id}" style="display: none; font-size: 0.72rem;"></small>
+                    </div>
+                </div>
+                <div class="cantidad-col">
+                    <label class="form-label required-field">Cantidad</label>
+                    <div class="input-group input-group-sm">
+                        <input type="number" class="form-control form-control-sm cantidad" name="cantidades[]" step="0.01" min="0.01" value="1" required oninput="calcularSubtotal(${id})">
+                        <span class="input-group-text unidad-simbolo">und</span>
+                    </div>
+                    <div class="invalid-feedback">Cantidad válida requerida</div>
+                </div>
+                <div>
+                    <label class="form-label">Costo Unitario</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text">C$</span>
+                        <input type="number" class="form-control form-control-sm costo" name="costos_unitarios[]" value="0.00" readonly style="background: #f1f5f9;">
+                    </div>
+                    <div class="ultimo-costo-info small mt-1" id="ultimo-costo-info-${id}" style="display: none; font-size: 0.72rem;"></div>
+                </div>
+                <div>
+                    <label class="form-label">Subtotal</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text">C$</span>
+                        <input type="text" class="form-control form-control-sm subtotal fw-bold" data-value="0.00" value="C$ 0.00" readonly style="background: #f8fafc; color: #15803d;">
+                    </div>
+                </div>
+                <div class="text-center">
+                    <button type="button" class="btn btn-outline-danger btn-sm p-1 px-2" onclick="eliminarProducto(${id})" title="Quitar producto">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>`;
+
+        const container = document.getElementById('productos-container');
+        if (container) {
+            container.insertAdjacentHTML('beforeend', template);
+            const nuevoSelect = document.querySelector(`#producto-card-${id} .producto-select`);
+            llenarSelectProductos(nuevoSelect);
+        }
+        actualizarMensajeProductos();
+        actualizarTotales();
+        actualizarContadorItemsBadge();
+        return id;
+    };
+
     window.eliminarProducto = function(id) {
         const tarjeta = document.getElementById(`producto-card-${id}`);
         if (tarjeta) {
@@ -1575,8 +1682,10 @@
                     `;
                     ultimoCostoInfo.style.display = 'block';
 
-                    // Si el costo actual en el input es 0 o vacío, auto-sugerir el último costo
-                    if (costoInput) {
+                    // Si el costo actual en el input es 0 o vacío (y no es fila de regalía), auto-sugerir el último costo
+                    const cardEl = document.getElementById(`producto-card-${id}`);
+                    const esRegaliaFila = cardEl?.querySelector('.es-regalia-compra-flag')?.value === '1';
+                    if (costoInput && !esRegaliaFila) {
                         const valActual = parseFloat(costoInput.value) || 0;
                         if (valActual === 0) {
                             costoInput.value = uCosto.toFixed(2);
@@ -1636,28 +1745,73 @@
         actualizarTotales();
     };
 
-    function actualizarTotales() {
-        let totalCompra = 0;
-        let totalProductos = 0;
-
+    function calcularSubtotalBrutoCompra() {
+        let subtotalBruto = 0;
         document.querySelectorAll('.product-card').forEach(producto => {
             const subtotalInput = producto.querySelector('.subtotal');
             if (subtotalInput && subtotalInput.dataset.value) {
                 const valor = parseFloat(subtotalInput.dataset.value) || 0;
-                if (valor > 0) {
-                    totalCompra += valor;
-                    totalProductos++;
-                }
+                if (valor > 0) subtotalBruto += valor;
             }
         });
+        return subtotalBruto;
+    }
+
+    function calcularDescuentoCompra(subtotalBruto = null) {
+        const checkDesc = document.getElementById('check_aplicar_descuento_compra');
+        if (!checkDesc || !checkDesc.checked) return 0;
+
+        const base = subtotalBruto !== null ? subtotalBruto : calcularSubtotalBrutoCompra();
+        const tipoDesc = document.getElementById('tipo_descuento_compra')?.value || 'monto';
+        const valInput = Math.max(0, parseFloat(document.getElementById('descuento_valor_compra')?.value) || 0);
+
+        let descuentoMonto = 0;
+        if (tipoDesc === 'porcentaje') {
+            const pct = Math.min(100, valInput);
+            descuentoMonto = (base * pct) / 100.0;
+        } else {
+            descuentoMonto = valInput;
+        }
+        return Math.min(base, Math.round(descuentoMonto * 100) / 100);
+    }
+
+    function actualizarTotales() {
+        let subtotalBruto = 0;
+        let totalProductos = 0;
+
+        document.querySelectorAll('.product-card').forEach(producto => {
+            const select = producto.querySelector('.producto-select');
+            const cantidad = parseFloat(producto.querySelector('.cantidad')?.value) || 0;
+            const subtotalInput = producto.querySelector('.subtotal');
+            const valor = (subtotalInput && subtotalInput.dataset.value) ? (parseFloat(subtotalInput.dataset.value) || 0) : 0;
+            if (select && select.value && cantidad > 0) {
+                subtotalBruto += valor;
+                totalProductos++;
+            }
+        });
+
+        const descuento = calcularDescuentoCompra(subtotalBruto);
+        const totalCompraNeto = Math.max(0, subtotalBruto - descuento);
 
         const elTotal = document.getElementById('total-compra');
         const elSubtotal = document.getElementById('subtotal');
         const elTotalProds = document.getElementById('total-productos');
+        const filaDesc = document.getElementById('fila-descuento-resumen-compra');
+        const elDesc = document.getElementById('descuento-compra-resumen');
 
-        if (elTotal) elTotal.textContent = formatearMoneda(totalCompra);
-        if (elSubtotal) elSubtotal.textContent = formatearMoneda(totalCompra);
+        if (elSubtotal) elSubtotal.textContent = formatearMoneda(subtotalBruto);
+        if (elTotal) elTotal.textContent = formatearMoneda(totalCompraNeto);
         if (elTotalProds) elTotalProds.textContent = totalProductos;
+
+        if (filaDesc && elDesc) {
+            if (descuento > 0) {
+                filaDesc.style.display = 'flex';
+                elDesc.textContent = `-${formatearMoneda(descuento)}`;
+            } else {
+                filaDesc.style.display = 'none';
+                elDesc.textContent = '-C$ 0.00';
+            }
+        }
 
         actualizarContadorItemsBadge();
         actualizarTotalPagado();
@@ -1717,16 +1871,18 @@
             const select = tarjeta.querySelector(".producto-select");
             const cantidad = tarjeta.querySelector(".cantidad");
             const costo = tarjeta.querySelector(".costo");
+            const esRegalia = tarjeta.querySelector(".es-regalia-compra-flag")?.value === '1';
             if (!select || !cantidad || !costo) return;
 
             const cantidadVal = parseFloat(cantidad.value) || 0;
-            const costoVal = parseFloat(costo.value) || 0;
+            const costoVal = parseFloat(costo.value);
+            const costoValido = esRegalia ? (!isNaN(costoVal) && costoVal >= 0) : (!isNaN(costoVal) && costoVal >= 0);
 
             select.classList.remove("is-invalid");
             cantidad.classList.remove("is-invalid");
             costo.classList.remove("is-invalid");
 
-            if (select.value && cantidadVal > 0 && costoVal > 0) {
+            if (select.value && cantidadVal > 0 && costoValido) {
                 hayProductosValidos = true;
             } else {
                 if (!select.value) {
@@ -1737,7 +1893,7 @@
                     cantidad.classList.add("is-invalid");
                     if (!primerError) primerError = cantidad;
                 }
-                if (costoVal <= 0) {
+                if (!costoValido) {
                     costo.classList.add("is-invalid");
                     if (!primerError) primerError = costo;
                 }
@@ -1879,6 +2035,24 @@
         document.getElementById('confirm-total-productos').textContent = totalProductos;
         document.getElementById('confirm-total-compra').textContent = totalCompra;
 
+        const subtotalBrutoNum = calcularSubtotalBrutoCompra();
+        const descuentoNum = calcularDescuentoCompra(subtotalBrutoNum);
+        const subBrutoContainer = document.getElementById('confirm-subtotal-bruto-container');
+        const descContainer = document.getElementById('confirm-descuento-container');
+        if (descuentoNum > 0) {
+            if (subBrutoContainer) {
+                subBrutoContainer.style.display = 'flex';
+                document.getElementById('confirm-subtotal-bruto').textContent = formatearMoneda(subtotalBrutoNum);
+            }
+            if (descContainer) {
+                descContainer.style.display = 'flex';
+                document.getElementById('confirm-descuento').textContent = `-${formatearMoneda(descuentoNum)}`;
+            }
+        } else {
+            if (subBrutoContainer) subBrutoContainer.style.display = 'none';
+            if (descContainer) descContainer.style.display = 'none';
+        }
+
         const totalPagadoContainer = document.getElementById('confirm-total-pagado-container');
         const saldoContainer = document.getElementById('confirm-saldo-container');
         const fechaContainer = document.getElementById('confirm-fecha-vencimiento-container');
@@ -1912,15 +2086,19 @@
             const cantidad = tarjeta.querySelector('.cantidad');
             const costo = tarjeta.querySelector('.costo');
             const subtotal = tarjeta.querySelector('.subtotal');
-            if (select && select.value && cantidad && parseFloat(cantidad.value) > 0 && costo && parseFloat(costo.value) > 0) {
+            if (select && select.value && cantidad && parseFloat(cantidad.value) > 0 && costo && parseFloat(costo.value) >= 0) {
                 const nombreLimpio = select.options[select.selectedIndex]?.text.split(' (')[0] || 'Producto';
+                const esBonifItem = parseFloat(costo.value) === 0;
                 const pDiv = document.createElement('div');
                 pDiv.className = 'confirm-product-item';
                 pDiv.innerHTML = `
-                    <div class="confirm-product-name"><strong>${nombreLimpio}</strong></div>
+                    <div class="confirm-product-name">
+                        <strong>${nombreLimpio}</strong>
+                        ${esBonifItem ? '<span class="badge bg-warning text-dark ms-1">🎁 Bonificación</span>' : ''}
+                    </div>
                     <div class="confirm-product-details">
                         <span>${cantidad.value} und</span>
-                        <span>${formatearMoneda(costo.value)}</span>
+                        <span>${esBonifItem ? 'C$ 0.00' : formatearMoneda(costo.value)}</span>
                         <span class="fw-bold">${formatearMoneda(extraerNumeroDeMoneda(subtotal?.value))}</span>
                     </div>`;
                 productList.appendChild(pDiv);
@@ -2014,6 +2192,7 @@
         formData.append('id_bodega', document.getElementById('id_bodega')?.value || '');
         formData.append('observacion', document.getElementById('observacion')?.value || '');
         formData.append('id_usuario_creacion', document.getElementById('id_usuario_creacion')?.value || '1');
+        formData.append('descuento', calcularDescuentoCompra().toFixed(2));
 
         const fechaVencimiento = document.getElementById('fecha_vencimiento')?.value;
         if (fechaVencimiento) formData.append('fecha_vencimiento', fechaVencimiento);
@@ -2048,8 +2227,8 @@
 
             if (select && select.value && cantidad && costo) {
                 const qtyVal = parseFloat(cantidad.value) || 0;
-                const costoVal = parseFloat(costo.value) || 0;
-                if (qtyVal > 0 && costoVal > 0) {
+                const costoVal = parseFloat(costo.value);
+                if (qtyVal > 0 && !isNaN(costoVal) && costoVal >= 0) {
                     formData.append('productos[]', select.value);
                     formData.append('cantidades[]', qtyVal.toFixed(2));
                     formData.append('costos_unitarios[]', costoVal.toFixed(2));
@@ -2261,6 +2440,38 @@
         // Botones de producto y filtro de categorías
         const btnAddProd = document.getElementById('btn-agregar-producto');
         if (btnAddProd) btnAddProd.addEventListener('click', agregarProducto);
+
+        const btnAddRegaliaCompra = document.getElementById('btn-agregar-regalia-compra');
+        if (btnAddRegaliaCompra) btnAddRegaliaCompra.addEventListener('click', agregarRegaliaCompra);
+
+        // Descuento opcional de proveedor
+        const checkDescCompra = document.getElementById('check_aplicar_descuento_compra');
+        const contDescCompra = document.getElementById('contenedor_input_descuento_compra');
+        const tipoDescCompra = document.getElementById('tipo_descuento_compra');
+        const simboloDescCompra = document.getElementById('simbolo_descuento_compra');
+        const valorDescCompra = document.getElementById('descuento_valor_compra');
+
+        if (checkDescCompra) {
+            checkDescCompra.addEventListener('change', function () {
+                if (contDescCompra) contDescCompra.style.display = this.checked ? 'block' : 'none';
+                if (!this.checked && valorDescCompra) {
+                    valorDescCompra.value = '0';
+                } else if (this.checked && valorDescCompra) {
+                    valorDescCompra.focus();
+                    valorDescCompra.select();
+                }
+                actualizarTotales();
+            });
+        }
+        if (tipoDescCompra) {
+            tipoDescCompra.addEventListener('change', function () {
+                if (simboloDescCompra) simboloDescCompra.textContent = this.value === 'porcentaje' ? '%' : 'C$';
+                actualizarTotales();
+            });
+        }
+        if (valorDescCompra) {
+            valorDescCompra.addEventListener('input', actualizarTotales);
+        }
 
         const btnPrimer = document.getElementById('btn-agregar-primer-producto');
         if (btnPrimer) btnPrimer.addEventListener('click', agregarProducto);

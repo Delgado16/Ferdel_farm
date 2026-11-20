@@ -1,5 +1,6 @@
 import logging
 from decimal import Decimal
+import threading
 import traceback
 from flask import render_template, redirect, session, url_for, request, flash, jsonify
 from flask_login import current_user
@@ -8,6 +9,42 @@ from config.database import get_db_cursor
 from auth.decorators import admin_required
 from . import admin_bp
 from helpers.bitacora import bitacora_decorator
+
+_DESCUENTO_COMPRA_LOCK = threading.Lock()
+_COLUMNA_DESCUENTO_COMPRA_VERIFICADA = False
+
+def _asegurar_columna_descuento_movimientos_inventario(cursor):
+    """Asegura que la columna Descuento exista en movimientos_inventario."""
+    global _COLUMNA_DESCUENTO_COMPRA_VERIFICADA
+    if _COLUMNA_DESCUENTO_COMPRA_VERIFICADA:
+        return True
+    with _DESCUENTO_COMPRA_LOCK:
+        if _COLUMNA_DESCUENTO_COMPRA_VERIFICADA:
+            return True
+        try:
+            cursor.execute("SHOW COLUMNS FROM movimientos_inventario LIKE 'Descuento'")
+            if cursor.fetchone():
+                _COLUMNA_DESCUENTO_COMPRA_VERIFICADA = True
+                return True
+            try:
+                with get_db_cursor(True) as ddl_cursor:
+                    ddl_cursor.execute("SHOW COLUMNS FROM movimientos_inventario LIKE 'Descuento'")
+                    if not ddl_cursor.fetchone():
+                        ddl_cursor.execute(
+                            "ALTER TABLE movimientos_inventario ADD COLUMN Descuento DECIMAL(10,2) NOT NULL DEFAULT 0.00"
+                        )
+                _COLUMNA_DESCUENTO_COMPRA_VERIFICADA = True
+                return True
+            except Exception as ddl_err:
+                cursor.execute("SHOW COLUMNS FROM movimientos_inventario LIKE 'Descuento'")
+                if cursor.fetchone():
+                    _COLUMNA_DESCUENTO_COMPRA_VERIFICADA = True
+                    return True
+                print(f"⚠️ No se pudo verificar/crear columna Descuento en movimientos_inventario: {ddl_err}")
+                return False
+        except Exception as e:
+            print(f"⚠️ No se pudo verificar/crear columna Descuento en movimientos_inventario: {e}")
+            return False
 
 @admin_bp.route('/compras/ultimo-costo-producto/<int:id_producto>', methods=['GET'])
 @admin_required
@@ -357,6 +394,10 @@ def admin_crear_compra():
             id_bodega = request.form.get('id_bodega')
             fecha_vencimiento = request.form.get('fecha_vencimiento')
             usar_pagos_avanzados = request.form.get('usar_pagos_avanzados', '0') == '1'
+            try:
+                descuento = max(0.0, round(float(request.form.get('descuento', '0') or 0), 2))
+            except (ValueError, TypeError):
+                descuento = 0.0
             
             # Obtener productos del formulario
             productos = []
@@ -374,12 +415,13 @@ def admin_crear_compra():
                 flash('Debe agregar al menos un producto', 'error')
                 return redirect(url_for('admin.admin_crear_compra'))
             
-            # Construir lista de productos
+            # Construir lista de productos (permite costo 0 para regalías/bonificaciones de proveedor)
             for i in range(len(producto_ids)):
-                if producto_ids[i] and cantidades[i] and costos_unitarios[i]:
+                if producto_ids[i] and cantidades[i] and costos_unitarios[i] is not None and costos_unitarios[i] != '':
                     cantidad = round(float(cantidades[i]), 2)
-                    costo_unitario = round(float(costos_unitarios[i]), 2)
-                    
+                    costo_unitario = max(0.0, round(float(costos_unitarios[i]), 2))
+                    if cantidad <= 0:
+                        continue
                     precio_unitario = costo_unitario
                     
                     productos.append({
@@ -401,11 +443,18 @@ def admin_crear_compra():
             
             # USAR TRANSACCIÓN CON COMMIT
             with get_db_cursor(commit=True) as cursor:
-                # Calcular total de la compra
-                total_compra = sum(
+                # Calcular subtotal bruto y total neto de la compra tras descuento
+                subtotal_bruto_compra = round(sum(
                     producto['cantidad'] * producto['costo_unitario'] 
                     for producto in productos
-                )
+                ), 2)
+                if descuento > subtotal_bruto_compra:
+                    descuento = subtotal_bruto_compra
+                total_compra = round(max(0.0, subtotal_bruto_compra - descuento), 2)
+
+                if descuento > 0:
+                    nota_desc = f"[DESCUENTO PROVEEDOR: -C${descuento:,.2f} | Subtotal Bruto: C${subtotal_bruto_compra:,.2f}]"
+                    observacion = f"{observacion} | {nota_desc}".strip(" |") if observacion else nota_desc
                 
                 # Procesar métodos de pago
                 metodos_pago_list = []
@@ -484,34 +533,75 @@ def admin_crear_compra():
                     if prov_info and prov_info['Nombre']:
                         nombre_proveedor = prov_info['Nombre']
                 
-                # Insertar movimiento principal
-                cursor.execute("""
-                    INSERT INTO movimientos_inventario (
-                        ID_TipoMovimiento, N_Factura_Externa, Fecha, ID_Proveedor, 
-                        Tipo_Compra, ID_MetodoPago, Referencia_Pago, Observacion, ID_Empresa, ID_Bodega, 
-                        ID_Usuario_Creacion, ID_Usuario_Modificacion, Estado
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """, (
-                    id_tipo_movimiento,
-                    n_factura_externa,
-                    fecha,
-                    id_proveedor if id_proveedor else None,
-                    tipo_compra,
-                    id_metodo_principal,
-                    ref_principal,
-                    observacion,
-                    session.get('id_empresa', 1),
-                    id_bodega,
-                    id_usuario,
-                    id_usuario,
-                    'Activa'  # Estado activo/completado
-                ))
+                # Insertar movimiento principal (con soporte de Descuento)
+                tiene_col_descuento = _asegurar_columna_descuento_movimientos_inventario(cursor)
+                if tiene_col_descuento:
+                    cursor.execute("""
+                        INSERT INTO movimientos_inventario (
+                            ID_TipoMovimiento, N_Factura_Externa, Fecha, ID_Proveedor, 
+                            Tipo_Compra, ID_MetodoPago, Referencia_Pago, Observacion, ID_Empresa, ID_Bodega, 
+                            ID_Usuario_Creacion, ID_Usuario_Modificacion, Estado, Descuento
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        id_tipo_movimiento,
+                        n_factura_externa,
+                        fecha,
+                        id_proveedor if id_proveedor else None,
+                        tipo_compra,
+                        id_metodo_principal,
+                        ref_principal,
+                        observacion,
+                        session.get('id_empresa', 1),
+                        id_bodega,
+                        id_usuario,
+                        id_usuario,
+                        'Activa',
+                        descuento
+                    ))
+                else:
+                    cursor.execute("""
+                        INSERT INTO movimientos_inventario (
+                            ID_TipoMovimiento, N_Factura_Externa, Fecha, ID_Proveedor, 
+                            Tipo_Compra, ID_MetodoPago, Referencia_Pago, Observacion, ID_Empresa, ID_Bodega, 
+                            ID_Usuario_Creacion, ID_Usuario_Modificacion, Estado
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        id_tipo_movimiento,
+                        n_factura_externa,
+                        fecha,
+                        id_proveedor if id_proveedor else None,
+                        tipo_compra,
+                        id_metodo_principal,
+                        ref_principal,
+                        observacion,
+                        session.get('id_empresa', 1),
+                        id_bodega,
+                        id_usuario,
+                        id_usuario,
+                        'Activa'
+                    ))
                 
                 id_movimiento = cursor.lastrowid
                 
-                # Insertar detalles del movimiento
-                for producto in productos:
-                    subtotal = round(producto['cantidad'] * producto['costo_unitario'], 2)
+                # Insertar detalles del movimiento (prorrateando el descuento en el Subtotal y Costo_Unitario neto del Kardex,
+                # y guardando el costo bruto de lista en Precio_Unitario para referencia de auditoría)
+                factor_neto = (total_compra / subtotal_bruto_compra) if (subtotal_bruto_compra > 0 and descuento > 0) else 1.0
+                acumulado_neto = 0.0
+                indices_con_costo = [idx for idx, p in enumerate(productos) if (p['cantidad'] * p['costo_unitario']) > 0]
+                ultimo_idx_con_costo = indices_con_costo[-1] if indices_con_costo else -1
+
+                for idx, producto in enumerate(productos):
+                    subtotal_bruto_item = round(producto['cantidad'] * producto['costo_unitario'], 2)
+                    if descuento > 0 and subtotal_bruto_item > 0:
+                        if idx == ultimo_idx_con_costo:
+                            subtotal_neto_item = round(max(0.0, total_compra - acumulado_neto), 2)
+                        else:
+                            subtotal_neto_item = round(subtotal_bruto_item * factor_neto, 2)
+                            acumulado_neto = round(acumulado_neto + subtotal_neto_item, 2)
+                        costo_neto_unitario = round(subtotal_neto_item / producto['cantidad'], 4) if producto['cantidad'] > 0 else 0.0
+                    else:
+                        subtotal_neto_item = subtotal_bruto_item
+                        costo_neto_unitario = producto['costo_unitario']
                     
                     cursor.execute("""
                         INSERT INTO detalle_movimientos_inventario (
@@ -522,9 +612,9 @@ def admin_crear_compra():
                         id_movimiento,
                         producto['id_producto'],
                         producto['cantidad'],
+                        costo_neto_unitario,
                         producto['costo_unitario'],
-                        producto['precio_unitario'],
-                        subtotal,
+                        subtotal_neto_item,
                         id_usuario
                     ))
                     
@@ -1359,14 +1449,17 @@ def admin_detalle_compra_completo(id_movimiento):
         id_empresa = session.get('id_empresa', 1)
         
         with get_db_cursor(True) as cursor:
+            tiene_col_descuento = _asegurar_columna_descuento_movimientos_inventario(cursor)
+            campo_descuento = "COALESCE(mi.Descuento, 0) as Descuento," if tiene_col_descuento else "0 as Descuento,"
             # 1. Obtener información general del movimiento de compra
-            cursor.execute("""
+            cursor.execute(f"""
                 SELECT 
                     mi.ID_Movimiento,
                     DATE_FORMAT(mi.Fecha, '%d/%m/%Y') as Fecha_Formateada,
                     mi.Fecha as Fecha_Original,
                     mi.N_Factura_Externa,
                     mi.Observacion,
+                    {campo_descuento}
                     mi.ID_Usuario_Creacion,
                     mi.ID_Usuario_Modificacion,
                     mi.Fecha_Creacion,
@@ -1471,9 +1564,12 @@ def admin_detalle_compra_completo(id_movimiento):
             
             cuenta_por_pagar = cursor.fetchone()
             
-            # 4. Calcular totales
+            # 4. Calcular totales (Subtotal Bruto, Descuento y Total Neto)
             total_productos = len(detalles)
-            total_cantidad = sum([detalle['Cantidad'] for detalle in detalles]) if detalles else 0
+            total_cantidad = sum([float(detalle['Cantidad'] or 0) for detalle in detalles]) if detalles else 0
+            descuento_compra = float(movimiento.get('Descuento') or 0)
+            total_compra_neto = float(movimiento['Total_Compra'] or 0)
+            subtotal_bruto = round(total_compra_neto + descuento_compra, 2)
             
             # 5. Calcular estadísticas de pago
             total_pagado = 0
@@ -1487,7 +1583,9 @@ def admin_detalle_compra_completo(id_movimiento):
                 cuenta_por_pagar=cuenta_por_pagar,
                 total_productos=total_productos,
                 total_cantidad=total_cantidad,
-                total_compra=movimiento['Total_Compra'],
+                subtotal_bruto=subtotal_bruto,
+                descuento_compra=descuento_compra,
+                total_compra=total_compra_neto,
                 total_pagado=total_pagado,
                 now=datetime.now().date()
             )
