@@ -13,14 +13,14 @@
     /* ESTILOS POS SPLIT-SCREEN COMPRAS */
     .pos-layout {
         display: grid;
-        grid-template-columns: 1fr 410px;
+        grid-template-columns: minmax(0, 1fr) clamp(330px, 30vw, 405px);
         gap: 1.25rem;
         align-items: start;
     }
 
     @media (max-width: 1100px) {
         .pos-layout {
-            grid-template-columns: 1fr;
+            grid-template-columns: minmax(0, 1fr);
         }
     }
 
@@ -32,6 +32,7 @@
         display: flex;
         flex-direction: column;
         overflow: visible;
+        min-width: 0;
     }
 
     .pos-right-panel {
@@ -44,6 +45,13 @@
         display: flex;
         flex-direction: column;
         overflow: visible;
+        min-width: 0;
+    }
+
+    @media (max-width: 1100px) {
+        .pos-right-panel {
+            position: static;
+        }
     }
 
     .pos-panel-header {
@@ -66,7 +74,13 @@
 
     .pos-quick-search-wrapper {
         position: relative;
-        flex: 1;
+        flex: 1 1 260px;
+        min-width: 0;
+    }
+
+    .pos-categoria-filter-wrapper {
+        flex: 0 1 220px;
+        min-width: 180px;
     }
 
     .pos-quick-search-input {
@@ -131,7 +145,7 @@
     /* ENCABEZADO Y FILAS DE PRODUCTOS COMPRAS */
     .pos-cart-header {
         display: grid;
-        grid-template-columns: 2.8fr 1.3fr 1.3fr 1.2fr 38px;
+        grid-template-columns: minmax(0, 2.8fr) minmax(0, 1.3fr) minmax(0, 1.3fr) minmax(0, 1.2fr) 38px;
         gap: 0.6rem;
         padding: 0.6rem 1.25rem;
         background: #f8fafc;
@@ -148,6 +162,14 @@
         min-height: 240px;
         max-height: 62vh;
         overflow-y: auto;
+    }
+
+    @media (max-width: 1100px) {
+        #productos-container {
+            min-height: 160px;
+            max-height: none;
+            overflow-y: visible;
+        }
     }
 
     .product-card {
@@ -167,9 +189,13 @@
 
     .product-grid {
         display: grid;
-        grid-template-columns: 2.8fr 1.3fr 1.3fr 1.2fr 36px;
+        grid-template-columns: minmax(0, 2.8fr) minmax(0, 1.3fr) minmax(0, 1.3fr) minmax(0, 1.2fr) 38px;
         gap: 0.6rem;
         align-items: center;
+    }
+
+    .product-grid > div {
+        min-width: 0;
     }
 
     .product-card .form-label {
@@ -270,7 +296,8 @@
         top: 20px;
         right: 20px;
         z-index: 1100;
-        min-width: 300px;
+        min-width: 280px;
+        max-width: calc(100vw - 24px);
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
 
@@ -303,8 +330,11 @@
     .confirm-modal-content {
         background-color: white;
         border-radius: 10px;
-        width: 90%;
+        width: 92%;
         max-width: 600px;
+        max-height: 92vh;
+        display: flex;
+        flex-direction: column;
         box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
         animation: modalFadeIn 0.3s ease;
     }
@@ -447,15 +477,122 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 0.5rem;
     }
 
     .metodo-pago-card {
         background: #fff;
-        border: 1px solid #e2e8f0;
+        border: 1px solid #cbd5e1;
         border-radius: 8px;
-        padding: 0.5rem;
-        margin-bottom: 0.5rem;
-        transition: all 0.2s ease;
+        padding: 0.65rem;
+        margin-bottom: 0.55rem;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .metodo-pago-card:hover {
+        border-color: #94a3b8;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+    }
+
+    .metodo-pago-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) 32px;
+        gap: 0.45rem;
+        align-items: end;
+    }
+
+    .metodo-pago-grid > div {
+        min-width: 0;
+    }
+
+    .metodo-pago-grid .mp-label {
+        display: block;
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: #64748b;
+        margin-bottom: 0.15rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .metodo-pago-grid .mp-metodo {
+        grid-column: 1 / 3;
+    }
+
+    .metodo-pago-grid .mp-del {
+        grid-column: 3 / 4;
+        grid-row: 1 / 2;
+    }
+
+    .metodo-pago-grid .mp-monto {
+        grid-column: 1 / 2;
+    }
+
+    .metodo-pago-grid .mp-ref {
+        grid-column: 2 / -1;
+    }
+
+    #metodos-pago-container {
+        max-height: 280px;
+        overflow-y: auto;
+        padding-right: 2px;
+    }
+
+    @media (min-width: 576px) and (max-width: 1100px) {
+        #metodos-pago-container {
+            max-height: none;
+            overflow-y: visible;
+        }
+
+        .metodo-pago-grid {
+            grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.3fr) 34px;
+        }
+
+        .metodo-pago-grid .mp-metodo {
+            grid-column: 1 / 2;
+        }
+
+        .metodo-pago-grid .mp-monto {
+            grid-column: 2 / 3;
+        }
+
+        .metodo-pago-grid .mp-ref {
+            grid-column: 3 / 4;
+        }
+
+        .metodo-pago-grid .mp-del {
+            grid-column: 4 / 5;
+            grid-row: 1 / 2;
+        }
+    }
+
+    @media (max-width: 575.98px) {
+        #metodos-pago-container {
+            max-height: none;
+            overflow-y: visible;
+        }
+    }
+
+    @media (max-width: 400px) {
+        .metodo-pago-grid {
+            grid-template-columns: minmax(0, 1fr) 34px;
+        }
+
+        .metodo-pago-grid .mp-metodo {
+            grid-column: 1 / 2;
+        }
+
+        .metodo-pago-grid .mp-del {
+            grid-column: 2 / 3;
+            grid-row: 1 / 2;
+        }
+
+        .metodo-pago-grid .mp-monto,
+        .metodo-pago-grid .mp-ref {
+            grid-column: 1 / -1;
+        }
     }
 
     .total-pagado-card {
@@ -484,38 +621,100 @@
     }
 
     /* Responsive */
-    @media (max-width: 1200px) {
+    @media (max-width: 1280px) {
+        .pos-cart-header,
         .product-grid {
-            grid-template-columns: 2.2fr 1.2fr 1.2fr 1.1fr 34px;
+            grid-template-columns: minmax(0, 2.2fr) minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(0, 1.1fr) 36px;
         }
     }
 
-    @media (max-width: 992px) {
+    @media (max-width: 991.98px) {
+        .pos-cart-header,
         .product-grid {
-            grid-template-columns: 2fr 1fr 1fr 1fr 34px;
+            grid-template-columns: minmax(0, 2fr) minmax(0, 1.1fr) minmax(0, 1.1fr) minmax(0, 1fr) 34px;
         }
     }
 
-    @media (max-width: 768px) {
+    @media (max-width: 767.98px) {
+        .pos-panel-header {
+            padding: 0.8rem 1rem;
+        }
+
+        .pos-search-bar {
+            padding: 0.85rem 1rem;
+        }
+
+        .pos-categoria-filter-wrapper {
+            flex: 1 1 100%;
+            min-width: 0;
+        }
+
+        .product-card {
+            padding: 0.75rem;
+        }
+
         .product-card .form-label {
             display: block;
             font-size: 0.75rem;
-            margin-bottom: 0.15rem;
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 0.2rem;
         }
 
         .product-grid {
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            gap: 0.65rem;
+            align-items: end;
+        }
+
+        .product-grid .producto-col {
+            grid-column: 1 / -1;
+        }
+
+        .product-grid > div:last-child {
+            justify-self: end;
         }
 
         .confirm-modal-content {
             width: 95%;
-            margin: 1rem;
+            margin: 0.75rem;
+        }
+
+        .confirm-modal-header,
+        .confirm-modal-body,
+        .confirm-modal-footer {
+            padding: 1rem;
         }
     }
 
-    @media (max-width: 576px) {
+    @media (max-width: 575.98px) {
+        .quick-actions {
+            width: 100%;
+        }
+
+        .quick-actions .btn {
+            flex: 1 1 auto;
+        }
+
         .product-grid {
-            grid-template-columns: 1fr;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        }
+
+        .product-grid > div:nth-child(4) {
+            grid-column: 1 / 2;
+        }
+
+        .alert-flotante {
+            left: 12px;
+            right: 12px;
+            top: 12px;
+            min-width: 0;
+        }
+
+        .confirm-product-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.25rem;
         }
 
         .confirm-modal-footer {
@@ -647,7 +846,7 @@
                         </div>
 
                         <!-- Filtro de Categoría Rápido -->
-                        <div style="min-width: 200px;">
+                        <div class="pos-categoria-filter-wrapper">
                             <select class="form-select form-select-sm" id="filtro_categoria" name="filtro_categoria" style="height: 42px; border-radius: 8px;">
                                 <option value="0">Todas las categorías</option>
                                 {% for categoria in categorias %}
@@ -710,12 +909,12 @@
                 <div class="p-3">
                     <!-- 1. FECHA Y NÚMERO DE FACTURA EXTERNA -->
                     <div class="row g-2 mb-2">
-                        <div class="col-6">
+                        <div class="col-12 col-sm-6">
                             <label for="fecha" class="form-label small fw-bold text-secondary mb-1 required-field">Fecha Compra</label>
                             <input type="date" class="form-control form-control-sm" id="fecha" name="fecha" required>
                             <div class="invalid-feedback">Requerida</div>
                         </div>
-                        <div class="col-6">
+                        <div class="col-12 col-sm-6">
                             <label for="n_factura_externa" class="form-label small fw-bold text-secondary mb-1">N° Factura Prov.</label>
                             <input type="text" class="form-control form-control-sm" id="n_factura_externa" name="n_factura_externa" placeholder="Ej: FAC-00123">
                         </div>
@@ -765,12 +964,12 @@
 
                     <!-- Opciones de Crédito (Vencimiento y Abono Inicial) -->
                     <div class="row g-2 mb-2">
-                        <div class="col-6" id="fecha_vencimiento_group" style="display: none;">
+                        <div class="col-12 col-sm-6" id="fecha_vencimiento_group" style="display: none;">
                             <label for="fecha_vencimiento" class="form-label small fw-bold mb-1 required-field">Vencimiento</label>
                             <input type="date" class="form-control form-control-sm" id="fecha_vencimiento" name="fecha_vencimiento">
                             <div class="invalid-feedback">Requerido</div>
                         </div>
-                        <div class="col-6" id="abono_inicial_group" style="display: none;">
+                        <div class="col-12 col-sm-6" id="abono_inicial_group" style="display: none;">
                             <label for="abono_inicial" class="form-label small fw-bold mb-1">Abono Inicial</label>
                             <div class="input-group input-group-sm">
                                 <span class="input-group-text">C$</span>
@@ -850,17 +1049,18 @@
                         </div>
 
                         <div class="pagos-avanzados-card p-2 mt-2" id="pagosAvanzadosCard">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
                                 <span class="small fw-bold"><i class="fas fa-wallet me-1"></i>Desglose de Pago</span>
-                                <button type="button" class="btn btn-xs btn-secondary py-0 px-2" id="btnVolverDefault" style="font-size: 0.72rem;">
+                                <button type="button" class="btn btn-xs btn-secondary py-1 px-2" id="btnVolverDefault" style="font-size: 0.72rem;">
                                     Efectivo único
                                 </button>
                             </div>
 
                             <div id="metodos-pago-container">
-                                <div class="metodo-pago-card p-2 mb-2">
-                                    <div class="row g-1">
-                                        <div class="col-6">
+                                <div class="metodo-pago-card">
+                                    <div class="metodo-pago-grid">
+                                        <div class="mp-metodo">
+                                            <label class="mp-label">Método de pago</label>
                                             <select name="metodo_pago_id[]" class="form-select form-select-sm metodo-pago-select" required>
                                                 <option value="">Método...</option>
                                                 {% for metodo in metodos_pago %}
@@ -871,19 +1071,18 @@
                                             </select>
                                             <input type="hidden" name="metodo_pago_nombre[]" class="metodo-pago-nombre">
                                         </div>
-                                        <div class="col-6">
-                                            <div class="input-group input-group-sm">
-                                                <span class="input-group-text">C$</span>
-                                                <input type="number" name="monto_pago[]" class="form-control monto-pago"
-                                                    placeholder="0.00" step="0.01" min="0" required oninput="actualizarTotalPagado()">
-                                            </div>
+                                        <div class="mp-monto">
+                                            <label class="mp-label">Monto (C$)</label>
+                                            <input type="number" name="monto_pago[]" class="form-control form-control-sm monto-pago"
+                                                placeholder="0.00" step="0.01" min="0" required oninput="actualizarTotalPagado()">
                                         </div>
-                                        <div class="col-10 mt-1">
+                                        <div class="mp-ref">
+                                            <label class="mp-label">Referencia</label>
                                             <input type="text" name="referencia_pago[]" class="form-control form-control-sm"
-                                                placeholder="N° ref / transferencia / cheque">
+                                                placeholder="N° ref / transf. / cheque">
                                         </div>
-                                        <div class="col-2 mt-1">
-                                            <button type="button" class="btn btn-danger btn-sm w-100 px-1" onclick="eliminarMetodoPago(this)">
+                                        <div class="mp-del">
+                                            <button type="button" class="btn btn-outline-danger btn-sm w-100 px-1" onclick="eliminarMetodoPago(this)" title="Eliminar método">
                                                 <i class="fas fa-trash"></i>
                                             </button>
                                         </div>
@@ -896,7 +1095,7 @@
                             </button>
 
                             <div class="total-pagado-card p-2 mt-1">
-                                <div class="d-flex justify-content-between align-items-center">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-1">
                                     <small class="fw-bold">PAGADO HOY:</small>
                                     <h5 id="total-pagado-label" class="mb-0 fw-bold">C$ 0.00</h5>
                                 </div>
@@ -1052,41 +1251,45 @@
         return totalPagado;
     };
 
-    window.agregarMetodoPago = function() {
-        const container = document.getElementById('metodos-pago-container');
-        if (!container) return;
-        const template = `
+    function crearTarjetaMetodoPagoHTML(seleccionarEfectivo = false) {
+        const opcionesMetodos = seleccionarEfectivo
+            ? `{% for metodo in metodos_pago %}<option value="{{ metodo.ID_MetodoPago }}" {% if metodo.ID_MetodoPago == 1 %}selected{% endif %}>{{ metodo.Nombre }}</option>{% endfor %}`
+            : `{% for metodo in metodos_pago %}<option value="{{ metodo.ID_MetodoPago }}">{{ metodo.Nombre }}</option>{% endfor %}`;
+
+        return `
         <div class="metodo-pago-card">
-            <div class="row g-3">
-                <div class="col-md-4">
-                    <select name="metodo_pago_id[]" class="form-select metodo-pago-select" required>
-                        <option value="">Seleccione método</option>
-                        {% for metodo in metodos_pago %}
-                        <option value="{{ metodo.ID_MetodoPago }}">{{ metodo.Nombre }}</option>
-                        {% endfor %}
+            <div class="metodo-pago-grid">
+                <div class="mp-metodo">
+                    <label class="mp-label">Método de pago</label>
+                    <select name="metodo_pago_id[]" class="form-select form-select-sm metodo-pago-select" required>
+                        <option value="">Método...</option>
+                        ${opcionesMetodos}
                     </select>
                     <input type="hidden" name="metodo_pago_nombre[]" class="metodo-pago-nombre">
                 </div>
-                <div class="col-md-3">
-                    <div class="input-group">
-                        <span class="input-group-text">C$</span>
-                        <input type="number" name="monto_pago[]" class="form-control monto-pago" 
-                               placeholder="0.00" step="0.01" min="0" required oninput="actualizarTotalPagado()">
-                    </div>
+                <div class="mp-monto">
+                    <label class="mp-label">Monto (C$)</label>
+                    <input type="number" name="monto_pago[]" class="form-control form-control-sm monto-pago"
+                           placeholder="0.00" step="0.01" min="0" required oninput="actualizarTotalPagado()">
                 </div>
-                <div class="col-md-4">
-                    <input type="text" name="referencia_pago[]" class="form-control" 
-                           placeholder="N° transferencia/depósito/cheque">
+                <div class="mp-ref">
+                    <label class="mp-label">Referencia</label>
+                    <input type="text" name="referencia_pago[]" class="form-control form-control-sm"
+                           placeholder="N° ref / transf. / cheque">
                 </div>
-                <div class="col-md-1">
-                    <label class="form-label d-none d-md-block">&nbsp;</label>
-                    <button type="button" class="btn btn-danger btn-sm w-100" onclick="eliminarMetodoPago(this)">
+                <div class="mp-del">
+                    <button type="button" class="btn btn-outline-danger btn-sm w-100 px-1" onclick="eliminarMetodoPago(this)" title="Eliminar método">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
             </div>
         </div>`;
-        container.insertAdjacentHTML('beforeend', template);
+    }
+
+    window.agregarMetodoPago = function() {
+        const container = document.getElementById('metodos-pago-container');
+        if (!container) return;
+        container.insertAdjacentHTML('beforeend', crearTarjetaMetodoPagoHTML(false));
         actualizarNombresMetodosPago();
     };
 
@@ -1130,41 +1333,7 @@
 
         const container = document.getElementById('metodos-pago-container');
         if (container) {
-            container.innerHTML = '';
-            const template = `
-            <div class="metodo-pago-card">
-                <div class="row g-3">
-                    <div class="col-md-4">
-                        <select name="metodo_pago_id[]" class="form-select metodo-pago-select" required>
-                            <option value="">Seleccione método</option>
-                            {% for metodo in metodos_pago %}
-                            <option value="{{ metodo.ID_MetodoPago }}" {% if metodo.ID_MetodoPago == 1 %}selected{% endif %}>
-                                {{ metodo.Nombre }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                        <input type="hidden" name="metodo_pago_nombre[]" class="metodo-pago-nombre">
-                    </div>
-                    <div class="col-md-3">
-                        <div class="input-group">
-                            <span class="input-group-text">C$</span>
-                            <input type="number" name="monto_pago[]" class="form-control monto-pago" 
-                                   placeholder="0.00" step="0.01" min="0" required oninput="actualizarTotalPagado()">
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <input type="text" name="referencia_pago[]" class="form-control" 
-                               placeholder="N° transferencia/depósito/cheque">
-                    </div>
-                    <div class="col-md-1">
-                        <label class="form-label d-none d-md-block">&nbsp;</label>
-                        <button type="button" class="btn btn-danger btn-sm w-100" onclick="eliminarMetodoPago(this)">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>`;
-            container.insertAdjacentHTML('beforeend', template);
+            container.innerHTML = crearTarjetaMetodoPagoHTML(true);
             actualizarNombresMetodosPago();
 
             const tipoCompra = document.getElementById('tipo_compra')?.value || 'CONTADO';
@@ -1194,39 +1363,7 @@
     function resetearMetodosPago() {
         const container = document.getElementById('metodos-pago-container');
         if (container) {
-            container.innerHTML = `
-            <div class="metodo-pago-card">
-                <div class="row g-3">
-                    <div class="col-md-4">
-                        <select name="metodo_pago_id[]" class="form-select metodo-pago-select" required>
-                            <option value="">Seleccione método</option>
-                            {% for metodo in metodos_pago %}
-                            <option value="{{ metodo.ID_MetodoPago }}" {% if metodo.ID_MetodoPago == 1 %}selected{% endif %}>
-                                {{ metodo.Nombre }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                        <input type="hidden" name="metodo_pago_nombre[]" class="metodo-pago-nombre">
-                    </div>
-                    <div class="col-md-3">
-                        <div class="input-group">
-                            <span class="input-group-text">C$</span>
-                            <input type="number" name="monto_pago[]" class="form-control monto-pago" 
-                                   placeholder="0.00" step="0.01" min="0" required oninput="actualizarTotalPagado()">
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <input type="text" name="referencia_pago[]" class="form-control" 
-                               placeholder="N° transferencia/depósito/cheque">
-                    </div>
-                    <div class="col-md-1">
-                        <label class="form-label d-none d-md-block">&nbsp;</label>
-                        <button type="button" class="btn btn-danger btn-sm w-100" onclick="eliminarMetodoPago(this)">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>`;
+            container.innerHTML = crearTarjetaMetodoPagoHTML(true);
             actualizarNombresMetodosPago();
         }
     }

@@ -422,13 +422,11 @@ def admin_crear_compra():
                     costo_unitario = max(0.0, round(float(costos_unitarios[i]), 2))
                     if cantidad <= 0:
                         continue
-                    precio_unitario = costo_unitario
                     
                     productos.append({
                         'id_producto': producto_ids[i],
                         'cantidad': cantidad,
-                        'costo_unitario': costo_unitario,
-                        'precio_unitario': precio_unitario
+                        'costo_unitario': costo_unitario
                     })
             
             # Validar usuario
@@ -583,8 +581,7 @@ def admin_crear_compra():
                 
                 id_movimiento = cursor.lastrowid
                 
-                # Insertar detalles del movimiento (prorrateando el descuento en el Subtotal y Costo_Unitario neto del Kardex,
-                # y guardando el costo bruto de lista en Precio_Unitario para referencia de auditoría)
+                # Insertar detalles del movimiento de compra en Costo_Unitario (sin mezclar con precio de venta)
                 factor_neto = (total_compra / subtotal_bruto_compra) if (subtotal_bruto_compra > 0 and descuento > 0) else 1.0
                 acumulado_neto = 0.0
                 indices_con_costo = [idx for idx, p in enumerate(productos) if (p['cantidad'] * p['costo_unitario']) > 0]
@@ -613,7 +610,7 @@ def admin_crear_compra():
                         producto['id_producto'],
                         producto['cantidad'],
                         costo_neto_unitario,
-                        producto['costo_unitario'],
+                        0.00,
                         subtotal_neto_item,
                         id_usuario
                     ))
@@ -1526,7 +1523,7 @@ def admin_detalle_compra_completo(id_movimiento):
                 flash('Compra no encontrada o no pertenece a su empresa', 'error')
                 return redirect(url_for('admin.admin_compras_entradas'))
             
-            # 2. Obtener detalles de los productos comprados
+            # 2. Obtener detalles de los productos comprados (únicamente Costo_Unitario de compra)
             cursor.execute("""
                 SELECT 
                     dmi.ID_Detalle_Movimiento,
@@ -1536,7 +1533,6 @@ def admin_detalle_compra_completo(id_movimiento):
                     COALESCE(ib.Existencias, 0) as Existencias_Actuales,
                     dmi.Cantidad,
                     dmi.Costo_Unitario,
-                    dmi.Precio_Unitario,
                     dmi.Subtotal,
                     um.Descripcion as Unidad_Medida,
                     um.Abreviatura as Simbolo_Medida
