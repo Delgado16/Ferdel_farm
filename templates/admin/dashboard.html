@@ -142,6 +142,7 @@
         line-height: 1.2;
         letter-spacing: -0.02em;
         margin-bottom: 0.25rem;
+        font-variant-numeric: tabular-nums;
     }
 
     .kpi-subtext {
@@ -165,7 +166,7 @@
     }
 
     .kpi-card-premium:hover .kpi-icon-wrapper {
-        transform: scale(1.1) rotate(5deg);
+        transform: scale(1.06);
     }
 
     .kpi-icon-emerald {
@@ -473,6 +474,99 @@
             transform: rotate(360deg);
         }
     }
+
+    /* Utilidades de color y tipografía faltantes en Bootstrap 5.1 */
+    .text-slate-900 {
+        color: var(--dash-slate-900) !important;
+    }
+
+    .text-slate-800 {
+        color: var(--dash-slate-800) !important;
+    }
+
+    .text-slate-700 {
+        color: var(--dash-slate-700) !important;
+    }
+
+    .text-indigo {
+        color: var(--dash-indigo) !important;
+    }
+
+    .tabular-nums {
+        font-variant-numeric: tabular-nums;
+    }
+
+    .badge-amber-soft {
+        background-color: rgba(245, 158, 11, 0.14);
+        color: #92400e;
+        font-weight: 700;
+        padding: 0.3rem 0.55rem;
+        border-radius: 6px;
+        display: inline-block;
+    }
+
+    /* Accesibilidad: foco visible */
+    .dashboard-wrapper a:focus-visible,
+    .dashboard-wrapper button:focus-visible,
+    .dashboard-wrapper input:focus-visible {
+        outline: 2px solid var(--dash-secondary);
+        outline-offset: 2px;
+    }
+
+    /* Barra de filtro rápido para tablas operativas */
+    .dash-filter-bar {
+        background: #ffffff;
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        border-radius: var(--dash-radius-sm);
+        padding: 0.75rem 1rem;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.02);
+    }
+
+    .dash-filter-input-wrap {
+        position: relative;
+        max-width: 380px;
+        width: 100%;
+    }
+
+    .dash-filter-input-wrap .bi-search {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #94a3b8;
+        pointer-events: none;
+    }
+
+    .dash-filter-input-wrap input {
+        padding-left: 2.25rem;
+        padding-right: 2.25rem;
+        border-radius: 8px;
+        border: 1px solid #cbd5e1;
+        font-size: 0.875rem;
+    }
+
+    .dash-filter-input-wrap input:focus {
+        border-color: var(--dash-secondary);
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.16);
+    }
+
+    .dash-filter-clear {
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        border: none;
+        background: transparent;
+        color: #64748b;
+        padding: 2px 6px;
+        border-radius: 6px;
+        cursor: pointer;
+    }
+
+    .dash-filter-clear:hover {
+        background: #f1f5f9;
+        color: var(--dash-slate-900);
+    }
 </style>
 {% endblock %}
 
@@ -499,7 +593,7 @@
                 <i class="bi bi-arrow-repeat me-1 text-success"></i> Actualizar
             </button>
             <a href="{{ url_for('admin.reportes') }}"
-                class="btn btn-success fw-bold px-3 py-2 d-inline-flex align-items-center gap-1.5 shadow-sm"
+                class="btn btn-success fw-bold px-3 py-2 d-inline-flex align-items-center gap-2 shadow-sm"
                 style="background: linear-gradient(135deg, var(--dash-primary), var(--dash-secondary)); border: none;">
                 <i class="bi bi-file-earmark-bar-graph"></i> Reportes Ejecutivos
             </a>
@@ -740,6 +834,23 @@
         </div>
     </div>
 
+    <!-- ===== FILTRO RÁPIDO OPERATIVO ===== -->
+    <div class="dash-filter-bar d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div class="dash-filter-input-wrap">
+            <label for="dashboardQuickSearch" class="visually-hidden">Filtrar tablas operativas</label>
+            <i class="bi bi-search" aria-hidden="true"></i>
+            <input type="search" id="dashboardQuickSearch" class="form-control form-control-sm"
+                placeholder="Buscar cliente, producto, vendedor o ruta..." autocomplete="off">
+            <button type="button" id="dashboardClearSearch" class="dash-filter-clear d-none"
+                aria-label="Limpiar búsqueda">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <span id="dashboardSearchStatus" class="small text-muted fw-medium" aria-live="polite">
+            Mostrando todos los registros operativos
+        </span>
+    </div>
+
     <!-- ===== TABLAS DE CONTROL OPERATIVO ===== -->
     <div class="row g-3 mb-4">
         <!-- 1. Productos con Stock Bajo -->
@@ -777,10 +888,10 @@
                                             {{ producto.Stock_Actual | cantidad }}
                                         </span>
                                     </td>
-                                    <td class="text-center text-muted font-monospace">{{ producto.Stock_Minimo | cantidad }}</td>
+                                    <td class="text-center text-muted font-monospace">{{ producto.Stock_Minimo |
+                                        cantidad }}</td>
                                     <td class="text-center">
-                                        <span
-                                            class="badge bg-warning bg-opacity-15 text-dark fw-bold px-2 py-1 rounded">
+                                        <span class="badge-amber-soft tabular-nums">
                                             -{{ producto.Faltante | cantidad }}
                                         </span>
                                     </td>
@@ -1250,6 +1361,59 @@
         const chartContainer = document.getElementById('gastosMesChart');
         if (chartContainer) {
             chartContainer.parentElement.innerHTML = '<div class="alert alert-info text-center m-0 py-5">No hay datos de gastos registrados para el mes actual</div>';
+        }
+    }
+
+    // ============================================
+    // FILTRO RÁPIDO EN TABLAS DEL DASHBOARD
+    // ============================================
+    const quickSearchInput = document.getElementById('dashboardQuickSearch');
+    const clearSearchBtn = document.getElementById('dashboardClearSearch');
+    const searchStatusText = document.getElementById('dashboardSearchStatus');
+
+    if (quickSearchInput) {
+        const filterTables = () => {
+            const term = quickSearchInput.value.trim().toLowerCase();
+            if (clearSearchBtn) {
+                clearSearchBtn.classList.toggle('d-none', term.length === 0);
+            }
+
+            const tables = document.querySelectorAll('.table-custom-premium tbody');
+            let totalVisible = 0;
+
+            tables.forEach((tbody) => {
+                const rows = Array.from(tbody.querySelectorAll('tr'));
+                rows.forEach((row) => {
+                    if (row.querySelector('td[colspan]')) return;
+                    const match = term === '' || row.textContent.toLowerCase().includes(term);
+                    row.style.display = match ? '' : 'none';
+                    if (match) totalVisible += 1;
+                });
+            });
+
+            if (searchStatusText) {
+                if (term === '') {
+                    searchStatusText.textContent = 'Mostrando todos los registros operativos';
+                } else {
+                    searchStatusText.textContent = `${totalVisible} coincidencia${totalVisible === 1 ? '' : 's'} para "${quickSearchInput.value.trim()}"`;
+                }
+            }
+        };
+
+        quickSearchInput.addEventListener('input', filterTables);
+        quickSearchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && quickSearchInput.value) {
+                quickSearchInput.value = '';
+                filterTables();
+            }
+        });
+
+        if (clearSearchBtn) {
+            clearSearchBtn.addEventListener('click', () => {
+                quickSearchInput.value = '';
+                filterTables();
+                quickSearchInput.focus();
+            });
         }
     }
     });
